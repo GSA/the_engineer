@@ -1,0 +1,15 @@
+[submodule "roborev"]
+	path = roborev
+	url = https://github.com/kenn-io/roborev.git
+[submodule "superpowers"]
+	path = superpowers
+	url = https://github.com/obra/superpowers.git
+[submodule "forge"]
+	path = forge
+	url = https://github.com/kenn-io/forge.git
+[submodule "kata"]
+	path = kata
+	url = https://github.com/kenn-io/kata.git
+[submodule "agentsview"]
+	path = agentsview
+	url = https://github.com/kenn-io/agentsview.git
