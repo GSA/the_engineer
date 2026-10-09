@@ -23,13 +23,17 @@ fi
 for project in "$@"; do
     case "$project" in
         roborev|kata) bun_version=1.3.14 ;;
-        forge) bun_version=1.4.0 ;;
+        forge|forge-local-kata) bun_version=1.4.0 ;;
         agentsview) bun_version= ;;
         *) echo "Unknown build target: $project" >&2; exit 2 ;;
     esac
 
     (
-        cd "$project"
+        if [[ "$project" == forge-local-kata ]]; then
+            cd forge
+        else
+            cd "$project"
+        fi
         if [[ "$project" == roborev || "$project" == kata ]]; then
             go mod download github.com/mattn/go-sqlite3
             include="$root/.local/include/$project"
@@ -44,6 +48,10 @@ for project in "$@"; do
             if [[ "$(bun --version)" != "$bun_version" ]]; then
                 echo "Expected workspace-local Bun $bun_version; see context/tools.md." >&2
                 exit 1
+            fi
+            if [[ "$project" == forge-local-kata ]]; then
+                bun "$root/scripts/build-forge-local-kata.mjs"
+                exit
             fi
             bun install --frozen-lockfile
             # Forge's frontend target otherwise invokes an unfrozen install.
