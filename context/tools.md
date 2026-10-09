@@ -14,9 +14,37 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Artifact audit: 2026-10-09
+
+Owner-requested cleanup subagent removed only generated ignored bytecode:
+`scripts/__pycache__/{local_env,pi-local,roborev-local,test_local_env}.cpython-314.pyc`
+and the resulting empty directory, totaling 140,662 bytes. File headers matched
+the source; no references or active application use were found. Git's
+tracked/untracked integration inventory was unchanged.
+
+Retained smoke evidence/state: `.local/smoke-34y6xdbz/`,
+`.local/smoke-3drucu09/`, `.local/smoke-a583h605/`,
+`.local/smoke-dyodi3_p/`, `.local/smoke-hi04l9qk/`,
+`.local/smoke-km9q33bz/`, `.local/smoke-kxluwcll/`,
+`.local/smoke-ql7by8p_/`, `.local/smoke-vvq67ljo/`,
+`.local/smoke-xivdi_ox/`. These contain application configuration/state and
+successful/failed diagnostic evidence; documented retention is not permission
+to delete them. `.local/forge-manual/` contains auth/configuration, locks and a
+database; `.local/smoke/` ownership/relevance remains uncertain. Decide their
+retention explicitly before removing private profiles.
+
+Keep `.local/downloads/`, `.local/cache/`, `.local/include/`, `.local/tools/`
+for repeatability/toolchains, `.local/environment/{tmp,pi/tmp}/` runtime
+compilation/configuration state, and `.local/forge-local-kata/` as the approved
+working build. `.local/builds/` was empty. Persistent data, review-demo/evidence,
+backups, sessions and user units remain untouched. Application health returned
+HTTP 200 with unchanged PIDs; no experiment/process was retained.
+
 # Build and runtime notes
 
 These are observations from the pinned source, not proof of successful startup.
+The integration build-lock tests import `bun:test`; run them with the documented
+pinned Bun executable, not Node's test runner.
 
 | Component | Build | Isolation and integration |
 | --- | --- | --- |
@@ -30,61 +58,644 @@ Forge connects to roborev through `[roborev].endpoint`, default
 `http://127.0.0.1:7373`. It does not start roborev. Keep
 `init_managed_clones` disabled during initial checks.
 
+Temporary local Kata build, implemented on 2026-10-05:
+
+- Forge consumes Svelte/TypeScript source from
+  `@kenn-io/kata-ui/packages/kata-ui/src/index.ts`, not Kata's compiled web
+  bundle or daemon binary. Its dependency represents the whole Kata repository.
+- The locked Git object `c6685725ecd6a31aaea83cf98908e0c866c5d434` is the
+  annotated v0.14.3 tag, not a commit as initially recorded. It resolves to
+  commit `410ee88bca267b117c845a36f8249890c5160e3b`. Both are already in local
+  Kata history; the build exports the resolved commit, not the current checkout.
+- Forge also requires the separate Go module `go.kenn.io/kata v0.18.0`.
+  Its download exposed another Zscaler block. The temporary build exports
+  its exact local commit `91ee2f9215b3aff0795e66b8ed22e8494b13eadb`.
+- Run `./scripts/build.sh forge-local-kata` explicitly. Normal `forge` and
+  default builds are unchanged. The helper refuses tracked Forge edits,
+  exports committed source into a fresh `.local/builds/forge-local-kata-*`
+  workspace, and preserves upstream checkouts, pins, and license files.
+- In that scratch copy only, the frontend uses `file:../../kata`; the exported
+  Kata root gets `name: "kata"` because Bun otherwise writes a nameless
+  resolution that its frozen installer cannot parse. UI source is unchanged
+  and compared against the installed dependency before compilation.
+- Bun derives a separate lock, and a structural check rejects every change
+  except the explicit Kata substitution. Installation then uses the frozen
+  derived lock. The original remote archive's integrity is not attributed to
+  the local source. Other dependencies retain their versions and integrity.
+- The scratch `go.mod` gets one version-specific local Kata replacement.
+  The helper rejects other edits, builds with `-mod=readonly`, and checks that
+  `go.mod` and `go.sum` are unchanged by the build. It does not reroute network
+  downloads; other dependencies may still require network access.
+- An empty, template-free scratch Git repository prevents formatters inheriting
+  the parent's `.local/` ignore rule. Go VCS stamping is disabled for this
+  history-free export; actual Forge revision and a `-local-kata` version suffix
+  are passed explicitly.
+- Outputs are `.local/forge-local-kata/{kenn-forge,kenn-forge-github-app}`,
+  the derived `bun.lock`/`go.mod`, and `build.json` with both Kata source
+  revisions, Forge revision, version, and lock SHA-256. Successful scratch
+  workspaces are removed; failures retain their path for diagnosis.
+- Both binaries built twice with identical dependency manifests/provenance.
+  This is not a claim of byte-identical binaries or a hermetic build.
+  Runtime HTTP verification passed after the user-approved switch to NAT,
+  and again on 2026-10-08; details are in `status.md`.
+  Remove this variant after the normal build and
+  smoke check pass following the IT exception, as tracked in `../TODO.md`.
+
 Forge discovers Kata's daemon catalog through `$KATA_HOME/config.toml`.
 Task/workspace integration needs a connected, compatible daemon and repository
 mappings; a running Kata process alone does not prove that integration works.
 
 Forge uses Elastic License 2.0, which restricts providing substantial
 functionality as a hosted/managed service to third parties. The user's scope
-is personal/private deployment. Preserve all upstream license notices.
+is private/internal deployment, not a customer-facing service. Preserve all
+upstream license notices and check the eventual deployment against those terms.
 
-Pi 0.87.1 is already on this host's PATH. An isolated, offline RPC session
-successfully loaded all 15 Superpowers skills. The Pi extension injects the
-Superpowers bootstrap at startup and after compaction; the smoke test verifies
-skill discovery, not model behavior or compaction execution.
+Pi is now 1.0.3 on this host's PATH, upgraded by the user. The 2026-10-08
+isolated, offline RPC session still loaded all 15 Superpowers skills.
+The Pi extension injects the Superpowers bootstrap at startup and after
+compaction; the smoke test verifies skill discovery, not model behavior or
+compaction execution. Our bootstrap does not yet pin/install Pi.
 
 Roborev has a Pi adapter. Structured reviews and classification additionally
 require its configured JSON-schema extension, currently defaulting to
-`npm:@nqbao/pi-json-schema@0.1.1`. That extension has not been installed or tested
-here. AgentsView has a Pi session parser. Pi session ingestion and model-backed
-reviews remain unverified.
+`npm:@nqbao/pi-json-schema@0.1.1`. It was installed in the private profile on
+2026-10-09 and used successfully by bounded manual Pi/USAi review job 1.
+The separate auto-design classifier and real-project review remain unverified.
+AgentsView Pi/Copilot ingestion is verified below; no-session review-job
+accounting is not covered by that ingestion.
 
-# Pi and context MCP: not configured yet
+# Local project, Pi and Falcon MCP
 
-As checked on 2026-10-04, the installed Pi is still 0.87.1. Its CLI does not
-advertise `pi mcp`, and its versioned settings documentation has no native MCP
-configuration. The published Pi 1.0.2 documents native stdio and Streamable HTTP
-MCP support. Do not assume current upstream documentation applies to 0.87.1.
+## Persistent local environment
 
-Proposed approach, pending confirmation of the server and Pi version:
+Implemented on 2026-10-08 for personal exploration as well as the demo.
+All application state is retained under ignored `.local/environment/`; this
+is separate from both global home settings and disposable `.local/smoke-*`.
+AgentsView and roborev have enabled user-systemd services; no cloud resource or
+system-wide service is installed.
 
-1. Identify the intended context server, its transport, its launch command or
-   endpoint, and how credentials will be injected. MCP tools available in
-   Copilot are not automatically inherited by a separately launched Pi.
-2. Prefer a pinned Pi release with native MCP over adding a bridge solely to
-   retain 0.87.1. Verify Superpowers compatibility before adopting the upgrade;
-   no upgrade or bridge installation has been performed.
-3. On a compatible Pi, track secret-free project settings in `.pi/mcp.json`.
-   Use `pi mcp add --local` with the confirmed stdio command or HTTP URL, and
-   reference environment variables for secrets. Project MCP configuration
-   requires project trust. Never set blanket global trust to bypass that gate.
-4. Use `pi mcp list` to check the handshake and discovered tools. Then confirm
-   the intended tool exposure through `/mcp` inside the actual Pi session and
-   perform a harmless context search/read with a known expected result.
-   Recheck after restart and compaction; a server being configured is not proof
-   that Pi can invoke it.
-5. Add a dedicated MCP smoke check. The current `smoke.py` deliberately uses a
-   temporary working directory, isolated agent home, `--no-extensions`,
-   `--no-context-files`, and `--no-tools`; its Superpowers check does not prove
-   that a project MCP server is configured or accessible.
+```sh
+python3 scripts/local_env.py setup \
+  --corpus "$HOME/falcon-docs" \
+  --forge-binary .local/forge-local-kata/kenn-forge
+python3 scripts/local_env.py run
+```
 
-The local `context/` directory is just files, not an MCP server. Pi can read
-these through its normal file tool following `AGENTS.md`. Which external
-context MCP server the user intends remains an open question.
+Setup creates missing configuration only, preserves existing files/settings,
+and rejects unintended changes to recorded executable/corpus paths. `run`
+starts Forge and Kata under one supervisor and retains independently
+managed AgentsView/roborev. Before the user-service migrations, all four daemons
+were supervised together. The existing loopback ports are unchanged, and Falcon is
+registered idempotently without changing the checkout.
+Ctrl+C stops the supervisor, or from another terminal:
+
+```sh
+python3 scripts/local_env.py status
+python3 scripts/local_env.py stop
+```
+
+Stop checks the saved Linux process start time before signaling its exact PID,
+waits for owned daemons, and checks their listener shutdown. Independently
+managed AgentsView/roborev are not signaled. Settings/projects/data are never deleted.
+Keep `run` in a terminal, or use the documented on-demand `systemd-run` unit
+with the shell's non-secret PATH for its NVM Node dependency. Companion logs
+append under `.local/environment/logs/`; independent services use the user journal.
+
+Forge remains at http://127.0.0.1:18091/, roborev UI at
+http://127.0.0.1:17374/reviews, Kata at http://127.0.0.1:17777/kata,
+and AgentsView at http://127.0.0.1:18080/.
+Provider synchronization remains disabled; scoped AgentsView ingestion is enabled.
+Use `register /absolute/project/path` for another existing local Git checkout.
+For a new project, initialize it separately, then register it; registration
+does not create starter source or publish a repository.
+
+Forge's only enabled agent target is Pi (USAi), pointing to
+`scripts/pi-local.py`; other built-in model agents are disabled to avoid
+accidental alternate-provider use. Shell targets remain available. Roborev's
+default Pi command uses the same launcher; automatic hooks remain off.
+The wrapper validates Pi 1.0.3 and selects the private profile in its own
+process, so it works even after Forge's tmux environment sanitization.
+It does not change global Pi settings or grant blanket project trust.
+The dedicated tmux socket is `kenn-kopy-local`; terminal sessions may survive
+browser navigation and can have independent lifetimes. Stop unwanted sessions
+through Forge's session controls; stopping dashboards is not authorization to
+kill unrelated tmux sessions or discard work.
+
+Profile/settings locations:
+
+| Location under `.local/environment/` | Purpose |
+| --- | --- |
+| `environment.json` | Machine-local corpus, Forge binary and exact Pi executable |
+| `forge/config.toml`, `forge/forge.db` | Forge settings and persistent project/worktree registry |
+| `pi/settings.json`, `pi/mcp.json`, `pi/models.json` | Private Pi resources, context connection and non-secret model configuration |
+| `pi/sessions/` | Pi's default persistent session storage in this profile |
+| `roborev/`, `kata/`, `agentsview/` | Persistent application configuration/databases |
+| `secrets/usai-api-key` | Owner-supplied USAi token, never tracked or printed |
+
+Parent directories are owned `0700`; integration-created settings and keys
+are `0600`. Database files may have upstream default file modes but remain
+inside inaccessible private parent directories. This is configuration/data
+isolation, not an OS sandbox or protection from processes using the same UID.
+Keep the profile and any backups private; Git does not back up ignored state.
+
+Pi's Falcon exposure uses `codemode`: Pi 1.0.3's direct MCP adapter truncates
+model-facing text over 20 KiB, whereas codemode receives the full MCP result.
+The qualified reader must not lose required context silently.
+`node scripts/check-pi-mcp.mjs` uses the installed Pi SDK/MCP extension to
+check freshness and read one bounded qualified packet without a model request
+or printing corpus text. The CLI handshake is:
+
+```sh
+python3 scripts/pi-local.py mcp list
+```
+
+Actual Forge-launched tmux processes completed both checks, and two subsequent
+supervised restarts retained Falcon's project ID and all saved configuration.
+Compaction and model-selected tool use still require USAi model-backed checks.
+
+Forge's pinned UI has an **Add an existing local repository** action that does
+not require GitHub, reachable directly at `/project-intake`. Its
+`POST /api/v1/projects` API accepts `local_path` and
+optional `display_name`/`default_branch`; a missing or untracked remote leaves
+the project unlinked to provider sync. Local project/worktree registration is
+distinct from adding a provider repository in Settings. Falcon is now registered
+and USAi is configured; an interactive model-backed Forge retrieval session
+still needs a usable UI/access path, not another registration attempt.
+
+### Local-project UI limitation: 13:42 owner report
+
+Live API reads and an isolated headless browser confirmed that Falcon's local
+project and primary worktree persist, but `/api/v1/repos` and `/api/v1/workspaces`
+are empty. The Repos and Workspaces UI do not display the local project, and
+the **Create Workspace** button is disabled. Provider onboarding appears on a
+fresh home-page visit despite the local registration; **I'll do this later**
+dismisses it. `/project-intake` still offers enabled provider-free local intake.
+
+The contracts are separate: `App.svelte` onboarding checks
+`hasConfiguredRepos`, `NewWorkspaceDialog.svelte` loads `RepositoryReads`, and
+the workspace sidebar lists the fleet workspace snapshot, not local projects
+and their worktrees. Local intake calls `ProjectsService.registerProject` and
+returns to `/`. Registration alone therefore does not produce a usable main
+workspace UI entry. This establishes the current behavior, not whether the
+upstream separation is intentional or a missing integration.
+
+At 13:55 the owner chose to wait for GSA GitHub access and use an approved
+real provider-backed demo target, deferring local-project UI changes.
+Do not invent identities or publish Falcon.
+Direct isolated Pi is available without either. README and TODO now state
+this limitation rather than equating API registration with UI readiness.
+Private evidence: `.local/environment/runtime/local-project-ui-check.json`.
+No repository/workspace was created, provider/remote added, or model called.
+
+The existing pinned Playwright 1.62.1 package was used for live inspection.
+Its browser executable was missing, so its matching headless Chromium and
+FFmpeg were installed only into ignored `.local/tools/playwright-browsers`
+with `PLAYWRIGHT_BROWSERS_PATH`; global configuration was not changed.
+All browser contexts/processes were closed. No screenshot or user browser
+profile was created/modified.
+
+The user identified `~/falcon-docs` as the local project/context source.
+Read its `AGENTS.md` and task-specific guides before operating on it; those
+instructions apply there, not across this integration workspace.
+The server's operating contract is `tools/context-mcp/README.md` in that
+checkout. It is an installed, read-only stdio server, not an HTTP service:
+
+```sh
+CORPUS="$HOME/falcon-docs"
+"$CORPUS/tools/context-mcp/.venv/bin/qualified-context-preflight" \
+  --root "$CORPUS" --reader "$CORPUS/tools/context-index/context_index.py"
+```
+
+This non-refreshing preflight passed on 2026-10-08, including SDK dependencies,
+FTS5, schema snapshots, catalog/event-store status and selected-index
+freshness. It does not prove client connectivity or model authorization.
+No rebuild, installation or authoritative write was requested.
+
+The isolated local Pi profile is configured with the stdio executable
+`tools/context-mcp/.venv/bin/qualified-context-mcp` from that checkout with
+absolute `--root` and `--reader` arguments pointing to the existing corpus
+and `tools/context-index/context_index.py`. Setup derives machine-local paths;
+do not commit private client configuration or copy corpus data.
+Use its existing index/store layout, not a new backend or a worktree snapshot.
+
+Pi 1.0.3's installed CLI and docs confirm native stdio/Streamable HTTP support.
+`PI_CODING_AGENT_DIR` selects an isolated profile, including `mcp.json` and
+`models.json`. Project `.pi/mcp.json` is an alternative for trusted projects;
+never set blanket global trust. MCP available in Copilot is not inherited by
+Pi. After configuration, verify `pi mcp list`, `/mcp` in the actual Forge-launched
+session, then `status` and a bounded qualified read with known expected content.
+Local connection/read checks and restart passed. Repeat after model compaction.
+
+The credential-free `scripts/smoke.py` uses fresh private state each time.
+It proves startup/assets/task storage/offline skill discovery, not persistent
+project registration, a Pi MCP connection or model-backed work. The separate
+persistent launcher above does not repurpose disposable smoke state.
+
+# roborev WSL startup
+
+The 17:00 owner request enabled `kenn-kopy-roborev.service` alongside
+AgentsView, leaving Forge/Kata on-demand while GitHub access waits.
+`install-roborev-service` uses the shared private user-unit installer and
+records the resolved Node executable in its `roborev-run --node-executable`
+arguments. The launcher prepends that binary's directory to its sanitized
+PATH and verifies the saved Pi 1.0.3 executable. It validates both loopback
+bindings and executes the existing daemon with its explicit private config.
+No global shell/manager environment change or model credential in the unit/
+daemon is required; only the Pi child launcher reads the USAi key.
+
+Health checks require `/api/ping` to match systemd MainPID, `/api/status` to
+answer with the same version, and the separate review UI to serve HTML.
+The `/reviews` SPA shell requires `Accept: text/html`; an ordinary URL-only
+HTTP request gets 404 even while the browser route works. The initial install
+hit that readiness mistake; the corrected browser-style check passed.
+Both service installers retain occupied-port and ownership checks.
+
+The supervisor now records both independent services, excludes their three
+ports from owned startup/shutdown, and refreshes their PIDs in status after
+restart. `stop` leaves both running. The existing transient on-demand unit
+was restored with only Forge/Kata children; it is not boot-enabled.
+No queued/running review existed during migration. Saved app/profile config
+hashes, project identity and review counters were unchanged; no hooks/reviews
+or model calls were introduced. A structured Pi-backed review remains open.
+Repeat installation, service restart with pinned Node under systemd, and
+independent stop/start behavior passed. Real WSL reboot remains pending.
+Private evidence: `.local/environment/runtime/roborev-service-migration.json`.
+README owns operational commands and the separate-stop smoke procedure.
+
+## Review workflow boundaries and remaining configuration
+
+Read-only assessment for the owner's 17:17 question:
+
+- Git post-commit hooks automatically enqueue local reviews independently of
+  the coding agent, Forge and GitHub. Manual commit/branch/dirty reviews do not
+  require hooks. `init` also handles post-rewrite remapping and pre-push batch
+  flushing; these hooks are not commit/push quality gates.
+- Generated Git hooks bake in only the executable path. They do not preserve
+  the caller's private `ROBOREV_DATA_DIR` or `--server` selection. Before using
+  `init --no-daemon`, supply a persistent scoped executable that selects this
+  workspace's state and port 17373. At that assessment no launcher existed;
+  `scripts/roborev-local.py` now provides it, as verified on 2026-10-09 below.
+  A plain global invocation may still use a separate profile/daemon.
+- Pi structured reviews explicitly load
+  `npm:@nqbao/pi-json-schema@0.1.1` and use `--no-session`; installation and a
+  full synthetic structured review are now verified below. These invocations
+  will not appear as normal saved Pi sessions in AgentsView. Review-history/Analytics and
+  any metadata-only usage bridge need actual telemetry verification.
+- Structured review args do not disable all profile extensions/context,
+  unlike the separate routing classifier. They restrict ordinary review
+  tools to read/grep/find/ls plus JSON output. The private Falcon MCP profile
+  exists, but model-selected qualified retrieval in a roborev review is not
+  verified; do not assume it has task/acceptance evidence automatically.
+- Optional coding-agent hooks feed findings into active supported harnesses.
+  Copilot CLI is listed; Pi is not listed in this pinned agent-hook guide.
+  These differ from Git hooks and from review-completion event hooks, and
+  may steer an agent toward code-changing fix skills.
+- Per-repo `.roborev.toml` can specify `agent = "pi"`,
+  `review_reasoning`, `review_guidelines`, `exclude_patterns`,
+  `post_commit_review` and `post_commit_batch_size`. Keep one worker initially.
+  The private Pi wrapper pins provider/model and rejects CLI overrides;
+  arbitrary roborev model/provider selections conflict with that contract.
+  Do not enable alternate-provider fallback/budget substitution.
+- Kata integration is optional and off by default: a project binding plus
+  `[kata_context] mode = "current"` pulls referenced task intent; an explicit
+  `type = "kata"` completion hook files findings. Its daemon must be available.
+  This does not implement Jira import. Forge is a review/workspace client,
+  not a prerequisite for local review. Superpowers supplies workflow skills,
+  not automatic commit review.
+
+## Isolated schema extension and scoped review: 2026-10-09
+
+Owner approved installation, the scoped launcher and one bounded review, while
+deferring project review policy/automatic triggers for joint configuration.
+
+- `install-pi-review-extension` invokes native Pi `install` for
+  `npm:@nqbao/pi-json-schema@0.1.1` with the private profile/HOME, from the
+  private home directory, without reading/injecting a USAi key. It verifies the
+  saved pin. Repeat installation preserved Superpowers and the other settings.
+  Package source/dependencies and npm lock live under `pi/npm/`; settings remain
+  private. The installed package uses Ajv validation and a `json_output` tool.
+- `scripts/roborev-local.py` is an executable Python entrypoint, usable from
+  other repositories/minimal hook PATHs. It validates saved loopback bindings,
+  pins native CLI `--server 127.0.0.1:17373` and private `ROBOREV_DATA_DIR`, and
+  preserves arguments, cwd and stdin. Explicit server selection prevents
+  automatic daemon discovery/start/restart; overrides are refused. The
+  sanitized child environment carries no model credentials.
+- Native Git hook generation accepts the launcher through `--binary`; it does
+  not infer it from the wrapping invocation. Native startup/update repair
+  replaces custom binaries inside `.git/hooks`. `HooksInsideGitDir` protects
+  user-managed external hook paths. A private disposable fixture with spaces
+  in its paths preserved an existing hook, generated all three scoped hooks,
+  passed shell parsing/post-rewrite execution, and retained their bytes after
+  native `repair --git-dir-only --binary <native binary>`. Minimal PATH,
+  unrelated HOME and wrong inherited data-dir did not change CLI targeting.
+  No hook was installed in a real project or in the bounded review fixture.
+- The review fixture at `.local/environment/review-demo-20261009/` is a private,
+  unpublished two-commit Git repository with hooks disabled and synthetic
+  pricing code/checks. Baseline passed; the intentional arithmetic regression
+  produced exactly two expected check failures. Scoped manual `review --type
+  default --agent pi --panel none --reasoning fast --wait` queued only job 1.
+  `--type code` was rejected before queueing; the native type is `default`.
+  Job 1 completed in roughly seven seconds with `agentic=false`, structured
+  schema version 2, verdict fail and one high finding at `pricing.py:3`.
+  File coverage is two reviewed/zero excluded; the source remains unchanged.
+  `review --wait` exit 1 reflects the findings, not an execution failure.
+- Durable findings are visible through `show --job 1` and the review UI.
+  Private evidence: `runtime/bounded-review-{before,target,job-1}.json`,
+  `runtime/scoped-hook-check.json`. No token usage fields were provided by
+  the stored job/review JSON; this is unavailable usage, not zero consumption.
+  Normal reviews use `--no-session`, so no native saved-Pi accounting claim
+  is made. Actual Falcon retrieval/classifier/real-project review remain open.
+- README owns install/manual-review commands and future hook-layout cautions.
+  Per-repo guidance/hook installation and sandbox evaluation remain in TODO;
+  neither read-only review tools nor profile isolation provide an OS sandbox.
+
+# AgentsView is an archive, not a model router
+
+The pinned AgentsView supports Copilot CLI session files under a configured
+Copilot root (normally `~/.copilot/`, including `session-state`), as well as
+Pi and separate VS Code/Visual Studio Copilot formats. It imports local
+session records into its own SQLite archive; it does not need to proxy model
+traffic or receive the USAi model key for browsing/search/usage reports.
+This is session-log observability, not a process inventory or automatic
+visibility into remote GitHub-hosted agents.
+
+The 15:33 owner request enabled scoped ingestion. The isolated HOME is retained,
+but `[agents.copilot].dirs` points to `~/.copilot`, and `[agents.pi].dirs`
+includes global `~/.pi/agent/sessions` and private
+`.local/environment/pi/sessions`. Only these two providers are enabled.
+AgentsView's environment omits `PI_CODING_AGENT_DIR` because that native
+override otherwise hides the configured multi-directory Pi sources.
+`--no-sync` is omitted only when private tracking metadata exists.
+
+`configure-tracking` preserves raw TOML/settings, coordinates with the
+application's `config.toml.lock`, and refuses source/content-policy conflicts.
+Rerunning the current configuration preserves its bytes. `archive_content`
+supports full, transcripts or usage; transcripts is not a redaction guarantee.
+The initial `usage` policy retains metrics/activity but excludes transcript
+text, thinking, tool payloads and titles. Native client sources are unchanged.
+Retention and deliberate fuller-content migration remain separate work.
+
+The first import contained 42 Copilot and 11 global Pi sessions. A real saved
+synthetic USAi Pi request added the twelfth Pi session automatically: 481 input
+and 9 output tokens, exactly matching the client's 490-token total. Copilot
+event growth was automatically rearchived, and 19 historical Copilot sessions
+had native per-request store usage at verification; other histories include
+shutdown-derived usage. The current Copilot UUID had no native usage-store
+rows yet, despite its event/activity updates. Do not infer zero consumption.
+Copilot shutdown may finalize metrics, and complete ACP/subagent coverage is
+not established. USAi aliases are explicitly unpriced, not authoritative
+zero-cost usage.
+
+The real health endpoint is `/api/ping`; other API calls use `/api/v1/...`.
+Per-step usage rows require `?breakdown=true` on
+`/api/v1/sessions/{id}/usage`; an empty default breakdown is not missing data.
+Usage-only Pi metrics live in projected message token fields, whereas Copilot
+store metrics also populate standalone `usage_events`.
+
+`install-agentsview-service` generates the private unit under
+`.local/environment/systemd/` and links/enables
+`kenn-kopy-agentsview.service` in the existing user manager. The launcher
+validates its policy, uses loopback/no-browser/no-update-check, and never
+receives the USAi key. Health must match systemd's MainPID. Existing systemd
+and `Linger=yes` required no privileged boot changes. The unit is enabled and
+restart/archive persistence were verified; a real WSL shutdown was not tested.
+AgentsView and roborev now start at boot; Forge/Kata remain on-demand.
+README owns startup/service/smoke commands.
+
+The companion supervisor attaches to that unit without owning its process.
+Status reports the live independent PID after restart, and stop checks only
+owned listener ports. Stop both independent units before disposable smoke
+checks. Private pre-import configuration/empty-archive backup:
+`.local/environment/backups/pre-tracking-20261008T194142Z/`.
+
+Optional generated insights/Recall and semantic search can invoke an agent CLI
+or configured model/embedding endpoint. They are separate opt-in model features,
+not required ingestion infrastructure; verify USAi-only routing before use.
+Publishing sessions to Gist or external archive/database services is also
+separate and not authorized by local processing approval.
+
+Archiving Copilot sessions does not route Copilot inference through USAi.
+The provider selection we implemented applies to our Pi launcher and the
+configured Pi review command; the independently running Copilot client retains
+its own model-service configuration.
+
+# USAi LiteLLM integration
+
+## Proposed personal Zed launcher: 2026-10-08
+
+The owner is considering a home-directory command that checks Pi's USAi key
+and opens Zed, with manual key generation/handoff. Prefer a thin command
+under the existing `~/.local/bin/` convention, pointing at version-controlled
+integration code, not an untracked all-in-one service orchestrator.
+Credential logic should also work when launching Pi directly or through
+Forge; editor startup alone does not protect already-open Zed or live Pi
+sessions against subsequent expiry.
+
+Keep the private key out of Zed settings and the editor's environment. Pi's
+child launcher/helper should select its explicit profile and read the shared
+private key source. Check live authentication without a model prompt, guide
+manual replacement with `set-key`, and distinguish HTTP 401 from network
+failure. An expired USAi key should disable/block Pi use, not prevent opening
+Zed or independently authenticated Copilot. Do not start another AgentsView
+instance when its user service is running, or make editor use depend on Forge.
+
+Observed local executables: Zed 1.23.2 at `~/.local/bin/zed`, and Copilot CLI
+at `~/.local/bin/copilot`; Copilot help exposes `--acp`. Zed's official
+external-agent docs support ACP-hosted Pi and Copilot. The official ACP
+registry inspected on 2026-10-08 advertises `pi-acp@0.0.34` (an adapter,
+not plain Pi's RPC mode) and `@github/copilot@1.0.93 --acp`.
+No adapter was installed or Zed agent setting inspected/changed. Registry
+presence does not prove compatibility with the host's Pi 1.0.3, its native
+Falcon MCP exposure, or durable session ingestion; verify those before
+relying on a Pi ACP setup.
+
+Zed Terminal Threads are the simpler initial alternative: they run the
+existing `scripts/pi-local.py` or native Copilot CLI without an ACP adapter.
+They retain CLI-owned configuration/auth/MCP; terminal threads are not Zed's
+archived agent thread history. AgentsView ingestion remains independently
+dependent on durable native session files and its configured source roots.
+Copilot uses its own GitHub authentication/model routing, not the USAi key,
+and AgentsView observes session files rather than routing requests.
 
 Sources:
-[Pi 0.87.1 settings](https://github.com/earendil-works/pi/blob/v0.87.1/packages/coding-agent/docs/settings.md),
-[Pi 1.0.2 MCP](https://github.com/earendil-works/pi/blob/v1.0.2/packages/coding-agent/docs/mcp.md).
+https://zed.dev/docs/ai/external-agents,
+https://zed.dev/docs/ai/terminal-threads,
+https://github.com/agentclientprotocol/registry/blob/main/pi-acp/agent.json,
+https://github.com/agentclientprotocol/registry/blob/main/github-copilot-cli/agent.json.
+
+## Global Pi auth helper versus private launcher: 2026-10-08 diagnosis
+
+Normal `pi` uses the owner's global profile, not this integration's private
+profile. Its `litellm-usai` alias uses `pi-provider-litellm` 3.2.0. The earlier
+auth command called `~/.pi/agent/usai-api-key.py`, which read a literal key
+from the active profile's `models.json`. That key differed from the private
+runtime key: global `/models` and synthetic requests returned HTTP 401, while
+the private runtime returned HTTP 200 and an exact synthetic model reply.
+The old helper succeeded even when the service rejected its token; default
+startup logging did not report this. Exact expiry/revocation was not established.
+
+At 15:56 the owner approved a simple common handoff. `set-key` now links the
+existing global `models.json` `usai` provider and `settings.json`
+`litellm.providers.litellm-usai` alias to `scripts/usai-key.py`. That command
+uses the same private reader/file as Forge's launcher and prints the token
+only to the consuming Pi process. Global literal USAi credentials were
+replaced with non-secret command references; other fields, auth.json,
+profile/session/MCP isolation and the existing private token were preserved.
+The obsolete home helper was not deleted but is no longer referenced by
+either configured provider.
+
+Updated global files are `0600`; migration accepts owned regular readable
+legacy configs but refuses symlinks or files writable by others. It refuses
+saved auth.json entries overriding the affected providers and validates both
+global configs before writing either. On a host without those providers,
+`set-key` does not create them and explicitly reports zero global links.
+The private profile remains independent except for the shared credential.
+
+For diagnosis, keep helper stdout captured in memory: it contains the token.
+Do not invoke it directly in a visible terminal or print it. Tool-free
+`--no-session --no-context-files --no-approve` synthetic Pi requests can
+distinguish auth rejection from model output without transmitting project
+content; also disable skills/prompt templates and set a minimal system prompt.
+Native `pi auth check` does not load this extension alias and reports
+`provider_not_found`; use the actual model/discovery path instead.
+
+## Seven-day key rotation: manual shared handoff
+
+At 15:46 on 2026-10-08, the owner reported that USAi rotates API keys every
+seven days and suspects the rejected global key expired. Treat the lifetime
+as owner-reported; the observed HTTP 401 does not distinguish expiry from
+revocation. The console at `https://gsa.usai.gov/console/key-management`
+redirects unauthenticated readers to GSAuth. No approved key-generation or
+renewal API/CLI was verified, and no sign-in or key-creation action was taken.
+
+The owner selected simplicity at 15:56: generate a fresh key manually in the
+console and run `python3 scripts/local_env.py set-key` once for both CLI and
+Forge. The command atomically replaces the private file and maintains the
+global credential references described above. No timer, reminder, renewal
+API, or additional home launcher was installed.
+
+`set-key` records no authoritative expiry metadata. `pi-local.py` still
+injects a launch-time environment snapshot, so restart existing Pi sessions
+after replacement. Request-time credential commands are used for global Pi,
+but this does not eliminate the private launcher's startup snapshot or
+renew a server-expired token. Any future reminder must distinguish actual
+issuance/expiry from a local save timestamp. Future unattended renewal must
+use a confirmed, authorized USAi interface, not assume stock LiteLLM
+`/key/generate` access or automate GSAuth/MFA as a workaround.
+
+## Current provider state: 2026-10-08
+
+The owner reported successful Forge access and key setup, and approved USAi
+and this local environment for sensitive information including PII; minimize
+unnecessary PII in prompts. Treat this as owner-provided handling authorization,
+not a reason to publish data or keys or skip technical deployment controls.
+
+The old saved provider was in global `~/.pi/agent/models.json`, not Forge's
+isolated profile. Only non-secret provider metadata was inspected. Its selected
+model is `gpt-5.6-sol-latest-guardrails-defaultv2` at
+`https://api.gsa.usai.gov/api/v1`. The advertised catalog still contains that
+alias. A credential-safe refresh returned 22 model IDs and saved their IDs,
+base URL and UTC fetch time to private `.local/environment/usai-models.json`.
+The mixed catalog includes embedding models; it is discovery metadata, not a
+reason to register every entry as a chat/tool-capable Pi model.
+
+Two synthetic requests to `/chat/completions` confirmed SSE streaming, a
+function call and its tool-result continuation for the existing selected
+model. `openai-completions` is therefore the verified Pi API type for this
+endpoint/model pair. The private profile was configured with that selection,
+without copying the global profile's credential fields or changing it.
+A real Pi invocation with only the read tool returned a fresh synthetic
+fixture's contents; no Falcon content or PII was sent. Reports are private
+under `.local/environment/runtime/usai-{protocol,pi}-check.json`.
+
+Normal `scripts/pi-local.py` launches are now model-ready. Model-selected
+Falcon MCP usage in Forge, compaction and structured roborev reviews remain
+open checks. Do not generalize this protocol result to all catalog entries.
+
+Refresh model IDs without changing Pi's selected model:
+
+```sh
+python3 scripts/local_env.py list-models \
+  --base-url 'https://CONFIRMED-USAI-API-BASE'
+```
+
+The command reads the private credential only in the runtime, requires an
+HTTPS base URL without credentials/query/fragment, refuses redirects, bounds
+the response, and rejects invalid/empty catalogs rather than saving partial
+results. It logs IDs/count only, not credentials or raw error response bodies.
+
+## Private key handoff
+
+The owner should run this command in their own terminal from this repository:
+
+```sh
+python3 scripts/local_env.py set-key
+```
+
+Paste the key at the hidden prompt and press Enter. The command atomically
+stores just the token and newline in
+`.local/environment/secrets/usai-api-key`, using `0600` inside a `0700`
+directory. It refuses symlinks, permissive files and non-terminal input.
+No key is accepted as a command argument, echoed or printed. Repeating the
+command replaces the key and maintains the two existing global USAi
+credential-command references without changing model selection or other
+settings. These references contain paths, not the token; global providers
+that are absent are not created.
+Tell the next configuring agent only that the file is ready, never its value.
+
+The runtime reads that file directly into the Pi process's `USAI_API_KEY`.
+An assisting agent must not `cat` it, attach it to chat, copy it to a manifest,
+log it or put it into command arguments. The service supervisor/Forge tmux
+server do not receive the key. This protects against accidental disclosure,
+not malicious same-account access; use a scoped/revocable key.
+
+Supply the non-secret base URL, exact allowed model alias and API type
+separately. Once confirmed, configure them locally:
+
+```sh
+python3 scripts/local_env.py configure-provider \
+  --base-url 'https://CONFIRMED-USAI-API-BASE' \
+  --model 'CONFIRMED-MODEL-ALIAS' \
+  --api 'openai-completions'
+```
+
+The URL/model above are placeholders; `openai-completions` is the verified
+protocol for the current selection. The command also accepts `openai-responses` and
+`anthropic-messages`; choose only the protocol verified for the endpoint.
+It preserves unrelated custom-provider configuration and stores only
+`${USAI_API_KEY}` in Pi's `models.json`, not the token. Restart the Pi session
+after changing the model; the wrapper reads a rotated key on every launch.
+Run `python3 scripts/pi-local.py` in the intended project or choose Pi (USAi)
+in Forge. Without both saved model and private key, normal agent launches fail
+explicitly and do not fall back to an alternate provider.
+
+Use an explicit custom provider/model in the isolated Pi profile. Pi's installed
+`docs/models.md` documents `models.json` with `baseUrl`, API type, `apiKey`
+environment interpolation or a private credential command, and model entries.
+Confirm any new USAi URL, model alias and protocol before changing the verified
+selection; do not infer that other API types or reasoning parameters are
+accepted. Check streaming and a real tool-call round trip, not just model listing.
+
+Keep the key outside Git, chat, command arguments and logs. The owner has
+approved real Falcon content processing through USAi/local use. Forge's
+agent tmux launcher sanitizes its environment, so exporting a key in the
+parent shell alone is not a verified injection path. The private Pi launch
+wrapper/profile establishes configuration and credentials in the actual
+agent process; roborev's Pi subprocess is configured to use the same wrapper.
+Do not silently fall back to another endpoint/provider. The earlier assessment
+made no model calls; the later provider verification used synthetic content only.
+
+For a coding/review demo, also verify roborev's required Pi JSON-schema
+extension before using structured reviews. Avoid automatic hooks until the
+agent/model is working and the target repository's scope is approved.
+AgentsView ingestion can follow; its startup alone does not prove that it sees
+the demo profile's Pi sessions.
+
+The pinned Kata documents GitHub, Plane and Notion synchronization. No Jira
+connector was found in the inspected Kata/Forge docs and Kata implementation.
+Treat a one-ticket Jira import as separate integration work: preserve the
+original key/URL, acceptance criteria and provenance, initially from an
+owner-supplied export or an approved read-only API.
 
 # Local build and smoke commands
 
@@ -96,10 +707,33 @@ Sources:
 python3 scripts/smoke.py
 ```
 
+While the IT exception is pending, opt into the temporary variant:
+
+```sh
+./scripts/build.sh forge-local-kata
+python3 scripts/smoke.py --only-forge --forge-binary .local/forge-local-kata/kenn-forge
+```
+
+`--only-forge` does not start the other tools or Pi. Omitting it preserves
+the full-stack smoke behavior; `--forge-binary` selects the artifact explicitly,
+with no automatic fallback. The default remains `forge/kenn-forge`.
+For an interactive isolated dashboard preview, add `--keep-running`.
+After every startup check passes, the supervisor prints its PID and state
+directory and keeps the daemons alive. Ctrl+C or SIGTERM to that supervisor
+stops its owned services; an unexpected daemon exit also ends the preview.
+Without this flag, the existing automatic shutdown behavior is unchanged.
+Each invocation creates fresh isolated state (not a production deployment);
+the state is retained on disk after exit.
+Lockfile guard tests run with:
+
+```sh
+.local/tools/bun-1.4.0/node_modules/@oven/bun-linux-x64/bin/bun test scripts/build-forge-local-kata.test.mjs
+```
+
 The current toolchain bootstrap supports Linux x86_64. It requires curl, tar,
 sha256sum, and npm; builds also require make, a C compiler, and Node 24.11+.
 Python 3 and an installed Pi are required for the smoke test. The observed host
-has Node 26.9.0 and Pi 0.87.1; these host tools are not installed or pinned by
+has Node 26.9.0 and Pi 1.0.3; these host tools are not installed or pinned by
 our bootstrap yet. This is not a hermetic build environment.
 
 Go 1.27.1 is installed under `.local/tools/` after checking its official SHA-256.
@@ -121,6 +755,8 @@ clears inherited credentials/configuration through an explicit environment,
 disables telemetry, runs daemons in the foreground, and always attempts
 shutdown in `finally`. It does not start system services, install hooks, open a
 browser, sync private sessions, or submit model requests.
+Shutdown checks process exit and that listener ports can be rebound; failed
+connections alone cannot establish shutdown when loopback networking is broken.
 
 | Service | Smoke address |
 | --- | --- |
@@ -138,10 +774,39 @@ creates and reads a synthetic task. Pi runs offline RPC with the explicit
 Superpowers package while the available daemons are running.
 
 Forge is configured to use the smoke roborev endpoint, but this connection is
-not verified while Forge is blocked. Provider sync and AgentsView ingestion are
+not yet verified. Provider sync and AgentsView ingestion are
 disabled in the smoke test. The script exits nonzero for any blocked or failed
 check, including a missing Forge binary, and writes local `results.json` plus
 per-service logs before exiting.
+
+## WSL networking diagnosis
+
+This host initially used WSL mirrored networking. The manual Forge invocation
+with `KENN_FORGE_HOME`, `serve --host 127.0.0.1 --port 18091 --disable-sync`,
+and `TELEMETRY_ENABLED=0` matches the pinned upstream documentation and CLI.
+Flags override environment, TOML, and defaults. `/livez` is liveness;
+`/healthz` also checks database readiness.
+
+Independent probes reproduced failed IPv4 loopback connectivity both within
+WSL and from Windows to WSL, while Windows-native IPv4 and Linux-native IPv6
+loopback worked. This narrows the failure below the application layer but
+does not identify the responsible network component. See `status.md`.
+
+Do not "fix" mirrored mode by deleting its `loopback0` routes, binding the
+application to all interfaces, or disabling firewall/VPN controls. An IPv6
+success within Linux does not prove Windows-browser access or repair the
+IPv4 endpoints used by the stack. The user restarted WSL without changes;
+the failure persisted. The full Windows-home `.wslconfig` was checked against
+Microsoft's configuration reference: it already selects mirrored mode and
+sets `firewall=false`. No configuration typo explaining the failure was found.
+Further diagnosis needs elevated Windows log access or IT-assisted WFP/HNS
+tracing; the current session cannot read the existing Windows firewall log.
+With explicit user approval, only `networkingMode` was changed to `nat`,
+preserving a backup of the original Windows-home `.wslconfig`. After restart,
+NAT restored connectivity: the full preview passed and Windows could reach
+all four dashboards on localhost. This establishes a working NAT alternative,
+not the underlying mirrored-mode defect. NAT is retained for the user's
+preview; no further system settings were changed.
 
 # Source references
 

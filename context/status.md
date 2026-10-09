@@ -1,4 +1,612 @@
-# Status: 2026-10-04
+# Status: 2026-10-09
+
+## Local integration commit: 15:00 request
+
+- Owner authorized committing the recent parent integration work: persistent
+  environment/service management, shared manual USAi handoff, private Pi/MCP
+  and structured reviews, AgentsView tracking, scoped roborev launcher, approved
+  local-source Forge build helper, tests, README and durable context/backlog.
+- Private `.local/` state, credentials, databases, session archives, retained
+  review fixtures and artifacts are excluded. Submodule gitlinks/source remain
+  unchanged. There is no configured remote; this is a local snapshot, not
+  publication, hook enablement or permission to alter Falcon.
+- Commit validation passed 52 Python integration tests, five Bun lock tests,
+  shell syntax and whitespace checks. An initial Node test invocation was the
+  wrong runner for `bun:test`; reran with the documented pinned Bun 1.4.0.
+  Bytecode writing was disabled to preserve the prior cache cleanup.
+- Existing commit identity was retained; the commit includes the required
+  Copilot co-author trailer. No service restart/model request or new persistent
+  process is needed for this snapshot.
+
+## Code-review and artifact-cleanup subagents: 12:58 request
+
+- Owner explicitly requested one code-review subagent and one cleanup
+  subagent. Ran the two independent scopes in parallel; neither delegated
+  further. Review was read-only, while cleanup could remove only proven
+  disposable generated artifacts, not source or persistent runtime state.
+- Code-review agent reported no significant issues in the current integration
+  changes, including untracked integration scripts. Coverage was source,
+  pinned upstream behavior and read-only syntax checks; it did not rerun
+  fixture-writing suites, builds, schema installation, hooks, model requests
+  or service lifecycle. This is not an independent repeat of the prior
+  model-backed/lifecycle verification.
+- Cleanup removed four owned ignored CPython bytecode files for local_env,
+  pi-local, roborev-local and test_local_env, plus their empty
+  `scripts/__pycache__/` directory: 140,662 bytes. Parent tracked/untracked
+  Git status was unchanged; no integration source/docs or upstream source
+  was deleted or reverted.
+- Retained ten older `.local/smoke-*` runs with application state and
+  successful/failed diagnostic evidence, `.local/forge-manual/` containing
+  auth/config/database/locks, and `.local/smoke/` with uncertain ownership.
+  A retention decision is required before deleting those profiles.
+  Retained dependencies, compilation caches, approved working Forge variant,
+  active state, backups, evidence, sessions and the intentional review demo.
+  Exact retained smoke paths and cleanup details are recorded in tools.md.
+- Cleanup agent checked the four application HTTP health endpoints and
+  reported HTTP 200 with unchanged service PIDs. No persistent process was
+  started/stopped, credential read, model request, global edit, hook install,
+  commit or publication occurred. Existing services remain running.
+- Added the retained-artifact decision to TODO. No fixture-writing tests were
+  rerun merely to recreate caches just removed by cleanup.
+
+## Isolated Pi structured review and scoped launcher: 12:46 request
+
+- Owner authorized installing the pinned JSON-schema extension, one bounded
+  manual review and the scoped roborev CLI/hook launcher. Project-specific
+  review policy and automatic hooks remain deferred for joint setup.
+  Added PiPod, Abyss and smolvm URLs to the sandbox backlog; none was installed
+  or selected.
+- Added `install-pi-review-extension` to the integration manager. Native Pi
+  installed `npm:@nqbao/pi-json-schema@0.1.1` only in the isolated profile;
+  repeat installation retained Superpowers/settings and the pin. Installation
+  receives no USAi key and makes no model request. No global settings changed.
+- Added executable `scripts/roborev-local.py`: private data/HOME, explicit
+  loopback server, unchanged caller cwd/stdin/arguments and no model credential.
+  Native explicit-server calls fail instead of auto-starting another daemon.
+  Server overrides fail explicitly.
+- Found and accounted for native startup/update hook repair: custom executables
+  inside `.git/hooks` are replaced by the native binary. An approved per-repo
+  user-managed hooks path outside Git metadata is required to keep the scoped
+  launcher durable. In a disposable fixture, generated all three hooks through
+  `--binary`, preserved an existing hook, verified paths with spaces/minimal
+  PATH/wrong inherited HOME and profile, executed post-rewrite with empty
+  stdin, and confirmed automatic-repair protection. No real-project hook was
+  installed, migrated or triggered.
+- Created a private unpublished synthetic review fixture, not a Falcon copy,
+  at `.local/environment/review-demo-20261009/`. Its initial discount code
+  passed two checks; the intentional arithmetic regression failed exactly
+  those checks. Hooks are disabled. Fixture instructions bound inspection to
+  its pricing/check files and prohibit MCP/parent-project reads and fixes.
+- First request used unsupported `--type code`; CLI rejected it before
+  queueing. Corrected to `--type default --agent pi --panel none --reasoning
+  fast --wait`. **Job 1 completed** through the existing daemon/private Pi/USAi
+  without Forge or GitHub, in approximately seven seconds. Structured output
+  schema version 2 contains one high finding at `pricing.py:3`: a 20% discount
+  returns 20 instead of the payable 80. Review exit 1 means findings fail the
+  code review, not a failed execution. Stored job is `done`, `agentic=false`;
+  file coverage is two reviewed/zero excluded.
+- Verified exact structured shape/location/severity, unchanged fixture source,
+  disabled fixture hooks, preserved global Pi and private roborev config
+  hashes, unchanged daemon PID, and only that daemon remaining in its cgroup.
+  Fifty-two focused tests, Python compilation and diff checks passed.
+  Cleaned the disposable hook fixture and generated pricing-check bytecode;
+  retained the review fixture and durable findings for local inspection.
+- Reproduction: `python3 scripts/local_env.py install-pi-review-extension`,
+  `./scripts/roborev-local.py status`, `./scripts/roborev-local.py show --job 1`.
+  README contains bounded-review commands and future hook-layout cautions.
+  Private evidence is `runtime/bounded-review-{before,target,job-1,verification}.json`
+  and `runtime/scoped-hook-check.json`; no credentials were printed/stored
+  in those records.
+- **Shutdown/state:** AgentsView, roborev and the on-demand Forge/Kata unit
+  remain active and untouched. roborev PID 405454 has zero queued/running/failed
+  jobs and one completed job. No experimental service/model/MCP child remains
+  in its cgroup; no root/upstream commit, publication or Falcon edit occurred.
+  The intentionally broken synthetic fixture is not production/demo application
+  code. Actual Falcon review retrieval/classification, real-project workflow,
+  sandbox selection and no-session review usage accounting remain open.
+
+## roborev interactions/configuration explanation: 2026-10-08, 17:17 question
+
+- Read pinned README/configuration/hook/Kata guides, Pi adapter and Git-hook
+  generation/init code. Current private daemon uses Pi via our USAi launcher,
+  one worker and no event hooks; all queue/completed/failed counters are zero.
+- Explained three separate hook layers: Git review triggers, coding-agent
+  feedback and review-completion actions. Manual local review needs neither
+  hooks, Forge nor GitHub. Automatic triggers are not quality gates; fix/refine
+  are separate code-changing operations.
+- Found a prerequisite for reliable hook installation: generated Git hooks
+  save their executable path but not our private profile/endpoint environment.
+  A scoped CLI/hook launcher is still needed before per-repo `init --no-daemon`.
+  No hook was installed or repaired while answering.
+- Pi's structured adapter uses the pinned JSON-schema extension and
+  `--no-session`. Therefore AgentsView native Pi discovery does not capture
+  those review jobs. Added accurate scoped-launcher and review-usage accounting
+  work to TODO; extension/real review/Falcon retrieval remain unverified.
+- Suggested per-repo acceptance/review guidelines, explicit Pi selection,
+  generated-file exclusions, conservative concurrency and later optional
+  batching/Copilot feedback/Kata context. These are recommendations, not
+  configuration changes or authorization to auto-fix/publish.
+- **State:** all existing services remain running and untouched. No model
+  request, package installation, source/corpus change, credential access,
+  global setting or new process occurred beyond short-lived help/read probes.
+  Only non-secret context/backlog documentation changed.
+
+## roborev as the next WSL boot service: 17:00 request
+
+- Owner requested roborev startup alongside AgentsView while GitHub/Forge
+  provider configuration waits. Added `install-roborev-service` and
+  `roborev-run --node-executable`, reusing the validated user-unit installer.
+  No upstream source, global Pi/shell settings, model routing or credential
+  was changed.
+- Enabled `kenn-kopy-roborev.service` in the existing user manager. The unit
+  records the resolved NVM Node binary; boot does not depend on interactive
+  shell initialization. Startup validates the saved Pi 1.0.3 and private
+  loopback configuration. The daemon's actual environment has the pinned
+  Node PATH and no `USAI_API_KEY`; credentials remain Pi-child-only.
+- Migrated the existing owned roborev daemon only after verifying zero queued
+  or running reviews. Existing configuration hashes, Falcon project ID and
+  review counters persisted unchanged. No hook, review/model request, corpus
+  change or fake remote/provider was added.
+- Initial readiness timed out because a URL-only `/reviews` request gets 404
+  from the SPA handler. Confirmed actual browser negotiation with
+  `Accept: text/html` returns HTML 200, corrected the helper and regression
+  coverage, then completed installation/restoration. API PID, database status
+  and UI are all verified, not just unit activation.
+- Repeat installation and roborev service restart passed; AgentsView and
+  then-current Forge/Kata PIDs were unaffected. Stopping the on-demand
+  supervisor retained both healthy independent services. Restored the
+  transient stack with only Forge/Kata children; no duplicate daemon.
+  Both boot units are enabled and all five listeners remain IPv4 loopback.
+- Forty-six focused tests, Python compilation, generated-unit verification
+  and diff whitespace checks passed. README/TODO/project/tools context now
+  describe two independent boot services, pinned Node, private state,
+  ownership, and stopping both units for disposable checks. Structured
+  Pi-backed review and actual WSL reboot remain separate pending milestones.
+- **Current state supersedes earlier snapshots:** roborev PID 405454
+  (v0.71.0) serves http://127.0.0.1:17374/reviews; AgentsView PID 403061
+  remains untouched. On-demand supervisor PID 405495 owns Kata PID 405507
+  and Forge PID 405524. `kenn-kopy-local.service` is transient, not enabled
+  for boot. User-requested services remain active; no experimental process
+  or model child is retained. State/ownership evidence is private at
+  `.local/environment/runtime/roborev-service-migration.json`.
+
+## Shared manual USAi key handoff and this conversation: 15:56 request
+
+- Owner approved simplifying `set-key` so normal CLI Pi and Forge Pi use
+  the same key, retaining manual console issuance rather than adding a
+  six-day service, editor launcher or renewal machinery.
+- Added `scripts/usai-key.py`, a credential command using the existing
+  private runtime reader. Extended `set-key` to link only existing global
+  `usai` and `litellm-usai` provider credential fields to that reader, then
+  atomically save the private token once. Other models/settings, packages,
+  auth.json, MCP config and session directories remain separate/unchanged.
+  Absent global providers are not created. Saved auth overrides, malformed
+  configs, symlinks and writable-by-others configs fail explicitly.
+- Linked the actual global providers immediately to the already-working
+  private key, without prompting for, displaying, copying or replacing the
+  token. Removed the old literal USAi key from global models.json.
+  Global models/settings were previously `0644`; their replacements are
+  `0600`. Their other fields were compared and preserved. The obsolete
+  global helper file was left untouched and is no longer referenced.
+- Both global provider paths (`usai` and `litellm-usai`) and the private
+  Forge-configured launcher returned the exact synthetic expected answer
+  with no tools, corpus/context files or saved sessions. No project content
+  was sent. All short-lived credential/model subprocesses exited.
+- Thirty-eight focused unit tests passed, including two successive manual
+  replacements, no credential copy/logging, preservation of unrelated fields,
+  absent-global behavior, config/key permissions and symlink/auth-override/
+  malformed-config refusal, helper replacement/failure behavior, plus the
+  existing environment/tracking/service tests. No real token was used by tests.
+- **Operational limitation:** restart existing Pi sessions after manual
+  replacement. The private launcher still injects a startup snapshot; no
+  automatic issuance, expiry reminder or private request-time reload was added.
+  A shared credential is not a shared profile or an OS sandbox boundary.
+- Read-only AgentsView API lookup found this exact conversation as
+  `copilot:d11196ee-7363-4d47-83b8-33e49d3fb71e`, with one matching record and
+  native session source metadata. At the initial read it had 31 messages
+  and archive update time 19:56:32 UTC. Configured source roots include
+  `~/.copilot`, global Pi sessions and private Pi sessions.
+  Archive policy is `usage`, not a full conversation/thinking/tool transcript;
+  running service alone was not treated as evidence of ingestion.
+- Companion dashboards and the separately managed AgentsView service were
+  left running. No service lifecycle, Copilot config, source transcript,
+  Zed config, upstream source, credential-generation or scheduled job changed.
+  This handoff preserves the other agent's completed tracking/startup work
+  below. README, project/tools context and TODO reflect the selected simple path.
+
+## AgentsView tracking and WSL startup: 15:33 request, final snapshot 16:02
+
+- Owner authorized existing local Copilot/Pi history import, live token/session
+  tracking and WSL startup availability. Added explicit source configuration,
+  standalone AgentsView service installation and independent lifecycle handling
+  to `scripts/local_env.py`. This integration did not change client/global
+  settings, source transcripts, inference routes or upstream checkouts.
+  The separate approved credential-source repair above is preserved.
+- Configured only Copilot `~/.copilot`, global Pi `~/.pi/agent/sessions` and
+  private Pi `.local/environment/pi/sessions`; retained isolated HOME and
+  removed only AgentsView's native Pi-profile environment override. The
+  usage-only archive excludes transcript/thinking text, titles and tool payloads.
+  Read-only SQLite checks confirmed those exclusions.
+- Imported 53 existing sessions (42 Copilot, 11 Pi). One actual saved synthetic
+  Pi request through the approved private USAi launcher was detected without
+  manual sync: 481 input + 9 output tokens, matching its native 490-token total.
+  Inclusive archive count is now 54 (42 Copilot/12 Pi); UI defaults may hide
+  one-shot/automated records. Native sources were not modified for the import.
+- Verified Copilot per-request source-store metrics in 19 historical sessions
+  and other recorded usage in additional histories. Current Copilot event
+  growth was automatically archived (7,381,935 to 7,568,079 bytes; message
+  count 119 to 120), without synthetic Copilot usage records. Its native
+  usage store has no rows for the current UUID yet; absent token data remains
+  unavailable, not zero. USAi aliases remain unpriced, not free or billed at
+  a verified rate.
+- Enabled `kenn-kopy-agentsview.service` in the existing user-systemd manager.
+  Systemd PID 1 and `Linger=yes` were already configured; no privileged,
+  system-wide or Windows startup change was needed. Unit installation rerun
+  passed. Service restart preserved all 54 sessions and companion PIDs.
+  No WSL shutdown/reboot was attempted while agents are active.
+- Verified stopping/restarting the companion supervisor leaves AgentsView
+  alive and does not duplicate it. Only AgentsView autostarts; Forge/Kata/
+  roborev remain on-demand. The restored stack uses transient
+  `kenn-kopy-local.service` with explicit non-secret shell PATH for NVM Node.
+  Falcon project `prj_7febfa6d56efb07c7be1b3a1` is unchanged.
+- Initial migration failures were a shell-quoted `WorkingDirectory` in the
+  unit, incorrect health URL and missing Node PATH in the transient companion
+  service. Corrected all three and verified actual API/process health, not
+  just systemd's launch message. Service paths now escape percent/dollar
+  expansion; tracking writes share the native config lock and fail explicitly
+  if busy. Status refreshes independent PID metadata after service restart.
+- Final focused suite passed all 38 tests, including the concurrently added
+  shared-key coverage; Python compilation, diff whitespace and systemd unit
+  verification passed. Final live checks confirmed all four healthy APIs,
+  exact Pi counters, automatic Copilot growth and usage-only text/payload
+  exclusion. Last incremental sync: 1 synced, 0 failed, not aborted.
+- Private pre-import backup:
+  `.local/environment/backups/pre-tracking-20261008T194142Z/`.
+  Non-secret numeric evidence:
+  `.local/environment/runtime/agentsview-live-pi-check.json` and
+  `agentsview-ingestion-check.json`. README has source/policy, startup/stop,
+  systemd, access and smoke-port instructions. TODO records actual WSL reboot,
+  retention/pricing and future ACP/subagent verification.
+- **Current process state supersedes snapshots below:** AgentsView PID 403061
+  is enabled/active at http://127.0.0.1:18080/; companion supervisor PID 402200
+  and Forge/Kata/roborev are running, with all five listeners on IPv4 loopback.
+  The synthetic Pi child exited; no experimental browser/model/MCP process is
+  intentionally retained. The user-requested dashboard services remain active.
+  No commit/publication or credential change was performed.
+
+## Personal Zed entry point and current service snapshot: 15:50
+
+- Owner is considering a home-directory script to check Pi's API key and
+  open Zed with Pi/Copilot agents; manual key generation/handoff is the
+  intended near-term path. This is an architecture question, not approval
+  to install adapters, alter global settings or automate browser SSO.
+- Read-only `local_env.py status` now reports supervisor PID 402200 with
+  roborev/Kata/Forge children and independently running
+  `kenn-kopy-agentsview.service` PID 401178. Falcon's saved project ID persists.
+  This supersedes the earlier stopped snapshot. The owner reports another
+  agent is completing AgentsView ingestion/WSL startup work; no boot test or
+  transcript-ingestion audit was duplicated here.
+- Zed 1.23.2 and Copilot CLI are available in `~/.local/bin/`; Copilot exposes
+  `--acp`. Official Zed docs list Pi/Copilot external agents; ACP registry
+  advertises the Pi ACP adapter 0.0.34 and Copilot CLI 1.0.93. No installed
+  Zed agent configuration or adapter compatibility was established.
+- Recommend a thin version-controlled launcher exposed in `~/.local/bin/`,
+  reusing agent-level credential handling, not starting duplicate services
+  or exporting the key to Zed. Pi needs explicit profile selection plus
+  checked ACP compatibility; existing CLI Terminal Threads are the simpler
+  first option. An expired USAi key should not block Zed/Copilot.
+- Rotating-key/request-time-reload safeguards remain unimplemented; the
+  existing private key handoff and launch-time Pi injection work. Shared
+  auth checks must cover Forge/CLI/editor agent launch, not only editor startup.
+  ACP session persistence/MCP behavior need verification before claiming
+  equivalent AgentsView/Falcon integration.
+- Only non-secret handoff documentation was updated. All observed services
+  were left running and untouched; no editor, agent session or service was
+  started/stopped, credential read/replaced or global setting changed.
+
+## USAi seven-day rotation follow-up: 15:46
+
+- Owner reports USAi keys rotate every seven days and believes the rejected
+  global key expired. Prior HTTP 401 diagnosis remains valid; the exact
+  server-side rejection reason is not independently established.
+- Inspected the current key handoff/launcher and the public console route.
+  Key management redirects to GSAuth; no approved API/CLI for unattended
+  generation/renewal was verified. No credentials were submitted and no
+  browser login, key generation, rotation or model call was attempted.
+- Proposed one shared private credential source for both entry points,
+  request-time key reload, startup auth diagnostics and expiry reminders.
+  A saved-file timestamp must not be presented as authoritative key expiry.
+  The existing private launcher holds a launch-time environment snapshot,
+  so current long-running sessions require a restart after `set-key`.
+- Await the supported issuance/renewal method and explicit approval for
+  global-helper/settings changes before claiming automated renewal or
+  altering normal Pi. Current code remains unchanged; these are proposals.
+- Updated project/tool context and TODO with the lifetime, limitations and
+  next implementation scope. No process was started and no global setting,
+  credential, upstream checkout or corpus was changed.
+
+## Standalone Pi USAi authentication diagnosis: 15:41 owner report
+
+- Reproduced the failure in the owner's **global** Pi profile, distinct from
+  our isolated Forge/roborev launcher. Global `settings.json` configures
+  `litellm-usai` through `pi-provider-litellm` 3.2.0 and an auth command invoking
+  `/usr/bin/python3 /home/nkirrish/.pi/agent/usai-api-key.py`.
+- That helper reads the literal `providers.usai.apiKey` from the selected
+  profile's `models.json`. It exits successfully in the global profile, but
+  its returned key differs from the private runtime key. The global key
+  receives HTTP 401 from the confirmed USAi `/models` endpoint; the private
+  runtime key receives HTTP 200 with 22 models. Expiry versus revocation or
+  another key rejection reason was not established; response bodies and
+  credential values were not logged.
+- Synthetic, tool-free Pi requests reproduced HTTP 401 with both only the
+  LiteLLM extension and the normal global packages. The isolated
+  `scripts/pi-local.py` returned the exact requested synthetic reply through
+  the same endpoint/model. This locates the failure in the global credential
+  source, not the private launcher, Pi version, Falcon MCP or the USAi model
+  service generally. No project/corpus content was sent.
+- The helper produces no error because reading a rejected token succeeds.
+  LiteLLM's startup discovery diagnostics are disabled by default; activation
+  deliberately skips command-backed credential resolution. This explains
+  why startup need not reveal the rejected key, but does not establish a
+  separate defect in the owner's interactive error rendering. The
+  non-interactive reproductions emit HTTP 401 on stderr, with no answer on
+  stdout. Pi's native `auth check` does not load this extension alias and
+  returns `provider_not_found`, so it is not a useful alias-health check here.
+- **Recovery and approval:** standalone use of the absolute
+  `scripts/pi-local.py` launcher works with the current private key. A durable
+  normal-`pi` repair should make its helper use the same private credential
+  source instead of the rejected literal in global `models.json`, without
+  copying the key into configuration. Global helper/settings changes require
+  owner approval and were not performed.
+- **Shutdown:** all diagnostic Pi/helper/HTTP subprocesses exited. The
+  owner's previously observed Pi PIDs 401283/401286 had already ended on a
+  later read and were not signaled. `local_env.py status` reports the stack
+  stopped and no AgentsView service; no dashboard was started/stopped.
+  No global configuration, upstream checkout, source corpus or credential was
+  changed. Only non-secret diagnostic/handoff documentation is updated.
+
+## Environment explanation and demo direction: 13:55
+
+- Owner accepted the Forge UI limitation and chose to wait for GSA GitHub
+  access, then connect a real approved provider/repository. Local-project UI
+  changes are deferred; do not keep presenting a fork as an unresolved choice.
+  README, TODO and project/tool context reflect this decision.
+- Reviewed pinned component docs, root `AGENTS.md`, runtime launch/profile
+  metadata and the public Clanker Constitution v2026.08.11
+  (`kenn-io/constitution`, observed commit
+  `48df1551c31fbbb783560e11006b61a43ef897fe`) to answer four conceptual questions.
+  Root working agreements are active; Constitution adoption remains reference
+  only, not a vendored/pinned instruction file or an enforcement mechanism.
+  Business-specific policy improvements are proposals, not instruction changes.
+- AgentsView supports Copilot CLI/Pi session archives without proxying model
+  requests or needing the USAi key for ordinary browsing/search/reports.
+  Current `--no-sync` and isolated HOME mean the user's Copilot sessions do
+  not automatically appear. Non-secret TOML inspection confirmed no explicit
+  source roots; no transcripts or credential fields were printed/imported.
+  Optional generated insights/semantic search need separate approved model
+  configuration; actual current Copilot parser/child-session coverage remains
+  unverified.
+- All four services and supervisor PID 397220 were running when checked and
+  remain user-owned/untouched. No configuration, AGENTS.md, upstream source,
+  source discovery or model traffic was changed; no owned process was started.
+
+## Local registration versus Forge UI: 13:42 owner report, confirmed 13:48
+
+- Owner cannot see Falcon in Repos and encounters provider/repository
+  onboarding. Confirmed the **running** saved environment contains local
+  project `prj_7febfa6d56efb07c7be1b3a1` and primary worktree
+  `wtr_77b830271a9003f4eb924949`, pointing to the original Falcon checkout.
+  Registration has not been lost.
+- Provider catalog `/api/v1/repos` and `/api/v1/workspaces` are both empty.
+  An isolated live browser confirmed Falcon is absent from Repos/Workspaces
+  and **Create Workspace** is disabled. Provider onboarding appears on a
+  fresh home page; it can be dismissed with **I'll do this later**.
+- `/project-intake` offers enabled **Add an existing local repository** without
+  provider credentials or a remote URL. It populates a different registry,
+  not the provider-backed workspace UI. Code confirms onboarding consumes
+  configured repositories and the workspace picker/sidebar do not list raw
+  local project worktrees. Whether upstream intended this separation is not
+  established. Re-registering Falcon is not a remedy.
+- Corrected README, project/tool context and TODO: prior evidence established
+  local API registration, persistence and runtime/MCP checks, **not** a usable
+  provider-free Forge UI demo. Resolve local-project UI integration or choose
+  an approved provider-backed target before claiming UI readiness.
+  No provider identity/remote was fabricated; nothing was published.
+- Metadata-only evidence saved privately in
+  `.local/environment/runtime/local-project-ui-check.json`.
+  Existing Playwright was available but its browser was missing; installed
+  its pinned headless browser/FFmpeg only into workspace-local ignored state.
+  Initial attempts to open the workspace dialog failed because the action is
+  disabled; the final check asserted that disabled state rather than forcing
+  the click. No source, credential or model prompt was sent externally.
+- **Process state supersedes the earlier stopped handoff:** the owner-started
+  persistent supervisor PID 397220 and four services are running and were
+  left untouched. No services, workspaces, agents or model sessions were
+  launched/stopped by this investigation. Every owned browser process exited;
+  no user browser storage, Falcon source, global settings or upstream source
+  was changed.
+
+## README, owner approval and USAi provider follow-up
+
+- Added root `README.md` covering setup/run/status/stop, all four loopback
+  dashboard addresses, WSL access, persistence, additional projects, Pi/MCP,
+  private key handoff, model discovery/configuration and remaining work.
+- Owner reports successful Forge access and key setup, and explicitly approves
+  USAi and local use for sensitive information including PII. Prompting users
+  should minimize unnecessary PII. Approval is no longer an unresolved local
+  provider prerequisite. Intended cloud destination is GSA-owned/GSA VPC;
+  infrastructure and technical controls remain long-term implementation work.
+- Confirmed the private key file exists without displaying it. The previously
+  saved USAi metadata was global Pi configuration, not the private Forge Pi
+  profile. The private profile had neither `models.json` nor `usai.json`.
+  Global credentials/settings were not modified or copied.
+- Added `local_env.py list-models --base-url ...` with HTTPS validation,
+  redirect refusal, bounded model-list validation and private timestamped
+  metadata storage. Refreshed `https://api.gsa.usai.gov/api/v1/models`:
+  22 advertised model IDs; existing
+  `gpt-5.6-sol-latest-guardrails-defaultv2` is still listed.
+  Catalog: `.local/environment/usai-models.json`. No raw credential is logged.
+- Verified `/chat/completions` through two synthetic SSE requests: forced
+  function call and tool-result continuation. Configured the isolated profile
+  with the existing alias and verified `openai-completions` API type.
+  This is evidence for this model/protocol, not all 22 entries.
+- Exercised the real private Pi launcher with a synthetic file and only the
+  read tool, no extensions/context files/session storage. Pi executed read
+  on the intended fixture and returned its exact contents. Fixture removed.
+  No Falcon content/PII was sent. Reports:
+  `.local/environment/runtime/usai-protocol-check.json` and
+  `usai-pi-check.json`. No credential appeared in argv or displayed output.
+- Seventeen focused unit tests passed after model-discovery additions.
+  Rerun after the HTTP error resource-close fix also passed; `git diff --check`
+  passed. The native Pi MCP check again found all seven tools, a fresh index
+  and a 7,418-character qualified packet, without a model call or text logging.
+  Still open: model-selected Falcon MCP in an actual Forge session,
+  post-compaction behavior, structured roborev review and remaining backlog.
+- **Processes:** `status` reported no saved supervisor record when inspected. No
+  dashboard was started/stopped by this follow-up; the short-lived Pi probe
+  exited and no owned process remains. The owner may start `run` again.
+  No global settings, Falcon source, system service, cloud resource or upstream
+  checkout was changed. Private state and new non-secret provider settings persist.
+
+## Persistent local environment: 12:20 request, implemented and stopped
+
+- User expanded the objective to ongoing personal use/exploration, with cloud
+  deployment long-term, and requested persistent settings/projects, Pi MCP
+  connection, a default agent and private USAi key handoff.
+- Added `scripts/local_env.py` (setup/run/status/stop/register/configure-provider/
+  set-key), executable `scripts/pi-local.py`, `scripts/check-pi-mcp.mjs`, and
+  `scripts/test_local_env.py`. Added Python cache ignore. Existing upstream
+  source, unrelated local edits and global settings were preserved.
+- Ran setup with `--corpus "$HOME/falcon-docs" --forge-binary
+  .local/forge-local-kata/kenn-forge`. Persistent owned/private state now lives
+  in `.local/environment/`, not the temporary smoke directories.
+  Settings are created only when absent; later setup runs preserve them.
+- Registered Falcon without editing it. Persistent project ID:
+  `prj_7febfa6d56efb07c7be1b3a1`; primary worktree ID:
+  `wtr_77b830271a9003f4eb924949`. Repeated startup/setup and two shutdown/restart
+  cycles retained the same project ID, no duplicate and unchanged config hashes.
+- Only the configured Pi (USAi) model-agent target is enabled in Forge, using
+  our private wrapper; shell targets remain. Roborev defaults to that wrapper.
+  The wrapper checks the installed Pi 1.0.3, uses the isolated profile, and
+  requires explicit saved USAi model/key for normal sessions. No model-backed
+  agent was launched and no alternate-provider fallback is allowed.
+- Pi's native `mcp list` connected to all seven Falcon tools. The SDK check
+  called `status` and a bounded exact qualified `get` through Pi's MCP
+  extension, with fresh index, handling qualifications and no model call.
+  Both checks also passed from actual Forge-launched tmux command sessions;
+  verification results are private under `.local/environment/runtime/`.
+  No corpus text was printed by the SDK check. Codemode exposure avoids Pi's
+  direct-adapter 20-KiB model-facing truncation for larger qualified results.
+- The initial short-lived tmux probe could not capture its pane after the
+  command exited; its cleanup API reported 404 because the session was gone.
+  Replaced the probe with private result files and a live-session cleanup check.
+  This was a test-lifecycle issue, not evidence of a failed MCP connection.
+- Fourteen focused unit tests passed: rerun preservation, path-change refusal,
+  private modes, environment-only key injection, missing-provider failure,
+  key validation, symlink/permissive-file refusal, safe PID signaling and
+  terminal-only credential handoff. No real credential was used.
+- The owner can now run `python3 scripts/local_env.py set-key` in their own
+  terminal. It uses a hidden prompt and writes the token atomically to
+  `.local/environment/secrets/usai-api-key` with `0600` permissions.
+  No key has been supplied. Configuring agents must not read/print that file;
+  only the runtime should consume it. See `tools.md` for non-secret provider
+  configuration and use instructions.
+- Still needed: confirmed USAi base URL/model/protocol and content authorization;
+  model streaming/tool/MCP round trip and compaction checks; structured
+  roborev review; Pi bootstrap pin/install; AgentsView ingestion and Kata
+  linkage; persistent-state backup/recovery.
+- **Shutdown:** all daemons started for this work are stopped, all five listener
+  ports are free, and no `kenn-kopy-local` tmux server/verification session
+  remains. Existing Copilot-owned Falcon MCP processes were not touched.
+  No system service/autostart or detached process was installed. Settings,
+  project records, databases and private logs are retained for the next run.
+- Start for personal use: `python3 scripts/local_env.py run` in a terminal.
+  Forge is http://127.0.0.1:18091/. Ctrl+C or `python3 scripts/local_env.py stop`
+  stops owned services without deleting saved state. Provider sync and session
+  ingestion remain deliberately disabled until separately configured.
+
+## Earlier assessment and demo priorities (superseded by implementation above)
+
+- User's immediate objective is one usable local project for a demo. Later,
+  after GSA GitHub access is available, use an existing application project
+  and import an actual Jira ticket. USAi LiteLLM is the required model provider.
+- User identified `~/falcon-docs` as the existing local project and context
+  provider MCP source, and confirmed upgrading Pi to 1.0.3. `pi --version`
+  reports 1.0.3; `pi mcp --help` exposes native stdio/HTTP configuration.
+  Our bootstrap still does not pin/install Pi.
+- Falcon's installed non-refreshing preflight passed with the existing index:
+  `"$HOME/falcon-docs/tools/context-mcp/.venv/bin/qualified-context-preflight"
+  --root "$HOME/falcon-docs" --reader
+  "$HOME/falcon-docs/tools/context-index/context_index.py"`.
+  Dependencies, FTS5, schema snapshots, catalog/event-store status and selected
+  index freshness passed. This is not Pi connectivity or model authorization.
+- Read Falcon's `AGENTS.md`, retrieval guide and MCP operating instructions.
+  The checkout has substantial tracked/untracked changes and ignored stores;
+  it was not edited, copied, registered in Forge or indexed by this assessment.
+  No dependency install, refresh or authoritative write was requested.
+  Preflight may maintain private validation caches under its existing contract.
+- Forge's pinned UI offers **Add an existing local repository** without
+  GitHub. The project registry API accepts a local path independently of
+  provider sync. This provides a first-demo path without waiting for GSA access;
+  actual registration, persistence and interactive agent launch remain open.
+- Fresh full-stack command:
+  `python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge`.
+  All API/UI asset checks, Kata task read-back and offline discovery of
+  15 Superpowers skills passed with Pi 1.0.3. Evidence:
+  `.local/smoke-ql7by8p_/results.json`. Runtime networking mode is still `nat`.
+- All four owned daemons exited normally and all five listener ports were
+  available to bind. No process started by this assessment remains running.
+  No global/client settings, upstream source, hooks or services were changed.
+  Pre-existing dirty integration files and the untracked `.kata.toml` remain.
+- First remaining work: a persistent, private loopback demo launcher; existing
+  project registration; isolated Pi/Falcon MCP configuration; and explicit USAi
+  model/credential wiring in the real Forge-launched agent process. Confirm
+  approved Falcon content processing before a model-backed read.
+- USAi URL/model alias/protocol and private key injection remain unresolved.
+  No model request was made. The smoke harness deliberately clears credentials,
+  disables provider sync/session ingestion and creates new state on every run;
+  it is not the persistent demo environment.
+- Last-confirmed normal Forge build failures remain the Zscaler archive blocks
+  documented below; no download/build was retried today. The working explicit
+  local-source variant is sufficient to proceed with a demo.
+  Mirrored-mode diagnosis, cloud hosting and workaround removal are later work,
+  not current local-startup blockers.
+- Updated `../TODO.md`, `project.md` and `tools.md` with this priority order and
+  known local connection details. No implementation or publication is claimed.
+
+## Previous preview: 2026-10-05, 12:47 to 13:30, now stopped
+
+- At the user's request at 13:30, verified the supervisor's command and
+  working directory, then sent SIGTERM to PID 2977. All four owned daemon
+  PIDs exited gracefully; all five listener ports were available to bind.
+  The supervisor exited 143 as expected for the requested SIGTERM.
+  No preview processes remain; logs/data are retained in
+  `.local/smoke-xivdi_ox/`. NAT configuration was not changed.
+  The startup details below describe this completed run.
+
+- User reports NAT resolved connectivity and requested starting the dashboards.
+  Runtime mode is confirmed `nat`; all four dashboards return HTTP 200 from
+  Windows curl over localhost. NAT remains selected for this preview; permanent
+  networking preference is not yet decided. No further system settings changed.
+- Running command: `python3 scripts/smoke.py --forge-binary
+  .local/forge-local-kata/kenn-forge --keep-running`.
+  Attached tool session: `dashboard-preview`; supervisor PID 2977.
+  Roborev PID 2978, Kata PID 2996, AgentsView PID 3011, Forge PID 3028.
+  State/logs/results: `.local/smoke-xivdi_ox/`.
+- All API and embedded UI/asset checks passed, along with Kata task read-back
+  and offline Pi discovery of 15 Superpowers skills. Pi has exited.
+- User-facing URLs: Forge http://127.0.0.1:18091/,
+  roborev http://127.0.0.1:17374/reviews, Kata http://127.0.0.1:17777/kata,
+  AgentsView http://127.0.0.1:18080/.
+- Services were left running for inspection on loopback only and have now
+  been stopped. No persistent service was installed. Recorded PIDs are
+  historical; do not signal them again.
+- Isolated preview data is retained on disk; provider synchronization and
+  AgentsView ingestion are disabled, no model credentials are supplied,
+  and no production repositories are registered. Dashboards may be mostly
+  empty. Full cross-tool/model-backed integration remains unverified.
+- Earlier shutdown statements and failed Forge startup below describe prior
+  runs; this section supersedes them for current process/connectivity state.
 
 ## Completed
 
@@ -17,12 +625,26 @@
   investigation. No sandbox implementation or product selection is implied.
 - Investigated Pi MCP setup; recorded version requirements and acceptance
   checks in `tools.md`. Pi remains at 0.87.1; no MCP configuration or runtime
-  upgrade was made because the intended server has not been identified.
+  upgrade has been made.
+- Created initial parent commit `8eed9a3` with the pinned submodules,
+  integration scripts, context, and backlog.
+- Recorded the user's broader objectives in `project.md`: Falcon Context is
+  the shared MCP service; Jira tickets should lead to human-reviewed GitHub
+  PRs; eventual hosting is AWS with CGI/GSA VPN connectivity. GSA AOS has not
+  provided an AWS environment, so cloud deployment remains long-term work.
+- Implemented the user-approved temporary `forge-local-kata` target using
+  exact Kata UI and Go dependency revisions from local history. Both Forge
+  binaries built successfully twice; derived manifests and provenance matched
+  across builds. Upstream tracked worktrees remain clean.
+- Added explicit Forge binary selection and Forge-only smoke mode, plus a
+  cleanup TODO gated on successful normal build/startup after the IT exception.
+  Implementation and reproduction commands are in `tools.md`.
 
-## Startup results
+## Historical startup results before NAT (superseded above)
 
-The three available daemons ran concurrently in isolated state directories,
-alongside a short-lived Pi/Superpowers RPC session.
+The earlier baseline ran three daemons concurrently in isolated state
+directories, alongside a short-lived Pi/Superpowers RPC session. The latest
+attempt started only the newly built Forge variant.
 
 | Component/check | Observed result |
 | --- | --- |
@@ -30,11 +652,12 @@ alongside a short-lived Pi/Superpowers RPC session.
 | Kata | API and embedded browser UI/JavaScript assets responded; created a synthetic task and read it back through the CLI. |
 | AgentsView | Health API and embedded browser UI/JavaScript assets responded. Ingestion was intentionally disabled. |
 | Pi + Superpowers | Pi 0.87.1 loaded all 15 Superpowers skills in offline RPC mode with no credentials or model calls. |
-| Forge | Blocked before compilation by required Zscaler VPN authentication on the user's side; not a dependency defect. |
-| Shutdown | All three owned daemon PIDs exited; all four ports they used stopped accepting connections. Pi exited too. |
+| Forge | Normal build remains blocked by Zscaler. Temporary local-source build succeeds, but HTTP startup verification times out. Independent Python listeners also cannot receive local connections; this is a host loopback-connectivity blocker, not an established Forge defect. |
+| Shutdown | Earlier baseline processes exited. Latest Forge-only process also exited, and port 18091 was successfully rebound after shutdown. No other tools were started in the latest attempts. |
 
-Run `python3 scripts/smoke.py` to reproduce. It currently returns exit status 1
-because Forge is unavailable; this is intentional, not an all-green result.
+The earlier default `python3 scripts/smoke.py` run exited 1 solely because the
+normal Forge binary was unavailable. The latest targeted command below also
+exits 1, this time for failed connectivity; no all-green startup is claimed.
 HTTP/asset probes are not interactive browser tests, and concurrent startup is
 not proof of complete cross-tool integration.
 
@@ -45,31 +668,194 @@ not proof of complete cross-tool integration.
 | Missing Go and Bun | Installed checksum-verified Go 1.27.1 and exact-version Bun binaries under `.local/tools/`. Added a repeatable bootstrap; no system installation. |
 | Missing `sqlite3.h` in roborev/Kata builds | Initially confirmed by extracting a development package locally. Final build uses headers from each project's pinned go-sqlite3 module instead. Both rebuilt successfully. |
 | UI probes returned 404 | The first smoke probe lacked the browser `Accept` header. Corrected the harness to request canonical `/reviews` and `/kata` navigation with `Accept: text/html`; both then passed. Not an upstream defect. |
-| Forge download HTTP 403 | Frozen Bun install failed fetching `https://api.github.com/repos/kenn-io/kata/tarball/c668572`, returning a Zscaler page. On 2026-10-03 the user clarified that this requires their Zscaler VPN authentication, not a dependency fix. They plan to log in and rerun the Forge build on 2026-10-04. Leave dependency pins unchanged; no workaround is needed. |
+| Forge download HTTP 403 | Retried `./scripts/build.sh forge` on 2026-10-05 after the user confirmed Zscaler login. Bun still failed with 403. Curl confirmed the GitHub API returns 302, then the `codeload.github.com` destination returns 403 with title `Internet Security by Zscaler`. The user submitted an IT exception request. The authorized local-source variant avoids requesting this archive without altering network controls or canonical dependencies. |
+| Separate Kata Go download HTTP 403 | Once the frontend built, the backend requested `go.kenn.io/kata v0.18.0`; its Go proxy ZIP also returned a Zscaler 403 page. The temporary target explicitly replaces only that version with its exact local Git source. Add the URL below to the IT exception. |
+| Loopback connections time out | Forge logs that it is listening; its diagnostic stack has HTTP servers waiting in `Accept`. Independent Python socket listeners on 18091, 18080, and an ephemeral port all failed a one-second local connection attempt (`connect_ex=11`). Curl and Python HTTP probes also time out. Routing points 127.0.0.1 through `loopback0` and a link-local gateway. Cause/policy ownership is unconfirmed; no route, VPN, or firewall configuration was changed. |
 
 - The earlier commit-identity blocker is resolved: effective Git identity was
   confirmed on 2026-10-04 after the user's configuration. No global settings
-  were changed by the agent. The initial parent commit is authorized.
+  were changed by the agent. The initial parent commit is complete.
 - A new untracked `.kata.toml` was observed on 2026-10-04. It was not created by
   this turn's work and has been left untouched and outside the staged changes.
-- Forge's lockfile pins the Kata UI archive to commit
-  `c6685725ecd6a31aaea83cf98908e0c866c5d434`, not our newer Kata submodule.
-  Do not substitute the submodule as though it were the same dependency.
-  Wait for the user's Zscaler login before retrying its build.
+- Forge's lockfile pins the Kata UI archive to annotated tag object
+  `c6685725ecd6a31aaea83cf98908e0c866c5d434`, resolving to commit
+  `410ee88bca267b117c845a36f8249890c5160e3b`, not our newer Kata submodule.
+  Earlier notes incorrectly called the tag object a commit.
+  Authentication alone did not clear the download failure. The user submitted
+  an IT exception request on 2026-10-05.
+- The temporary build uses Kata UI source, not its compiled application.
+  Its separate Go dependency uses v0.18.0 commit
+  `91ee2f9215b3aff0795e66b8ed22e8494b13eadb`. Neither dependency is silently
+  upgraded to the current Kata checkout. Remove the variant once the
+  canonical frozen build and smoke check pass, as tracked in `../TODO.md`.
 - LiteLLM URL, credentials, model names, and API compatibility are pending.
   No model-backed review or coding workflow can be confirmed yet. Forge-to-
   roborev/Kata integration, Pi session ingestion, and private-cloud deployment
   are also unverified.
+- Falcon Context's identity is confirmed, but its endpoint/launch command,
+  approved ingestion path, and Pi connection configuration are still pending.
+  Project objectives are saved in repository files, not published into Falcon
+  by this session's read-only MCP tools.
+- AWS deployment is deferred until GSA AOS provides the environment and its
+  constraints. No AWS resource, VPN route, Jira integration, or GitHub
+  integration has been provisioned by this project.
 - The parent has no remote configured; nothing has been published.
 
 ## Evidence and shutdown state
+
+Documentation and networking diagnosis, 2026-10-05 (after user reproduction):
+
+- Checked the pinned Forge `docs/configuration.md`, `docs/troubleshooting.md`,
+  CLI implementation, and built binary's `serve --help`. The manual command
+  is valid: `KENN_FORGE_HOME` selects isolated configuration/storage,
+  `serve --host 127.0.0.1 --port 18091` overrides environment/TOML settings,
+  `--disable-sync` disables provider sync, and `TELEMETRY_ENABLED=0` is the
+  documented telemetry opt-out. UI `/`, liveness `/livez`, and readiness
+  `/healthz` are correct. No application configuration correction is indicated.
+- Host is WSL 2.7.14.0, kernel 6.18.33.2-microsoft-standard-WSL2, Windows
+  10.0.26100.9457. `wslinfo --networking-mode` confirms `mirrored`.
+  The existing Windows `.wslconfig` contains `networkingMode=Mirrored` and
+  `firewall=false`; neither was changed by this work.
+- Fresh Python TCP probe: IPv4 `127.0.0.1` connection timed out while IPv6
+  `::1` accepted the connection within Linux. A separate temporary Python
+  HTTP listener on IPv4 timed out from both Linux urllib (proxy disabled)
+  and Windows curl.exe (`--noproxy '*'`). Windows-native IPv4 TCP self-test
+  passed. Thus the reproduced failure concerns the WSL IPv4 loopback path,
+  not Forge, HTTP proxy selection, DNS, or all Windows IPv4 loopback.
+- Policy routing sends TCP/UDP through table 127 before the Linux local
+  table; 127.0.0.1 goes through `loopback0`. In mirrored mode, this is not by
+  itself proof of a bad route; do not delete or override it as a "fix".
+- Read-only Windows inspection: HNS and WslService are running. Applied
+  WSL Hyper-V settings report `LoopbackEnabled=True`, inbound default Block,
+  outbound default Allow, and `AllowHostPolicyMerge=True`. This does not
+  identify a particular firewall/filter as the cause. The stored
+  `firewall=false` setting is not evidence that every Windows security
+  filter is disabled. No firewall weakening or network-mode change was made.
+- Microsoft references: https://learn.microsoft.com/en-us/windows/wsl/networking
+  and https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/hyper-v-firewall.
+  Mirrored networking supports IPv4 localhost access; Hyper-V loopback is
+  normally allowed. Remaining candidates include stale mirrored-network
+  state or host filtering; attribution to Zscaler is not yet established.
+- The user completed WSL shutdown/relaunch without configuration changes and
+  reported the failure persisted at 12:34 on 2026-10-05. A fresh TCP probe at
+  16:35:00 UTC reproduced IPv4 timeout on port 18091 and successful Linux
+  IPv6 loopback. Restart did not resolve the problem.
+- At the user's request, read the full home configuration:
+  `C:\Users\NKIRRISH\.wslconfig` contains `[wsl2]`,
+  `memory=51539607552` (48 GiB, valid bytes syntax), `processors=14`,
+  `networkingMode=Mirrored`, and `firewall=false`. The file was last modified
+  September 22; no edits were made. Runtime `wslinfo` confirms mirrored mode,
+  so capitalization did not prevent selection. Linux `~/.wslconfig` is absent;
+  the Windows user-profile location is the documented one.
+- `/etc/wsl.conf` enables systemd, selects the default user, and sets
+  `appendWindowsPath=false`; it has no network overrides. The user's default
+  `~/.kenn/forge/config.toml` is absent. The manual-run isolated Forge config
+  contains host 127.0.0.1 and port 8091; the supplied CLI `--port 18091`
+  correctly overrides that saved default, per upstream documentation.
+- Post-restart Hyper-V settings still report `LoopbackEnabled=True`.
+  Existing Windows blocked-packet logging is enabled, but reading its log
+  returns access denied: this session's Windows token is not elevated.
+  ZSAService and ZSATunnel are running; that is not causal evidence.
+  Linux `nft` and `iptables` are unavailable; no packages were installed.
+- Next evidence needed is elevated, narrowly filtered firewall log output
+  for loopback port 18091, or IT-assisted WFP/HNS tracing if the log contains
+  no relevant drops. With `firewall=false` already configured, do not assume
+  that adding a generic Hyper-V allow rule will fix this. Ordinary firewall
+  logs do not cover all third-party filtering. Do not weaken security controls
+  or change routes/network modes speculatively.
+- At 12:37 the user reported no matching firewall-log entries and requested
+  focusing on WSL/Hyper-V rather than Zscaler. Zscaler is set aside in this
+  connectivity investigation (not disproven by an empty log). Its separately
+  confirmed archive-download blocks remain tracked.
+- Read-only follow-up: mirrored `loopback0` had 89 transmitted packets and
+  zero received packets since restart, with no reported link errors/drops.
+  The configured gateway neighbor is permanent. This supports investigating
+  the mirrored virtual-network path but does not locate the packet loss.
+- Hyper-V VmSwitch Operational log is readable and contains recurring warning
+  285 about OID_GEN_STATISTICS on FSE HostVnic. The most recent eight warnings
+  report zero-ms timing and are not sufficient evidence of the failure cause.
+  FSE virtual-switch/host adapters report Up. HNS Admin and Operational logs
+  return unauthorized-operation errors; those need elevated inspection.
+  Next requested evidence is recent HNS warnings/errors around the restart,
+  not another generic firewall-log search or speculative service reset.
+- At 12:39 the user ran the elevated HNS query: both Admin and Operational
+  logs returned no matching critical/error/warning events for the preceding
+  30 minutes. This is not an access-denied result and does not establish
+  that the virtual-network path is healthy. Routine log checks have not
+  identified a cause. A controlled mirrored-versus-NAT comparison is a
+  possible next diagnostic, pending explicit approval because it changes
+  Windows-home configuration for all WSL2 distributions and requires a
+  shutdown/restart. Preserve the existing file, change only networking mode,
+  keep VPN/security settings unchanged, and restore mirrored mode afterward
+  unless the user approves retaining NAT. Do not claim this comparison is
+  a fix or that it has been performed.
+- At 12:40 the user explicitly approved the temporary NAT configuration
+  change and will perform the restart. Backed up the original to
+  `C:\Users\NKIRRISH\.wslconfig.kenn-kopy-before-nat-20261005-124000.bak`
+  without overwriting an existing file. Changed only
+  `networkingMode=Mirrored` to `networkingMode=nat` and verified all other
+  configuration lines match the backup. Memory, processors, and the
+  pre-existing `firewall=false` setting are unchanged.
+- Shutdown has NOT been performed by the agent. Runtime still reports
+  `mirrored`; the saved NAT selection awaits the user's restart. Afterward,
+  run `wslinfo --networking-mode`, then the Forge-only smoke command below.
+  NAT connectivity is not yet tested. Restore the original networking mode
+  after comparison unless the user explicitly approves retaining NAT;
+  preserve any intervening user configuration edits rather than blindly
+  replacing the file with the backup.
+- All temporary diagnostic listeners were closed. No Forge service was
+  started during this documentation/networking investigation; no global
+  settings were changed.
+
+Forge-only retry on 2026-10-05:
+
+- Command: `./scripts/build.sh forge`; exit 1 during frozen dependency install,
+  before compilation. Forge's tracked source and lockfile remain unchanged.
+- Requested URL: `https://api.github.com/repos/kenn-io/kata/tarball/c668572`
+- Redirect destination returning the Zscaler 403:
+  `https://codeload.github.com/kenn-io/kata/legacy.tar.gz/c668572`
+- Build log: `.local/logs/forge-build-retry-2026-10-05.log`
+- HTTP evidence: `.local/logs/forge-download-2026-10-05.headers` and
+  `.local/logs/forge-download-2026-10-05.html`
+- No application services were started; no other project's build was retried.
+
+Temporary local-source build and Forge-only startup on 2026-10-05:
+
+- Build: `./scripts/build.sh forge-local-kata`; passed twice.
+- Artifacts: `.local/forge-local-kata/kenn-forge` and
+  `.local/forge-local-kata/kenn-forge-github-app`; version
+  `v0.3.0-136-gd6b14b9f-local-kata`, Forge revision
+  `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`.
+- Logs: `.local/logs/forge-local-kata-build.log` and
+  `.local/logs/forge-local-kata-repeat-build.log`.
+- Provenance: `.local/forge-local-kata/build.json`. SHA-256 comparison of
+  `build.json`, `bun.lock`, and `go.mod` passed across two fresh builds.
+  Five Bun guard tests passed, including rejecting unrelated version/integrity
+  changes, removed packages, and a retained remote Kata dependency.
+- Additional IT exception URL:
+  `https://proxy.golang.org/go.kenn.io/kata/@v/v0.18.0.zip`.
+  Curl confirmed HTTP 403 and title `Internet Security by Zscaler`.
+  Local response evidence: `.local/logs/forge-kata-go-download.{headers,body}`.
+- Runtime command:
+  `python3 scripts/smoke.py --only-forge --forge-binary .local/forge-local-kata/kenn-forge`.
+  Latest evidence: `.local/smoke-3drucu09/results.json`; exit 1 because HTTP
+  readiness timed out. PID 29800 exited; port 18091 was available to bind.
+  Health response contents, embedded assets at runtime, and interactive UI
+  behavior remain unverified.
+- The earlier failed probes also shut down their owned processes. A separate
+  diagnostic run captured `.local/logs/forge-startup-diagnostic.log` with
+  SIGQUIT, then exited. Its Python wrapper was stopped after a final
+  unbounded connection probe stalled; no diagnostic process remains.
+- Successful scratch build directories were automatically removed. The four
+  failed diagnostic build directories were removed after recording the causes.
+  Published binaries, provenance, logs, and isolated smoke state are retained.
 
 Build logs are `.local/logs/{roborev,kata,agentsview,forge}-build.log`.
 Each smoke run records `.local/smoke-*/results.json` and service logs. These are
 ignored machine-local artifacts, not required handoff context; this document
 captures the important outcomes without private runtime data.
 
-Latest completed run: `.local/smoke-km9q33bz/results.json`. Roborev PID 21076,
+Earlier full-stack baseline: `.local/smoke-km9q33bz/results.json`. Roborev PID 21076,
 Kata PID 21137, and AgentsView PID 21151 all exited. Ports 17373, 17374, 17777,
 and 18080 were confirmed closed. The run exited 1 solely for the missing Forge
 binary; all executed checks passed.
@@ -81,10 +867,20 @@ disk to support the next attempt; they consume disk but no running CPU/memory.
 
 ## Resume order
 
-1. Confirm the intended context MCP server and select a pinned Pi version with
-   compatible MCP support before configuring it; follow `tools.md`.
-2. After the user authenticates to Zscaler, rerun `./scripts/build.sh forge`
-   without changing its lockfile. The user plans to do this on 2026-10-04.
-3. Rerun the smoke script, then verify Forge's actual roborev/Kata connections.
-4. Agree on Pi/LiteLLM model configuration and safe credential injection before
-   testing real reviews, agent sessions, or session ingestion.
+1. Wait for GSA GitHub access to connect the approved real provider/repository,
+   as chosen by the owner. Do not patch the local-project UI meanwhile.
+   The saved environment is currently running; use the root README for access
+   and later start/stop. Standalone Pi is available for local exploration.
+2. Exercise model-selected qualified Falcon retrieval in an actual Forge session
+   after the UI/access-path decision.
+   The key, local/USAi sensitive-data approval, selected provider, streaming
+   and a synthetic Pi tool round trip are already established.
+3. Verify model-backed retrieval after restart/compaction. Local MCP connection
+   and persistent project/settings checks already pass.
+4. Verify the structured roborev Pi extension/review and complete fresh-host Pi
+   pin/install and persistent-state backup/recovery.
+5. Add Pi session ingestion and task linkage as needed. Later, with GSA GitHub
+   access, connect the approved application repository and implement the
+   one-ticket Jira import/traceable PR workflow.
+6. Track the IT build exception separately. Remove the temporary Forge variant
+   only after the normal frozen build and smoke pass; keep upstream pins.

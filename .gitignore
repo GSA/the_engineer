@@ -3,3 +3,4 @@
 !.env.example
 /.local/
 .kata.local.toml
+__pycache__/

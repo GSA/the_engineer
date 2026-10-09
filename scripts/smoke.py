@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check local services without credentials, then stop every owned process."""
 
+import argparse
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,14 @@ import urllib.request
 
 
 ROOT = Path(__file__).resolve().parent.parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--only-forge", action="store_true", help="do not start the other tools")
+parser.add_argument("--keep-running", action="store_true",
+                    help="after successful checks, keep services running until interrupted")
+parser.add_argument("--forge-binary", default="forge/kenn-forge",
+                    help="Forge binary path, relative to the repository or absolute")
+options = parser.parse_args()
+FORGE_BINARY = (ROOT / options.forge_binary).resolve()
 (ROOT / ".local").mkdir(exist_ok=True)
 RUN = Path(tempfile.mkdtemp(prefix="smoke-", dir=ROOT / ".local"))
 RUN.chmod(0o700)
@@ -26,7 +35,8 @@ for name in ("tmp", "runtime"):
     (RUN / name).mkdir(mode=0o700)
 ENV = {
     "PATH": os.pathsep.join(
-        [str(ROOT / p) for p in ("roborev/bin", "kata", "forge", "agentsview")]
+        [str(FORGE_BINARY.parent)]
+        + [str(ROOT / p) for p in ("roborev/bin", "kata", "forge", "agentsview")]
         + [os.environ["PATH"]]
     ),
     "HOME": str(HOME),
@@ -162,6 +172,8 @@ def start(name, binary, args, listener_ports, health, ui):
                     raise RuntimeError("roborev did not start with an idle, single-worker queue")
                 if name == "forge" and payload.get("status") != "ok":
                     raise RuntimeError("Forge did not report a healthy database")
+                if name == "forge" and not payload.get("revision"):
+                    raise RuntimeError("Forge did not identify its source revision")
                 break
             except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
                 last_error = str(error)
@@ -169,7 +181,10 @@ def start(name, binary, args, listener_ports, health, ui):
         else:
             raise RuntimeError(f"readiness timeout: {last_error}")
         check_ui(ui)
-        record(name, "PASS", f"API and embedded UI/assets responsive; PID {process.pid}")
+        detail = f"API and embedded UI/assets responsive; PID {process.pid}"
+        if name == "forge":
+            detail += f"; version {payload['version']}; revision {payload['revision']}"
+        record(name, "PASS", detail)
         return True
     except (OSError, ValueError, RuntimeError) as error:
         record(name, "FAIL", str(error))
@@ -184,18 +199,20 @@ for sig in (signal.SIGTERM, signal.SIGINT):
     signal.signal(sig, interrupt)
 
 try:
-    start("roborev", "roborev/bin/roborev", ["daemon", "run"],
-          [17373, 17374], "http://127.0.0.1:17373/api/status", "http://127.0.0.1:17374/reviews")
-    kata_ready = start(
-        "kata", "kata/kata",
-        ["daemon", "start", "--foreground", "--no-auto-token", "--listen", "127.0.0.1:17777"],
-        [17777], "http://127.0.0.1:17777/api/v1/health", "http://127.0.0.1:17777/kata",
-    )
-    start("agentsview", "agentsview/agentsview",
-          ["serve", "--host", "127.0.0.1", "--port", "18080",
-           "--no-browser", "--no-sync", "--no-update-check"],
-          [18080], "http://127.0.0.1:18080/api/ping", "http://127.0.0.1:18080/")
-    start("forge", "forge/kenn-forge", ["serve", "--disable-sync"],
+    kata_ready = False
+    if not options.only_forge:
+        start("roborev", "roborev/bin/roborev", ["daemon", "run"],
+              [17373, 17374], "http://127.0.0.1:17373/api/status", "http://127.0.0.1:17374/reviews")
+        kata_ready = start(
+            "kata", "kata/kata",
+            ["daemon", "start", "--foreground", "--no-auto-token", "--listen", "127.0.0.1:17777"],
+            [17777], "http://127.0.0.1:17777/api/v1/health", "http://127.0.0.1:17777/kata",
+        )
+        start("agentsview", "agentsview/agentsview",
+              ["serve", "--host", "127.0.0.1", "--port", "18080",
+               "--no-browser", "--no-sync", "--no-update-check"],
+              [18080], "http://127.0.0.1:18080/api/ping", "http://127.0.0.1:18080/")
+    start("forge", FORGE_BINARY, ["serve", "--disable-sync"],
           [18091], "http://127.0.0.1:18091/healthz", "http://127.0.0.1:18091/")
 
     if kata_ready:
@@ -209,27 +226,41 @@ try:
         except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired) as error:
             record("kata task storage", "FAIL", str(error))
 
-    try:
-        output = cli(
-            "pi", "--offline", "--no-extensions", "--no-context-files",
-            "--no-prompt-templates", "--no-themes", "--no-tools", "--no-session",
-            "--mode", "rpc", "-e", str(ROOT / "superpowers"),
-            input_text='{"id":"skills","type":"get_commands"}\n',
-        )
-        messages = [json.loads(line) for line in output.splitlines() if line.strip()]
-        response = next(item for item in messages if item.get("id") == "skills")
-        if not response["success"]:
-            raise RuntimeError("Pi rejected get_commands")
-        skills = [item for item in response["data"]["commands"] if item["name"].startswith("skill:")]
-        if not any(item["name"] == "skill:using-superpowers" for item in skills):
-            raise RuntimeError("Superpowers bootstrap skill was not discovered")
-        record("pi + superpowers", "PASS", f"{len(skills)} skills loaded through offline RPC; no model call")
-    except (OSError, ValueError, KeyError, StopIteration, RuntimeError, subprocess.TimeoutExpired) as error:
-        record("pi + superpowers", "FAIL", str(error))
+    if not options.only_forge:
+        try:
+            output = cli(
+                "pi", "--offline", "--no-extensions", "--no-context-files",
+                "--no-prompt-templates", "--no-themes", "--no-tools", "--no-session",
+                "--mode", "rpc", "-e", str(ROOT / "superpowers"),
+                input_text='{"id":"skills","type":"get_commands"}\n',
+            )
+            messages = [json.loads(line) for line in output.splitlines() if line.strip()]
+            response = next(item for item in messages if item.get("id") == "skills")
+            if not response["success"]:
+                raise RuntimeError("Pi rejected get_commands")
+            skills = [item for item in response["data"]["commands"] if item["name"].startswith("skill:")]
+            if not any(item["name"] == "skill:using-superpowers" for item in skills):
+                raise RuntimeError("Superpowers bootstrap skill was not discovered")
+            record("pi + superpowers", "PASS", f"{len(skills)} skills loaded through offline RPC; no model call")
+        except (OSError, ValueError, KeyError, StopIteration, RuntimeError, subprocess.TimeoutExpired) as error:
+            record("pi + superpowers", "FAIL", str(error))
 
     for name, process in children:
         if process.poll() is not None:
             record(f"{name} concurrent liveness", "FAIL", f"exited early: {process.returncode}")
+    if options.keep_running and all(item["status"] == "PASS" for item in results):
+        (RUN / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+        print(f"Preview running; supervisor PID {os.getpid()}; state: {RUN.relative_to(ROOT)}",
+              flush=True)
+        print("Send SIGTERM to the supervisor or press Ctrl+C to stop all owned services.",
+              flush=True)
+        while True:
+            time.sleep(1)
+            exited = [(name, process) for name, process in children if process.poll() is not None]
+            if exited:
+                for name, process in exited:
+                    record(f"{name} preview liveness", "FAIL", f"exited: {process.returncode}")
+                break
 finally:
     for name, process in reversed(children):
         if process.poll() is None:
@@ -245,12 +276,14 @@ finally:
     open_ports = []
     for port in ports:
         with socket.socket() as probe:
-            probe.settimeout(1)
-            if probe.connect_ex(("127.0.0.1", port)) == 0:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind(("127.0.0.1", port))
+            except OSError as error:
                 open_ports.append(port)
-                record("shutdown listeners", "FAIL", f"port {port} still accepts connections")
+                record("shutdown listeners", "FAIL", f"port {port} unavailable after shutdown: {error}")
     if not open_ports:
-        record("shutdown listeners", "PASS", f"all {len(ports)} checked ports are closed")
+        record("shutdown listeners", "PASS", f"all {len(ports)} checked ports are available to bind")
     (RUN / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"Evidence: {RUN.relative_to(ROOT)}", flush=True)
 
