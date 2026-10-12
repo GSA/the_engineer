@@ -158,7 +158,7 @@ private MCP list pass. Global settings/models/sessions and `bin/rg`/`bin/fd`
 remain intact; the separate Node installations are not removed. This is a
 host change, not yet a pinned fresh-host installation recipe.
 
-## Supervisor recovery and pending host backup
+## Supervisor recovery and host backup
 
 `supervisor()` now returns no live supervisor for absent metadata or a missing
 process, warning when it retains an exited PID's record. Permission/format
@@ -181,7 +181,59 @@ Proposed destination: a separate `EngiPlatformBackups` folder there, containing
 versioned repository source/history/uncommitted-work snapshots after scope
 confirmation and archive/restore checks. Do not sync the live Linux checkout,
 credentials, `.local/` state, sessions, Falcon corpus or GSA assets wholesale.
-No folder, upload or schedule has been created.
+No folder, upload or schedule had been created at that checkpoint. The
+19:27 authorization below supersedes this historical source-only proposal.
+
+## Sensitive-state OneDrive copy: 2026-10-12 at 19:27
+
+The owner approves the CGI Federal protected OneDrive destination and sensitive
+assets, with completed work committed locally and reinstallable dependency
+bulk excluded. `scripts/backup_workspace.py` copies this workspace only,
+including complete `.git/modules/` history, dirty/untracked source and private
+state/credentials. External Falcon/global profiles and host configuration
+are not silently included. The archive is restricted material, not a source
+artifact or model input. No credentials are read into chat/logs or committed.
+
+The fixed exclusions omit `node_modules`, Python virtualenv/bytecode, npm/build
+caches, local downloaded toolchains, generated frontend bundles and compiled
+application binaries. Tracked paths take precedence; local Forge
+`go.mod`, `bun.lock` and `build.json` are preserved. The first included regular
+file inventory is about 335 MB uncompressed, versus roughly 9 GB of original
+dependency-heavy checkout data.
+
+SQLite files are identified by header and use the online backup API, covering
+committed WAL records; output is standalone DELETE-journal SQLite. Every
+database is integrity-checked. Live sockets cannot be copied/restored and are
+explicit manifest omissions; other special files and external/absolute links
+fail before publication. Non-database files changing during capture fail
+explicitly instead of producing a success-shaped archive.
+
+Local staging/extraction precedes the host copy. Verification covers exact
+included inventory, SHA-256, permissions/symlinks, original Git HEAD/tracked
+state, submodule revisions/object connectivity and database integrity.
+Untracked included files are checked by manifest, not by requiring generated
+dependencies to survive in Git status. A host checksum mismatch removes only
+the newly created copy. Unique UTC/nonce archive names preserve earlier copies.
+No temporary staging tree/process remains after completion.
+
+The first host archive is
+`EngiPlatformBackups/engi-platform-20261012T233156Z-2a098422.tar.gz`:
+185,996,460 bytes, 15,074 inventory entries, 40 online database snapshots,
+51 omitted paths, original Git HEAD `91cd7ba`. Its checksum is
+`1eb7afc959a2af20650067fcb765c66925505b53e479ce6d0fbb655b3ebe7503`;
+a `.sha256` sidecar is adjacent. It contains the initially uncommitted backup
+implementation; post-commit archives record their exact Git commit/time in the
+embedded manifest rather than requiring self-referential source receipts.
+The first run stopped safely on roborev's runtime socket before creating any
+host archive; the explicit socket exclusion and regression resolve that case.
+
+Nine new backup tests cover sensitive/dirty work, dependency trimming,
+tracked generated stubs, private permissions, SQLite WAL content,
+offline submodule restoration, runtime sockets, external links, failed
+restore/host-copy cleanup and non-overwriting repeat copies.
+Local archive restoration is not a running-application recovery drill, and
+local OneDrive placement is not verified cloud upload/retention/recovery.
+No automatic schedule, host/global setting or service configuration changed.
 
 # Artifact audit: 2026-10-09
 

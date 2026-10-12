@@ -11,6 +11,8 @@
   Close only with verified completion/evidence; keep detailed findings in `context/`.
 - Preserve upstream history, licenses, and local changes. Read a submodule's
   instructions before editing it; do not adopt them workspace-wide.
+- Commit completed workspace work locally; keep credentials and private
+  assets out of Git. Committing does not authorize pushing or publication.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Do not change global settings, publish, or expose services publicly without
