@@ -148,6 +148,25 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   database backup, Falcon migration, model-route change or new agent hook is
   authorized by this service request. Research recommendations should favor
   existing-stack integration before overlapping new orchestrators.
+- At 19:27 on 2026-10-12 the owner requests that completed work be committed
+  locally and authorizes a backup including sensitive assets to CGI Federal's
+  protected OneDrive under `/mnt/c/Users/NKIRRISH`, excluding reinstallable
+  dependency bulk. This supersedes the source-only backup proposal and
+  database-backup deferral for this workspace copy. Credentials/private assets
+  remain ignored and must never enter Git; no push/publication is authorized.
+  Scope is this checkout, its local Git/submodule history, dirty/untracked
+  work and private `.local/` assets/state. Falcon/global client profiles,
+  external worktrees and host configuration are outside this copy; no VDI
+  export is authorized. External/absolute symlinks require an explicit scope
+  decision instead of importing assets implicitly.
+  `scripts/backup_workspace.py` creates versioned archives with per-database
+  online SQLite snapshots and local restore/checksum verification before
+  writing to `OneDrive - CGI Federal, Inc/EngiPlatformBackups`. Archives contain
+  credentials and sensitive state and are restricted, not Git artifacts.
+  Runtime sockets and SQLite sidecars are regenerated rather than copied;
+  source/manifests/build recipes are retained despite dependency exclusions.
+  Local host copying does not establish cloud sync, retention or application
+  recovery, and no automatic schedule is authorized or installed.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 

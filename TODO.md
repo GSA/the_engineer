@@ -9,8 +9,10 @@ use `systemctl --user start kenn-kopy-kata.service` before task/index commands.
 
 The 2026-10-12 migration preserved all 37 open source entries in 36 issues
 (the duplicate Helix-login entries were combined) and added the reproducible
-redeployment task `engi-platform#5xrm`. Database backup is explicitly deferred
-to a separate session. Falcon's backlog was not migrated.
+redeployment task `engi-platform#5xrm`. The owner approved a sensitive-state
+workspace backup on 2026-10-12; the first host copy includes online database
+snapshots. Application/cloud recovery remains open. Falcon's backlog was not
+migrated.
 
 <!-- kata-open-tasks:start -->
 ## Open Kata tasks
@@ -26,7 +28,6 @@ to a separate session. Falcon's backlog was not migrated.
 - [ ] [`engi-platform#jjw1`](http://127.0.0.1:17777/kata?issue=01M4S19R8TR0BW1P8RTGBNJJW1) Compare Ouijit with the existing task and execution layers
 - [ ] [`engi-platform#r27h`](http://127.0.0.1:17777/kata?issue=01M4S19R9FEQ3Y6H6VYYJ1R27H) Trial Herdr with isolated configuration and private Pi
 - [ ] [`engi-platform#c3ch`](http://127.0.0.1:17777/kata?issue=01M4S19RA32VM4EJMS4YFTC3CH) Evaluate Ghostty and tmux terminal ergonomics
-- [ ] [`engi-platform#z1z7`](http://127.0.0.1:17777/kata?issue=01M4S19RAR5YF6FN9KKN0BZ1Z7) Confirm scope and configure a host OneDrive source backup **blocked**
 
 ### Persistent local use and first demo
 
@@ -56,7 +57,7 @@ to a separate session. Falcon's backlog was not migrated.
 ### Maintenance and longer term
 
 - [ ] [`engi-platform#me8k`](http://127.0.0.1:17777/kata?issue=01M4S19RTK9Q1GK1X1EDMQME8K) Decide retention of historical local smoke and manual profiles
-- [ ] [`engi-platform#vg0b`](http://127.0.0.1:17777/kata?issue=01M4S19RV5Y24BV2BDA9BJVG0B) Establish private-state backup and recovery in a separate session **deferred**
+- [ ] [`engi-platform#vg0b`](http://127.0.0.1:17777/kata?issue=01M4S19RV5Y24BV2BDA9BJVG0B) Complete running-application and OneDrive cloud recovery checks **deferred**
 - [ ] [`engi-platform#vkye`](http://127.0.0.1:17777/kata?issue=01M4S19RVRXCB90N49WWWDVKYE) Resolve archive access and verify the normal frozen Forge build
 - [ ] [`engi-platform#1dkw`](http://127.0.0.1:17777/kata?issue=01M4S19RWDHBV4BA0WGMNS1DKW) Retire the temporary local-Kata Forge build after normal-build verification
 - [ ] [`engi-platform#hfbz`](http://127.0.0.1:17777/kata?issue=01M4S19RX29TG4B0VKMHE4HFBZ) Investigate mirrored WSL networking only if later needed

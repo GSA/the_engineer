@@ -135,8 +135,10 @@ no dependency on Forge or the other dashboards is added.
 `systemctl --user stop kenn-kopy-kata.service` for deliberate downtime,
 or `systemctl --user disable --now kenn-kopy-kata.service` to disable boot
 startup without deleting tasks. Start it again before task/index commands.
-**Database backup is deferred to a separate session**, as requested; private
-persistence and the Markdown index are not a database backup.
+The owner-approved workspace backup now includes an online snapshot of Kata's
+database; private persistence and the Markdown index alone are not a backup.
+See [Persistence and projects](#persistence-and-projects) for the backup command
+and the remaining application/cloud recovery boundary.
 
 ## AgentsView tracking and WSL startup
 
@@ -435,11 +437,47 @@ places to make changes. Restart affected services after startup-setting edits.
 State survives normal stop/start and WSL restarts, but **ignored state is not
 a backup**. Backup/recovery remains tracked in [TODO.md](TODO.md).
 
-The requested host OneDrive backup is not configured yet. The detected account
-is CGI Federal; confirm the approved destination and source-only scope before
-uploading Git history or uncommitted work. Do not sync this live checkout or
-`.local/environment/` wholesale: credentials, sessions, runtime databases and
-Falcon/GSA assets require separate handling decisions.
+On 2026-10-12 the owner approved the CGI Federal OneDrive destination and
+sensitive local assets. A versioned workspace archive now lives under
+`C:\Users\NKIRRISH\OneDrive - CGI Federal, Inc\EngiPlatformBackups`.
+This is an archive copy, not live-checkout synchronization. Repeat explicitly:
+
+```sh
+python3 scripts/backup_workspace.py \
+  '/mnt/c/Users/NKIRRISH/OneDrive - CGI Federal, Inc/EngiPlatformBackups'
+```
+
+The archive includes this checkout's source, complete local Git/submodule
+history, uncommitted/untracked work and ignored private state, including
+sensitive documents, credentials, sessions and application databases.
+**Treat it as restricted material; never commit it or share it as an ordinary
+attachment.** External Falcon assets, global Pi/Copilot profiles, host settings
+and external Git worktrees are outside this workspace copy. Symlinks are
+preserved without following them; external/absolute links require a scope
+decision.
+
+Reinstallable dependency trees, caches, toolchains and compiled outputs are
+omitted, but tracked source/stubs, dependency manifests and the local Forge
+build recipe are retained. SQLite uses individually consistent online backup
+snapshots, including committed WAL data, instead of copying live database/WAL
+files. Runtime sockets are not restorable and are recorded as omitted.
+`backup-manifest.json` inside the archive records every included file/hash,
+permissions, database, exclusion and Git revision. Before the host copy is
+written, a local extraction verifies those contents, Git/submodule object
+connectivity and SQLite integrity; the host copy also gets a verified SHA-256
+sidecar. Prior archives are not overwritten.
+
+To inspect or recover, first check the sidecar with `sha256sum -c` in the backup
+directory, then use Linux `tar -xzf` into a **new, private directory** with
+`umask 077`, not over a running checkout. Git history and archive file
+permissions are preserved. Reinstall the omitted dependencies and review
+machine-local paths, stale process/lock metadata and credentials before
+installing units or starting restored applications. Database snapshots are
+not one cross-service transaction. Restoring/running all applications and
+downloading a copy from the cloud have not been exercised.
+
+The initial local host copy is complete; OneDrive cloud delivery, retention and
+cloud recovery remain unverified. There is no automatic backup schedule.
 
 Register another existing local Git checkout while Forge is running:
 

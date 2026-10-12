@@ -1,5 +1,45 @@
 # Status: 2026-10-12
 
+## Sensitive-state workspace backup and local commits: 19:27 request
+
+- Owner authorizes CGI Federal protected OneDrive for sensitive assets and
+  asks that completed work be committed locally, excluding reinstallable
+  dependency bulk. Current pre-request integration work was already committed
+  through `91cd7ba`; the root and all submodules were clean. No remote exists
+  and no push/publication is authorized.
+- Added repeatable `scripts/backup_workspace.py` and nine regressions.
+  Includes source, local Git/submodule history, dirty/untracked work and
+  ignored private assets, credentials, sessions and settings. Excludes only
+  identified reinstallable/generated bulk and nonrestorable runtime sockets/
+  SQLite sidecars; tracked source and the local Forge build recipe remain.
+  Falcon, global agent profiles, host configuration and external worktrees
+  are outside this workspace copy. No assets or credentials enter Git.
+- Actual initial archive:
+  `C:\Users\NKIRRISH\OneDrive - CGI Federal, Inc\EngiPlatformBackups\engi-platform-20261012T233156Z-2a098422.tar.gz`.
+  185,996,460 bytes; 15,074 inventory entries; 40 independently consistent
+  online SQLite snapshots; 51 omitted paths. Local extraction verified
+  included hashes, permissions, symlinks, Git/submodule connectivity/status
+  and database integrity before the host copy; host SHA-256 matches its sidecar.
+  This initial version records HEAD `91cd7ba` plus uncommitted backup scripts.
+  The post-commit archive's embedded manifest provides its exact source commit
+  and timestamp; source documentation is not used as a self-referential receipt.
+- An initial attempt failed explicitly on a live roborev Unix socket and
+  created no host archive. Added a manifest-recorded runtime-socket exclusion
+  rather than treating the live endpoint as recoverable data. No daemon was
+  stopped, restarted or duplicated for snapshotting.
+- Final focused suite passes all 97 tests, including nine backup regressions;
+  `git diff --check` passes. Task `z1z7` is closed with actual local-copy/restore
+  evidence; task `vg0b` now covers remaining running-application/cloud recovery.
+  Refreshed `TODO.md` indexes 36 open tasks. Protected credentials/session data
+  are copied only as archive content, never printed or tracked.
+- No schedule is installed. OneDrive cloud sync/retention/cloud restore and
+  restored application startup are unverified; these remain explicit recovery
+  work rather than claims inferred from a local archive.
+- All four independent services remain active at their original PIDs:
+  AgentsView 395, Forge 396, Kata 25008, roborev 397. No supervisor or experiment
+  process was started; local staging trees were removed on success/failure.
+  No Falcon/SPUD/VDI export, model/auth request, remote or global setting change.
+
 ## Kata boot service and current-state commits: 17:55 request
 
 - Committed the pre-service integration state as `7c6df7d`, including the
