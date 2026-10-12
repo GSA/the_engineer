@@ -167,6 +167,18 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   source/manifests/build recipes are retained despite dependency exclusions.
   Local host copying does not establish cloud sync, retention or application
   recovery, and no automatic schedule is authorized or installed.
+- At 19:51 on 2026-10-12 the owner extends the same protected-OneDrive backup
+  rules to `~/falcon-docs`. Scope now explicitly includes that separate
+  checkout's sensitive raw intake, authoritative stores, provenance,
+  retained recovery snapshots/receipts and ignored local files. Its tracked
+  work is already clean at `fec05a8`; do not stage raw intake, its ignored
+  owner TODO, credentials or historical recovery material into Git.
+  This is backup authorization, not corpus editing/SPUD intake, index refresh,
+  review-event mutation, publication or backlog migration. Global agent
+  profiles/host configuration are not included in the named Falcon request.
+  Preserve historical snapshot/receipt bytes, take online copies of the four
+  explicit current SQLite stores, exclude reinstallable virtualenvs, and use
+  private disk-backed staging outside either checkout for the large corpus.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 

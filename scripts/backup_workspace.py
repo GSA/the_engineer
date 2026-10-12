@@ -52,12 +52,13 @@ def digest(path):
     return checksum.hexdigest()
 
 
-def excluded(relative, tracked, tracked_parents):
+def excluded(relative, tracked, tracked_parents, source):
     name = relative.as_posix()
     if ".git" in relative.parts or name in tracked or name in tracked_parents:
         return False
     return (
         bool(DEPENDENCY_NAMES.intersection(relative.parts))
+        or ((source / relative).is_dir() and (source / relative / "pyvenv.cfg").is_file())
         or any(name == prefix or name.startswith(prefix + "/") for prefix in GENERATED_PATHS)
     )
 
@@ -85,7 +86,7 @@ def snapshot_database(source, destination):
     shutil.copystat(source, destination)
 
 
-def snapshot_files(source, target, tracked):
+def snapshot_files(source, target, tracked, sqlite_paths=None):
     parents = {parent.as_posix() for name in tracked for parent in Path(name).parents}
     inventory = {}
     omissions = []
@@ -94,7 +95,7 @@ def snapshot_files(source, target, tracked):
     def copy(relative):
         path = source / relative
         destination = target / relative
-        if excluded(relative, tracked, parents):
+        if excluded(relative, tracked, parents, source):
             omissions.append({"path": relative.as_posix(), "reason": "reinstallable/generated"})
             return
         info = path.lstat()
@@ -114,10 +115,14 @@ def snapshot_files(source, target, tracked):
             inventory[relative.as_posix()] = {"kind": "directory", "mode": mode}
         elif stat.S_ISREG(info.st_mode):
             for suffix in ("-wal", "-shm", "-journal"):
-                if path.name.endswith(suffix) and is_database(path.with_name(path.name[:-len(suffix)])):
+                if not path.name.endswith(suffix):
+                    continue
+                base = path.with_name(path.name[:-len(suffix)])
+                if ((sqlite_paths is None or base.relative_to(source).as_posix() in sqlite_paths)
+                        and is_database(base)):
                     omissions.append({"path": relative.as_posix(), "reason": "SQLite snapshot sidecar"})
                     return
-            if is_database(path):
+            if (sqlite_paths is None or relative.as_posix() in sqlite_paths) and is_database(path):
                 snapshot_database(path, destination)
                 databases.append(relative.as_posix())
             else:
@@ -182,7 +187,7 @@ def verify_restore(root, manifest):
                 raise RuntimeError(f"Restored SQLite integrity check failed: {name}")
 
 
-def create_backup(source, destination):
+def create_backup(source, destination, *, staging_dir=None, sqlite_paths=None):
     source = source.resolve(strict=True)
     destination = destination.resolve()
     if destination.is_relative_to(source):
@@ -191,8 +196,21 @@ def create_backup(source, destination):
         raise ValueError("Backup destination's parent must already exist")
     if not (source / ".git").is_dir():
         raise ValueError("Backup requires a standalone Git checkout with a local .git directory")
+    if staging_dir is not None:
+        staging_dir = staging_dir.resolve(strict=True)
+        if not staging_dir.is_dir() or staging_dir.is_relative_to(source):
+            raise ValueError("Staging directory must be an existing directory outside the workspace")
+    if sqlite_paths is not None:
+        sqlite_paths = set(sqlite_paths)
+        for name in sqlite_paths:
+            path = Path(name)
+            if path.is_absolute() or ".." in path.parts or (source / path).is_symlink():
+                raise ValueError("SQLite snapshot paths must be relative workspace files without symlinks")
+            if not is_database(source / path):
+                raise ValueError(f"SQLite snapshot path is not an existing database: {name}")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    name = f"engi-platform-{stamp}-{uuid.uuid4().hex[:8]}.tar.gz"
+    label = "engi-platform" if source == ROOT else source.name
+    name = f"{label}-{stamp}-{uuid.uuid4().hex[:8]}.tar.gz"
     tracked = set(git(source, "ls-files", "--recurse-submodules", "-z").decode().split("\0")) - {""}
     manifest = {
         "format": 1, "created_at": stamp, "workspace": source.name,
@@ -202,11 +220,12 @@ def create_backup(source, destination):
         "submodules": git(source, "submodule", "status", "--recursive").decode(),
         "scope": "Entire workspace including sensitive private state; external assets not followed",
         "sqlite_consistency": "Individually consistent online snapshots, not a cross-service transaction",
+        "sqlite_snapshot_paths": "all" if sqlite_paths is None else sorted(sqlite_paths),
     }
-    with tempfile.TemporaryDirectory(prefix="engi-backup-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="engi-backup-", dir=staging_dir) as temporary:
         stage = Path(temporary)
         snapshot = stage / source.name
-        files, omissions, databases = snapshot_files(source, snapshot, tracked)
+        files, omissions, databases = snapshot_files(source, snapshot, tracked, sqlite_paths)
         manifest.update(files=files, omitted=omissions, databases=databases)
         if (git(source, "rev-parse", "HEAD").decode().strip() != manifest["commit"]
                 or git(source, "status", "--porcelain").decode() != manifest["git_status"]
@@ -215,7 +234,7 @@ def create_backup(source, destination):
         metadata = stage / "backup-manifest.json"
         metadata.write_text(json.dumps(manifest, indent=2) + "\n")
         archive = stage / name
-        with tarfile.open(archive, "w:gz") as output:
+        with tarfile.open(archive, "w:gz", compresslevel=1) as output:
             output.add(snapshot, arcname=source.name)
             output.add(metadata, arcname=metadata.name)
         restore = stage / "restore"
@@ -260,9 +279,18 @@ def create_backup(source, destination):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path, help="Explicit approved backup directory outside the checkout")
+    parser.add_argument("--source", type=Path, default=ROOT, help="Workspace to copy (default: this platform)")
+    parser.add_argument("--staging-dir", type=Path, help="Existing private directory on a disk with room for staging")
+    parser.add_argument(
+        "--sqlite-snapshot", action="append", dest="sqlite_paths",
+        help="Snapshot only these relative live database paths; preserve other SQLite artifacts byte-for-byte",
+    )
     arguments = parser.parse_args()
     os.umask(0o077)
     try:
-        print(json.dumps(create_backup(ROOT, arguments.destination), indent=2))
+        print(json.dumps(create_backup(
+            arguments.source, arguments.destination,
+            staging_dir=arguments.staging_dir, sqlite_paths=arguments.sqlite_paths,
+        ), indent=2))
     except (OSError, ValueError, RuntimeError, sqlite3.Error, subprocess.SubprocessError, tarfile.TarError) as error:
         parser.exit(1, f"ERROR: {error}\n")

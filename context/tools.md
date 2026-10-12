@@ -235,6 +235,43 @@ Local archive restoration is not a running-application recovery drill, and
 local OneDrive placement is not verified cloud upload/retention/recovery.
 No automatic schedule, host/global setting or service configuration changed.
 
+## Falcon full-corpus backup extension: 2026-10-12 at 19:51
+
+The owner explicitly authorizes `falcon-docs` under the same protected-OneDrive
+rules. Root instructions and the maintenance/catalog/event recovery contracts
+were read before acting. Its Git worktree is clean at `fec05a8`. Do not edit
+its corpus, add ignored intake/owner TODO to Git, mutate review events, refresh
+retrieval indexes or prune retained snapshots. This operation does not grant
+program release/ORR authority or include global client profiles.
+
+Metadata-only preflight identifies 60,452 included regular files totaling
+78,038,095,118 bytes, and 2,698 reinstallable files totaling 81,216,861 bytes.
+The large remainder is principally source assets, extraction/provenance and
+retention-bound recovery copies, not removable dependency bulk. Four apparent
+external Python links were all inside a named measurement virtualenv; detecting
+its `pyvenv.cfg` excludes that installable environment without following links.
+No included external links or unsupported special files remain.
+
+`backup_workspace.py` now accepts an explicit `--source`, `--staging-dir` and
+repeatable relative `--sqlite-snapshot` paths, retaining default platform use.
+Explicit selection snapshots only catalog, review events, the text index and
+the graph index. Historical database artifacts/receipts and raw originals are
+preserved byte-for-byte, avoiding invalidation of existing receipt hashes.
+Archived manifests identify the exact SQLite selection. Distinct source-based
+archive names and fast gzip support the larger copy.
+
+Staging uses the session's private, disk-backed `files/` directory outside both
+checkouts, with about 857 GB free at preflight; `/tmp` is a 24 GB tmpfs and is
+not suitable. Local staging must be removed after completion/failure. The
+protected destination has about 660 GB free locally; this says nothing about
+cloud quota/upload/retention. No automatic backup schedule is configured.
+
+All 102 focused tests pass, including 14 backup tests. New cases prove named
+virtualenv exclusion, disk-backed staging/cleanup, explicit live-database path
+validation and byte-identical historical database/receipt preservation.
+Existing private permissions, SQLite WAL, dirty work, submodule history,
+host-copy cleanup and non-overwriting behaviors remain covered.
+
 # Artifact audit: 2026-10-09
 
 Owner-requested cleanup subagent removed only generated ignored bytecode:

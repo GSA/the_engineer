@@ -479,6 +479,38 @@ downloading a copy from the cloud have not been exercised.
 The initial local host copy is complete; OneDrive cloud delivery, retention and
 cloud recovery remain unverified. There is no automatic backup schedule.
 
+### Falcon corpus backup
+
+The owner separately approved `~/falcon-docs` on 2026-10-12. Its tracked work
+was already committed; raw intake, sensitive originals, provenance, retained
+recovery snapshots/receipts and ignored owner files remain archive content,
+not new Git files. Use the same protected folder, with a distinct
+`falcon-docs-<UTC>-<nonce>.tar.gz` archive.
+
+Falcon's large retained asset tree requires disk-backed staging, not this
+host's 24 GB `/tmp`. Choose an existing private Linux directory **outside
+both checkouts** with room for the snapshot, archive and restored copy:
+
+```sh
+python3 scripts/backup_workspace.py \
+  '/mnt/c/Users/NKIRRISH/OneDrive - CGI Federal, Inc/EngiPlatformBackups' \
+  --source /home/nkirrish/falcon-docs \
+  --staging-dir /absolute/private/disk-backed-directory \
+  --sqlite-snapshot REFERENCE/catalog/catalog.sqlite3 \
+  --sqlite-snapshot REFERENCE/review-events/events.sqlite3 \
+  --sqlite-snapshot tools/context-index/.local/index.sqlite3 \
+  --sqlite-snapshot tools/context-graph/.local/graph.sqlite3
+```
+
+Explicit SQLite selection takes online snapshots only of the listed current
+stores. Other database artifacts, especially retained historical snapshots,
+are copied byte-for-byte with their receipts; never transform or prune them
+as dependency bulk. Python environments identified by `pyvenv.cfg` are
+reinstallable dependencies even when named differently from `.venv`.
+Fast gzip compression keeps full-corpus copies practical without changing
+source bytes or archive restoration rules. Global Pi/Copilot profiles are
+still outside the two named workspace archives.
+
 Register another existing local Git checkout while Forge is running:
 
 ```sh

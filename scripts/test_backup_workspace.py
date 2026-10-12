@@ -138,6 +138,67 @@ class BackupTests(unittest.TestCase):
             manifest["omitted"],
         )
 
+    def test_explicit_live_database_selection_preserves_historical_snapshot_hashes(self):
+        historical = self.source / "REFERENCE/catalog/backups/snapshot.sqlite3"
+        historical.parent.mkdir(parents=True)
+        with closing(sqlite3.connect(historical)) as writer:
+            writer.execute("CREATE TABLE records (value TEXT)")
+            writer.execute("INSERT INTO records VALUES ('historical')")
+            writer.commit()
+        original = historical.read_bytes()
+        self.write("REFERENCE/catalog/backups/snapshot.json", json.dumps({
+            "sha256": backup_workspace.digest(historical),
+        }))
+        live = self.source / "REFERENCE/catalog/catalog.sqlite3"
+        with closing(sqlite3.connect(live)) as writer:
+            writer.execute("PRAGMA journal_mode=WAL")
+            writer.execute("PRAGMA wal_autocheckpoint=0")
+            writer.execute("CREATE TABLE records (value TEXT)")
+            writer.execute("INSERT INTO records VALUES ('current')")
+            writer.commit()
+            result = backup_workspace.create_backup(
+                self.source, self.destination,
+                sqlite_paths={"REFERENCE/catalog/catalog.sqlite3"},
+            )
+        restored, manifest = self.unpack(result)
+        self.assertEqual((restored / historical.relative_to(self.source)).read_bytes(), original)
+        receipt = json.loads((restored / "REFERENCE/catalog/backups/snapshot.json").read_text())
+        self.assertEqual(
+            backup_workspace.digest(restored / historical.relative_to(self.source)), receipt["sha256"],
+        )
+        self.assertEqual(manifest["databases"], ["REFERENCE/catalog/catalog.sqlite3"])
+        self.assertTrue(Path(result["archive"]).name.startswith("workspace-"))
+
+    def test_explicit_staging_directory_is_used_and_cleaned(self):
+        stage = self.parent / "private-stage"
+        stage.mkdir(mode=0o700)
+        result = backup_workspace.create_backup(self.source, self.destination, staging_dir=stage)
+        self.assertTrue(result["local_restore_verified"])
+        self.assertEqual(list(stage.iterdir()), [])
+
+    def test_named_virtualenv_is_omitted_without_following_its_external_python_links(self):
+        self.write("tools/.local/measurement-venv/pyvenv.cfg", "home = /usr/bin\n")
+        path = self.source / "tools/.local/measurement-venv/bin/python"
+        path.parent.mkdir()
+        path.symlink_to("/usr/bin/python3")
+        result = backup_workspace.create_backup(self.source, self.destination)
+        restored, manifest = self.unpack(result)
+        self.assertFalse((restored / "tools/.local/measurement-venv").exists())
+        self.assertIn(
+            {"path": "tools/.local/measurement-venv", "reason": "reinstallable/generated"},
+            manifest["omitted"],
+        )
+
+    def test_staging_inside_workspace_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "outside"):
+            backup_workspace.create_backup(self.source, self.destination, staging_dir=self.source)
+
+    def test_invalid_explicit_database_selection_is_rejected(self):
+        for name in ("missing.db", "../outside.db", str(self.parent / "outside.db"), "source.txt"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                backup_workspace.create_backup(self.source, self.destination, sqlite_paths={name})
+        self.assertFalse(self.destination.exists())
+
     def test_failed_restore_check_never_publishes_archive(self):
         with patch.object(backup_workspace, "verify_restore", side_effect=RuntimeError("failed restore")):
             with self.assertRaisesRegex(RuntimeError, "failed restore"):
