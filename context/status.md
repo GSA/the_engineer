@@ -1,5 +1,26 @@
 # Status: 2026-10-12
 
+## Falcon sensitive-corpus backup: 19:51 request
+
+- Owner extends the same protected-OneDrive backup rules to `falcon-docs`.
+  Falcon's instructions and recovery contracts are loaded; its worktree is
+  clean/committed at `fec05a8`. No Falcon corpus edits, intake processing,
+  review writes, retrieval refresh or ignored-file staging is in scope.
+- Metadata preflight preserves 60,452 regular files / 78,038,095,118 bytes,
+  omitting 2,698 reinstallable files / 81,216,861 bytes. Retained historical
+  database snapshots, receipts, provenance and raw intake are not dependencies.
+  External Python links occur only in a reinstallable named virtualenv; no
+  included external links or unsupported special files remain.
+- Added explicit source/staging/live-SQLite selection to the shared helper.
+  Historical SQLite artifacts remain byte-identical with matching receipts.
+  The four current catalog/event/text-index/graph stores use online snapshots.
+  Disk-backed staging outside both checkouts replaces undersized tmpfs `/tmp`.
+  All 102 focused tests and `git diff --check` pass; no dependencies installed.
+- Platform task `b2bg` tracks the actual copy. Its final completion evidence
+  must name the host artifact and verified archive result, not infer success
+  from this preflight. Cloud delivery/retention, running-application recovery
+  and global agent profiles remain outside the demonstrated local copy.
+
 ## Sensitive-state workspace backup and local commits: 19:27 request
 
 - Owner authorizes CGI Federal protected OneDrive for sensitive assets and
