@@ -4,7 +4,8 @@ Kata project **`engi-platform`** is authoritative for this project's open work.
 This file is a generated task index plus historical completed entries, not a
 second manually maintained backlog. Update tasks with `./scripts/kata-local.py`;
 refresh this index with `python3 scripts/kata_todo.py` before handoff.
-Start the local daemon with `python3 scripts/local_env.py run` when needed.
+Kata starts with WSL under `kenn-kopy-kata.service`; if intentionally stopped,
+use `systemctl --user start kenn-kopy-kata.service` before task/index commands.
 
 The 2026-10-12 migration preserved all 37 open source entries in 36 issues
 (the duplicate Helix-login entries were combined) and added the reproducible

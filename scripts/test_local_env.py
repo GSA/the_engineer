@@ -795,6 +795,148 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(local_env.supervised_ports({"forge": {}, "roborev": {}, "agentsview": {}}),
                          (17777,))
 
+    def test_kata_service_installation_preserves_profile_and_is_repeatable(self):
+        config = self.state / "kata/config.toml"
+        database = self.state / "kata/kata.db"
+        database.write_bytes(b"persistent-task-fixture")
+        before = config.read_bytes()
+        with patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)) as run:
+            with patch.object(local_env, "managed_kata", return_value={"pid": 123}):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    local_env.install_kata_service()
+                    first = (self.state / "systemd" / local_env.KATA_UNIT).read_bytes()
+                    local_env.install_kata_service()
+        self.assertEqual(config.read_bytes(), before)
+        self.assertEqual(database.read_bytes(), b"persistent-task-fixture")
+        self.assertEqual((self.state / "systemd" / local_env.KATA_UNIT).read_bytes(), first)
+        self.assertIn('"kata-run"', first.decode())
+        self.assertIn("WantedBy=default.target", first.decode())
+        self.assertNotIn("USAI_API_KEY", first.decode())
+        self.assertIn(unittest.mock.call(
+            ["systemctl", "--user", "enable", "--now", local_env.KATA_UNIT],
+            check=True, timeout=60), run.call_args_list)
+        self.assertEqual(json.loads((self.state / "kata-service.json").read_text()),
+                         {"unit": local_env.KATA_UNIT})
+
+    def test_kata_rejects_nonlocal_or_separate_web_bindings_and_missing_binary(self):
+        for content in ('listen = "0.0.0.0:17777"\n',
+                        'listen = "127.0.0.1:17777"\n[web]\nlisten = "0.0.0.0:17778"\n'):
+            local_env.private_write(self.state / "kata/config.toml", content, replace=True)
+            with self.assertRaisesRegex(RuntimeError, "loopback"):
+                local_env.validate_kata_config()
+        with patch.object(Path, "is_file", return_value=False):
+            with self.assertRaisesRegex(RuntimeError, "missing executable Kata"):
+                local_env.kata_command()
+
+    def kata_opener(self, *, pid=123, health=None):
+        opener = MagicMock()
+        response = opener.open.return_value.__enter__.return_value
+        response.read.side_effect = [
+            json.dumps({"pid": pid, "service": "kata", "ok": True, "version": "test"}).encode(),
+            json.dumps(health if health is not None else {
+                "ok": True, "version": "test", "schema_version": 30,
+                "api_schema_version": "0.24.0", "db_path": str(self.state / "kata/kata.db"),
+            }).encode(),
+        ]
+        response.status = 200
+        response.headers = {"Content-Type": "text/html; charset=utf-8"}
+        return opener
+
+    def test_managed_kata_checks_service_database_and_html_readiness(self):
+        opener = self.kata_opener()
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            with patch.object(local_env, "HTTP", opener):
+                result = local_env.managed_kata(required=True)
+        self.assertEqual(result, {"unit": local_env.KATA_UNIT, "pid": 123,
+                                 "version": "test", "schema_version": 30,
+                                 "api_schema_version": "0.24.0"})
+        self.assertEqual([call.args[0] for call in opener.open.call_args_list[:2]], [
+            "http://127.0.0.1:17777/api/v1/ping", "http://127.0.0.1:17777/api/v1/health",
+        ])
+        request = opener.open.call_args_list[2].args[0]
+        self.assertEqual(request.full_url, "http://127.0.0.1:17777/kata")
+        self.assertEqual(request.get_header("Accept"), "text/html")
+
+    def test_managed_kata_requires_ownership_marker_unless_installing(self):
+        with patch.object(local_env, "user_service_pid") as pid:
+            self.assertIsNone(local_env.managed_kata())
+        pid.assert_not_called()
+
+    def test_managed_kata_rejects_another_process(self):
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            with patch.object(local_env, "HTTP", self.kata_opener(pid=456)):
+                with self.assertRaisesRegex(RuntimeError, "managed user service"):
+                    local_env.managed_kata(required=True)
+
+    def test_managed_kata_rejects_wrong_database_and_invalid_health(self):
+        good = {"ok": True, "version": "test", "schema_version": 30,
+                "api_schema_version": "0.24.0", "db_path": str(self.state / "kata/kata.db")}
+        for key, value in (("db_path", "/wrong/kata.db"), ("schema_version", 0),
+                           ("schema_version", True), ("api_schema_version", ""),
+                           ("version", "other"), ("ok", False)):
+            with self.subTest(key=key, value=value):
+                with patch.object(local_env, "user_service_pid", return_value=123):
+                    with patch.object(local_env, "HTTP", self.kata_opener(health={**good, key: value})):
+                        with self.assertRaisesRegex(RuntimeError, "private profile"):
+                            local_env.managed_kata(required=True)
+
+    def test_kata_run_is_foreground_private_and_credential_free(self):
+        with patch.object(local_env, "check_ports") as ports, patch.object(os, "chdir") as chdir:
+            with patch.object(os, "execve") as execute:
+                with patch.dict(os.environ, {"USAI_API_KEY": "not-inherited",
+                                             "KATA_HOME": "/wrong", "KATA_SERVER": "https://wrong"}):
+                    local_env.kata_run()
+        ports.assert_called_once_with((17777,))
+        chdir.assert_called_once_with(self.state / "home")
+        binary, command, environment = execute.call_args.args
+        self.assertEqual(binary, str(local_env.ROOT / "kata/kata"))
+        self.assertEqual(command[1:], ["daemon", "start", "--foreground", "--no-auto-token",
+                                      "--listen", "127.0.0.1:17777"])
+        self.assertEqual(environment["KATA_HOME"], str(self.state / "kata"))
+        self.assertEqual(environment["KATA_SERVER"], "http://127.0.0.1:17777")
+        self.assertNotIn("USAI_API_KEY", environment)
+
+    def test_all_four_independent_services_leave_no_supervised_ports(self):
+        self.assertEqual(local_env.supervised_ports(dict.fromkeys(local_env.SERVICE_PORTS)), ())
+
+    def test_stopped_supervisor_status_still_reports_kata(self):
+        service = {"unit": local_env.KATA_UNIT, "pid": 123}
+        with patch.object(local_env, "managed_services", return_value={"kata": service}):
+            with patch.object(local_env, "api") as api:
+                result = local_env.status()
+        self.assertEqual(result["stack"], "stopped")
+        self.assertEqual(result["kata_service"], service)
+        api.assert_not_called()
+
+    def test_supervisor_without_owned_children_cleans_up_and_keeps_services(self):
+        external = {name: {"unit": name + ".service", "pid": 123}
+                    for name in local_env.SERVICE_PORTS}
+        with patch.object(local_env, "managed_services", return_value=external):
+            with patch.object(local_env, "check_ports") as ports:
+                with patch.object(local_env, "register_project"):
+                    with patch.object(local_env.subprocess, "Popen") as start:
+                        with patch.object(local_env.time, "sleep", side_effect=SystemExit(0)):
+                            with patch.object(local_env.signal, "signal"):
+                                with contextlib.redirect_stdout(io.StringIO()):
+                                    with self.assertRaises(SystemExit):
+                                        local_env.serve()
+        start.assert_not_called()
+        self.assertEqual(ports.call_args_list, [unittest.mock.call(()), unittest.mock.call(())])
+        self.assertFalse((self.state / "runtime/supervisor.json").exists())
+        self.assertEqual(json.loads((self.state / "runtime/shutdown.json").read_text()),
+                         {"ok": True, "errors": []})
+
+    def test_stop_preserves_all_four_independent_services(self):
+        external = {name: {"unit": name + ".service"} for name in local_env.SERVICE_PORTS}
+        local_env.json_write(self.state / "runtime/shutdown.json", {"ok": True})
+        with patch.object(local_env, "supervisor", return_value={"pid": 123, "external_services": external}):
+            with patch.object(local_env.os, "kill") as kill:
+                with patch.object(local_env, "check_ports") as ports:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        local_env.stop()
+        kill.assert_called_once_with(123, local_env.signal.SIGTERM)
+        ports.assert_called_once_with(())
+
     def test_forge_status_keeps_project_registry_when_stack_is_stopped(self):
         service = {"unit": local_env.FORGE_UNIT, "pid": 123}
         with patch.object(local_env, "managed_services", return_value={"forge": service}):

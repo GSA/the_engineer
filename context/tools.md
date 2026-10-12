@@ -124,6 +124,25 @@ restriction. Automatic detection-manifest downloads and saved pane history
 need deliberate reproducibility/retention choices; neither sandboxing nor
 USAi routing is established simply by using Herdr.
 
+## Next research priorities: 17:55 request
+
+Prioritize gaps in this stack over accumulating overlapping tools. These are
+recommendations using the documented sources above, not new runtime findings
+or approval to install products.
+
+| Priority | Existing Kata task | Target and bounded question |
+| --- | --- | --- |
+| 1 | `tvbf` | Kata's native MCP/agent/attention integration: make private Pi and Copilot reliably discover, claim, update and hand off one real platform task without creating a second ledger. |
+| 2 | `r27h` | Herdr: isolated Pi/Copilot terminal/status trial outside Forge-owned tmux; verify private profile, native resume, Falcon MCP and AgentsView coverage. |
+| 3 | `0s6v` | Richard Gill's Pi extensions/setup: select useful background-command, context-loading and coordination ideas; preserve USAi and human publication control rather than importing the whole setup. |
+| 4 | `jjw1` | Ouijit: compare task/worktree/agent lifecycle with Kata plus Forge on synthetic work; adopt only if it closes a demonstrated gap without competing task authority. |
+
+Spokenly (`0rc1`) is a separate personal-productivity trial with local models.
+Ghostty (`c3ch`) is lower-priority terminal ergonomics. PiPod/Abyss/smolvm
+(`vd8j`) remain deferred sandbox research before cloud or broader autonomous
+execution; none is selected and profile isolation is still not a sandbox.
+Database backup/recovery remains a separate owner-requested session.
+
 ## Pi 0.87.1 removal: 2026-10-12
 
 The old shell command was `~/.local/bin/pi` pointing to the managed
@@ -343,9 +362,22 @@ Verified public sources:
 
 ## Persistent local environment
 
-As of the 2026-10-09 Forge migration, three independent boot units own
-AgentsView, roborev and Forge; `run` owns only Kata. `status` can read Forge's
-projects even with the Kata supervisor stopped. Forge's unit pins Node and
+As of the 2026-10-12 17:55 Kata migration, all four dashboards have independent
+boot units. `install-kata-service`/`kata-run` reuse the shared unit installer
+and sanitized environment with foreground/no-auto-token startup and no Node
+or model credential. Kata readiness checks systemd MainPID against `/ping`,
+`/health` against the existing private database/schema/version, and `/kata`
+with HTML content negotiation. The shared API/UI must remain on loopback
+17777; a separate configured web listener is rejected. The owner has not
+requested automatic agent hooks or a backup.
+
+`run` is now only a fallback for profiles without all units. An empty-child
+supervisor still writes/removes its own runtime/shutdown metadata so `stop`
+cannot hang or interfere with independent services. `status` exposes
+`kata_service`; its legacy `stack` field describes the optional supervisor,
+not availability of independently running dashboards.
+
+`status` can read Forge's projects even with the supervisor stopped. Forge's unit pins Node and
 uses the saved binary/config with provider sync disabled. `managed_forge`
 validates systemd MainPID, owned runtime metadata/data/config identity,
 database health/version/revision and HTML readiness. Native runtime JSON is
@@ -398,7 +430,7 @@ python3 scripts/local_env.py run
 
 Setup creates missing configuration only, preserves existing files/settings,
 and rejects unintended changes to recorded executable/corpus paths. `run`
-now starts only Kata and retains independently managed Forge/AgentsView/roborev.
+retains all installed independent services and starts only uninstalled ones.
 Before Forge's migration it owned Forge/Kata; before any user-service migration,
 all four daemons were supervised together. The loopback ports are unchanged, and Falcon is
 registered idempotently without changing the checkout.
@@ -714,12 +746,13 @@ validates its policy, uses loopback/no-browser/no-update-check, and never
 receives the USAi key. Health must match systemd's MainPID. Existing systemd
 and `Linger=yes` required no privileged boot changes. The unit is enabled and
 restart/archive persistence were verified; a real WSL shutdown was not tested.
-AgentsView and roborev now start at boot; Forge/Kata remain on-demand.
+At that initial migration, AgentsView and roborev started at boot while
+Forge/Kata remained on-demand. Subsequent migrations enabled all four units.
 README owns startup/service/smoke commands.
 
 The companion supervisor attaches to that unit without owning its process.
 Status reports the live independent PID after restart, and stop checks only
-owned listener ports. Stop both independent units before disposable smoke
+owned listener ports. Stop all four current independent units before disposable smoke
 checks. Private pre-import configuration/empty-archive backup:
 `.local/environment/backups/pre-tracking-20261008T194142Z/`.
 

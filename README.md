@@ -16,18 +16,25 @@ documented in [context/engineering-workflow.md](context/engineering-workflow.md)
 
 ## Start and access the environment
 
-Run commands from this repository's root. If setup is already complete, start
-the saved environment directly:
+Run commands from this repository's root. On this host, all four dashboards
+start automatically with WSL as independent user-systemd services. No terminal
+or browser autostart is required. Check the saved environment:
 
 ```sh
-python3 scripts/local_env.py run
+python3 scripts/local_env.py status
 ```
 
-Keep that terminal open. On this host, AgentsView, roborev and Forge run
-independently as user-systemd services; the supervisor starts only Kata on IPv4
-loopback and connects to them. Configuration/databases are retained, and
-`~/falcon-docs` remains registered as a local Forge project. Before installing
-the independent services, the supervisor owns all four dashboards.
+Configuration/databases are retained, and `~/falcon-docs` remains registered
+as a local Forge project. If you intentionally stopped services, restore them:
+
+```sh
+systemctl --user start kenn-kopy-kata.service kenn-kopy-forge.service \
+  kenn-kopy-roborev.service kenn-kopy-agentsview.service
+```
+
+Before installing independent services on another host,
+`python3 scripts/local_env.py run` remains a foreground fallback. Keep that
+terminal open; the supervisor owns only dashboards not installed as services.
 
 | Application | Local browser address |
 | --- | --- |
@@ -60,26 +67,12 @@ the old record, and normal shutdown removes its own record.
 Ctrl+C in the running terminal also stops the supervisor. Shutdown retains
 settings, projects, databases and Pi session files. Stop unwanted live terminal
 sessions through Forge's session controls; they can have independent lifetimes.
-**Stopping this stack leaves independent AgentsView, roborev and Forge running.**
-All three are enabled at WSL boot; Kata remains on-demand. Occupied ports fail
-startup rather than replacing another
-process.
-
-For an on-demand stack without an open terminal, this systemd host also supports:
-
-```sh
-systemd-run --user --unit=kenn-kopy-local --collect \
-  --setenv=PATH="$PATH" \
-  --property=WorkingDirectory="$PWD" --property=UMask=0077 \
-  --description='On-demand Kenn Kopy task dashboard' \
-  /usr/bin/python3 "$PWD/scripts/local_env.py" run
-```
-
-Do not use this while another supervisor is running. This transient unit is
-not enabled at boot. Passing the shell's non-secret `PATH` is necessary here
-because Pi uses the user-installed NVM Node runtime. Use the same `status`/
-`stop` commands; inspect failures with
-`journalctl --user -u kenn-kopy-local.service`.
+**Stopping the supervisor leaves all four independent services running.**
+They are enabled at WSL boot; use each service's `systemctl --user stop` command
+to stop it deliberately. The `status` field `stack` describes the optional
+supervisor, not overall dashboard availability; `stack: stopped` is normal
+when all four service entries are healthy. Occupied ports fail startup rather
+than replacing another process.
 
 ## Kata tasks for Engi Platform
 
@@ -90,9 +83,9 @@ historical completed entries, not a second backlog. Falcon's tasks are unchanged
 The original open TODO descriptions are preserved in task bodies, including
 blockers and provenance. The reproducible redeployment recipe is task **`5xrm`**.
 
-Start Kata with `python3 scripts/local_env.py run`, keep that terminal open,
-then open **http://127.0.0.1:17777/kata** and select `engi-platform`.
-From a second terminal at this repository root:
+Kata runs under **`kenn-kopy-kata.service`**. Open
+**http://127.0.0.1:17777/kata** and select `engi-platform`.
+From this repository root:
 
 ```sh
 ./scripts/kata-local.py list --agent
@@ -116,8 +109,32 @@ Forge can discover/read tasks, but task-to-worktree creation still needs a
 configured repository mapping. [Adoption details](context/kata-adoption.md)
 and the [synthetic evaluation](context/kata-evaluation.md) describe the boundaries.
 
-Use Ctrl+C or `python3 scripts/local_env.py stop` when finished; saved tasks
-remain and the three boot services stay running. Kata remains on-demand.
+Inspect, restart or read the service journal:
+
+```sh
+systemctl --user status kenn-kopy-kata.service --no-pager
+systemctl --user restart kenn-kopy-kata.service
+journalctl --user -u kenn-kopy-kata.service
+```
+
+For first-time migration, stop a supervisor that owns Kata, then install:
+
+```sh
+python3 scripts/local_env.py stop
+python3 scripts/local_env.py install-kata-service
+```
+
+The installer is repeatable and preserves the existing config/database; occupied
+ports or mismatched service/database identities fail explicitly. The unit runs
+the daemon in the foreground with a sanitized, credential-free environment,
+shared loopback API/UI and no automatic token creation. It needs neither Node
+nor a USAi key. The existing user manager/lingering setup starts it with WSL;
+no dependency on Forge or the other dashboards is added.
+
+`python3 scripts/local_env.py stop` does not stop Kata. Use
+`systemctl --user stop kenn-kopy-kata.service` for deliberate downtime,
+or `systemctl --user disable --now kenn-kopy-kata.service` to disable boot
+startup without deleting tasks. Start it again before task/index commands.
 **Database backup is deferred to a separate session**, as requested; private
 persistence and the Markdown index are not a database backup.
 
@@ -320,7 +337,7 @@ Forge runs independently at **http://127.0.0.1:18091/** under
 `kenn-kopy-forge.service`. It retains the existing private database/config and
 Falcon project ID. Its unit records the Node executable for Pi; it does not
 depend on interactive NVM initialization or put credentials into the unit.
-Kata remains on-demand, not a boot dependency.
+Kata has its own boot service, not a Forge startup dependency.
 
 ```sh
 systemctl --user status kenn-kopy-forge.service --no-pager
@@ -409,7 +426,7 @@ global home configuration and disposable smoke runs.
 | `pi/` | Isolated Pi settings, MCP/model configuration and session files |
 | `roborev/`, `kata/`, `agentsview/` | Persistent application state |
 | `logs/` | Appended on-demand logs; independent services use the user journal |
-| `systemd/`, `agentsview-service.json`, `roborev-service.json`, `forge-service.json`, `agentsview-tracking.json` | Generated user units, independent ownership and non-secret source/policy metadata |
+| `systemd/`, `agentsview-service.json`, `roborev-service.json`, `forge-service.json`, `kata-service.json`, `agentsview-tracking.json` | Generated user units, independent ownership and non-secret source/policy metadata |
 | `gh/` | Isolated GitHub CLI login used by Forge; credentials must never be tracked |
 | `secrets/usai-api-key` | Private USAi credential |
 
@@ -580,16 +597,16 @@ python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge
 The smoke script creates fresh isolated state, supplies no credentials, checks
 startup/assets/task storage/offline skills, and shuts down its own processes.
 Do not run it alongside the persistent environment: they use the same ports.
-Stop the dashboard supervisor if running **and** stop all three independent units
+Stop the dashboard supervisor if running **and** stop all four independent units
 first:
 
 ```sh
-systemctl --user stop kenn-kopy-forge.service kenn-kopy-roborev.service kenn-kopy-agentsview.service
+systemctl --user stop kenn-kopy-kata.service kenn-kopy-forge.service \
+  kenn-kopy-roborev.service kenn-kopy-agentsview.service
 ```
 
-Afterward, restore them with `systemctl --user start kenn-kopy-forge.service
-kenn-kopy-roborev.service kenn-kopy-agentsview.service`; restart the on-demand
-task dashboard if needed.
+Afterward, restore them with `systemctl --user start kenn-kopy-kata.service
+kenn-kopy-forge.service kenn-kopy-roborev.service kenn-kopy-agentsview.service`.
 
 See [TODO.md](TODO.md) for open work, [context/status.md](context/status.md) for
 observed results/current process state, [context/tools.md](context/tools.md)
