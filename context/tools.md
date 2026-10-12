@@ -1,5 +1,13 @@
 # Upstream components
 
+For the 2026-10-12 live service/boot snapshot, see `status.md`. For Forge
+workflow semantics and draft prompt responsibilities, see
+`engineering-workflow.md`. Repository-free Kata runtime findings and remaining
+integration boundaries are in `kata-evaluation.md`; current project-scoped
+backlog adoption and CLI/index operations are in `kata-adoption.md`.
+The project display name is now Engi Platform;
+paths and installed service names remain `kenn-kopy` pending migration.
+
 Exact source revisions are the parent repository's gitlinks:
 `git submodule status`. Do not duplicate version pins in this document.
 
@@ -8,11 +16,153 @@ Exact source revisions are the parent repository's gitlinks:
 | `roborev/` | https://github.com/kenn-io/roborev | Continuous code review |
 | `superpowers/` | https://github.com/obra/superpowers | Agent skills and workflow |
 | `forge/` | https://github.com/kenn-io/forge | Review and agent workspaces |
-| `kata/` | https://github.com/kenn-io/kata | Task-tracking evaluation |
+| `kata/` | https://github.com/kenn-io/kata | Engi Platform task ledger |
 | `agentsview/` | https://github.com/kenn-io/agentsview | Session and token visibility |
 
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
+
+# Richard Gill: research and queued review, 2026-10-12
+
+[Richard Gill](https://richardgill.org/) describes himself as a London software
+engineer, formerly at Stripe and running a consultancy; employment history is
+self-reported. His public projects include
+[llm-ui](https://github.com/richardgill/llm-ui),
+[Pi extensions](https://github.com/richardgill/pi-extensions) and
+[Overmux](https://github.com/richardgill/overmux). Inspectable implementation and
+explicit limitations make him a useful practitioner source, not independent
+proof of productivity, production reliability or enterprise suitability.
+
+The [Pi setup](https://github.com/richardgill/pi-extensions/blob/main/PI_SETUP.md)
+documents background commands, direct command-output context loading, custom
+instruction/skill discovery and tmux/worktree coordination. It acknowledges
+subagent polish limitations and includes automatic project trust. Overmux's
+README describes a tmux-based, extensible terminal/review environment and
+explicitly labels it experimental beta. These are documentation observations,
+not local runtime validation.
+
+At 13:01 the owner accepted automatic project trust for this platform because
+projects are generally known. This supersedes the earlier recommendation not
+to copy that aspect of Gill's personal setup. No trust extension/configuration
+was installed or enabled. The TODO review should compare his ideas with our
+existing stack and record selective adopt/defer decisions while preserving
+USAi routing, Falcon MCP and human publication/merge control.
+
+# Personal/tool candidates: 2026-10-12 research
+
+This is source/documentation research only, not installation, runtime
+validation, approval for sensitive assets or a selected replacement stack.
+The owner dropped Moshi, cmux and Ghosthub on 2026-10-12 at 13:10; they are no
+longer active candidates. GitHub CLI setup is deferred, not an open clarification.
+
+| Candidate | Verified product/platform facts | Fit and next evidence |
+| --- | --- | --- |
+| [Spokenly](https://spokenly.app) | Dictation app with current Windows and Linux builds. Vendor documents local Whisper/Parakeet transcription, cloud providers, BYOK and optional text processing. [Windows](https://spokenly.app/windows) supports Windows 10/11 x64. [Linux](https://spokenly.app/linux) offers deb/rpm/AppImage with desktop/compositor requirements. | Most direct personal-use candidate. Windows-host installation is a practical proposal for dictating into Windows apps/WSL terminals; cross-boundary input is not tested. Begin with local models, Local Only Mode and non-sensitive text. Do not assume Linux desktop dictation controls Windows applications. |
+| [Ghostty](https://ghostty.org/docs/about) | Standalone terminal emulator with native Linux GTK and macOS UI, tabs/splits and libghostty core. Created by Mitchell Hashimoto, not Wes McKinney. [Linux packaging](https://ghostty.org/docs/install/binary) varies by distribution; official prebuilt distribution is primarily macOS. | Linux/WSLg candidate, not agent orchestration or a persistent multiplexer. Verify GUI/display/GPU integration and packaging before adopting it. Existing terminal plus tmux remains sufficient. |
+| [Ouijit](https://github.com/ouijit/ouijit) | Linux x64/macOS task/worktree/terminal manager. README lists Pi, Claude Code, Codex and OpenCode, SQLite local state, optional sandboxing and AGPL-3.0. [Lifecycle hooks](https://ouijit.com/docs/hooks/) are start/continue/run/review/done. | Strongest new orchestration candidate on Linux. Overlaps Forge workspaces and Kata task authority: trial separately on a synthetic project before deciding replacement/integration. No confirmed Jira connector. Must preserve Pi/USAi profile, Falcon MCP and usage tracking. |
+
+Spokenly's [Local Only Mode](https://spokenly.app/docs/local-only-mode) is
+documented by the vendor as blocking network requests except local model
+downloads and allowing localhost endpoints. Ordinary mode can send anonymous
+analytics and cloud transcription/text processing can transmit content.
+These are vendor claims, not a traffic audit or permission to handle GSA data.
+Personal tooling must not become a VDI export mechanism.
+
+Ouijit shadows supported harness commands on PATH in its terminals and adds
+hooks/CLI context ([harness docs](https://ouijit.com/docs/harnesses/)). Our
+absolute private Pi launcher may need explicit integration; bare `pi` currently
+resolves preserved 1.0.3 after the requested legacy removal. Hook examples that create PRs or
+push are examples, not an approved publication policy. Prefer clean worktrees
+for an initial trial; its copy-on-write clone mode can carry ignored files,
+including secrets/local state. OS sandbox support is a product capability,
+not proof of a configured sandbox on this WSL host.
+
+GitHub CLI is already checksum-pinned locally at 2.102.0 and the isolated
+profile is unauthenticated. [Official apt installation](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)
+exists, but adds a system package repository/global installation and is not
+needed to make this profile usable. The owner deferred CLI setup at 13:10;
+no installation/App change is planned while the GSA operating path is unresolved.
+
+## Herdr versus the existing layers
+
+[Herdr](https://github.com/herdrdev/herdr) is an Apache-2.0 terminal/runtime
+manager with a background server, terminal UI, agent-aware status, CLI/socket
+automation and optional worktree actions. It runs on Linux/macOS, with native
+Windows support documented separately. No GUI/Electron dependency is needed
+for the Linux terminal UI. This is documentation research, not a WSL trial.
+
+| Tool | Main authority/layer | Fit to evaluate |
+| --- | --- | --- |
+| Kata | Durable task intent, dependencies and task records. | Adopted for Engi Platform's backlog at 17:42. Agent hooks/pilot validation remain open; a terminal runtime is not a substitute. |
+| Forge | Provider/PR review console plus owned Git worktrees and tmux sessions. | Keep current review/runtime integration while GSA provider access waits. Its tmux backend is an existing contract, not something to silently replace. |
+| Ouijit | Task board plus worktrees, terminals and agent lifecycle hooks. | Compare as an alternative local task/execution UI; avoid concurrent competing task authorities. Check clean worktrees and private Pi/USAi integration. |
+| Herdr | Persistent terminal processes, pane/workspace layout, agent status and CLI coordination. | Potential complement for standalone Pi/Copilot work, not a replacement for task tracking or provider review. Trial separately from Forge-owned tmux first. |
+
+The [agent documentation](https://herdr.dev/docs/agents/) lists Pi and Copilot,
+along with several other harnesses. A host-visible wrapper can use a scoped
+`HERDR_AGENT=pi` hint if automatic identification is obscured. Do not export
+that hint globally. State detection is a UI/coordination signal, not correctness
+or completion evidence. Herdr does not detect agents nested inside an inner
+tmux pane; avoid that topology when evaluating agent state.
+
+The [Pi integration](https://herdr.dev/docs/integrations/) honors
+`PI_CODING_AGENT_DIR` and installs an extension into that profile, which could
+preserve our private profile boundary. Verify Pi 1.0.3 compatibility, startup,
+native session resume, Falcon MCP and AgentsView usage before adoption.
+Integration installation is not permission to edit global client profiles.
+
+Detach leaves live processes running; after server/machine restart, layout
+restoration and supported native-agent resume do not preserve the original
+processes. Named sessions isolate runtime/socket state but share global config,
+so a trial also needs isolated configuration and explicit cleanup.
+Sources: [concepts](https://herdr.dev/docs/concepts/),
+[persistence/remote](https://herdr.dev/docs/persistence-remote/),
+[configuration](https://herdr.dev/docs/configuration/).
+
+Remote SSH support needs an approved reachable host and cannot bypass the VDI
+restriction. Automatic detection-manifest downloads and saved pane history
+need deliberate reproducibility/retention choices; neither sandboxing nor
+USAi routing is established simply by using Herdr.
+
+## Pi 0.87.1 removal: 2026-10-12
+
+The old shell command was `~/.local/bin/pi` pointing to the managed
+`~/.pi/agent/bin/pi` launcher. That launcher selected
+`~/.pi/agent/install/releases/0.87.1`, a dedicated npm prefix containing only
+the old Pi dependency tree (about 157 MB). Used npm uninstall with scripts
+disabled, then removed that exact release directory, installer-only metadata
+and launcher. Removed only the now-empty installer directories.
+
+`~/.local/bin/pi` now links to `~/.nvm/versions/node/v26.9.0/bin/pi`, matching
+the platform's saved absolute 1.0.3 executable. Both version commands and the
+private MCP list pass. Global settings/models/sessions and `bin/rg`/`bin/fd`
+remain intact; the separate Node installations are not removed. This is a
+host change, not yet a pinned fresh-host installation recipe.
+
+## Supervisor recovery and pending host backup
+
+`supervisor()` now returns no live supervisor for absent metadata or a missing
+process, warning when it retains an exited PID's record. Permission/format
+errors and PID identity mismatches still fail explicitly. Status still checks
+independent services and their projects; stop with no supervisor signals
+nothing and does not claim to have stopped orphaned processes. New startup
+retains lock/port checks and writes its own record only after readiness.
+
+Four new regressions include actual exited subprocess PIDs, retained metadata,
+safe no-op stop and propagation of non-missing-process errors. All 66
+integration tests pass. A real start/status/stop cycle from the stale record
+verified Kata health, owner-managed record replacement/removal, and unchanged
+AgentsView/roborev/Forge identities. No service unit was restarted.
+
+Host PowerShell reports `OneDriveCommercial` at
+`C:\Users\NKIRRISH\OneDrive - CGI Federal, Inc`, and the directory exists.
+This verifies a configured local sync location, not cloud backup success,
+retention, restore capability or GSA-content authorization.
+Proposed destination: a separate `EngiPlatformBackups` folder there, containing
+versioned repository source/history/uncommitted-work snapshots after scope
+confirmation and archive/restore checks. Do not sync the live Linux checkout,
+credentials, `.local/` state, sessions, Falcon corpus or GSA assets wholesale.
+No folder, upload or schedule has been created.
 
 # Artifact audit: 2026-10-09
 
@@ -45,6 +195,11 @@ HTTP 200 with unchanged PIDs; no experiment/process was retained.
 These are observations from the pinned source, not proof of successful startup.
 The integration build-lock tests import `bun:test`; run them with the documented
 pinned Bun executable, not Node's test runner.
+Bootstrap also installs workspace-local GitHub CLI 2.102.0 from the official
+Linux-amd64 archive, pinned SHA-256
+`bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386`.
+The isolated `scripts/gh-local.py` launcher shares `GH_CONFIG_DIR` with Forge;
+it neither inherits token variables nor changes global CLI/shell settings.
 
 | Component | Build | Isolation and integration |
 | --- | --- | --- |
@@ -124,9 +279,109 @@ The separate auto-design classifier and real-project review remain unverified.
 AgentsView Pi/Copilot ingestion is verified below; no-session review-job
 accounting is not covered by that ingestion.
 
+# Citrix mapped-drive handoff: 2026-10-12
+
+**Current boundary, owner report at 11:43:** outbound VDI file transfer is not
+allowed; assets must be read through the VDI. The handoff layout and copy tests
+below are historical research, not instructions to execute under the current
+policy. Stop export attempts. Do not substitute clipboard, screen capture/OCR,
+transcription, alternate upload channels or tunnels to evade this restriction.
+Local asset handling clearance and technical Citrix capability do not override
+the enforced transfer policy. An approved in-VDI engineering/model tool path
+needs confirmation before installation, asset processing or endpoint use.
+SPUD documents were mentioned but not provided; their location and permitted
+processing route are unknown.
+
+The owner is downloading the native Citrix client to investigate mapped
+drives. Public Citrix Windows documentation confirms that Client drive-mapping
+exposes local client drives inside a remote session, as UNC links or mapped
+drive letters. It does not map the VDI's filesystem into local WSL or supply
+a VPN/network route. Mappings are user/session-scoped and recreated at login.
+Exact labels/drive letters depend on configuration.
+
+Effective administrator policy controls feasibility:
+
+- `Client drive redirection` must allow file access.
+- `Client fixed drives` must allow the Windows drive used for handoff.
+- `Read-only client drive access`, if enabled, prevents the VDI from creating
+  or modifying files locally. Local-to-VDI copying may still work, but a
+  VDI-to-local export onto that mapped drive cannot.
+- HTML5/Chrome upload/download policies are separate from native drive
+  redirection; switching clients does not guarantee permission.
+
+Recommended Windows-client layout, not created or verified:
+`C:\CitrixTransfer` on an approved local disk, outside OneDrive or other
+automatic cloud-sync folders; normally visible from WSL as
+`/mnt/c/CitrixTransfer` if C: is mounted there. Use folder-only redirection
+where available and permitted; the documentation says it requires server
+enablement plus user configuration, so do not assume the native client limits
+access to this folder by default. Do not expose credentials or the entire
+WSL home through a UNC/network mapping.
+
+First check: launch the actual native session, inspect its local-drive entries,
+then copy a non-sensitive marker from Windows into VDI-local storage and a
+different marker from VDI-local storage into the Windows transfer folder.
+Confirm contents in Windows and WSL. If policy blocks access, record the
+restriction and seek administrator enablement; do not change registry/GPO or
+bypass controls. Installation/configuration labels are version-dependent.
+
+Use the mapped drive only as a handoff area: keep the authoritative checkout
+on the VDI, export a scoped snapshot with repository/branch/baseline SHA,
+extract the local working copy onto WSL's Linux filesystem, and return a
+reviewed patch. Do not concurrently edit one live checkout from both sides;
+session-dependent I/O and Windows/Linux filesystem differences make it a poor
+shared build/worktree location. Validate native dependencies/tests on the VDI.
+Sensitive model work remains on Pi/USAi. No client install, mapping, transfer,
+registry/policy change or GSA connectivity probe was performed here.
+
+Verified public sources:
+
+- [Citrix Workspace app for Windows: Client drive-mapping](https://docs.citrix.com/en-us/citrix-workspace-app-for-windows/client-drive-mapping)
+- [Citrix Virtual Apps and Desktops: File Redirection policy settings](https://docs.citrix.com/en-us/citrix-virtual-apps-desktops/policies/reference/ica-policy-settings/file-redirection-policy-settings.html)
+
 # Local project, Pi and Falcon MCP
 
 ## Persistent local environment
+
+As of the 2026-10-09 Forge migration, three independent boot units own
+AgentsView, roborev and Forge; `run` owns only Kata. `status` can read Forge's
+projects even with the Kata supervisor stopped. Forge's unit pins Node and
+uses the saved binary/config with provider sync disabled. `managed_forge`
+validates systemd MainPID, owned runtime metadata/data/config identity,
+database health/version/revision and HTML readiness. Native runtime JSON is
+0644 inside a 0700 data directory; its reader rejects symlinks and writable-by-
+others files rather than assuming this non-secret metadata must be 0600.
+Startup readiness retries an unpublished runtime record, but identity/mode
+conflicts fail explicitly.
+
+`install-forge-service`/`forge-run --node-executable` reuse the shared user-unit
+installer and Node environment. Installer repeatability, independent supervisor
+stop, Forge restart and project/config preservation were verified. No credential
+variable is present in the Forge daemon environment. GitHub CLI credentials
+remain in the shared private `.local/environment/gh/` profile; it is currently
+unauthenticated. Host/repository selection and explicit provider-sync enablement
+remain owner-scoped next steps. README owns login instructions and unit commands.
+The owner subsequently identified the Helix host `github.helix.gsa.gov` and
+raised the outside-VPC boundary. CLI `--hostname` uses the bare host, not its
+HTTPS URL. No Helix connectivity/authentication request has been performed.
+Workstation approval is confirmed, including the owner's 2026-10-12 13:11
+reconfirmation; the remaining prerequisite is approved network connectivity,
+not another local-handling approval. The VDI export prohibition remains in force.
+
+2026-10-12 clarification: the owner confirms local GSA asset download/use
+clearance; VPN access remains unavailable and admin WorkSpace/VDI tickets are
+pending. Standard Citrix VDI export is a proposed interim intake path, not a
+verified capability or an authenticated Forge provider. Before exporting,
+confirm the approved Citrix download/upload mechanism, target repository and
+branch, exact baseline commit, and any uncommitted source changes. Prefer a
+tracked-source snapshot excluding credentials/local state, with a reviewed
+patch returned for application and native build/tests on the VDI. Git history,
+submodules, LFS objects and internal dependencies need explicit consideration;
+a source ZIP does not necessarily include them or support an offline build.
+Keep sensitive engineering prompts/reviews on the configured Pi/USAi path.
+This Copilot session retains independent inference routing; neither local
+clearance nor AgentsView tracking changes that. No VPN setup, export/import,
+provider change or application-code work has been performed.
 
 Implemented on 2026-10-08 for personal exploration as well as the demo.
 All application state is retained under ignored `.local/environment/`; this
@@ -143,9 +398,9 @@ python3 scripts/local_env.py run
 
 Setup creates missing configuration only, preserves existing files/settings,
 and rejects unintended changes to recorded executable/corpus paths. `run`
-starts Forge and Kata under one supervisor and retains independently
-managed AgentsView/roborev. Before the user-service migrations, all four daemons
-were supervised together. The existing loopback ports are unchanged, and Falcon is
+now starts only Kata and retains independently managed Forge/AgentsView/roborev.
+Before Forge's migration it owned Forge/Kata; before any user-service migration,
+all four daemons were supervised together. The loopback ports are unchanged, and Falcon is
 registered idempotently without changing the checkout.
 Ctrl+C stops the supervisor, or from another terminal:
 

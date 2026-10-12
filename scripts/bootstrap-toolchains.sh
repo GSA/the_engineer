@@ -13,6 +13,25 @@ for tool in curl tar sha256sum npm; do
     }
 done
 
+mkdir -p .local/downloads .local/tools
+gh_version=2.102.0
+gh_binary=".local/tools/gh-$gh_version/bin/gh"
+if [[ ! -x "$gh_binary" ]]; then
+    archive=".local/downloads/gh_${gh_version}_linux_amd64.tar.gz"
+    curl --fail --location --silent --show-error --max-time 180 \
+        "https://github.com/cli/cli/releases/download/v$gh_version/gh_${gh_version}_linux_amd64.tar.gz" \
+        -o "$archive"
+    printf '%s\n' \
+        "bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386  $archive" \
+        | sha256sum --check
+    mkdir -p ".local/tools/gh-$gh_version"
+    tar -xzf "$archive" -C ".local/tools/gh-$gh_version" --strip-components=1
+fi
+if [[ "$("$gh_binary" --version)" != "gh version $gh_version "* ]]; then
+    echo "GitHub CLI version mismatch in $gh_binary." >&2
+    exit 1
+fi
+
 export npm_config_cache="$PWD/.local/cache/npm"
 mkdir -p .local/downloads .local/tools/go-1.27.1
 if [[ ! -x .local/tools/go-1.27.1/bin/go ]]; then

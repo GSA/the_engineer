@@ -1,5 +1,12 @@
 # Objective and decisions
 
+The owner selected `engi-platform` as this integration project's target name
+on 2026-10-12 at 12:46. README branding now reflects it. Checkout paths,
+private-state paths, stored executable references and service identifiers
+remain unchanged pending a deliberate migration. Reproducible scripted setup
+is a goal; existing bootstrap/setup scripts are a partial implementation,
+not proof of fresh-host reproducibility.
+
 Build a local-first Linux agentic engineering environment inspired by
 https://wesmckinney.com/blog/agentic-engineering-aug-2026/.
 The broader objective is to turn Jira tickets into reviewed GitHub pull
@@ -16,11 +23,85 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   Tailscale/private-VPC assumption; Tailscale is not a selected requirement.
   Default local listeners to loopback. The actual cloud network path and
   authentication/authorization design remain undecided.
+- On 2026-10-09 at 15:26 the owner identified GitHub Enterprise at
+  `https://github.helix.gsa.gov` and noted this WSL environment is outside the
+  GSA VPC. Pause Helix login/repository import until the approved network path
+  and permission to handle GSA source/credentials on this host are confirmed.
+  VPN reachability and authorization are separate; do not infer a requirement
+  or approval from account access or bypass network controls. An approved
+  local/VPN path or GSA-managed execution host remains to be decided.
+- On 2026-10-12 the owner confirmed clearance to download and use GSA assets
+  on this machine, including documents, code and sensitive information,
+  preferably cleaned of PII. This resolves the previously open local asset-
+  handling permission, not VPN/device eligibility or credential-transfer
+  policy. No VPN access is currently available. Admin AWS WorkSpace/VDI tickets
+  are pending; the owner plans to boot a standard Citrix VDI and is considering
+  an approved export/local-edit/return workflow. No transfer has been performed
+  or route selected. Recommend a scoped source snapshot with an exact baseline
+  commit and a reviewed patch returned to the original checkout, rather than
+  overwriting a repository with a modified ZIP. USAi-only sensitive model
+  routing remains in force; local clearance does not authorize other inference
+  services. "Librarian" for context and "Engineer" for the engineering platform
+  are proposed names only; no implementation rename is authorized.
+  At 10:59 the owner reported Citrix mapped-drive functionality and is
+  downloading the native client. Citrix documentation confirms client drives
+  can appear inside the VDI, subject to administrator redirection/read-only
+  policies. Recommend an unsynced Windows transfer folder accessible from
+  WSL, with source snapshots/patches copied between separate working trees.
+  GSA's effective policy and a bidirectional transfer remain unverified;
+  drive mapping does not grant this host direct Helix/network access.
+- At 11:43 on 2026-10-12 the owner confirmed that outbound VDI file transfer
+  is not allowed and assets must be read through the VDI. This supersedes the
+  proposed mapped-drive export/local-edit/return path: treat it as blocked by
+  policy, not a technical fault to circumvent. Do not substitute clipboard,
+  screenshots/OCR, transcription, email or tunnels as an export workaround.
+  Local asset clearance does not override this channel restriction. Approved
+  engineering/model tools inside standard VDI remain a possibility to check,
+  not permission to install or deploy. Admin WorkSpace/VDI access is pending.
+  The owner also identified SPUD output documents as potential work; their
+  location, handling permissions and desired deliverable remain unspecified.
+  Document development inside VDI or on separately approved local copies
+  could proceed without source import. No SPUD content has been accessed.
+- At 13:11 on 2026-10-12 the owner reconfirmed that this workstation is
+  approved. Local workstation/asset handling approval is settled; do not ask
+  for it again. Helix connectivity remains unresolved with VPN access last
+  reported unavailable. This confirmation does not change the separate VDI
+  export restriction, USAi routing or publication boundaries.
+- At 12:46 on 2026-10-12 the owner assigned SPUD output work to the falcon-docs
+  agent, not this platform task. Keep the Falcon checkout/corpus untouched.
+  Focus here on service readiness, unblocked backlog, engineering prompts and
+  Forge's actual workflow controls. Investigate Moshi, Spokenly (personal use),
+  cmux/Ghostty/Wes's terminal and Ouijit without installing new products or
+  changing model routing during this research. The exact Kent Beck TDD prompt
+  link is still needed before claiming to adapt that source. The phrase
+  "github apt" needs clarification: `gh` is already installed locally; an apt
+  migration or a GitHub App configuration are different consequential tasks.
+- At 13:10 on 2026-10-12 the owner requested complete removal of Pi 0.87.1
+  and repair of stale-supervisor handling before active prompt work. The legacy
+  managed release/installer launcher is now removed; the normal `pi` symlink
+  and private launcher both resolve preserved 1.0.3. Shared global settings,
+  credentials, sessions and helper binaries were retained.
+  Moshi, cmux and Ghosthub are dropped from active evaluation. Evaluate Ouijit
+  against Forge/Kata and consider Herdr as a terminal/runtime layer; no new
+  runtime is selected or installed. GitHub CLI setup is deferred while the GSA
+  operating path is unresolved.
+  The owner supplied [Kent Beck's 2025 augmented-coding article](https://newsletter.kentbeck.com/p/augmented-coding-beyond-the-vibes):
+  treat its prompt as potentially dated advice, not a replacement contract.
+  The requested host OneDrive backup needs explicit content/destination scope;
+  the detected account is CGI Federal. Recommend versioned source/history/
+  uncommitted-work snapshots, not live checkout or private-state sync. Nothing
+  has been uploaded.
 - Use a parent integration repository and exact-commit Git submodules.
   Keep our scripts and non-secret configuration separate from upstream source.
 - Pi is the default local agent, but shared context must not be Pi-specific.
   The user is aware of native MCP support in Pi 1.x; the work is integration
   with the intended server, not deciding whether Pi can support MCP.
+- At 13:01 on 2026-10-12 the owner accepted automatic project trust as a
+  platform assumption: projects are generally known, not arbitrary downloads.
+  Do not treat per-project trust prompts as a required platform gate. This
+  does not change model/data-routing, credential, network or publication/merge
+  boundaries. Review Richard Gill's ideas as a backlog task, not a wholesale
+  adoption of his setup; no runtime trust configuration was changed here.
 - USAi LiteLLM is the required model interface, clarified on 2026-10-08.
   The owner supplied the private key and approved USAi/local use for sensitive
   information, including PII, on 2026-10-08. Prompting users should
@@ -47,8 +128,18 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   agents. Recommended design is a thin editor launcher plus reusable Pi
   credential checks, independent of Forge availability. Zed/ACP integration
   remains proposed; the shared manual key handoff is now implemented.
-- Evaluate Kata before deciding whether a simpler database-backed task tracker
-  is sufficient.
+- At 17:42 on 2026-10-12 the owner selected Kata for this project's existing
+  backlog only. Project `engi-platform` is authoritative for open tasks;
+  `TODO.md` is a generated index with completed Markdown history retained.
+  All 37 open source entries are preserved in 36 imported tasks, combining
+  the duplicate Helix-login entries, plus new redeployment task `5xrm`.
+  The former tracker-selection task now covers real project-scoped agent
+  integration/pilot validation. Falcon's backlog is explicitly out of scope.
+  Native `.kata.toml` binding and the private CLI are wired; automatic agent
+  hooks/MCP setup are still open work. The owner defers database backups to a
+  separate session; do not treat the task index as a backup or start one here.
+  See `kata-adoption.md` for operations/provenance and `kata-evaluation.md`
+  for the earlier synthetic checks.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 
@@ -115,6 +206,17 @@ not prerequisites for the first local demonstration.
 
 # Local session visibility and startup: 2026-10-08
 
+Current update, 2026-10-09 at 15:08: the owner reports GSA GitHub access and
+authorized Forge configuration/boot service. Forge now has its own enabled
+loopback user unit and retains its settings/database/project IDs. Kata is the
+only on-demand child; AgentsView/roborev ownership is unchanged. The local
+checksum-pinned GitHub CLI shares an isolated credential profile with Forge,
+but it has no login yet. Ask for the approved repository URL/host and require
+owner terminal authentication/SSO before connecting it or enabling sync.
+Do not treat access granted to an account as authenticated local CLI access,
+permission to select all repositories, publish this integration/Falcon, or
+launch a coding task. Provider sync remains disabled pending that scope.
+
 At 15:33 the owner authorized Copilot/Pi session tracking, import of existing
 local history and AgentsView availability when WSL boots. Configure explicit
 sources rather than exposing the clients' whole global configuration or
@@ -130,9 +232,10 @@ must not be reported as zero consumption or free service.
 
 AgentsView has its own loopback user-systemd service, enabled with the host's
 existing systemd/lingering setup. At 17:00 the owner requested roborev as the
-next boot service while GSA GitHub access/Forge configuration waits. roborev
-now has an independent enabled user unit as well. Forge/Kata stay on-demand;
-their supervisor must not duplicate or stop either independently owned service.
+next boot service while GSA GitHub access/Forge configuration waited. roborev
+gained an independent enabled user unit as well. At that point Forge/Kata stayed
+on-demand; the current Forge migration above leaves only Kata supervised.
+The supervisor must not duplicate or stop independently owned services.
 Boot availability does not mean opening a browser window or starting all
 tools. Actual WSL reboot verification remains pending a safe interruption.
 Generated insights, cloud/archive publication and editor/ACP changes are
@@ -191,6 +294,11 @@ in this session are read-only; writing these files does not publish them to the
 Falcon database.
 
 # Engineering workflow
+
+The 2026-10-12 source investigation and initial role/phase proposal live in
+`context/engineering-workflow.md`. Forge's local review statuses and agent
+runtime states are not an enforced design-to-TDD pipeline. No new prompts,
+quick actions, hooks or automatic publication were enabled by that investigation.
 
 Use the Kenn team's process as a reference: tools and agents can run in
 parallel, but humans own intent, design decisions, review, and merge approval.
