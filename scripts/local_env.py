@@ -28,10 +28,13 @@ STATE = ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
 PI_VERSION = "1.0.3"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
+GH_VERSION = "2.102.0"
+GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
 PORTS = (17373, 17374, 17777, 18080, 18091)
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
-SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374)}
+FORGE_UNIT = "kenn-kopy-forge.service"
+SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374), "forge": (18091,)}
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -83,7 +86,7 @@ def settings():
 def base_environment():
     home = STATE / "home"
     return {
-        "PATH": os.pathsep.join([str(ROOT / p) for p in
+        "PATH": os.pathsep.join([str(GH_BINARY.parent)] + [str(ROOT / p) for p in
                                ("roborev/bin", "kata", "agentsview")] + [os.environ["PATH"]]),
         "HOME": str(home),
         "USER": getpass.getuser(),
@@ -106,6 +109,8 @@ def base_environment():
         "AGENTSVIEW_NO_DAEMON": "1",
         "PI_CODING_AGENT_DIR": str(STATE / "pi"),
         "PI_OFFLINE": "1",
+        "GH_CONFIG_DIR": str(STATE / "gh"),
+        "GH_PROMPT_DISABLED": "1",
     }
 
 
@@ -366,6 +371,32 @@ def roborev_launch(args):
     return [str(binary), "--server", "127.0.0.1:17373", *args], base_environment()
 
 
+def github_cli_launch(args):
+    settings()
+    private_dir(STATE / "gh")
+    if not GH_BINARY.is_file() or not os.access(GH_BINARY, os.X_OK):
+        raise RuntimeError("GitHub CLI is missing; run scripts/bootstrap-toolchains.sh")
+    env = base_environment()
+    env.pop("GH_PROMPT_DISABLED")
+    return [str(GH_BINARY), *args], env
+
+
+def kata_launch(args):
+    settings()
+    for arg in args:
+        if arg == "--":
+            break
+        if any(arg == flag or arg.startswith(flag + "=")
+               for flag in ("--project", "--workspace", "--daemon")):
+            raise RuntimeError("the scoped Kata launcher pins this workspace and engi-platform project")
+    binary = ROOT / "kata/kata"
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError("missing executable Kata binary; build it before using the launcher")
+    return [
+        str(binary), "--workspace", str(ROOT), "--project", "engi-platform", *args,
+    ], base_environment()
+
+
 def api(method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request("http://127.0.0.1:18091/api/v1" + path, data=data,
@@ -396,8 +427,17 @@ def process_identity(pid):
 
 def supervisor():
     path = STATE / "runtime/supervisor.json"
-    saved = json.loads(private_read(path))
-    if process_identity(saved["pid"]) != saved["start_time"]:
+    try:
+        saved = json.loads(private_read(path))
+    except FileNotFoundError:
+        return None
+    try:
+        identity = process_identity(saved["pid"])
+    except FileNotFoundError:
+        print(f"WARNING: supervisor PID {saved['pid']} has exited; "
+              "stale supervisor metadata retained.", file=sys.stderr)
+        return None
+    if identity != saved["start_time"]:
         raise RuntimeError("saved supervisor PID was reused; refusing to signal it")
     return saved
 
@@ -538,7 +578,7 @@ def install_user_service(unit_name, command, description, ports, readiness, args
         try:
             readiness()
             break
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
+        except (urllib.error.URLError, TimeoutError, ConnectionError, FileNotFoundError):
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"{unit_name} readiness timed out; inspect its user journal")
             time.sleep(0.5)
@@ -584,10 +624,10 @@ def validate_roborev_config():
         raise RuntimeError("roborev must retain the documented loopback API and UI ports")
 
 
-def roborev_environment(node_executable):
+def node_environment(node_executable):
     node = node_executable.expanduser().resolve()
     if not node.is_file() or not os.access(node, os.X_OK):
-        raise RuntimeError(f"missing executable Node runtime for roborev's Pi agent: {node}")
+        raise RuntimeError(f"missing executable Node runtime for Pi agents: {node}")
     env = base_environment()
     env["PATH"] = str(node.parent) + os.pathsep + env["PATH"]
     return env
@@ -605,7 +645,7 @@ def install_roborev_service():
     if node is None:
         raise RuntimeError("Node must be on this shell's PATH before installing roborev")
     node = Path(node).resolve()
-    verify_pi(config, env=roborev_environment(node))
+    verify_pi(config, env=node_environment(node))
     if not (ROOT / "roborev/bin/roborev").is_file():
         raise RuntimeError("missing roborev binary; build it before installing the service")
     install_user_service(
@@ -640,7 +680,7 @@ def managed_roborev(*, required=False):
 def roborev_run(node_executable):
     config = settings()
     validate_roborev_config()
-    env = roborev_environment(node_executable)
+    env = node_environment(node_executable)
     verify_pi(config, env=env)
     check_ports(SERVICE_PORTS["roborev"])
     command = roborev_command()
@@ -648,8 +688,83 @@ def roborev_run(node_executable):
     os.execve(command[0], command, env)
 
 
+def validate_forge_config():
+    config = tomllib.loads(private_read(STATE / "forge/config.toml"))
+    if config.get("host") != "127.0.0.1" or config.get("port") != 18091:
+        raise RuntimeError("Forge must retain the documented loopback port")
+
+
+def forge_command(config):
+    binary = Path(config["forge_binary"])
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError(f"missing executable Forge binary: {binary}")
+    return [str(binary), "serve", "--config", str(STATE / "forge/config.toml"),
+            "--host", "127.0.0.1", "--port", "18091", "--disable-sync"]
+
+
+def install_forge_service():
+    config = settings()
+    validate_forge_config()
+    node = shutil.which("node")
+    if node is None:
+        raise RuntimeError("Node must be on this shell's PATH before installing Forge")
+    node = Path(node).resolve()
+    verify_pi(config, env=node_environment(node))
+    forge_command(config)
+    private_dir(STATE / "gh")
+    install_user_service(
+        FORGE_UNIT, "forge-run", "Kenn Kopy local workspaces",
+        SERVICE_PORTS["forge"], lambda: managed_forge(required=True),
+        args=("--node-executable", node),
+    )
+    json_write(STATE / "forge-service.json", {"unit": FORGE_UNIT}, replace=True)
+    print("Forge user service enabled and responsive at http://127.0.0.1:18091/")
+
+
+def managed_forge(*, required=False):
+    if not required and not (STATE / "forge-service.json").exists():
+        return None
+    pid = user_service_pid(FORGE_UNIT)
+    private_dir(STATE / "forge")
+    path = STATE / "forge" / f"daemon.{pid}.json"
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, "r") as stream:
+        info = os.fstat(stream.fileno())
+        # Native runtime metadata is 0644, inside the private data directory.
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o022):
+            raise RuntimeError(f"expected owned, non-writable-by-others Forge runtime metadata: {path}")
+        runtime = json.load(stream)
+    if (runtime.get("pid") != pid or runtime.get("service") != "kenn-forge"
+            or runtime.get("address") != "127.0.0.1:18091"
+            or runtime.get("metadata", {}).get("data_dir") != str(STATE / "forge")
+            or runtime.get("metadata", {}).get("config_path") != str(STATE / "forge/config.toml")):
+        raise RuntimeError("Forge runtime identity does not match the managed user service")
+    with HTTP.open("http://127.0.0.1:18091/healthz", timeout=3) as response:
+        health = json.load(response)
+    if (health.get("status") != "ok" or not health.get("version")
+            or health["version"] != runtime.get("version") or not health.get("revision")):
+        raise RuntimeError("Forge database health does not match its runtime identity")
+    with HTTP.open("http://127.0.0.1:18091/", timeout=3) as response:
+        if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
+            raise RuntimeError("Forge dashboard is not healthy")
+    return {"unit": FORGE_UNIT, "pid": pid, "version": health["version"],
+            "revision": health["revision"]}
+
+
+def forge_run(node_executable):
+    config = settings()
+    validate_forge_config()
+    env = node_environment(node_executable)
+    verify_pi(config, env=env)
+    check_ports(SERVICE_PORTS["forge"])
+    command = forge_command(config)
+    os.chdir(STATE / "home")
+    os.execve(command[0], command, env)
+
+
 def managed_services():
-    services = {"agentsview": managed_agentsview(), "roborev": managed_roborev()}
+    services = {"agentsview": managed_agentsview(), "roborev": managed_roborev(), "forge": managed_forge()}
     return {name: service for name, service in services.items() if service is not None}
 
 
@@ -661,13 +776,14 @@ def supervised_ports(external_services):
 def status():
     settings()
     external = managed_services()
-    saved = supervisor() if (STATE / "runtime/supervisor.json").exists() else None
+    saved = supervisor()
     if saved and external:
         saved.setdefault("external_services", {}).update(external)
     return {"stack": "running" if saved else "stopped", "supervisor": saved,
             "agentsview_service": external.get("agentsview"),
             "roborev_service": external.get("roborev"),
-            "projects": api("GET", "/projects") if saved else None}
+            "forge_service": external.get("forge"),
+            "projects": api("GET", "/projects") if saved or "forge" in external else None}
 
 
 def serve():
@@ -684,10 +800,8 @@ def serve():
         external = managed_services()
         owned_ports = supervised_ports(external)
         check_ports(owned_ports)
-        forge_config = tomllib.loads(private_read(STATE / "forge/config.toml"))
+        validate_forge_config()
         validate_roborev_config()
-        if forge_config.get("host") != "127.0.0.1" or forge_config.get("port") != 18091:
-            raise RuntimeError("local service bindings must retain the documented loopback ports")
         services = [
             ("roborev", ROOT / "roborev/bin/roborev", roborev_command()[1:],
              "http://127.0.0.1:17373/api/status"),
@@ -696,8 +810,7 @@ def serve():
              "http://127.0.0.1:17777/api/v1/health"),
             ("agentsview", ROOT / "agentsview/agentsview", agentsview_command()[1:],
              "http://127.0.0.1:18080/api/ping"),
-            ("forge", Path(config["forge_binary"]),
-             ["serve", "--host", "127.0.0.1", "--port", "18091", "--disable-sync"],
+            ("forge", Path(config["forge_binary"]), forge_command(config)[1:],
              "http://127.0.0.1:18091/healthz"),
         ]
         services = [service for service in services if service[0] not in external]
@@ -781,6 +894,10 @@ def serve():
 def stop():
     settings()
     saved = supervisor()
+    if saved is None:
+        print("No live supervisor; no process was signaled. "
+              "Independently managed services were left untouched.")
+        return
     os.kill(saved["pid"], signal.SIGTERM)
     deadline = time.monotonic() + 70
     while (STATE / "runtime/supervisor.json").exists():
@@ -818,6 +935,9 @@ def main():
     commands.add_parser("install-pi-review-extension", help="install the pinned extension in private Pi only")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
+    commands.add_parser("install-forge-service", help="enable the configured Forge user service")
+    forge_service = commands.add_parser("forge-run", help="run the standalone configured Forge service")
+    forge_service.add_argument("--node-executable", type=Path, required=True)
     catalog = commands.add_parser("list-models", help="refresh advertised USAi model IDs using the private key")
     catalog.add_argument("--base-url", required=True)
     provider = commands.add_parser("configure-provider", help="set non-secret USAi connection details")
@@ -851,6 +971,10 @@ def main():
             install_pi_review_extension()
         elif args.command == "roborev-run":
             roborev_run(args.node_executable)
+        elif args.command == "install-forge-service":
+            install_forge_service()
+        elif args.command == "forge-run":
+            forge_run(args.node_executable)
         elif args.command == "configure-provider":
             configure_provider(args.base_url, args.model, args.api)
         elif args.command == "list-models":

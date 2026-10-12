@@ -1,4 +1,301 @@
-# Status: 2026-10-09
+# Status: 2026-10-12
+
+## Engi Platform backlog adopted in Kata: 17:42 request
+
+- Owner authorizes this project's existing TODO as Kata tasks and requests an
+  eventual reproducible redeployment recipe; Falcon migration and database
+  backup are explicitly out of scope. Native `init --replace` changed the
+  historical `smoke` binding to `engi-platform` without installing hooks.
+- Preserved all 37 open source descriptions in 36 imported open issues,
+  combining the duplicate Helix-login entries in `j54x`. All 29 completed
+  Markdown entries remain byte-for-byte as historical entries, not invented
+  closed issues. Source hash/line/section provenance and blocker/deferred
+  labels are recorded; six links encode actual prerequisite relationships.
+- Added **`5xrm`**, the complete reproducible environment/redeployment recipe,
+  related to existing fresh-host setup `p4ke` and deferred recovery `vg0b`.
+  The recipe is tracked work, not implemented or authorization to deploy.
+  The former tracker-choice task now covers real agent integration (`tvbf`).
+- Added workspace/private-daemon `scripts/kata-local.py` and failure-safe
+  `scripts/kata_todo.py` generated-index refresh. Root agreements, README and
+  project/tool/workflow context now point to Kata as task authority and
+  `TODO.md` as the index/history. Automatic Pi/Copilot MCP/attention hooks
+  remain uninstalled/open, not claimed complete by CLI availability.
+- Observed missing-feature tests before implementation; all 77 focused tests
+  pass. Native workspace resolution, repeated full import without duplicates,
+  exact source coverage/body preservation, identical repeat index refresh,
+  actual stopped-daemon failure preservation and restart persistence passed.
+  No close events were introduced. Detailed evidence is in `kata-adoption.md`.
+- Kata restarted from PID 21281 to 23500, then both test-owned supervisors
+  exited. Final Kata port 17777 is absent; data persists. AgentsView PID 395,
+  Forge PID 396 and roborev PID 397 are healthy/unchanged. No experimental
+  process, model request, Helix/Jira connection, new hook, unit restart,
+  database backup, Falcon edit, publication or commit; existing changes preserved.
+
+## Repository-free Kata evaluation: 13:56 request
+
+- Created a dedicated synthetic daemon project without Git init, workspace
+  binding or provider access. One parent/three dependent children exercised
+  real task lifecycle, simultaneous agent claims, attention/inbox handoff,
+  completion guards, event polling, lexical search and idempotent create retry.
+  All four tasks are now closed with evaluation-specific evidence/messages.
+- Native stdio MCP handshake/lazy tool loading/issue reads passed before and
+  after Kata restart. Forge discovered its configured local daemon at API
+  0.24.0 and read/searched the task successfully. Mapping remains unmapped with
+  no repo targets; no worktree or rendered-browser integration was claimed.
+- Restart changed Kata PID 12696 to 13497 and preserved identities, completion
+  state, dependency readiness and event history. Final close audit has no rows
+  lacking evidence. No model or embedding credential was needed.
+- Corrected two test invocations: reserved `someday` needs a JSON boolean via
+  `meta set --json-value`, not the string-valued create metadata flag; HTML SPA
+  readiness needs `Accept: text/html`. Initial browser failure is retained in
+  the pre-restart evidence, with a separate successful browser correction.
+- Detailed findings/recommendation are in `kata-evaluation.md`; README has
+  restart/private-CLI inspection commands, TODO distinguishes verified backend
+  reads from pending task/worktree/client/hook/Jira integration. Recommendation
+  is a bounded engineering-task pilot, not final adoption or TODO migration.
+- Both test-owned supervisors and MCP processes exited. Kata is stopped with
+  no 17777 listener; synthetic data/evidence are retained privately.
+  AgentsView PID 395, Forge PID 396 and roborev PID 397 remained healthy and
+  unchanged. No agent hook/profile change, model request, Helix/Jira connection,
+  Falcon edit, unit restart, publication or commit; unrelated changes preserved.
+
+## Legacy Pi removal and supervisor recovery: 13:10 request
+
+- Removed Pi 0.87.1 from its dedicated managed npm release (119 packages),
+  then exact-path cleanup of the old release, installer metadata and launcher.
+  The normal user `pi` symlink now targets the preserved NVM 1.0.3 executable.
+  Verified no old installer/release/launcher remains. Global settings/models,
+  credentials, sessions and `rg`/`fd` helpers are retained; no Node runtime was
+  deleted. Private Pi version and seven-tool Falcon MCP connectivity pass.
+- Added four supervisor regressions, observed the missing-process/metadata
+  failures before implementation, then made missing metadata/exited processes
+  report no live supervisor. Stale metadata is retained with an explicit stderr
+  warning; stop signals nothing in that state. Permission/format errors and
+  PID-reuse checks still fail explicitly rather than becoming silent defaults.
+  All 66 `test_local_env` tests pass.
+- Real stale record for PID 433031 now yields stopped-stack JSON with all three
+  healthy independent services and the local project registry; no-op stop
+  signals nothing. Then started a supervisor (PID 10352), verified Kata health
+  and running status, and used normal stop. Its own clean shutdown removed the
+  runtime record; Kata listener is gone. AgentsView PID 395, Forge PID 396 and
+  roborev PID 397 remain unchanged and healthy. Test subprocess/log were cleaned
+  up; no experimental process is retained.
+- Owner supplied Kent Beck's 2025 article. Reviewed its TDD/Tidy First appendix
+  as advisory/potentially dated; original retain/adapt comparison is recorded
+  in `engineering-workflow.md`. Active prompts are unchanged; prompt policy/
+  role wiring is the next work item after this fix, not claimed complete.
+- Moshi/cmux/Ghosthub are dropped from active evaluation; GitHub CLI setup is
+  deferred. Official Herdr docs establish Linux terminal/runtime, Pi/Copilot
+  status/integrations and detach/resume capabilities; source-level comparison
+  with Ouijit/Kata/Forge is in `tools.md`. No new runtime was installed or trialed.
+- Host OneDriveCommercial points to an existing CGI Federal sync directory.
+  Backup content/destination approval is still needed before uploading code,
+  history or uncommitted work. Recommended scope is source-only, separate from
+  credentials/runtime/sessions/Falcon/GSA assets. No backup folder, upload or
+  schedule has been created; cloud delivery/restore are unverified.
+- Updated README/TODO/project/tool/workflow context, preserving prior uncommitted
+  service/CLI changes and Richard Gill/automatic-trust decisions. No model
+  request, GSA probe/import, provider sync, new hook, unit restart, publication
+  or commit occurred. Existing service listeners remain loopback; Kata stopped.
+
+## Workstation approval reconfirmed: 13:11
+
+- Owner confirms this workstation is approved, reaffirming the earlier local
+  asset-handling clearance. Updated README/TODO/project/tools to separate that
+  settled permission from unresolved Helix connectivity.
+- VPN access was last reported unavailable; no new network path was supplied.
+  The prohibition on outbound VDI file transfer remains unchanged. Forge
+  login/import still awaits approved connectivity, not another workstation
+  approval.
+- Documentation-only update. No connectivity/authentication request, credential
+  operation, transfer, service change or commit. No experimental process started;
+  existing local changes and running services were left untouched.
+
+## Automatic project trust and Richard Gill backlog: 13:01
+
+- Owner accepts automatic project trust as a platform assumption because
+  projects are generally known, not arbitrary downloads. Recorded in
+  `project.md`; existing data/model, credential and publication boundaries
+  remain unchanged. No runtime trust setting or global configuration changed.
+- Added a TODO pass over Gill's Pi setup, extensions, instructions/skills and
+  Overmux ideas, with comparison against existing tools and selective
+  adopt/defer decisions. Initial public-source evidence/links are in
+  `tools.md`; no new tool is selected or installed.
+- Documentation-only update; preserved existing local changes. No experiment
+  process started, service changed, model request, publication or commit.
+
+## Service inventory and platform direction: 12:46 request
+
+- Owner assigns SPUD to the falcon-docs agent and selects `engi-platform` as
+  the target project name. Updated README branding only; checkout/state/service
+  identities are unchanged. No Falcon files were edited or new agent dispatched.
+- WSL instance boot time is 12:38:31 EDT. All three enabled user services entered
+  active/running at 12:38:33. Live managed checks verified HTTP/database/runtime
+  identity and UI readiness; this supplies actual boot-start evidence, not just
+  service enablement. The boot occurred before this task, not at our direction.
+
+| Component | Live evidence | Remaining boundary |
+| --- | --- | --- |
+| Forge | Enabled, active PID 396; health/UI good at `127.0.0.1:18091`, pinned revision `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, local-Kata variant. | Zero provider repos/workspaces; Falcon remains a registered local project only. Pi target enabled, roborev endpoint correct, zero quick actions. Provider-backed coding loop still unverified/blocked. |
+| roborev | Enabled, active PID 397; healthy API/UI at `127.0.0.1:17373`/`17374`, v0.71.0. | Zero queued/running jobs; one completed synthetic review, no new review submitted. Real-project hooks/review policy and no-session token accounting remain open. |
+| AgentsView | Enabled, active PID 395; healthy at `127.0.0.1:18080`, v0.44.0-130-gbe0730d4. Stats including one-shot/automated sessions report 59 sessions. | Usage-only archive; retention/pricing and structured-review usage remain undecided. Counts are a current snapshot, not all clients' complete usage. |
+| Kata | No listener at `127.0.0.1:17777`; transient supervisor unit absent/inactive. | Expected on-demand ownership, not a boot service. Forge daemon discovery/project mapping remains unverified; retain-versus-replace decision open. |
+| Private Pi | Saved absolute executable passes exact 1.0.3 check. | Bare shell `pi --version` reports 0.87.1 from a different installation. No global changes or model/authentication request made; private version is healthy, current USAi key validity not checked. |
+| Superpowers | Private Pi offline RPC startup returns all 15 skills, including brainstorming/TDD/verification. | Skill loading is verified, not behavioral adherence or compaction correctness. Not an independent service. |
+| Falcon MCP | Private `pi-local.py mcp list` connects and lists seven tools; Falcon status reports selected index fresh. | Stdio/on-demand rather than boot daemon; no corpus content read or refresh performed. |
+| GitHub CLI | Isolated `gh --version` is 2.102.0; `auth status` reports no logged-in hosts. | Clarify "github apt"; no duplicate/system install or GitHub App configuration performed. |
+
+- **New operational defect:** `python3 scripts/local_env.py status` fails with
+  missing `/proc/433031/stat` because old `runtime/supervisor.json` survives
+  reboot and `supervisor()` assumes its process exists. Independent service
+  checks succeed; this error is not evidence of unhealthy dashboards. Track
+  stale-metadata-safe status/start/stop behavior with PID-reuse protection;
+  did not delete metadata, signal saved PIDs or alter code in this status task.
+- Verified with `systemctl --user show`, `uptime -s`, filtered `ss -ltnp`,
+  `managed_services()`, `roborev-local.py status`, private Pi version/offline
+  RPC/MCP list, AgentsView stats and Forge GET collections. Initial collection
+  probe assumed an object while `/repos` returns a list; corrected read-only
+  probe establishes zero repos and zero workspaces.
+- Public candidate research is in `tools.md`; Forge source findings and original
+  draft role/phase responsibilities are in `engineering-workflow.md`. Exact
+  Kent Beck source link, GitHub installation/App intent and rename migration
+  remain decisions to clarify. No active engineering prompt was changed.
+- Unblocked next work: stale-supervisor repair, prompt/gate design and a
+  synthetic TDD demonstration, backup/restore and pinned fresh-host setup,
+  then isolated Ouijit/personal Spokenly evaluation. GSA source/Jira/PR work
+  still waits for the approved access path.
+- No installs, model calls, hooks, provider sync, service restarts, publication
+  or commits occurred. Offline Pi/MCP checks completed with no retained test
+  service. Final listeners remain IPv4 loopback for the three existing services;
+  Kata remains stopped. Existing unrelated worktree changes were preserved.
+
+## Outbound VDI transfer prohibited: 11:43 owner report
+
+- Owner confirms outbound file transfer from VDI is not allowed and assets
+  must be read through VDI. Citrix mapped-drive export/local-edit/return is
+  blocked by policy, superseding the earlier proposed transfer checks.
+  No alternative export channel or bypass is authorized; local clearance
+  does not override this restriction.
+- Local GSA application work remains blocked without an approved intake path.
+  Consider approved engineering/USAi tooling inside standard VDI, if permitted,
+  or await admin AWS WorkSpace/VDI provisioning. Neither standard-VDI tooling
+  permission/capability nor the pending managed environment is verified.
+- Owner identified SPUD output documents as possible work. Need their location,
+  permitted processing route and desired output before choosing a task.
+  Requirements/acceptance criteria/document development can stay inside VDI;
+  local work requires separately approved local availability, not transcription
+  around the export restriction. No SPUD content was accessed.
+- Updated current project/tool boundaries and TODO without altering prior local
+  changes. No transfer, network probe, model request, install, service change,
+  commit or publication occurred. No experimental process started; existing
+  services left untouched.
+
+## Citrix mapped-drive investigation: 10:59 request
+
+- Owner is downloading the native client to inspect mapped-drive functionality.
+  Verified public Citrix Windows client and File Redirection policy documents:
+  local client drives can appear inside the VDI and support two-way file
+  handoff when redirection/fixed-drive/write permissions allow it. Read-only
+  policy blocks VDI exports onto those drives. Native redirection and browser
+  upload/download have different policy controls.
+- Recommended an approved, unsynced Windows transfer folder visible to WSL,
+  and a non-sensitive copy/content check in each direction. Use source
+  snapshots and reviewed patches between independent VDI/Linux checkouts,
+  not a shared live repository. Folder-only mapping depends on server support;
+  drive mapping grants no local Helix/VPN access.
+- GSA's effective policy, client version/UI and real transfer behavior remain
+  unverified. Public documentation establishes product capability only.
+  Recorded source URLs/tool details and updated project/backlog. No private
+  asset was retrieved, client installed/configured, policy changed, transfer
+  performed or experimental process started. Existing services remain untouched.
+
+## Local GSA clearance and standard VDI intake: 2026-10-12
+
+- Owner confirms clearance to download/use GSA documents, code and sensitive
+  assets on this machine, preferably cleaned of PII. Local asset permission
+  is no longer the open blocker recorded on 2026-10-09. VPN access is still
+  unavailable; admin AWS WorkSpace/VDI tickets are pending, with no progress
+  expected today during the federal holiday.
+- Owner plans to boot a standard Citrix VDI and is considering either official
+  VPN setup or exporting code for local work and returning it. Neither route
+  is selected or verified. Recommend the approved VDI file-transfer path for
+  a bounded first change, preserving repository/branch/baseline commit and
+  returning a reviewed patch rather than overwriting a checkout with a ZIP.
+- Still needed: confirm permitted Citrix export/upload functionality, select
+  the target repository/change, check baseline cleanliness and dependency
+  availability, and validate the result in the native environment before PR.
+  VPN setup separately requires the supported client and host/device eligibility;
+  local download approval is not evidence of those requirements being met.
+- Prior USAi approval remains the sensitive model-processing path. Copilot
+  inference is not routed through USAi; do not submit sensitive imported
+  assets here or to other model services without separate routing/approval.
+  Minimize PII/secrets in source snapshots, fixtures, prompts and retained logs.
+- "Librarian" and "Engineer" are naming proposals, not implemented renames.
+  Updated project/tool context and TODO, preserving pre-existing changes.
+  No network probe, credential operation, asset transfer, model call, service
+  change, commit or publication occurred. No experimental process was started;
+  existing services were left untouched and not rechecked in this advisory task.
+
+## Helix hostname and outside-VPC boundary: 2026-10-09, 15:26 clarification
+
+- Owner provided `https://github.helix.gsa.gov` and noted the integration runs
+  locally in WSL, not in the GSA VPC. Recorded the confirmed enterprise host;
+  no live provider configuration or CLI credential was changed.
+- Helix login/repository import is paused pending confirmation of the approved
+  access path and permission to handle source/credentials on this workstation.
+  Being outside the VPC does not itself prove access impossible or permitted;
+  approved VPN access versus GSA-managed execution is unresolved.
+- No DNS/HTTP/authentication probe, model request, network/route change, tunnel,
+  service lifecycle change or publication occurred. Sync remains disabled,
+  no Helix repository has been imported, and the existing local services are
+  untouched. Prior local/USAi approval is not proof of Helix network policy.
+- Updated README/TODO/project/tools with the host and this prerequisite.
+  Ask the owner whether this WSL host is approved for Helix access through GSA
+  VPN, or whether source/agents must run inside GSA-managed infrastructure.
+
+## Forge boot service and GitHub access preparation: 15:08 request
+
+- Owner reports GSA Git access is now available through GitHub, requests Forge
+  configuration/boot startup and suggests `gh`. Existing Forge was healthy
+  under the on-demand supervisor; its provider catalog/workspaces and tmux
+  sessions were empty. `gh` was not installed/on PATH.
+- Extended bootstrap with official GitHub CLI 2.102.0 and a pinned SHA-256,
+  installed only under `.local/tools/`. Added executable `scripts/gh-local.py`
+  selecting an owned private 0700 `GH_CONFIG_DIR`, shared with Forge, and no
+  inherited GitHub/USAi token. CLI version/checksum passed. Its private profile
+  reports no authenticated hosts. No browser login/token was automated.
+- Added `install-forge-service`, `forge-run --node-executable`, Forge health/
+  runtime identity checks, common Node environment and third independent
+  service ownership. Supervisor/status/stop now retain Forge; projects remain
+  visible to status even when the Kata supervisor is stopped.
+- First readiness check failed because native Forge runtime metadata is 0644,
+  even with service umask 0077. Confirmed healthy running Forge and private
+  0700 parent; adjusted only its non-secret runtime reader to owned/regular/
+  non-writable-by-others with O_NOFOLLOW, retaining strict private config/key
+  readers. Added coverage for 0644 success, writable/symlink rejection and
+  initial unpublished-record retries, then completed migration.
+- Verified baseline hashes for Forge/Pi/MCP/roborev config and Falcon project
+  ID survived migration and service restart. Installer repeated successfully.
+  Stopping the on-demand stack left all three independent units healthy;
+  restored a supervisor owning only Kata. AgentsView PID 403061 and roborev PID
+  405454 remained unchanged. Forge PID 432980 and supervisor PID 433031 are the
+  latest checked values; all five listener ports remain IPv4 loopback.
+- Sixty-two focused integration tests, bootstrap shell syntax and whitespace
+  checks passed. No new model request, review/hook, repo/provider selection,
+  remote, publication, Falcon edit or credential change occurred. Sync remains
+  explicitly disabled. A real WSL reboot still has not been performed.
+- Private evidence: `runtime/forge-service-migration-before.json` and
+  `runtime/forge-service-migration.json`; no credentials were logged. Unit
+  `kenn-kopy-forge.service` is active/enabled at http://127.0.0.1:18091/.
+  Existing services are intentionally retained, not experimental processes.
+- **Next blocker:** owner must supply an approved GSA repository URL/host and
+  log in through the isolated CLI in their own terminal, including GSA SSO/
+  organization authorization. Then verify exact-repo read access, configure
+  that repository and deliberately enable scoped provider sync before the
+  first workspace. Account access alone does not establish local authentication.
+  README/TODO/project/tool context record this current state and boundaries.
+  These latest source/documentation changes are uncommitted; the preceding
+  integration snapshot remains commit `1a41ad5`. No automatic commit was made.
 
 ## Local integration commit: 15:00 request
 

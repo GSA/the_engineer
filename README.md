@@ -1,10 +1,18 @@
-# Kenn Kopy: local engineering environment
+# Engi Platform: local engineering environment
 
 A persistent Linux environment for personal exploration and a human-directed
 engineering demo. It combines Forge, Pi, Superpowers, roborev, Kata and
 AgentsView, with the existing Falcon Context MCP server. USAi LiteLLM is the
 required model provider. GSA GitHub/Jira integration and cloud deployment are
 later work.
+
+The selected project name is **engi-platform**, formerly Kenn Kopy. The checkout
+path, private state, scripts and `kenn-kopy-*` service identifiers have not yet
+been migrated; existing commands below still use those identifiers.
+
+Current service evidence and blockers are in [context/status.md](context/status.md).
+The distinction between Forge controls and our proposed engineering phases is
+documented in [context/engineering-workflow.md](context/engineering-workflow.md).
 
 ## Start and access the environment
 
@@ -15,8 +23,8 @@ the saved environment directly:
 python3 scripts/local_env.py run
 ```
 
-Keep that terminal open. On this host, AgentsView and roborev run independently
-as user-systemd services; the supervisor starts Forge and Kata on IPv4
+Keep that terminal open. On this host, AgentsView, roborev and Forge run
+independently as user-systemd services; the supervisor starts only Kata on IPv4
 loopback and connects to them. Configuration/databases are retained, and
 `~/falcon-docs` remains registered as a local Forge project. Before installing
 the independent services, the supervisor owns all four dashboards.
@@ -42,12 +50,19 @@ python3 scripts/local_env.py status
 python3 scripts/local_env.py stop
 ```
 
+If a reboot or interrupted supervisor leaves an old runtime record, `status`
+reports the stack stopped, warns that stale metadata was retained, and still
+checks the independent services. `stop` with no live supervisor signals nothing.
+An occupied owner lock/port or reused PID still fails explicitly; do not remove
+metadata or signal an old PID to force recovery. A successful new start replaces
+the old record, and normal shutdown removes its own record.
+
 Ctrl+C in the running terminal also stops the supervisor. Shutdown retains
 settings, projects, databases and Pi session files. Stop unwanted live terminal
 sessions through Forge's session controls; they can have independent lifetimes.
-**Stopping this stack leaves independent AgentsView and roborev running.**
-Both are enabled at WSL boot; Forge and Kata remain on-demand while GSA GitHub
-access is pending. Occupied ports fail startup rather than replacing another
+**Stopping this stack leaves independent AgentsView, roborev and Forge running.**
+All three are enabled at WSL boot; Kata remains on-demand. Occupied ports fail
+startup rather than replacing another
 process.
 
 For an on-demand stack without an open terminal, this systemd host also supports:
@@ -56,7 +71,7 @@ For an on-demand stack without an open terminal, this systemd host also supports
 systemd-run --user --unit=kenn-kopy-local --collect \
   --setenv=PATH="$PATH" \
   --property=WorkingDirectory="$PWD" --property=UMask=0077 \
-  --description='On-demand Kenn Kopy dashboards' \
+  --description='On-demand Kenn Kopy task dashboard' \
   /usr/bin/python3 "$PWD/scripts/local_env.py" run
 ```
 
@@ -65,6 +80,46 @@ not enabled at boot. Passing the shell's non-secret `PATH` is necessary here
 because Pi uses the user-installed NVM Node runtime. Use the same `status`/
 `stop` commands; inspect failures with
 `journalctl --user -u kenn-kopy-local.service`.
+
+## Kata tasks for Engi Platform
+
+**Kata project `engi-platform` is the source of truth for this project's open
+tasks.** `.kata.toml` binds this checkout; the private database stays under
+`.local/environment/kata/`. `TODO.md` is a generated open-task index plus
+historical completed entries, not a second backlog. Falcon's tasks are unchanged.
+The original open TODO descriptions are preserved in task bodies, including
+blockers and provenance. The reproducible redeployment recipe is task **`5xrm`**.
+
+Start Kata with `python3 scripts/local_env.py run`, keep that terminal open,
+then open **http://127.0.0.1:17777/kata** and select `engi-platform`.
+From a second terminal at this repository root:
+
+```sh
+./scripts/kata-local.py list --agent
+./scripts/kata-local.py ready --no-label blocked --no-label deferred --agent
+./scripts/kata-local.py show 5xrm
+python3 scripts/kata_todo.py
+```
+
+The launcher pins this project/workspace and the private loopback daemon,
+strips inherited credentials and refuses scope overrides. It does not start a
+missing daemon or require a USAi key. Use `--as <actor>` for explicit agent
+attribution; search before creating tasks, claim before working and close only
+after verified completion with a substantive message and typed evidence.
+Refresh `TODO.md` after task changes and before handoff; failed reads leave the
+existing index untouched. Detailed decisions/evidence stay in `context/`.
+
+Kata does not launch agents or independently execute close-evidence tests.
+CLI access is wired through the project instructions; automatic Pi/Copilot
+MCP/attention hooks remain task `tvbf`, not installed by this migration.
+Forge can discover/read tasks, but task-to-worktree creation still needs a
+configured repository mapping. [Adoption details](context/kata-adoption.md)
+and the [synthetic evaluation](context/kata-evaluation.md) describe the boundaries.
+
+Use Ctrl+C or `python3 scripts/local_env.py stop` when finished; saved tasks
+remain and the three boot services stay running. Kata remains on-demand.
+**Database backup is deferred to a separate session**, as requested; private
+persistence and the Markdown index are not a database backup.
 
 ## AgentsView tracking and WSL startup
 
@@ -259,6 +314,89 @@ Setup creates missing settings only. Repeating it preserves existing settings
 and rejects accidental changes to saved executable/corpus paths. Do not delete
 the state directory to change a setting.
 
+## Forge boot service and GSA GitHub setup
+
+Forge runs independently at **http://127.0.0.1:18091/** under
+`kenn-kopy-forge.service`. It retains the existing private database/config and
+Falcon project ID. Its unit records the Node executable for Pi; it does not
+depend on interactive NVM initialization or put credentials into the unit.
+Kata remains on-demand, not a boot dependency.
+
+```sh
+systemctl --user status kenn-kopy-forge.service --no-pager
+systemctl --user restart kenn-kopy-forge.service
+journalctl --user -u kenn-kopy-forge.service
+```
+
+For first-time migration, ensure there are no active workspaces/terminal
+sessions before stopping a supervisor that currently owns Forge:
+
+```sh
+python3 scripts/local_env.py stop
+python3 scripts/local_env.py install-forge-service
+python3 scripts/local_env.py run
+```
+
+Skip `stop` if the stack is already stopped. The installer is repeatable and
+refuses occupied ports; do not stop unrelated services to bypass its checks.
+Once installed, `status` still reports Forge and its projects when the
+on-demand stack is stopped. Disable boot startup, retaining data, with
+`systemctl --user disable --now kenn-kopy-forge.service`; start the service
+again before running the on-demand stack.
+
+GitHub access was reported available on 2026-10-09, but this WSL profile still
+needs authentication and a specific approved repository. The enterprise host
+is **`github.helix.gsa.gov`**, not GitHub.com. The owner confirmed this
+workstation is approved on 2026-10-12; local handling permission is no longer
+an open blocker. **Login/import still awaits an approved network path**:
+VPN access was last reported unavailable. Workstation approval does not
+override the separate prohibition on exporting assets from Citrix VDI.
+Use the login below once approved connectivity is available. The workspace-local
+GitHub CLI **2.102.0** is installed by `scripts/bootstrap-toolchains.sh` using
+the official release archive and a pinned SHA-256. No global installation or
+shell settings change is needed:
+
+```sh
+./scripts/gh-local.py --version
+```
+
+The launcher and Forge share ignored `.local/environment/gh/`, not your global
+GitHub CLI profile. Both drop inherited tokens and use the same private HOME.
+Authenticate in **your own terminal**, replacing `HOST` with the confirmed
+bare host from the approved repository URL (`github.helix.gsa.gov`, without
+`https://`):
+
+```sh
+./scripts/gh-local.py auth login --hostname HOST --web \
+  --git-protocol https --insecure-storage
+./scripts/gh-local.py api --hostname HOST user --jq .login
+```
+
+Complete the browser/SSO flow yourself; authorize the GSA organization if its
+policy requires it. If WSL cannot open a browser, open the printed login URL
+in your Windows browser. Never paste a token/device code into chat or run
+`gh auth token` for manual inspection. The named `--insecure-storage` option
+keeps the credential in this private file-based profile rather than a shared
+system keyring: its directory is `0700` and the launcher sets umask `0077`.
+This is filesystem protection, not an OS sandbox; do not copy the profile
+into Git. Follow GSA's approved authentication method if CLI OAuth is restricted.
+
+After login, restart Forge so startup identity discovery sees the account.
+Then confirm read access to one owner-approved repository:
+
+```sh
+./scripts/gh-local.py repo view https://HOST/OWNER/REPO \
+  --json nameWithOwner,url,viewerPermission
+```
+
+**Provider sync is still disabled** through `--disable-sync`; a normal restart
+does not enable it. Once the host/repository and its read access are confirmed,
+add that exact repository through Forge Settings and deliberately enable
+scoped sync. Do not select all GSA repositories, add remotes to this integration
+repo, publish Falcon, enable write actions/hooks, or launch a coding task as
+part of initial authentication. The next milestone is one provider-backed
+workspace with Pi/USAi and qualified context, followed by an agreed bounded task.
+
 ## Persistence and projects
 
 All local state lives under ignored **`.local/environment/`**, separate from
@@ -271,13 +409,20 @@ global home configuration and disposable smoke runs.
 | `pi/` | Isolated Pi settings, MCP/model configuration and session files |
 | `roborev/`, `kata/`, `agentsview/` | Persistent application state |
 | `logs/` | Appended on-demand logs; independent services use the user journal |
-| `systemd/`, `agentsview-service.json`, `roborev-service.json`, `agentsview-tracking.json` | Generated user units, independent ownership and non-secret source/policy metadata |
+| `systemd/`, `agentsview-service.json`, `roborev-service.json`, `forge-service.json`, `agentsview-tracking.json` | Generated user units, independent ownership and non-secret source/policy metadata |
+| `gh/` | Isolated GitHub CLI login used by Forge; credentials must never be tracked |
 | `secrets/usai-api-key` | Private USAi credential |
 
 Application Settings and the appropriate private configuration files are the
 places to make changes. Restart affected services after startup-setting edits.
 State survives normal stop/start and WSL restarts, but **ignored state is not
 a backup**. Backup/recovery remains tracked in [TODO.md](TODO.md).
+
+The requested host OneDrive backup is not configured yet. The detected account
+is CGI Federal; confirm the approved destination and source-only scope before
+uploading Git history or uncommitted work. Do not sync this live checkout or
+`.local/environment/` wholesale: credentials, sessions, runtime databases and
+Falcon/GSA assets require separate handling decisions.
 
 Register another existing local Git checkout while Forge is running:
 
@@ -307,8 +452,9 @@ it needs a local path, not provider credentials or a repository URL. This
 intake does not make the checkout available in the main workspace UI.
 
 A complete Forge UI demo still needs an approved provider-backed repository.
-The owner chose to wait for GSA GitHub access and add a real provider/repository;
-local-project/worktree UI changes are deferred.
+The owner reports GSA GitHub access is now available; local authentication and
+the specific repository are not yet configured. The owner chose this route;
+local-project/worktree UI changes remain deferred.
 Do not fabricate a provider identity, add a fake remote, or publish Falcon to
 work around the distinction. Standalone Pi below remains available for local
 exploration without a cloud repository.
@@ -434,15 +580,16 @@ python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge
 The smoke script creates fresh isolated state, supplies no credentials, checks
 startup/assets/task storage/offline skills, and shuts down its own processes.
 Do not run it alongside the persistent environment: they use the same ports.
-Stop the dashboard supervisor if running **and** stop both independent units
+Stop the dashboard supervisor if running **and** stop all three independent units
 first:
 
 ```sh
-systemctl --user stop kenn-kopy-roborev.service kenn-kopy-agentsview.service
+systemctl --user stop kenn-kopy-forge.service kenn-kopy-roborev.service kenn-kopy-agentsview.service
 ```
 
-Afterward, restore them with `systemctl --user start kenn-kopy-roborev.service
-kenn-kopy-agentsview.service`; restart the on-demand dashboards if needed.
+Afterward, restore them with `systemctl --user start kenn-kopy-forge.service
+kenn-kopy-roborev.service kenn-kopy-agentsview.service`; restart the on-demand
+task dashboard if needed.
 
 See [TODO.md](TODO.md) for open work, [context/status.md](context/status.md) for
 observed results/current process state, [context/tools.md](context/tools.md)

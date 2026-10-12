@@ -32,6 +32,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         reader.touch()
         self.binary = self.root / "forge"
         self.binary.touch()
+        self.binary.chmod(0o755)
         patch.object(local_env.shutil, "which", return_value="/usr/bin/pi").start()
         patch.object(local_env, "verify_pi", return_value="/usr/bin/pi").start()
         with contextlib.redirect_stdout(io.StringIO()):
@@ -169,6 +170,44 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 1)
         self.assertIn("ERROR: not configured", output.getvalue())
 
+    def test_scoped_kata_pins_project_workspace_and_private_environment(self):
+        args = ["show", "demo", "--as", "test-agent", "--json"]
+        with patch.object(Path, "is_file", return_value=True):
+            with patch.object(local_env.os, "access", return_value=True):
+                with patch.dict(os.environ, {
+                    "KATA_HOME": "/wrong-profile", "KATA_SERVER": "https://wrong.example",
+                    "KATA_AUTHOR": "wrong-actor", "USAI_API_KEY": "not-inherited",
+                }):
+                    command, env = local_env.kata_launch(args)
+        self.assertEqual(command, [
+            str(local_env.ROOT / "kata/kata"), "--workspace", str(local_env.ROOT),
+            "--project", "engi-platform", *args,
+        ])
+        self.assertEqual(env["KATA_HOME"], str(self.state / "kata"))
+        self.assertEqual(env["KATA_SERVER"], "http://127.0.0.1:17777")
+        self.assertNotIn("KATA_AUTHOR", env)
+        self.assertNotIn("USAI_API_KEY", env)
+
+    def test_scoped_kata_rejects_scope_overrides_and_missing_binary(self):
+        for flag in ("--project", "--workspace", "--daemon"):
+            for args in ([flag, "other", "list"], ["list", flag + "=other"]):
+                with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins"):
+                    local_env.kata_launch(args)
+        with patch.object(Path, "is_file", return_value=False):
+            with self.assertRaisesRegex(RuntimeError, "missing executable"):
+                local_env.kata_launch(["list"])
+
+    def test_scoped_kata_entrypoint_preserves_directory(self):
+        command = ["/native/kata", "--project", "engi-platform", "ready"]
+        env = {"KATA_HOME": "/private"}
+        with patch.object(local_env, "kata_launch", return_value=(command, env)) as launch:
+            with patch.object(os, "execve") as execute, patch.object(os, "chdir") as chdir:
+                with patch.object(os, "umask"), patch.object(local_env.sys, "argv", ["launcher", "ready"]):
+                    runpy.run_path(str(local_env.ROOT / "scripts/kata-local.py"))
+        launch.assert_called_once_with(["ready"])
+        execute.assert_called_once_with(command[0], command, env)
+        chdir.assert_not_called()
+
     def test_permissive_key_is_rejected(self):
         self.provider()
         self.key()
@@ -216,6 +255,57 @@ class LocalEnvironmentTests(unittest.TestCase):
         with patch.object(local_env.os, "kill") as kill, self.assertRaisesRegex(RuntimeError, "reused"):
             local_env.stop()
         kill.assert_not_called()
+
+    def save_exited_supervisor(self):
+        with local_env.subprocess.Popen(
+                [local_env.sys.executable, "-c", "pass"],
+                stdout=local_env.subprocess.DEVNULL, stderr=local_env.subprocess.DEVNULL) as process:
+            process.wait(timeout=10)
+        path = self.state / "runtime/supervisor.json"
+        local_env.json_write(path, {"pid": process.pid, "start_time": "previous-instance"})
+        return path
+
+    def test_status_retains_stale_metadata_and_reports_independent_services(self):
+        path = self.save_exited_supervisor()
+        before = path.read_bytes()
+        external = {"forge": {"unit": local_env.FORGE_UNIT, "pid": 123}}
+        errors = io.StringIO()
+        with patch.object(local_env, "managed_services", return_value=external):
+            with patch.object(local_env, "api", return_value={"projects": []}) as api:
+                with contextlib.redirect_stderr(errors):
+                    result = local_env.status()
+        self.assertEqual(result["stack"], "stopped")
+        self.assertIsNone(result["supervisor"])
+        self.assertEqual(result["forge_service"], external["forge"])
+        api.assert_called_once_with("GET", "/projects")
+        self.assertEqual(path.read_bytes(), before)
+        self.assertIn("stale supervisor metadata retained", errors.getvalue())
+
+    def test_stop_with_exited_supervisor_signals_nothing_and_retains_metadata(self):
+        path = self.save_exited_supervisor()
+        before = path.read_bytes()
+        output = io.StringIO()
+        with patch.object(local_env.os, "kill") as kill:
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+                local_env.stop()
+        kill.assert_not_called()
+        self.assertEqual(path.read_bytes(), before)
+        self.assertIn("No live supervisor", output.getvalue())
+        self.assertIn("no process was signaled", output.getvalue())
+        self.assertFalse((self.state / "runtime/shutdown.json").exists())
+
+    def test_stop_without_supervisor_metadata_signals_nothing(self):
+        with patch.object(local_env.os, "kill") as kill:
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_env.stop()
+        kill.assert_not_called()
+
+    def test_supervisor_read_errors_remain_visible(self):
+        local_env.json_write(self.state / "runtime/supervisor.json",
+                             {"pid": os.getpid(), "start_time": "current"})
+        with patch.object(local_env, "process_identity", side_effect=PermissionError("denied")):
+            with self.assertRaises(PermissionError):
+                local_env.supervisor()
 
     def test_key_handoff_requires_terminal(self):
         with patch.object(local_env.sys.stdin, "isatty", return_value=False):
@@ -532,14 +622,14 @@ class LocalEnvironmentTests(unittest.TestCase):
     def test_roborev_environment_pins_node_without_credentials(self):
         node = self.node_executable()
         with patch.dict(os.environ, {"PATH": "/usr/bin:/bin", "USAI_API_KEY": "not-inherited"}):
-            env = local_env.roborev_environment(node)
+            env = local_env.node_environment(node)
         self.assertEqual(env["PATH"].split(os.pathsep)[0], str(node.parent))
         self.assertNotIn("USAI_API_KEY", env)
         self.assertEqual(env["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
 
     def test_roborev_rejects_missing_node_and_nonlocal_bindings(self):
         with self.assertRaisesRegex(RuntimeError, "missing executable Node"):
-            local_env.roborev_environment(self.root / "missing-node")
+            local_env.node_environment(self.root / "missing-node")
         config = self.state / "roborev/config.toml"
         local_env.private_write(config, 'server_addr = "0.0.0.0:17373"\n', replace=True)
         with self.assertRaisesRegex(RuntimeError, "loopback"):
@@ -624,6 +714,122 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(result["roborev_service"], service)
         self.assertIsNone(result["agentsview_service"])
         api.assert_not_called()
+
+    def test_forge_service_installation_preserves_config_and_pins_node(self):
+        node = self.node_executable()
+        config = self.state / "forge/config.toml"
+        before = config.read_bytes()
+        with patch.object(local_env.shutil, "which", return_value=str(node)):
+            with patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)) as run:
+                with patch.object(local_env, "managed_forge", return_value={"pid": 123}):
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        local_env.install_forge_service()
+                        first = (self.state / "systemd" / local_env.FORGE_UNIT).read_bytes()
+                        local_env.install_forge_service()
+        self.assertEqual(config.read_bytes(), before)
+        self.assertEqual((self.state / "systemd" / local_env.FORGE_UNIT).read_bytes(), first)
+        text = first.decode()
+        self.assertIn('"forge-run" "--node-executable" ' + local_env.systemd_quote(node), text)
+        self.assertNotIn("USAI_API_KEY", text)
+        self.assertNotIn("GH_TOKEN", text)
+        self.assertIn(unittest.mock.call(
+            ["systemctl", "--user", "enable", "--now", local_env.FORGE_UNIT],
+            check=True, timeout=60), run.call_args_list)
+        self.assertTrue((self.state / "forge-service.json").exists())
+
+    def test_forge_command_retains_private_config_and_disabled_sync(self):
+        command = local_env.forge_command(local_env.settings())
+        self.assertEqual(command[0], str(self.binary))
+        self.assertIn(str(self.state / "forge/config.toml"), command)
+        self.assertIn("--disable-sync", command)
+        self.assertEqual(command[command.index("--host") + 1], "127.0.0.1")
+        local_env.private_write(self.state / "forge/config.toml", 'host = "0.0.0.0"\nport = 18091\n',
+                                replace=True)
+        with self.assertRaisesRegex(RuntimeError, "loopback"):
+            local_env.validate_forge_config()
+
+    def forge_runtime(self, pid=123):
+        record = {"pid": pid, "service": "kenn-forge", "address": "127.0.0.1:18091",
+                  "version": "test", "metadata": {
+                      "data_dir": str(self.state / "forge"),
+                      "config_path": str(self.state / "forge/config.toml")}}
+        local_env.json_write(self.state / "forge/daemon.123.json", record)
+
+    def test_managed_forge_checks_runtime_database_and_ui(self):
+        self.forge_runtime()
+        (self.state / "forge/daemon.123.json").chmod(0o644)
+        opener = MagicMock()
+        response = opener.open.return_value.__enter__.return_value
+        response.read.return_value = b'{"status":"ok","version":"test","revision":"commit"}'
+        response.status = 200
+        response.headers = {"Content-Type": "text/html"}
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            with patch.object(local_env, "HTTP", opener):
+                result = local_env.managed_forge(required=True)
+        self.assertEqual(result["pid"], 123)
+        self.assertEqual(result["revision"], "commit")
+        self.assertEqual([call.args[0] for call in opener.open.call_args_list], [
+            "http://127.0.0.1:18091/healthz", "http://127.0.0.1:18091/"])
+
+    def test_managed_forge_rejects_mismatched_runtime(self):
+        self.forge_runtime(pid=456)
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            with self.assertRaisesRegex(RuntimeError, "runtime identity"):
+                local_env.managed_forge(required=True)
+
+    def test_managed_forge_rejects_writable_and_symlink_runtime_metadata(self):
+        self.forge_runtime()
+        path = self.state / "forge/daemon.123.json"
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            path.chmod(0o666)
+            with self.assertRaisesRegex(RuntimeError, "runtime metadata"):
+                local_env.managed_forge(required=True)
+            path.chmod(0o600)
+            target = self.root / "runtime-target.json"
+            path.rename(target)
+            path.symlink_to(target)
+            with self.assertRaises(OSError):
+                local_env.managed_forge(required=True)
+
+    def test_all_three_independent_services_leave_only_kata_port(self):
+        self.assertEqual(local_env.supervised_ports({"forge": {}, "roborev": {}, "agentsview": {}}),
+                         (17777,))
+
+    def test_forge_status_keeps_project_registry_when_stack_is_stopped(self):
+        service = {"unit": local_env.FORGE_UNIT, "pid": 123}
+        with patch.object(local_env, "managed_services", return_value={"forge": service}):
+            with patch.object(local_env, "api", return_value={"projects": []}) as api:
+                result = local_env.status()
+        self.assertEqual(result["stack"], "stopped")
+        self.assertEqual(result["forge_service"], service)
+        self.assertEqual(result["projects"], {"projects": []})
+        api.assert_called_once_with("GET", "/projects")
+
+    def test_github_cli_uses_private_profile_without_inherited_tokens(self):
+        with patch.object(Path, "is_file", return_value=True):
+            with patch.object(local_env.os, "access", return_value=True):
+                with patch.dict(os.environ, {"GH_TOKEN": "not-inherited",
+                                             "GITHUB_TOKEN": "not-inherited",
+                                             "USAI_API_KEY": "not-inherited"}):
+                    command, env = local_env.github_cli_launch(["api", "user"])
+        self.assertEqual(command, [str(local_env.GH_BINARY), "api", "user"])
+        self.assertEqual(env["GH_CONFIG_DIR"], str(self.state / "gh"))
+        self.assertNotIn("GH_PROMPT_DISABLED", env)
+        for name in ("GH_TOKEN", "GITHUB_TOKEN", "USAI_API_KEY"):
+            self.assertNotIn(name, env)
+        self.assertEqual((self.state / "gh").stat().st_mode & 0o777, 0o700)
+
+    def test_github_cli_rejects_missing_tool(self):
+        with patch.object(Path, "is_file", return_value=False):
+            with self.assertRaisesRegex(RuntimeError, "bootstrap-toolchains"):
+                local_env.github_cli_launch(["--version"])
+
+    def test_service_readiness_waits_for_runtime_record(self):
+        readiness = MagicMock(side_effect=[FileNotFoundError("not published yet"), {"pid": 123}])
+        with patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=3)):
+            with patch.object(local_env, "check_ports"), patch.object(local_env.time, "sleep"):
+                local_env.install_user_service(local_env.FORGE_UNIT, "forge-run", "test", (18091,), readiness)
+        self.assertEqual(readiness.call_count, 2)
 
 
 if __name__ == "__main__":
