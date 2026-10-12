@@ -8,10 +8,12 @@ task lists. Falcon's checkout, instructions and backlog were not changed.
 
 ## Operations
 
-Use `python3 scripts/local_env.py run` to start on-demand Kata, then
-`http://127.0.0.1:17777/kata`. Choose `engi-platform`, not the earlier synthetic
-evaluation project. The three other dashboards remain independent services.
-Kata is not newly enabled at boot.
+The owner's 17:55 request moves Kata to independent boot ownership under
+`kenn-kopy-kata.service`, preserving this database/project. Open
+`http://127.0.0.1:17777/kata`; choose `engi-platform`, not the earlier synthetic
+evaluation project. Use `systemctl --user start kenn-kopy-kata.service` if
+intentionally stopped. README owns installation/restart/journal instructions.
+Supervisor stop leaves all four boot services running.
 
 `scripts/kata-local.py` selects the private daemon/profile and pins this
 workspace and project, independent of the caller's cwd. It strips inherited
@@ -74,6 +76,25 @@ source/receipts are migration provenance, not a database backup.
 
 ## Evidence
 
+### Boot-service follow-up: 17:55 request
+
+Task `rw31` records the independent-service implementation and verified close.
+The repeatable installer retains the existing config/database and project;
+systemd MainPID must match native liveness, database/profile/version checks
+and HTML readiness. Unit enablement and the existing lingering manager
+configure WSL startup; no WSL reboot was performed.
+
+All 88 focused tests pass. Live service reinstall, restart (PID 24848 to
+25008), exact preservation of the then-38 open task records/configuration and
+empty-child supervisor start/stop passed. The other service PIDs stayed
+395/396/397; Kata inherited no model/provider credential. After closing `rw31`,
+the generated index again contains the original 37 open live tasks and the
+29 historical completed entries. No experimental supervisor remains.
+Private evidence is `runtime/kata-boot-service-verification.json` under the
+environment directory. No database backup or agent hook was introduced.
+
+### Original adoption: 17:42 request
+
 Native issue reads verified the 37 live issue UIDs, open state, titles and
 exact migrated descriptions. Repeating the full import with stable idempotency
 keys created no duplicates. Generated index checks preserve all
@@ -94,7 +115,7 @@ Private provenance is under `.local/environment/runtime/`:
 retained in the session workspace as `files/migrate-engi-todo.py`; it is not
 the promised deployment recipe or an ongoing sync daemon.
 
-Both migration-owned supervisors exited; Kata is stopped again with no
+At the end of the 17:42 migration, both owned supervisors exited; Kata was stopped with no
 17777 listener. AgentsView PID 395, Forge PID 396 and roborev PID 397 remain
 healthy and unchanged. An actual offline refresh failure preserved `TODO.md`.
 No experimental process, model request, external connection, hook, database

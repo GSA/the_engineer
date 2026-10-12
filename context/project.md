@@ -140,6 +140,14 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   separate session; do not treat the task index as a backup or start one here.
   See `kata-adoption.md` for operations/provenance and `kata-evaluation.md`
   for the earlier synthetic checks.
+- At 17:55 on 2026-10-12 the owner requested a current-state Git commit and
+  Kata boot startup alongside the other dashboards. The pre-service snapshot
+  is commit `7c6df7d`. Kata now uses independent `kenn-kopy-kata.service`
+  ownership with the existing private database and loopback API/UI; the
+  optional supervisor must neither duplicate nor stop it. No WSL reboot,
+  database backup, Falcon migration, model-route change or new agent hook is
+  authorized by this service request. Research recommendations should favor
+  existing-stack integration before overlapping new orchestrators.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 
@@ -206,7 +214,12 @@ not prerequisites for the first local demonstration.
 
 # Local session visibility and startup: 2026-10-08
 
-Current update, 2026-10-09 at 15:08: the owner reports GSA GitHub access and
+Current update, 2026-10-12 at 17:55: all four dashboards have independent boot
+units; Kata supersedes its previous on-demand ownership. `run` remains a
+foreground fallback for profiles without installed units, not a required
+terminal on this host. `stop` affects only a verified optional supervisor.
+
+Earlier update, 2026-10-09 at 15:08: the owner reports GSA GitHub access and
 authorized Forge configuration/boot service. Forge now has its own enabled
 loopback user unit and retains its settings/database/project IDs. Kata is the
 only on-demand child; AgentsView/roborev ownership is unchanged. The local
@@ -234,10 +247,13 @@ AgentsView has its own loopback user-systemd service, enabled with the host's
 existing systemd/lingering setup. At 17:00 the owner requested roborev as the
 next boot service while GSA GitHub access/Forge configuration waited. roborev
 gained an independent enabled user unit as well. At that point Forge/Kata stayed
-on-demand; the current Forge migration above leaves only Kata supervised.
+on-demand; the subsequent Forge and Kata migrations now leave all four
+independently owned.
 The supervisor must not duplicate or stop independently owned services.
 Boot availability does not mean opening a browser window or starting all
-tools. Actual WSL reboot verification remains pending a safe interruption.
+tools. The first three units were observed starting at the real 12:38 WSL
+boot on 2026-10-12; Kata's later boot enablement has restart/lifecycle evidence,
+not a new WSL reboot test.
 Generated insights, cloud/archive publication and editor/ACP changes are
 outside this tracking request.
 

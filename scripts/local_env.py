@@ -34,7 +34,9 @@ PORTS = (17373, 17374, 17777, 18080, 18091)
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
-SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374), "forge": (18091,)}
+KATA_UNIT = "kenn-kopy-kata.service"
+SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374),
+                 "forge": (18091,), "kata": (17777,)}
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -763,8 +765,70 @@ def forge_run(node_executable):
     os.execve(command[0], command, env)
 
 
+def validate_kata_config():
+    config = tomllib.loads(private_read(STATE / "kata/config.toml"))
+    if config.get("listen") != "127.0.0.1:17777" or config.get("web", {}).get("listen"):
+        raise RuntimeError("Kata must retain the documented loopback API and shared UI port")
+
+
+def kata_command():
+    binary = ROOT / "kata/kata"
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError("missing executable Kata binary; build it before starting the service")
+    return [str(binary), "daemon", "start", "--foreground", "--no-auto-token",
+            "--listen", "127.0.0.1:17777"]
+
+
+def install_kata_service():
+    settings()
+    validate_kata_config()
+    kata_command()
+    install_user_service(
+        KATA_UNIT, "kata-run", "Engi Platform local task ledger",
+        SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
+    )
+    json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
+    print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
+
+
+def managed_kata(*, required=False):
+    if not required and not (STATE / "kata-service.json").exists():
+        return None
+    pid = user_service_pid(KATA_UNIT)
+    with HTTP.open("http://127.0.0.1:17777/api/v1/ping", timeout=3) as response:
+        ping = json.load(response)
+    if (ping.get("pid") != pid or ping.get("service") != "kata"
+            or ping.get("ok") is not True or not ping.get("version")):
+        raise RuntimeError("Kata health does not match the managed user service")
+    with HTTP.open("http://127.0.0.1:17777/api/v1/health", timeout=3) as response:
+        health = json.load(response)
+    if (health.get("ok") is not True or health.get("version") != ping["version"]
+            or health.get("db_path") != str(STATE / "kata/kata.db")
+            or type(health.get("schema_version")) is not int or health["schema_version"] <= 0
+            or not health.get("api_schema_version")):
+        raise RuntimeError("Kata database health does not match its private profile")
+    request = urllib.request.Request("http://127.0.0.1:17777/kata",
+                                     headers={"Accept": "text/html"})
+    with HTTP.open(request, timeout=3) as response:
+        if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
+            raise RuntimeError("Kata task dashboard is not healthy")
+    return {"unit": KATA_UNIT, "pid": pid, "version": ping["version"],
+            "schema_version": health["schema_version"],
+            "api_schema_version": health["api_schema_version"]}
+
+
+def kata_run():
+    settings()
+    validate_kata_config()
+    check_ports(SERVICE_PORTS["kata"])
+    command = kata_command()
+    os.chdir(STATE / "home")
+    os.execve(command[0], command, base_environment())
+
+
 def managed_services():
-    services = {"agentsview": managed_agentsview(), "roborev": managed_roborev(), "forge": managed_forge()}
+    services = {"agentsview": managed_agentsview(), "roborev": managed_roborev(),
+                "forge": managed_forge(), "kata": managed_kata()}
     return {name: service for name, service in services.items() if service is not None}
 
 
@@ -783,6 +847,7 @@ def status():
             "agentsview_service": external.get("agentsview"),
             "roborev_service": external.get("roborev"),
             "forge_service": external.get("forge"),
+            "kata_service": external.get("kata"),
             "projects": api("GET", "/projects") if saved or "forge" in external else None}
 
 
@@ -792,6 +857,7 @@ def serve():
     lock_fd = os.open(STATE / "runtime/owner.lock",
                       os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     children = []
+    saved_supervisor = False
     try:
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -802,11 +868,11 @@ def serve():
         check_ports(owned_ports)
         validate_forge_config()
         validate_roborev_config()
+        validate_kata_config()
         services = [
             ("roborev", ROOT / "roborev/bin/roborev", roborev_command()[1:],
              "http://127.0.0.1:17373/api/status"),
-            ("kata", ROOT / "kata/kata", ["daemon", "start", "--foreground", "--no-auto-token",
-                                         "--listen", "127.0.0.1:17777"],
+            ("kata", ROOT / "kata/kata", kata_command()[1:],
              "http://127.0.0.1:17777/api/v1/health"),
             ("agentsview", ROOT / "agentsview/agentsview", agentsview_command()[1:],
              "http://127.0.0.1:18080/api/ping"),
@@ -859,6 +925,7 @@ def serve():
                  "children": {name: process.pid for name, process in children},
                  "external_services": external}
         json_write(STATE / "runtime/supervisor.json", saved, replace=True)
+        saved_supervisor = True
         print("Local environment ready: Forge http://127.0.0.1:18091/", flush=True)
         print("Ctrl+C or `python3 scripts/local_env.py stop` stops owned services, not saved data.", flush=True)
         while True:
@@ -878,7 +945,7 @@ def serve():
                 process.wait(timeout=5)
                 failures.append(f"{name} required SIGKILL")
             print(f"{name} stopped", flush=True)
-        if children:
+        if children or saved_supervisor:
             try:
                 check_ports(owned_ports)
             except OSError:
@@ -938,6 +1005,8 @@ def main():
     commands.add_parser("install-forge-service", help="enable the configured Forge user service")
     forge_service = commands.add_parser("forge-run", help="run the standalone configured Forge service")
     forge_service.add_argument("--node-executable", type=Path, required=True)
+    commands.add_parser("install-kata-service", help="enable the configured Kata user service")
+    commands.add_parser("kata-run", help="run the standalone configured Kata service")
     catalog = commands.add_parser("list-models", help="refresh advertised USAi model IDs using the private key")
     catalog.add_argument("--base-url", required=True)
     provider = commands.add_parser("configure-provider", help="set non-secret USAi connection details")
@@ -975,6 +1044,10 @@ def main():
             install_forge_service()
         elif args.command == "forge-run":
             forge_run(args.node_executable)
+        elif args.command == "install-kata-service":
+            install_kata_service()
+        elif args.command == "kata-run":
+            kata_run()
         elif args.command == "configure-provider":
             configure_provider(args.base_url, args.model, args.api)
         elif args.command == "list-models":

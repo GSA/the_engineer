@@ -1,5 +1,42 @@
 # Status: 2026-10-12
 
+## Kata boot service and current-state commits: 17:55 request
+
+- Committed the pre-service integration state as `7c6df7d`, including the
+  scoped Kata adoption/index, Forge boot service, private GitHub CLI preparation
+  and recorded workflow research. No remote/push, ignored state or upstream
+  gitlink change was included.
+- Added and installed independent `kenn-kopy-kata.service` using the shared
+  repeatable unit installer, existing private profile/database and loopback
+  17777 API/UI. `kata-run` executes foreground/no-auto-token with sanitized
+  credentials; it requires neither Pi/Node nor a model key. Readiness checks
+  systemd MainPID, ping/version, private database/schema and HTML dashboard.
+  Existing lingering is enabled; the unit is enabled, active/running and
+  restart-on-failure. This is configured boot startup, not a new reboot test.
+- Fixed the coupled supervisor case where all dashboards are external:
+  zero-child shutdown now removes its own metadata and writes shutdown status.
+  Added service/config/identity/lifecycle regressions; all 88 focused tests pass.
+  Repeated live installation preserves settings and starts no duplicate daemon.
+- Real Kata restart changed PID 24848 to 25008. All 38 then-open task records
+  and saved integration config hashes remained identical. Actual empty-child
+  supervisor start/stop completed normally and left all four service identities
+  unchanged. No model/provider token was inherited by Kata.
+- Task `rw31` was created/claimed for this request and closed with specific
+  source/test/runtime evidence after verification. Refreshed `TODO.md`:
+  37 open tasks remain; the 29 pre-adoption historical records are unchanged.
+  Private verification is `runtime/kata-boot-service-verification.json` and
+  the bounded supervisor log under `.local/environment/`.
+- README now documents four-unit startup/stop, Kata install/restart/journal,
+  optional-supervisor status semantics and the four-unit smoke prerequisite.
+  Research priority is existing Kata/Pi/Copilot integration, then isolated
+  Herdr, selective Richard Gill Pi extensions and Ouijit comparison; rationale
+  and existing task IDs are in `tools.md`. No new tool was selected/installed.
+- Final state: Kata PID 25008, AgentsView 395, Forge 396 and roborev 397 are
+  independently healthy. No supervisor/experiment process remains; Kata is
+  deliberately retained as a boot service. No WSL reboot, database backup,
+  Falcon edit, new agent hook, model request, Helix/Jira connection or publication.
+  Backup remains deferred to the requested separate session.
+
 ## Engi Platform backlog adopted in Kata: 17:42 request
 
 - Owner authorizes this project's existing TODO as Kata tasks and requests an
