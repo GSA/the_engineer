@@ -5,6 +5,37 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Owner clarification and verified boundary: 2026-10-13, 11:17
+
+The owner wants to support existing Forge with Superpowers, not introduce a
+separate role orchestration system. Copilot and global Pi are out of scope.
+Clarify assumptions while designing these prompts; working agents should
+continue approved steps and escalate consequential uncertainty rather than
+request permission repeatedly. The four roles below are an earlier proposal,
+not Forge-required roles or an approved first-version topology.
+
+| Concern | Existing authority/capability |
+| --- | --- |
+| Decompose intent into tasks | Human or coding agent using skills and Kata; Forge has no task-planning engine. |
+| Canonical task state/dependencies | Kata. Forge reads tasks, maintains associations and creates mapped workspaces, not canonical task mutations. |
+| Agent selection and execution | Forge configured targets, explicit UI launch, quick actions and MCP handoffs. No required designer/coder/reviewer/integrator schema. |
+| Engineering stops and TDD exceptions | Coding harness, Superpowers and repository/task instructions. Forge hooks display approval/input state; installing hooks does not enable consent or auto-approval. |
+| Isolation | Forge Git worktrees and runtime sessions separate checkouts/processes. Role policy isolation and OS sandboxing are not automatically supplied. |
+| Handoff records and concise prompts | Forge supplies identity and initial-message transport. Our proposed handoff fields/token target are optional additions, not Forge requirements. |
+
+Native MCP spawn accepts a provider PR/issue or ad-hoc repository source,
+not a direct Kata-task source (`forge/internal/mcpserver/tools_agent_spawn.go`,
+`workspaceSourceInput` and `validateSpawnWorkspaceInput`). Kata-backed
+workspace creation exists separately in UI/API. A coordinating Pi agent can
+use available task and launch primitives, but do not describe task scheduling
+or complete automatic Kata dispatch as a built-in Forge pipeline.
+
+Non-secret local metadata inspection confirms one enabled `pi` target, zero
+quick actions, optional Forge MCP disabled in saved configuration and the
+Superpowers package registered in private Pi. Live GET collections confirm zero
+provider repos/workspaces. This is source/config/read evidence, not a demonstrated
+coding or automatic delegation loop. No prompt/profile changes were made.
+
 ## What Forge actually owns
 
 Forge is the repository/PR review console and workspace/session manager, not
@@ -39,6 +70,9 @@ Evidence in the pinned checkout:
 | Closed grouping and status labels | `forge/frontend/src/lib/stores/workflow.svelte.ts` |
 | Worktree/session behavior and hook states | `forge/docs/workflows/workspaces.md`, `forge/context/workspace-apis.md` |
 | Agent definitions and one-prompt quick actions | `forge/docs/configuration.md` |
+| Agent target schema, without engineering roles | `forge/internal/config/config.go:868-901` |
+| Kata task/read/link/workspace ownership | `forge/context/kata-mode.md`, `forge/internal/server/kata/handler.go`, `read_routes.go` |
+| Hook reporting versus agent consent/approval | `forge/context/workspace-apis.md:567-590` |
 | Generated context, trust boundaries and instruction ownership | `forge/internal/workspace/agent_context.go` |
 | Agent launch/message handoff, distinct from completion | `forge/docs/kenn-forge-mcp.md` |
 
@@ -89,7 +123,7 @@ Finish with fresh checks, review of the resulting diff, durable context and
 clear unresolved blockers. Never treat prompt text, an agent's success claim,
 a status label or a plan as publication or merge authorization.
 
-## Focused role responsibilities
+## Earlier optional role proposal
 
 | Role | Draft instruction focus |
 | --- | --- |

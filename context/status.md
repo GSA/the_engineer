@@ -1,5 +1,26 @@
 # Status: 2026-10-13
 
+## Forge-native prompt scope correction: 11:17 request
+
+- Owner wants existing Forge with Superpowers, not a new role orchestrator or
+  blanket adoption of every skill workflow. Copilot/global Pi are excluded.
+  After approval, agents should proceed through agreed steps and escalate
+  consequential uncertainty; exhaustive questions apply to prompt design.
+- Verified pinned Forge docs and implementation: task decomposition is not a
+  Forge capability, engineering roles are not required configuration, hooks
+  report rather than decide approval/input stops, and worktrees/sessions are
+  not OS sandboxing. The earlier four-role draft remains optional/unapproved.
+- Saved metadata has one enabled Pi target, zero quick actions and disabled
+  optional Forge MCP. Live local collections show zero repos/workspaces;
+  corrected an initial wrong-prefix 404 with the existing API helper.
+  Native MCP spawn supports provider items/ad-hoc repos, not direct Kata
+  sources. Human/agent task decomposition and worker handoff need an agreed
+  topology, not an invented built-in Forge scheduler.
+- Updated workflow/source evidence and task handoff; implementation stays
+  paused pending topology/design agreement. No prompts/profiles installed,
+  upstream edits, model requests, hooks, service changes, provider probes,
+  publication or experiment processes. Completed context is committed locally.
+
 ## Engineering prompt clarification: 11:07 request
 
 - Owner confirms Superpowers as a staple, complementary sources, bounded
