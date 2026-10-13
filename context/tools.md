@@ -22,6 +22,17 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Falcon demo boundary: 2026-10-13
+
+The intended demo is an application informed by real Falcon product
+specifications through the existing Librarian MCP, not a synthetic Librarian
+or a new Librarian UI. At 16:07 the owner favors waiting for AWS access over
+creating a GitHub-hosted demo now. A private GitHub.com repository is not
+automatically an approved destination for confidential specification-derived
+code, tests, tasks or review text. AWS execution access and approved Git/source
+storage are separate prerequisites; do not assume AWS enables Helix access.
+No repository/provider configuration or deployment has been authorized.
+
 # Prompt integration discovery: 2026-10-13
 
 The existing private Pi setup loads the pinned Superpowers package. Its

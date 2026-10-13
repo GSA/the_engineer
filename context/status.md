@@ -1,5 +1,22 @@
 # Status: 2026-10-13
 
+## Real-specification demo and confidentiality hold: 16:07 discussion
+
+- Owner confirms an application based on real Falcon product specifications,
+  not fictional Librarian context or a demo interface to the Librarian itself.
+  The earlier synthetic-only app recommendation is not the agreed demo scope.
+- Owner favors waiting for AWS access because GitHub may be an inappropriate
+  destination for confidential specification-derived artifacts. No repository
+  creation, login, provider sync, push or implementation is authorized.
+  AWS alone does not settle source storage, Helix connectivity or data policy.
+- Earlier readiness checks found all four platform services active and Forge
+  responsive; the isolated GitHub CLI was unauthenticated. These observations
+  do not establish an approved destination or complete worker integration.
+- Recorded the distinction without changing task status or activating prompts.
+  Platform preparation can remain separate from the real-specification demo.
+  No corpus/model/provider request, service change, deployment or experiment
+  process was started for this clarification; documentation committed locally.
+
 ## Approved Kata cleanup and consolidation: 11:46 request
 
 - Applied the owner-approved cleanup with the scoped native CLI. `v3sd` is
