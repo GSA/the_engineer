@@ -100,8 +100,11 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   platform assumption: projects are generally known, not arbitrary downloads.
   Do not treat per-project trust prompts as a required platform gate. This
   does not change model/data-routing, credential, network or publication/merge
-  boundaries. Review Richard Gill's ideas as a backlog task, not a wholesale
-  adoption of his setup; no runtime trust configuration was changed here.
+  boundaries. Richard Gill's ideas were initially a standalone backlog task,
+  not a wholesale adoption of his setup; no runtime trust configuration was
+  changed here. At 23:12 the owner removed that standalone tool-research item
+  and assigned its review to the agent dedicated to platform prompts (`k03a`).
+  Task `0s6v` is superseded by that work; no Gill extension was installed.
 - USAi LiteLLM is the required model interface, clarified on 2026-10-08.
   The owner supplied the private key and approved USAi/local use for sensitive
   information, including PII, on 2026-10-08. Prompting users should

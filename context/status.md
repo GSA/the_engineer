@@ -1,5 +1,19 @@
 # Status: 2026-10-12
 
+## Gill review moved to the prompt-writing agent: 23:12 request
+
+- Owner removes Gill's Pi extensions/setup from active platform tool research;
+  the dedicated platform prompt-writing agent owns the review instead.
+  Standalone Kata task `0s6v` is superseded by prompt-policy task `k03a`, with
+  an explicit handoff comment, not marked as a completed extension evaluation.
+- Research order is now Kata/Pi/Copilot integration, Herdr and Ouijit.
+  `tools.md` retains prior source observations only as prompt-agent reference;
+  `project.md` records the scope change. The generated TODO index now contains
+  35 open tasks; historical completed entries are unchanged.
+- No extension uninstall is needed: none of Gill's extensions were installed.
+  No agent is launched, profile/service changed, experiment process started,
+  model request made or remote publication performed for this backlog update.
+
 ## Falcon sensitive-corpus backup: 19:51 request
 
 - Owner extends the same protected-OneDrive backup rules to `falcon-docs`.

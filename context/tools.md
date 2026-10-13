@@ -22,7 +22,12 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
-# Richard Gill: research and queued review, 2026-10-12
+# Richard Gill: prompt-agent reference, 2026-10-12
+
+At 23:12 the owner removed this item from active platform tool research.
+Review belongs to the agent dedicated to platform prompts (`k03a`); standalone
+task `0s6v` is superseded by that work. Retain the sources below as handoff
+context, not a recommendation to install extensions. None were installed here.
 
 [Richard Gill](https://richardgill.org/) describes himself as a London software
 engineer, formerly at Stripe and running a consultancy; employment history is
@@ -44,8 +49,7 @@ not local runtime validation.
 At 13:01 the owner accepted automatic project trust for this platform because
 projects are generally known. This supersedes the earlier recommendation not
 to copy that aspect of Gill's personal setup. No trust extension/configuration
-was installed or enabled. The TODO review should compare his ideas with our
-existing stack and record selective adopt/defer decisions while preserving
+was installed or enabled. Any future prompt-agent review should preserve
 USAi routing, Falcon MCP and human publication/merge control.
 
 # Personal/tool candidates: 2026-10-12 research
@@ -124,7 +128,7 @@ restriction. Automatic detection-manifest downloads and saved pane history
 need deliberate reproducibility/retention choices; neither sandboxing nor
 USAi routing is established simply by using Herdr.
 
-## Next research priorities: 17:55 request
+## Next research priorities: updated at 23:12
 
 Prioritize gaps in this stack over accumulating overlapping tools. These are
 recommendations using the documented sources above, not new runtime findings
@@ -134,8 +138,10 @@ or approval to install products.
 | --- | --- | --- |
 | 1 | `tvbf` | Kata's native MCP/agent/attention integration: make private Pi and Copilot reliably discover, claim, update and hand off one real platform task without creating a second ledger. |
 | 2 | `r27h` | Herdr: isolated Pi/Copilot terminal/status trial outside Forge-owned tmux; verify private profile, native resume, Falcon MCP and AgentsView coverage. |
-| 3 | `0s6v` | Richard Gill's Pi extensions/setup: select useful background-command, context-loading and coordination ideas; preserve USAi and human publication control rather than importing the whole setup. |
-| 4 | `jjw1` | Ouijit: compare task/worktree/agent lifecycle with Kata plus Forge on synthetic work; adopt only if it closes a demonstrated gap without competing task authority. |
+| 3 | `jjw1` | Ouijit: compare task/worktree/agent lifecycle with Kata plus Forge on synthetic work; adopt only if it closes a demonstrated gap without competing task authority. |
+
+Gill's Pi extensions/setup is excluded from this research queue; the dedicated
+platform prompt-writing agent owns that review.
 
 Spokenly (`0rc1`) is a separate personal-productivity trial with local models.
 Ghostty (`c3ch`) is lower-priority terminal ergonomics. PiPod/Abyss/smolvm
