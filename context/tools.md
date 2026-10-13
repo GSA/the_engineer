@@ -22,6 +22,48 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Current terminal choice: Ghosthub substitute, 2026-10-13
+
+The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated
+as secure/insecure. Do not install it or introduce a competing task ledger.
+The dated research below is retained as provenance, not current selection.
+
+Ghosthub fills the **multiplexer-native terminal frontend** layer in
+[Kenn's original stack](https://wesmckinney.com/blog/agentic-engineering-aug-2026/),
+not Kata's intent ledger or Forge's PR/worktree ownership. That layer can be
+covered now without another agent orchestrator.
+
+| Option | Local facts and role | Decision |
+| --- | --- | --- |
+| Existing Zed + tmux | Installed Zed 1.23.3 and tmux 3.6. Zed offers editor/diffs and terminals; tmux supplies live-process persistence and session/window/pane switching. Works without Forge provider mapping. | Lowest-friction baseline. `scripts/terminal-local.py` supplies a private-socket entrypoint from any WSL terminal or Zed terminal/thread. No installation/global setting change. |
+| Existing WSL terminal + tmux | Same backend and native clients, without a GUI dependency. | Fully usable fallback and the portable foundation for later approved SSH/Linux use. Remote connectivity and fresh-host installation are not configured. |
+| Ghostty + tmux | Installed Ghostty identifies as `1.3.0-dev+0000000`, channel tip; WSL display variables exist. | Optional frontend, not required or asserted to be a hardened release. No upgrade or GUI trial performed. |
+| Herdr | Additional runtime/status machinery and native resume integrations; previous reports remain below. | Optional future trial `r27h` only if tmux lacks a demonstrated needed feature. No installation. |
+| cmux / Ghosthub | [cmux's current app](https://github.com/manaflow-ai/cmux) is Swift/AppKit macOS; Ghosthub was excluded here for the same host mismatch. | Revisit on a future Mac if useful, not a Linux/WSL dependency. |
+
+[Zed Terminal Threads](https://zed.dev/docs/ai/terminal-threads) organize
+native CLIs without taking over their auth, provider, MCP or skills. Prefer
+that surface or an ordinary integrated terminal; no Pi ACP bridge, Zed model
+provider migration or extension is needed. The installed GUI is already
+running, but version/process presence is not a demonstrated UI workflow.
+Owner should check opening a terminal/thread and attaching the launcher.
+
+The launcher opens/reuses named sessions in this checkout and leaves Forge's
+socket alone. It sanitizes inherited credential/actor variables, retains
+normal HOME/XDG paths for native Copilot, and pins private Pi's directory.
+Use `pi-local.py` for USAi; Copilot inference remains separate. Shells skip
+profile/rc loading and the supplied tmux configuration is separate from user
+settings. This reduces configuration surprises; it is not sandboxing or proof
+of enterprise hardening. Neither Kata's selection nor this baseline implies
+all reliability/security work is complete.
+
+The [tmux contract](https://man.openbsd.org/tmux.1) preserves live sessions
+over detach/disconnection, not server/WSL restart. Saved native agent sessions
+and task records are the durable restart assets. README owns launch/key
+bindings/stop instructions; real PTY tests cover reattach, disconnect and
+exact-session stop. No automatic attention, reboot recovery, publication,
+worktree creation or server deployment is introduced.
+
 # Richard Gill: prompt-agent reference, 2026-10-12
 
 At 23:12 the owner removed this item from active platform tool research.
@@ -128,7 +170,7 @@ restriction. Automatic detection-manifest downloads and saved pane history
 need deliberate reproducibility/retention choices; neither sandboxing nor
 USAi routing is established simply by using Herdr.
 
-## Next research priorities: updated at 23:12
+## Next research priorities: updated 2026-10-13
 
 Prioritize gaps in this stack over accumulating overlapping tools. These are
 recommendations using the documented sources above, not new runtime findings
@@ -137,17 +179,20 @@ or approval to install products.
 | Priority | Existing Kata task | Target and bounded question |
 | --- | --- | --- |
 | 1 | `tvbf` | Kata's native MCP/agent/attention integration: make private Pi and Copilot reliably discover, claim, update and hand off one real platform task without creating a second ledger. |
-| 2 | `r27h` | Herdr: isolated Pi/Copilot terminal/status trial outside Forge-owned tmux; verify private profile, native resume, Falcon MCP and AgentsView coverage. |
-| 3 | `jjw1` | Ouijit: compare task/worktree/agent lifecycle with Kata plus Forge on synthetic work; adopt only if it closes a demonstrated gap without competing task authority. |
+| 2 | `jqwq` | Check the existing Zed terminal/thread UI with the scoped tmux launcher; home-directory access is supplied, ACP remains unnecessary. |
+| 3 | `r27h` | Optional Herdr trial only for a demonstrated gap in the existing tmux baseline; preserve scoped clients and Forge's runtime. |
 
 Gill's Pi extensions/setup is excluded from this research queue; the dedicated
-platform prompt-writing agent owns that review.
+platform prompt-writing agent owns that review. Ouijit is excluded by the
+2026-10-13 owner decision; `jjw1` is closed wontfix.
 
 Spokenly (`0rc1`) is a separate personal-productivity trial with local models.
-Ghostty (`c3ch`) is lower-priority terminal ergonomics. PiPod/Abyss/smolvm
+`c3ch` now records the completed existing-tool terminal baseline, not a
+Ghostty install or GUI trial. PiPod/Abyss/smolvm
 (`vd8j`) remain deferred sandbox research before cloud or broader autonomous
 execution; none is selected and profile isolation is still not a sandbox.
-Database backup/recovery remains a separate owner-requested session.
+Backup/recovery follows its separate authorized scope; no backup rerun is
+part of this terminal work.
 
 ## Operational and anecdotal evidence: 23:16 request
 
@@ -194,7 +239,7 @@ Concrete user/maintainer evidence:
   benchmark; it is also a reminder that Jira/Linear intake is not established
   merely by having a task board.
 
-Recommendation remains **Herdr first as a bounded complement**, if persistent
+Historical 2026-10-12 recommendation was **Herdr first as a bounded complement**, if persistent
 standalone terminal/status management is a demonstrated pain point. Its trial
 should measure attach/detach process identity, restart/resume/profile fidelity,
 Pi/Copilot status versus observed behavior and cleanup, with synthetic work.
@@ -202,6 +247,8 @@ Evaluate Ouijit only as an explicit alternative execution/review interface,
 measuring clean worktrees, scoped Pi/USAi, permissions and task reconciliation
 before considering coexistence. More tools are not themselves an integration
 benefit. Existing issue reports do not establish enterprise/GSA readiness.
+The 2026-10-13 owner decision supersedes the Ouijit trial and favors the
+already-installed tmux baseline before any additional terminal runtime.
 
 ## Kata agent-access milestone: 23:16 request
 

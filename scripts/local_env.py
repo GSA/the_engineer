@@ -8,6 +8,7 @@ import getpass
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import signal
@@ -397,6 +398,48 @@ def kata_launch(args):
     return [
         str(binary), "--workspace", str(ROOT), "--project", "engi-platform", *args,
     ], base_environment()
+
+
+def terminal_launch(action, name="engi-platform"):
+    if action not in ("open", "list", "stop"):
+        raise RuntimeError("terminal action must be open, list or stop")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,47}", name):
+        raise RuntimeError("session names must be 1-48 letters, digits, hyphens or underscores")
+    settings()
+    binary = shutil.which("tmux")
+    if not binary:
+        raise RuntimeError("tmux is missing; install it before using the terminal launcher")
+    directory = STATE / "runtime/terminal"
+    private_dir(directory.parent)
+    private_dir(directory)
+    endpoint = directory / "tmux.sock"
+    if endpoint.exists() or endpoint.is_symlink():
+        info = endpoint.lstat()
+        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
+            raise RuntimeError(f"expected an owned tmux socket: {endpoint}")
+    command = [
+        binary, "-S", str(endpoint), "-f", str(ROOT / "scripts/terminal.tmux.conf"),
+    ]
+    if action == "open":
+        command += ["new-session", "-A", "-s", name, "-c", str(ROOT)]
+    elif action == "list":
+        command += [
+            "list-sessions", "-F",
+            "#{session_name}: #{session_windows} windows (#{session_attached} attached)",
+        ]
+    else:
+        command += ["kill-session", "-t", f"={name}"]
+    environment = base_environment()
+    # Copilot retains its existing authentication and session storage, unlike private Pi.
+    home = Path.home()
+    environment["HOME"] = str(home)
+    for variable, default in (
+        ("XDG_CONFIG_HOME", home / ".config"),
+        ("XDG_DATA_HOME", home / ".local/share"),
+        ("XDG_CACHE_HOME", home / ".cache"),
+    ):
+        environment[variable] = os.environ.get(variable, str(default))
+    return command, environment
 
 
 def kata_mcp_launch(actor):

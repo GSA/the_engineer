@@ -14,6 +14,64 @@ Current service evidence and blockers are in [context/status.md](context/status.
 The distinction between Forge controls and our proposed engineering phases is
 documented in [context/engineering-workflow.md](context/engineering-workflow.md).
 
+## Standalone agent terminals: Ghosthub replacement
+
+The lowest-friction baseline on this WSL host is **existing Zed plus tmux**.
+Zed is the optional editor/terminal frontend; tmux keeps standalone agent
+processes alive across detach or a closed terminal. Any WSL terminal works,
+so no GUI or new runtime is required. Kata remains the task authority, Forge
+retains its own workspaces/tmux, and AgentsView/roborev keep their existing roles.
+Ouijit is declined, not installed.
+
+Open this checkout with `zed .`. In a Zed terminal (or **Agent Panel > new
+thread > Terminal**, if available in your build), run:
+
+```sh
+python3 scripts/terminal-local.py open pi
+```
+
+Inside that persistent shell, run `python3 scripts/pi-local.py` for the private
+Pi/USAi profile, with its existing Falcon and Kata MCP configuration. In another
+terminal/thread, run `python3 scripts/terminal-local.py open copilot`, then
+`copilot`. Copilot keeps its existing authentication/session storage; **its
+inference is not USAi**, so sensitive model work stays in Pi.
+
+Press **Ctrl+B, then D** to detach; repeat the same `open` command to reattach,
+without launching a second agent. **Ctrl+B, then S** selects sessions,
+**Ctrl+B, then C** creates a shell window, and **Ctrl+B, then %** splits a pane.
+All these shells start in this checkout. Use separate worktrees before having
+agents edit overlapping files concurrently; terminals do not provide worktree
+isolation or task ownership.
+
+The launcher also works from home using its absolute path:
+
+```sh
+python3 ~/kenn-kopy/scripts/terminal-local.py open pi
+python3 ~/kenn-kopy/scripts/terminal-local.py list
+```
+
+`python3 scripts/terminal-local.py stop pi` **terminates that session and its
+processes**, not the other named sessions or dashboards. Stop agents normally
+and detach first when work/session files need saving. An absent server/session
+is reported as an error rather than silently replaced.
+
+The launcher uses a private Unix socket under ignored
+`.local/environment/runtime/terminal/`, separate from Forge's `kenn-kopy-local`
+server. It passes no inherited provider tokens to tmux, does not load your
+user tmux configuration, and starts Bash without profile/rc files. Normal HOME
+and XDG config/data/cache paths preserve native Copilot state; private Pi's
+directory stays pinned, but **use `pi-local.py`**, not a bare `pi`, to load the
+USAi key only into the agent. Startup requires neither a model key nor Forge
+provider access and changes no global editor/client settings.
+
+This is terminal persistence, **not an OS sandbox, automatic agent attention,
+or restart recovery**. WSL shutdown/reboot kills the live processes; reopen
+tmux and explicitly resume saved native agent sessions afterward. tmux
+attach/detach/disconnect behavior is verified here; Zed's GUI/thread workflow
+still needs the owner's interactive check. Installed Ghostty is a development
+build and is not required; Herdr remains optional research, and cmux's macOS app
+is not a replacement for this Linux/WSL host.
+
 ## Start and access the environment
 
 Run commands from this repository's root. On this host, all four dashboards

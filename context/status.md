@@ -1,4 +1,50 @@
-# Status: 2026-10-12
+# Status: 2026-10-13
+
+## Ghosthub replacement baseline and Ouijit declined: 10:07 request
+
+- Owner declines Ouijit to avoid adding an unqualified competing stack;
+  `jjw1` is closed **wontfix**, not a completed trial or a vulnerability finding.
+  Kata stays authoritative. This does not establish full tracker hardening or
+  waive open attention/recovery acceptance work under `tvbf`.
+- Selected already-installed Zed 1.23.3 plus tmux 3.6 as the lowest-friction
+  standalone-terminal baseline. Ghosthub's role is the multiplexer frontend,
+  not task/PR authority. Any WSL terminal works; no new runtime/editor/provider
+  or agent extension is installed. cmux's macOS app does not fit this host.
+  Existing Ghostty reports `1.3.0-dev+0000000`/tip and is not required.
+- Added `scripts/terminal-local.py`, `terminal_launch` and a four-line scoped
+  tmux config. Named open/reuse, list and exact-session stop use an owned
+  private socket at `runtime/terminal/tmux.sock`, separate from Forge.
+  Inherited credential/task variables are stripped; Bash skips profile/rc
+  files. Normal HOME/XDG config/data/cache preserve existing Copilot state,
+  while Pi's private directory stays pinned. Only `pi-local.py` reads the USAi
+  token into the agent; terminal startup needs no key/provider mapping.
+- All **118 focused tests pass**: seven new launcher/config/error/entrypoint
+  regressions and two real-tmux tests. Actual PTY attach/reattach, Ctrl+B/D
+  and terminal disconnect preserve the same live shell; stopping `pilot`
+  preserves `pilot-other`. Tests use disposable private sockets and shut down
+  only their own servers. Initial harness pane-target syntax was corrected
+  before claiming these behavior checks passed.
+- Actual launcher entrypoint opened from home in a PTY, detached, and retained
+  its shell PID. Inside that live shell, Pi 1.0.3 connected to **Falcon
+  (7 tools, global)** and **Kata (16 loaders, project)**; Copilot 1.0.95 startup
+  succeeded. Server provider-token variables were absent. This is model-free
+  client/config validation, not a new Copilot inference/MCP task pilot.
+  The exact verification session was terminated through the launcher.
+- `c3ch` is closed with source/runtime/test evidence for the terminal baseline.
+  `jqwq` remains open for the owner's Zed terminal/thread GUI check and any
+  useful remaining launcher ergonomics. Zed is installed/already running,
+  but no GUI interaction is claimed verified. Herdr `r27h` remains optional
+  research only for a demonstrated gap; no Herdr/Ouijit installation.
+  README owns repeatable usage and recovery limits; tool/project decisions
+  are updated. TODO now indexes **33 open tasks**, historical entries unchanged.
+  Completed source/context/index changes are committed locally, with no push.
+- No experiment-owned tmux/client/agent process remains. All four dashboards
+  remain active at unchanged PIDs: Kata 25008, Forge 396, AgentsView 395,
+  roborev 397. Existing user Zed processes are untouched. No global setting,
+  service restart, model request, Falcon edit/refresh, backup, new network
+  listener, SSH/cloud configuration or publication occurred.
+  tmux survives detach/disconnection, **not WSL shutdown or server restart**;
+  native session resume remains explicit and this is not an OS sandbox.
 
 ## Kata/Pi/Copilot first integration milestone: 23:16 request
 
