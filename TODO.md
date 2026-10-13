@@ -23,7 +23,6 @@ migrated.
 - [ ] [`engi-platform#mpew`](http://127.0.0.1:17777/kata?issue=01M4S19R5XSJNZ73FKNHJJMPEW) Demonstrate prompt and publication gates on a synthetic task
 - [ ] [`engi-platform#5ayh`](http://127.0.0.1:17777/kata?issue=01M4S19R6FFHYAF1BACHB25AYH) Migrate project paths, services and state to engi-platform
 - [ ] [`engi-platform#p4ke`](http://127.0.0.1:17777/kata?issue=01M4S19R70YZMCDSSY5HH7P4KE) Complete pinned fresh-host setup and acceptance checks
-- [ ] [`engi-platform#0s6v`](http://127.0.0.1:17777/kata?issue=01M4S19R7J18TH5FE0TRT00S6V) Evaluate Richard Gill's ideas against the platform
 - [ ] [`engi-platform#0rc1`](http://127.0.0.1:17777/kata?issue=01M4S19R86PYM6JDT8FJ2M0RC1) Evaluate Spokenly for local personal dictation
 - [ ] [`engi-platform#jjw1`](http://127.0.0.1:17777/kata?issue=01M4S19R8TR0BW1P8RTGBNJJW1) Compare Ouijit with the existing task and execution layers
 - [ ] [`engi-platform#r27h`](http://127.0.0.1:17777/kata?issue=01M4S19R9FEQ3Y6H6VYYJ1R27H) Trial Herdr with isolated configuration and private Pi
