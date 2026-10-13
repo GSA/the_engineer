@@ -36,8 +36,24 @@ and fails without replacing the index when the daemon read fails. Do not
 manually edit the generated block or treat its cached checkboxes as live state
 while Kata is stopped. Root `AGENTS.md` directs agents to this CLI/index flow.
 Project-scoped Pi/Copilot MCP is now wired as the first `tvbf` milestone.
-Native attention hooks and a Copilot model-driven MCP pilot remain open.
+The current `tvbf` scope retains Pi attention/lifecycle and interruption/resume
+work; the future Copilot model-driven pilot is no longer in active scope.
+Existing adapters/configuration and historical evidence are preserved.
 README owns repeatable setup/check commands and client restart requirements.
+
+### Scope cleanup: 2026-10-13, 11:46
+
+The owner approved five current-scope updates with all original task text
+preserved as historical provenance. `v3sd` is closed as superseded by `k03a`,
+not completed; the surviving task owns its workflow/Constitution guidance.
+There are now 31 open tasks. Existing blockers/relationships, task identities,
+ownership, labels and metadata are unchanged.
+
+Current scopes precede imported history in `k03a`, `tvbf`, `99gr`, `jqwq` and
+`vg0b`. Do not treat old four-role, tracker-selection, Copilot-pilot, ACP or
+database-deferral language inside those historical sections as active work.
+The inactive refinement example is a completed artifact, not a live intake
+agent or completion of the remaining Forge/Pi integration.
 
 ### Agent integration: 23:16 request
 
@@ -72,9 +88,10 @@ All 109 focused Python tests pass, including seven new setup/actor/config/
 entrypoint regressions. Private JSONL evidence is under `runtime/` in the
 environment profile; the saved Pi sessions remain available to AgentsView.
 No USD price is inferred from Pi's zero-valued cost fields.
-`tvbf` remains open and was explicitly unassigned with a milestone/handoff
-comment: native lifecycle/attention truthfulness, interruption/
-resume behavior and a Copilot model-selected MCP task loop are not proven.
+At that milestone, `tvbf` remained open and was explicitly unassigned with a
+handoff identifying unproven lifecycle/attention, interruption/resume and a
+Copilot model-selected MCP loop. The 2026-10-13 cleanup retains the Pi lifecycle/
+resume work but omits the future Copilot pilot without claiming it verified.
 
 ## Migration and scope
 
