@@ -190,6 +190,18 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   vendor documentation; neither proves local WSL behavior or enterprise fit.
   No Herdr/Ouijit install, global profile change, remote exposure or publication
   is authorized by this initial integration/evidence work.
+- At 10:07 on 2026-10-13 the owner declines Ouijit and prioritizes a
+  minimum-friction Ghosthub substitute, without feature parity or another
+  task ledger. Close `jjw1` as wontfix, not a completed trial or a finding that
+  Ouijit is insecure. Kata remains the selected tracker; its unverified agent
+  lifecycle/recovery work is not waived by this decision. The existing
+  Zed/tmux combination is the baseline under `c3ch`: a thin project launcher,
+  private standalone tmux socket, native private Pi/USAi and existing Copilot
+  state, no global configuration or new terminal runtime. Any WSL terminal
+  can attach; Zed's GUI workflow remains an interactive check. Herdr stays
+  optional research rather than a dependency. macOS tools may be reconsidered
+  on a future Mac, not installed here. Cloud/SSH deployment still needs
+  approved connectivity and does not follow from choosing tmux.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 

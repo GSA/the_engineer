@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import runpy
+import sys
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
@@ -90,6 +91,80 @@ class LocalEnvironmentTests(unittest.TestCase):
         command, env = local_env.pi_launch(["mcp", "list"])
         self.assertEqual(command, ["/usr/bin/pi", "mcp", "list"])
         self.assertNotIn("USAI_API_KEY", env)
+
+    def test_terminal_uses_separate_private_socket_and_native_copilot_home(self):
+        with patch.object(local_env.shutil, "which", return_value="/usr/bin/tmux"), \
+                patch.dict(os.environ, {
+                    "USAI_API_KEY": "test-only-token", "GITHUB_TOKEN": "test-only-token",
+                    "TMUX": "foreign-server", "KATA_REF": "foreign-task",
+                }):
+            command, env = local_env.terminal_launch("open", "pi")
+        self.assertEqual(command, [
+            "/usr/bin/tmux", "-S", str(self.state / "runtime/terminal/tmux.sock"),
+            "-f", str(local_env.ROOT / "scripts/terminal.tmux.conf"),
+            "new-session", "-A", "-s", "pi", "-c", str(local_env.ROOT),
+        ])
+        self.assertEqual((self.state / "runtime/terminal").stat().st_mode & 0o777, 0o700)
+        self.assertEqual(env["HOME"], str(Path.home()))
+        self.assertEqual(env["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
+        for variable in ("USAI_API_KEY", "GITHUB_TOKEN", "TMUX", "KATA_REF"):
+            self.assertNotIn(variable, env)
+        self.assertNotIn("test-only-token", " ".join(command))
+        self.assertEqual(local_env.base_environment()["HOME"], str(self.state / "home"))
+
+    def test_terminal_preserves_native_xdg_paths_without_changing_settings(self):
+        before = (self.state / "environment.json").read_bytes()
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/test/config"}):
+            _, env = local_env.terminal_launch("open")
+        self.assertEqual(env["XDG_CONFIG_HOME"], "/test/config")
+        self.assertEqual((self.state / "environment.json").read_bytes(), before)
+
+    def test_terminal_stops_only_exact_named_session(self):
+        command, _ = local_env.terminal_launch("stop", "pi")
+        self.assertEqual(command[-3:], ["kill-session", "-t", "=pi"])
+        command, _ = local_env.terminal_launch("list")
+        self.assertIn("list-sessions", command)
+        self.assertNotIn("new-session", command)
+
+    def test_terminal_rejects_invalid_actions_and_session_targets(self):
+        for name in ("", "-pi", "pi:1", "pi.work", "*", "pi;echo", "x" * 49):
+            with self.subTest(name=name), self.assertRaisesRegex(RuntimeError, "session names"):
+                local_env.terminal_launch("stop", name)
+        with self.assertRaisesRegex(RuntimeError, "terminal action"):
+            local_env.terminal_launch("kill-server")
+        with patch.object(local_env.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "tmux is missing"):
+                local_env.terminal_launch("open")
+
+    def test_terminal_rejects_symlink_or_regular_file_as_socket(self):
+        local_env.terminal_launch("list")
+        path = self.state / "runtime/terminal/tmux.sock"
+        path.symlink_to(self.state / "environment.json")
+        with self.assertRaisesRegex(RuntimeError, "owned tmux socket"):
+            local_env.terminal_launch("open")
+        path.unlink()
+        path.touch()
+        with self.assertRaisesRegex(RuntimeError, "owned tmux socket"):
+            local_env.terminal_launch("list")
+
+    def test_terminal_entrypoint_executes_scoped_command(self):
+        with patch.object(sys, "argv", ["terminal-local.py", "list"]), \
+                patch.object(os, "execve") as execute, \
+                patch.object(os, "umask", return_value=0o077), \
+                patch.object(os, "chdir") as chdir:
+            with self.assertRaises(SystemExit) as exit_result:
+                runpy.run_path(str(local_env.ROOT / "scripts/terminal-local.py"), run_name="__main__")
+        self.assertIsNone(exit_result.exception.code)
+        self.assertIn("list-sessions", execute.call_args.args[1])
+        chdir.assert_not_called()
+
+    def test_terminal_entrypoint_refuses_noninteractive_open(self):
+        with patch.object(sys, "argv", ["terminal-local.py", "open"]), \
+                patch.object(sys.stdin, "isatty", return_value=False), \
+                contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as exit_result:
+                runpy.run_path(str(local_env.ROOT / "scripts/terminal-local.py"), run_name="__main__")
+        self.assertEqual(exit_result.exception.code, 2)
 
     def test_review_extension_installation_is_private_pinned_and_preserves_settings(self):
         path = self.state / "pi/settings.json"
