@@ -484,7 +484,9 @@ cloud recovery remain unverified. There is no automatic backup schedule.
 The owner separately approved `~/falcon-docs` on 2026-10-12. Its tracked work
 was already committed; raw intake, sensitive originals, provenance, retained
 recovery snapshots/receipts and ignored owner files remain archive content,
-not new Git files. Use the same protected folder, with a distinct
+not new Git files. The full copy is complete in the same protected folder:
+`falcon-docs-20261012T235557Z-a882cca6.tar.gz` (22,966,738,780 bytes), with an
+adjacent SHA-256 sidecar. Future explicit copies use a distinct
 `falcon-docs-<UTC>-<nonce>.tar.gz` archive.
 
 Falcon's large retained asset tree requires disk-backed staging, not this

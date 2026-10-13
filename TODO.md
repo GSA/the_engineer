@@ -64,10 +64,6 @@ migrated.
 - [ ] [`engi-platform#jmga`](http://127.0.0.1:17777/kata?issue=01M4S19RXSWW6548PD6PEJJMGA) Plan approved private cloud hosting after AWS access is available **deferred**
 - [ ] [`engi-platform#vd8j`](http://127.0.0.1:17777/kata?issue=01M4S19RYDWFPFA9R74285VD8J) Evaluate agent sandboxing boundaries and candidates **deferred**
 - [ ] [`engi-platform#5xrm`](http://127.0.0.1:17777/kata?issue=01M4S19RZ3Z3XG344E161W5XRM) Capture the complete environment in a reproducible redeployment script **deferred**
-
-### New work
-
-- [ ] [`engi-platform#b2bg`](http://127.0.0.1:17777/kata?issue=01M4S8F52SWK8QRKSVB4KFB2BG) Back up Falcon workspace and sensitive corpus to protected OneDrive
 <!-- kata-open-tasks:end -->
 
 ## Completed before Kata adoption
