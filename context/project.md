@@ -16,6 +16,15 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-13 at 15:57 and 16:07 the owner clarifies that the Falcon demo
+  should use real product specifications from the actual Librarian, not
+  synthetic context or a demo interface to the Librarian itself. The owner
+  favors waiting for AWS access because specification-derived code and task/
+  review text may disclose confidential information on GitHub. No new
+  repository, GitHub login/sync, push or demo implementation is authorized.
+  AWS access alone does not approve a repository destination or establish
+  Helix connectivity; confirm the execution, source-storage and data-handling
+  boundaries before proceeding. Existing local/USAi approvals remain intact.
 - On 2026-10-13 at 11:07 the owner confirms Superpowers as a staple, agrees
   with complementary sources and bounded prompt implementation, and requires
   a clear decomposition path plus deliberate role-profile loading/isolation.
