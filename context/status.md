@@ -1,5 +1,32 @@
 # Status: 2026-10-13
 
+## Approved Kata cleanup and consolidation: 11:46 request
+
+- Applied the owner-approved cleanup with the scoped native CLI. `v3sd` is
+  closed as **superseded** by `k03a`, whose current body now incorporates its
+  workflow/Constitution scope. No task was closed as done.
+- Updated five current scopes above their preserved historical bodies:
+  `k03a` covers Forge/private-Pi/Superpowers/Librarian integration without
+  mandatory custom roles; `tvbf` covers remaining Pi lifecycle/attention/
+  resume, not the omitted Copilot pilot or obsolete tracker/runtime evaluation;
+  `99gr` covers manual first-ticket Jira intake, not an automated daemon;
+  `jqwq` covers actual Zed terminal/thread attachment to the existing launcher;
+  `vg0b` covers cloud and running-application recovery, retaining deferred status.
+- Read back all 39 project records: exactly five body/title edits and one
+  supersession; 31 remain open. Original bodies/provenance, owners, labels,
+  metadata and unrelated records are preserved. Existing `k03a -> mpew` and
+  `99gr -> d8v5` blockers plus `tvbf`'s related link remain unchanged.
+- Native close validation rejected extra reviewed-paths evidence for
+  supersession; it changed nothing. Retried with the allowed superseded-by
+  evidence and verified stored `closed_reason` and the closure event.
+  Before/after/close evidence is retained as session `files/kata-cleanup-*.json`.
+- Remaining scope review found no further justified closures: synthetic versus
+  real demos and bootstrap versus full redeployment are distinct; blocked or
+  deferred work is not an owner decision to abandon it.
+- Regenerated TODO indexes 31 tasks, preserving completed Markdown history.
+  Updated context and committed locally. No profile/config/service/upstream
+  changes, model/provider/corpus operation, publication or experiment process.
+
 ## Existing Kata cleanup assessment: 11:38 request
 
 - Read all 32 open task scopes and selected histories/links. No open task's

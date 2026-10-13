@@ -51,6 +51,13 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   The live 32-task audit identifies overlapping workflow/prompt work and stale
   scopes, not completed platform integration. Consolidation/scope changes are
   recommendations pending approval; no task was closed or rewritten.
+  At 11:46 the owner approves that cleanup, including non-completion closure
+  reasons where appropriate. `v3sd` is now superseded by `k03a`; five surviving
+  task scopes are updated with imported text preserved. Current work is
+  Forge/private-Pi/Superpowers/Librarian integration, manual Jira intake, Pi
+  lifecycle/resume, the remaining Zed GUI check and cloud/application recovery.
+  No unfinished integration was marked done. The ledger now has 31 open tasks;
+  other deferred/blocked work remains open rather than being assumed abandoned.
 - Linux is the target. Exclude Ghosthub and all macOS-only tools.
 - Begin locally. Later cloud deployment is for private/internal use, not a
   customer-facing hosted service. The intended users and agents must be able

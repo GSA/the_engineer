@@ -77,6 +77,16 @@ tasks and selected comments/dependencies. Scope corrections are recorded in
 `status.md`; the inactive example does not complete active prompt, Jira intake
 or Forge-worker integration. No task status, body, ownership or link changed.
 
+At 11:46 the owner approves cleanup. Five native `edit` operations prepend
+current scopes to preserved historical text; `v3sd` closes with reason
+`superseded` and evidence `superseded-by:k03a`. The first close attempt included
+`reviewed-paths`, which Kata disallows for that reason and rejected without
+mutation; the corrected reason-specific evidence succeeded. Before/after
+project snapshots verify 31 open tasks, retained identities/labels/ownership/
+metadata and unchanged unrelated tasks. Existing blocking/related links were
+read back unchanged. No existing agent configuration was removed; obsolete
+Copilot/ACP/new-role work is excluded from current task scopes, not claimed done.
+
 # Current terminal choice: Ghosthub substitute, 2026-10-13
 
 The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated

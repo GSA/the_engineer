@@ -67,6 +67,13 @@ approval; it forbids modifying/adding requirements, source edits, task writes,
 worker launches and publication. No live coordinator or automated intake is
 installed.
 
+At 11:46 the owner approved backlog consolidation: `k03a` now explicitly owns
+the active Forge/private-Pi/Superpowers/Librarian guidance and the former
+workflow/Constitution scope of superseded `v3sd`. The four-role draft remains
+optional historical design, not required acceptance. `99gr` now explicitly
+tracks manual first-ticket intake; synthetic behavior remains a separate open
+demo task. Saving the inactive example does not complete either integration.
+
 ## What Forge actually owns
 
 Forge is the repository/PR review console and workspace/session manager, not

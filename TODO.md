@@ -19,7 +19,7 @@ migrated.
 
 ### Engi Platform: next unblocked work
 
-- [ ] [`engi-platform#k03a`](http://127.0.0.1:17777/kata?issue=01M4S19R562G61A6GN6WP8K03A) Adapt shared engineering policy and focused role prompts
+- [ ] [`engi-platform#k03a`](http://127.0.0.1:17777/kata?issue=01M4S19R562G61A6GN6WP8K03A) Integrate Forge/Pi engineering guidance with Superpowers and Librarian
 - [ ] [`engi-platform#mpew`](http://127.0.0.1:17777/kata?issue=01M4S19R5XSJNZ73FKNHJJMPEW) Demonstrate prompt and publication gates on a synthetic task
 - [ ] [`engi-platform#5ayh`](http://127.0.0.1:17777/kata?issue=01M4S19R6FFHYAF1BACHB25AYH) Migrate project paths, services and state to engi-platform
 - [ ] [`engi-platform#p4ke`](http://127.0.0.1:17777/kata?issue=01M4S19R70YZMCDSSY5HH7P4KE) Complete pinned fresh-host setup and acceptance checks
@@ -34,7 +34,7 @@ migrated.
 - [ ] [`engi-platform#8vhd`](http://127.0.0.1:17777/kata?issue=01M4S19RFC4HRM3JBDAJCX8VHD) Verify Falcon MCP behavior after real model compaction
 - [ ] [`engi-platform#ww7g`](http://127.0.0.1:17777/kata?issue=01M4S19RFW2VSFK1MQXQG8WW7G) Pin and install Pi in the fresh-host bootstrap
 - [ ] [`engi-platform#bbm2`](http://127.0.0.1:17777/kata?issue=01M4S19RGGHKBFYZRQKV4BBBM2) Investigate an approved USAi renewal interface
-- [ ] [`engi-platform#jqwq`](http://127.0.0.1:17777/kata?issue=01M4S19RH35QH984JS1FPEJQWQ) Choose and integrate a home-accessible Zed agent launcher
+- [ ] [`engi-platform#jqwq`](http://127.0.0.1:17777/kata?issue=01M4S19RH35QH984JS1FPEJQWQ) Verify Zed terminal/thread attachment to the existing launcher
 - [ ] [`engi-platform#6hce`](http://127.0.0.1:17777/kata?issue=01M4S19RHQ5MDPNGNWMRED6HCE) Verify model-selected Falcon retrieval in a real Forge Pi session
 - [ ] [`engi-platform#jgcf`](http://127.0.0.1:17777/kata?issue=01M4S19RJCE81SJDY61BQWJGCF) Complete a bounded real-project coding and review demo
 - [ ] [`engi-platform#hkq0`](http://127.0.0.1:17777/kata?issue=01M4S19RK25VBKZT9BDEYYHKQ0) Agree repository review policy and scoped automatic hooks
@@ -44,9 +44,8 @@ migrated.
 - [ ] [`engi-platform#3c2c`](http://127.0.0.1:17777/kata?issue=01M4S19RKZZ4SX983DTP0C3C2C) Define AgentsView retention, pricing and client coverage
 - [ ] [`engi-platform#fjyf`](http://127.0.0.1:17777/kata?issue=01M4S19RMPMH94FD2E6XBMFJYF) Account for no-session roborev review usage without fabricated metrics
 - [ ] [`engi-platform#avvp`](http://127.0.0.1:17777/kata?issue=01M4S19RNF2ZSKTB09PBYVAVVP) Verify Forge review and Kata task-to-workspace integration
-- [ ] [`engi-platform#tvbf`](http://127.0.0.1:17777/kata?issue=01M4S19RPF24GMMA2GR11VTVBF) Verify project-scoped Kata use by Pi and Copilot
-- [ ] [`engi-platform#v3sd`](http://127.0.0.1:17777/kata?issue=01M4S19RQQYH0WWG31EY78V3SD) Adapt the Kenn workflow into agreed project practices
-- [ ] [`engi-platform#99gr`](http://127.0.0.1:17777/kata?issue=01M4S19RRQ7Z4KKBRD45AQ99GR) Define a traceable one-ticket Jira intake path
+- [ ] [`engi-platform#tvbf`](http://127.0.0.1:17777/kata?issue=01M4S19RPF24GMMA2GR11VTVBF) Verify Pi Kata lifecycle, attention and resume behavior
+- [ ] [`engi-platform#99gr`](http://127.0.0.1:17777/kata?issue=01M4S19RRQ7Z4KKBRD45AQ99GR) Define manual Jira-to-Kata intake for the first ticket
 - [ ] [`engi-platform#d8v5`](http://127.0.0.1:17777/kata?issue=01M4S19RSFPSCGWE83QYCAD8V5) Demonstrate the human-reviewed Jira-to-GitHub-PR workflow
 - [ ] [`engi-platform#djfr`](http://127.0.0.1:17777/kata?issue=01M4S19RT1EJD0YBA3VHXGDJFR) Define the approved context contribution and update path
 
