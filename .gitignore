@@ -4,3 +4,5 @@
 /.local/
 .kata.local.toml
 __pycache__/
+/.pi/mcp.json
+/.github/mcp.json

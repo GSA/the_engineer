@@ -9,6 +9,9 @@
 - Use `scripts/kata-local.py` for this project's Kata tasks; refresh the
   generated `TODO.md` index with `python3 scripts/kata_todo.py` before handoff.
   Close only with verified completion/evidence; keep detailed findings in `context/`.
+- Kata MCP is project-scoped. Load the relevant `kata.load_*` section, then
+  rediscover its tools; check the actor with `kata.status`. MCP access does not
+  install attention hooks or grant permission to force claims or publish.
 - Preserve upstream history, licenses, and local changes. Read a submodule's
   instructions before editing it; do not adopt them workspace-wide.
 - Commit completed workspace work locally; keep credentials and private

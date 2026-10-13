@@ -399,6 +399,54 @@ def kata_launch(args):
     ], base_environment()
 
 
+def kata_mcp_launch(actor):
+    if actor not in ("pi", "copilot"):
+        raise RuntimeError("Kata MCP actor must be pi or copilot")
+    return kata_launch(["--as", actor, "mcp", "serve"])
+
+
+def install_kata_mcp():
+    config = settings()
+    node = shutil.which("node")
+    if node is None:
+        raise RuntimeError("Node must be on this shell's PATH to configure private Pi trust")
+    env = node_environment(Path(node))
+    verify_pi(config, env=env)
+    kata_mcp_launch("pi")
+    launcher = str(ROOT / "scripts/kata-mcp.py")
+    plans = []
+    for directory, actor in ((".pi", "pi"), (".github", "copilot")):
+        path = ROOT / directory / "mcp.json"
+        original = private_read(path) if path.exists() or path.is_symlink() else None
+        document = json.loads(original) if original is not None else {}
+        if not isinstance(document, dict):
+            raise RuntimeError(f"expected an MCP configuration object: {path}")
+        servers = document.setdefault("mcpServers", {})
+        if not isinstance(servers, dict):
+            raise RuntimeError(f"expected an mcpServers object: {path}")
+        entry = {"command": sys.executable, "args": [launcher, actor], "cwd": str(ROOT)}
+        if actor == "pi":
+            entry.update({"exposure": "codemode", "timeout": 30})
+        else:
+            entry.update({"type": "local", "tools": ["*"], "timeout": 30000})
+        if "kata" in servers and servers["kata"] != entry:
+            raise RuntimeError(f"preserving an existing different Kata MCP configuration: {path}")
+        servers["kata"] = entry
+        plans.append((path, original, document))
+    subprocess.run(
+        [str(Path(node).resolve()), str(ROOT / "scripts/trust-kata-project.mjs")],
+        cwd=ROOT, env=env, check=True, timeout=30,
+    )
+    for path, original, document in plans:
+        private_dir(path.parent)
+        current = private_read(path) if path.exists() or path.is_symlink() else None
+        if current != original:
+            raise RuntimeError(f"MCP configuration changed during setup; rerun: {path}")
+        json_write(path, document, replace=True)
+    print("Project-scoped Kata MCP configured for private Pi and repository Copilot sessions.")
+    print("Restart existing clients to load it; no attention hook or model request was started.")
+
+
 def api(method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request("http://127.0.0.1:18091/api/v1" + path, data=data,
@@ -1007,6 +1055,7 @@ def main():
     forge_service.add_argument("--node-executable", type=Path, required=True)
     commands.add_parser("install-kata-service", help="enable the configured Kata user service")
     commands.add_parser("kata-run", help="run the standalone configured Kata service")
+    commands.add_parser("install-kata-mcp", help="configure project-scoped private Pi/Copilot Kata MCP")
     catalog = commands.add_parser("list-models", help="refresh advertised USAi model IDs using the private key")
     catalog.add_argument("--base-url", required=True)
     provider = commands.add_parser("configure-provider", help="set non-secret USAi connection details")
@@ -1048,6 +1097,8 @@ def main():
             install_kata_service()
         elif args.command == "kata-run":
             kata_run()
+        elif args.command == "install-kata-mcp":
+            install_kata_mcp()
         elif args.command == "configure-provider":
             configure_provider(args.base_url, args.model, args.api)
         elif args.command == "list-models":

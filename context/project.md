@@ -182,6 +182,14 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   Preserve historical snapshot/receipt bytes, take online copies of the four
   explicit current SQLite stores, exclude reinstallable virtualenvs, and use
   private disk-backed staging outside either checkout for the large corpus.
+- At 23:16 on 2026-10-12 the owner requests work on Kata/Pi/Copilot integration
+  and more operational/anecdotal evidence for Herdr/Ouijit. Begin with native
+  project-scoped MCP and a real task-access pilot, preserving private USAi,
+  Falcon and global client settings. Treat terminal products as candidates,
+  not selected installations or replacements. Detailed user reports supplement
+  vendor documentation; neither proves local WSL behavior or enterprise fit.
+  No Herdr/Ouijit install, global profile change, remote exposure or publication
+  is authorized by this initial integration/evidence work.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 

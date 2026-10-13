@@ -103,11 +103,56 @@ Refresh `TODO.md` after task changes and before handoff; failed reads leave the
 existing index untouched. Detailed decisions/evidence stay in `context/`.
 
 Kata does not launch agents or independently execute close-evidence tests.
-CLI access is wired through the project instructions; automatic Pi/Copilot
-MCP/attention hooks remain task `tvbf`, not installed by this migration.
+Project-scoped MCP access is now configured for private Pi and Copilot;
+automatic attention hooks remain open under `tvbf`.
 Forge can discover/read tasks, but task-to-worktree creation still needs a
 configured repository mapping. [Adoption details](context/kata-adoption.md)
 and the [synthetic evaluation](context/kata-evaluation.md) describe the boundaries.
+
+### Pi and Copilot task access
+
+Repeatable setup and model-free checks, from this checkout:
+
+```sh
+python3 scripts/local_env.py install-kata-mcp
+python3 scripts/check-kata-mcp.py
+node scripts/check-kata-pi.mjs
+./scripts/pi-local.py
+copilot
+```
+
+Setup adds ignored, owner-private `.pi/mcp.json` and `.github/mcp.json` using
+absolute local launcher paths. It preserves other server entries and refuses
+an existing different `kata` entry, symlinks or non-private configuration.
+Rerun after a deliberate path migration. Only this checkout is trusted in the
+private Pi profile; an explicit distrust decision is not overwritten. Global
+Pi/Copilot settings, Falcon MCP and model routes are unchanged.
+
+Restart existing clients to load the server. Copilot discovers it as a
+**workspace** server; the current running conversation cannot acquire new MCP
+tools merely by creating a file, so the scoped CLI remains its fallback.
+Normal client trust/permission controls still apply; setup does not enable
+unrestricted tool approvals.
+
+The stdio adapter fixes actor `pi` or `copilot` and binds `engi-platform`.
+It strips inherited model credentials, exposes no new HTTP listener and fails
+if the existing daemon is unavailable. These actors are attribution labels,
+not authenticated user identities. Scoped MCP refuses cross-project reads/
+writes and project administration, but still permits task mutations within this
+project; it is not an OS sandbox or a substitute for human authorization.
+
+Kata initially offers 16 `kata.load_*` section loaders. Load discovery,
+mutation, coordination or lifecycle as needed, then refresh/search the tool
+catalog. Use `kata.status` to inspect the actual actor/owner; search before
+create, do not force another actor's claim, and use stable idempotency keys for
+create/comment retries. Inbox reads do not acknowledge requests.
+
+A real Pi/USAi read pilot loaded discovery/coordination and retrieved `tvbf`
+with actor `pi` and owner `copilot`. For a bounded no-filesystem pilot use
+`--no-builtin-tools`; an allowlist containing only `codemode` or `tool_search`
+also suppresses the underlying MCP proxy tools, so it is not a working Kata
+allowlist. No Copilot model-driven MCP pilot or native attention hooks are
+claimed verified yet. Transport checks are not those milestones.
 
 Inspect, restart or read the service journal:
 
