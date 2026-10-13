@@ -1,5 +1,18 @@
 # Status: 2026-10-13
 
+## Engineering prompt clarification: 11:07 request
+
+- Owner confirms Superpowers as a staple, complementary sources, bounded
+  implementation with a decomposition path, and isolated role loading.
+  Concise recurring prompts and explicit assumption verification are required.
+- Read current project/tool/workflow/task context and pinned skill/launcher
+  contracts. Kata is now authoritative, superseding the earlier recommendation
+  to retain a manually managed TODO backlog. `k03a` remains open/unassigned.
+- Implementation awaits answers about full skill adoption/adaptation, approval
+  gates, client/role isolation, delegation, authority, handoff and token budget.
+  No prompt/profile installation, upstream edit, model request, service change
+  or experiment process; existing worktree was clean before documentation.
+
 ## Herdr declined and engineering prompt handoff: 10:28 request
 
 - Owner accepts the current local setup and removes Herdr from active work.

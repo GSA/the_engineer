@@ -22,6 +22,21 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Prompt integration discovery: 2026-10-13
+
+The existing private Pi setup loads the pinned Superpowers package. Its
+manifest exposes skills plus a Pi extension that injects `using-superpowers`
+at startup and after compaction; other skills are discoverable/on-demand.
+This is source evidence, not a new runtime adherence/compaction check.
+
+Upstream skills include design approval gates, autonomous plan rulings and
+branch-finish/full-suite instructions. Their interaction with owner questions,
+repository authority and token limits needs explicit decisions, not wholesale
+copying or silent edits. Pi has no standard subagent tool; package discovery
+does not establish delegated execution. The current roborev config points at
+the same private Pi launcher; dedicated role loading/isolation is not yet
+implemented. No upstream/global profile changes were made.
+
 # Current terminal choice: Ghosthub substitute, 2026-10-13
 
 The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated

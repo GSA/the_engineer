@@ -16,6 +16,12 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-13 at 11:07 the owner confirms Superpowers as a staple, agrees
+  with complementary sources and bounded prompt implementation, and requires
+  a clear decomposition path plus deliberate role-profile loading/isolation.
+  Keep runtime prompts concise to limit recurring token overhead. Ask all
+  outstanding questions and verify assumptions before implementation; exact
+  skill adaptation, approval gates, isolation and loading scope remain open.
 - Linux is the target. Exclude Ghosthub and all macOS-only tools.
 - Begin locally. Later cloud deployment is for private/internal use, not a
   customer-facing hosted service. The intended users and agents must be able
