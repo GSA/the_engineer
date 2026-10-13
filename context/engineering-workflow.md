@@ -36,6 +36,35 @@ Superpowers package registered in private Pi. Live GET collections confirm zero
 provider repos/workspaces. This is source/config/read evidence, not a demonstrated
 coding or automatic delegation loop. No prompt/profile changes were made.
 
+## Proposed intake stages: 2026-10-13, 11:29
+
+The owner favors manually decomposing early Jira tickets, then extracting the
+observed process into a later intake/refinement service. Do not make autonomous
+refinement or worker dispatch a prerequisite for the first demo.
+
+1. Manual intake: retain ticket identity, original acceptance criteria and
+   source provenance; agree refinements and create bounded/dependent Kata tasks.
+2. Optional on-demand refinement Pi: use Falcon context and Superpowers to
+   propose the same task contract for human review. Its task-writing authority
+   is not yet decided; it does not imply permission to launch workers.
+3. Later service: automate approved Jira reads, reconciliation/retry handling
+   and reviewed conversion into Kata tasks after the manual contract is proven.
+   Worker scheduling is separate from ingestion/refinement.
+
+Falcon MCP is required in engineering agent profiles; private Pi currently
+connects to its seven read-only tools. Preserve this existing server/corpus,
+retrieve only relevant qualified evidence and cite actual returned locators.
+Do not turn server discovery into a claim of model-backed Forge-worker use.
+
+The canonical Constitution v2026.08.11 is compact baseline behavior, not an
+intake/orchestrator protocol. A future unloaded example could combine that
+attributed CC BY 4.0 baseline with a concise intake-only overlay: task intent,
+source/decision separation, Falcon grounding, acceptance/dependency proposals,
+uncertainty escalation and explicit non-dispatch authority. Proposed location
+is `context/prompt-drafts/jira-refinement.example.md`, outside live instruction,
+skill and profile discovery. No example file or live coordinator was created;
+creation authority and exact output/stop boundary await agreement.
+
 ## What Forge actually owns
 
 Forge is the repository/PR review console and workspace/session manager, not

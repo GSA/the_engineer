@@ -55,6 +55,20 @@ The native MCP spawn input supports provider items or ad-hoc repositories,
 not a direct Kata-task source; UI/API Kata workspace creation is a separate
 surface. Do not promise automatic Kata-to-worker dispatch from prompts alone.
 
+At 11:29 private `pi-local.py mcp list` again connects to the read-only
+`falcon-context` server (seven tools, private-profile/global scope) and this
+checkout's Kata server (16 progressive loaders, project scope). No corpus read,
+index refresh or model request was made. Workers reusing this private profile
+should retain Falcon access; model-selected retrieval in a real Forge workspace
+and each future project binding remain separate acceptance work.
+
+Read the canonical Clanker Constitution at `v2026.08.11` from the author's
+repository. It is compact, language-neutral baseline behavior under CC BY 4.0,
+not a Jira intake protocol, scheduler or orchestrator implementation. Preserve
+Kenn Software attribution/license/version for copies/adaptations. An inactive
+example should use a non-discovered `.example.md` filename, not a live root
+`AGENTS.md` or installed skill/profile; its placement/authority awaits agreement.
+
 # Current terminal choice: Ghosthub substitute, 2026-10-13
 
 The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated

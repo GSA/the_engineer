@@ -33,6 +33,14 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   that decomposition belongs to a human/agent, not a Forge planning engine.
   First-version coordinator/worker topology is not yet agreed. Server use and
   worktrees do not establish OS sandboxing or broader publication permission.
+  At 11:29 the owner favors manually decomposing the first Jira tickets into
+  Kata tasks, learning the process before a later intake/refinement service.
+  Librarian/Falcon MCP access is required for engineering agents. A refinement
+  agent is optional for the first demo; the owner proposes retaining an inactive
+  Constitution-based sample for future use. Exact draft authority (propose
+  tasks versus create them) and its first-version inclusion remain open; no
+  Jira service, worker scheduler or live coordinator is authorized by this
+  discussion.
 - Linux is the target. Exclude Ghosthub and all macOS-only tools.
 - Begin locally. Later cloud deployment is for private/internal use, not a
   customer-facing hosted service. The intended users and agents must be able
