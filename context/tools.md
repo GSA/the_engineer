@@ -272,6 +272,25 @@ validation and byte-identical historical database/receipt preservation.
 Existing private permissions, SQLite WAL, dirty work, submodule history,
 host-copy cleanup and non-overwriting behaviors remain covered.
 
+Completed host artifact:
+`EngiPlatformBackups/falcon-docs-20261012T235557Z-a882cca6.tar.gz`,
+22,966,738,780 bytes, SHA-256
+`05ada485efa7fefe3feb5dc7be99fc1482d773eaaa08716cbff02979ab9019c7`.
+The restored manifest covers 88,398 entries, four consistent live SQLite
+snapshots and 27 explicit omissions. Original files and historical recovery
+snapshot/receipt bytes passed full inventory/hash verification; Git HEAD is
+`fec05a8b41d96840bdcd2b50cad8c18abe2057bb`. Host checksum matches the local
+verified archive; an adjacent `.sha256` receipt is persisted.
+
+The disk-backed temporary tree is removed, returning Linux free space to
+about 857 GB. Windows reports about 510 GB free after capture versus 660 GB at
+preflight: temporary WSL filesystem allocation can grow its host VHD even
+after Linux files are removed. Physical VHD reclamation/compaction is not
+verified and no WSL/global configuration or trim/compaction operation was
+attempted. No temporary files or experiment processes remain.
+Kata task `b2bg` is closed with specific archive evidence; cloud delivery,
+retention and running-application recovery remain unverified.
+
 # Artifact audit: 2026-10-09
 
 Owner-requested cleanup subagent removed only generated ignored bytecode:

@@ -16,10 +16,27 @@
   The four current catalog/event/text-index/graph stores use online snapshots.
   Disk-backed staging outside both checkouts replaces undersized tmpfs `/tmp`.
   All 102 focused tests and `git diff --check` pass; no dependencies installed.
-- Platform task `b2bg` tracks the actual copy. Its final completion evidence
-  must name the host artifact and verified archive result, not infer success
-  from this preflight. Cloud delivery/retention, running-application recovery
-  and global agent profiles remain outside the demonstrated local copy.
+- Completed protected host copy:
+  `EngiPlatformBackups/falcon-docs-20261012T235557Z-a882cca6.tar.gz`,
+  22,966,738,780 bytes, SHA-256
+  `05ada485efa7fefe3feb5dc7be99fc1482d773eaaa08716cbff02979ab9019c7`.
+  Actual local extraction verified 88,398 inventory entries, four live-store
+  SQLite snapshots, original/historical snapshot bytes, private permissions
+  and Git connectivity/clean tracked state at `fec05a8`. The host checksum
+  matches; a `.sha256` sidecar is adjacent. The manifest records 27 omissions.
+- Task `b2bg` is closed with actual archive/restore/host-copy evidence.
+  Refreshed `TODO.md` indexes 36 open tasks. Helper/preflight source work is
+  committed as `3e2cc36`; these final completion records are committed
+  separately. Falcon remains clean at its existing commit; no ignored assets
+  or corpus changes enter Git.
+- Temporary disk-backed staging is removed and no experiment process remains.
+  Linux free space is back to about 857 GB. Windows free space is about
+  510 GB: WSL VHD allocation may retain staging-related physical blocks after
+  Linux cleanup. No trim/compaction/global WSL change was attempted.
+  AgentsView 395, Forge 396, Kata 25008 and roborev 397 remain active/unchanged.
+- Cloud delivery/retention, running-application recovery and global agent
+  profiles remain outside the demonstrated local copy. No automatic schedule,
+  source export from VDI, model/auth request, remote/push or Falcon intake/edit.
 
 ## Sensitive-state workspace backup and local commits: 19:27 request
 
