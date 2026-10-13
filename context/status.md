@@ -1,5 +1,30 @@
 # Status: 2026-10-13
 
+## Existing Kata cleanup assessment: 11:38 request
+
+- Read all 32 open task scopes and selected histories/links. No open task's
+  remaining implementation is established complete by the recent prompt work.
+  The saved refinement example is an artifact, not an installed intake agent.
+- Recommended consolidation: supersede `v3sd` into `k03a`, retaining its
+  original workflow/Constitution scope and provenance in the surviving task.
+  This would be supersession, not a claim that active integration is done.
+- Recommended scope corrections: `k03a` should cover concise Forge/private-Pi
+  guidance, existing Superpowers and Librarian rather than four required roles;
+  `99gr` should state manual first-ticket intake, not require an automated
+  service; `tvbf` should separate completed MCP evidence from remaining Pi
+  lifecycle/attention/resume work and remove obsolete tracker/Ouijit language.
+  The older Copilot pilot is outside current Pi-focused work.
+- Earlier decisions also warrant body/title cleanup: `jqwq` now needs the
+  owner-visible Zed terminal/thread check, not another launcher/ACP design;
+  `vg0b` retains cloud/running-application restore checks after verified local
+  archive/restore work, not the superseded database-backup deferral.
+- Keep `mpew`, `avvp`, `6hce` and `jgcf` open: synthetic behavior, mapped
+  workspaces/review, actual Forge model retrieval and a real-project demo are
+  still unverified. Fresh-host bootstrap/redeployment work also remains open.
+- Assessment only: no task close/edit/claim/link, service/config change,
+  model/corpus/provider operation or experiment process. Context committed
+  locally and the generated TODO refreshed without changing the 32-task index.
+
 ## Inactive Jira refinement example saved: 11:36 request
 
 - Saved `context/prompt-drafts/jira-refinement.example.md` with the canonical
