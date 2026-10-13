@@ -47,6 +47,10 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   it cannot modify/add requirements, edit source, write task records, launch
   workers or publish. Saved in `context/prompt-drafts/jira-refinement.example.md`;
   this does not install a coordinator or authorize automated intake.
+  At 11:38 the owner asks which existing Kata tasks can be cleaned up.
+  The live 32-task audit identifies overlapping workflow/prompt work and stale
+  scopes, not completed platform integration. Consolidation/scope changes are
+  recommendations pending approval; no task was closed or rewritten.
 - Linux is the target. Exclude Ghosthub and all macOS-only tools.
 - Begin locally. Later cloud deployment is for private/internal use, not a
   customer-facing hosted service. The intended users and agents must be able

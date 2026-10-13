@@ -72,6 +72,11 @@ appends the owner's exact draft-only overlay. Its `.example.md` filename and
 context-only location keep it outside live instruction/skill/profile discovery.
 No launcher, MCP settings or agent target references it.
 
+The 11:38 project task audit used native list/show commands for all 32 open
+tasks and selected comments/dependencies. Scope corrections are recorded in
+`status.md`; the inactive example does not complete active prompt, Jira intake
+or Forge-worker integration. No task status, body, ownership or link changed.
+
 # Current terminal choice: Ghosthub substitute, 2026-10-13
 
 The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated
