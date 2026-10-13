@@ -64,10 +64,13 @@ and each future project binding remain separate acceptance work.
 
 Read the canonical Clanker Constitution at `v2026.08.11` from the author's
 repository. It is compact, language-neutral baseline behavior under CC BY 4.0,
-not a Jira intake protocol, scheduler or orchestrator implementation. Preserve
-Kenn Software attribution/license/version for copies/adaptations. An inactive
-example should use a non-discovered `.example.md` filename, not a live root
-`AGENTS.md` or installed skill/profile; its placement/authority awaits agreement.
+not a Jira intake protocol, scheduler or orchestrator implementation. The owner
+approved an inactive example at 11:36:
+`context/prompt-drafts/jira-refinement.example.md` reproduces the baseline
+unchanged with version, Kenn Software attribution and CC BY 4.0 license, then
+appends the owner's exact draft-only overlay. Its `.example.md` filename and
+context-only location keep it outside live instruction/skill/profile discovery.
+No launcher, MCP settings or agent target references it.
 
 # Current terminal choice: Ghosthub substitute, 2026-10-13
 

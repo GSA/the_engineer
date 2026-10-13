@@ -1,5 +1,20 @@
 # Status: 2026-10-13
 
+## Inactive Jira refinement example saved: 11:36 request
+
+- Saved `context/prompt-drafts/jira-refinement.example.md` with the canonical
+  Constitution v2026.08.11 unchanged, retaining attribution/license, followed
+  by the owner's exact overlay. The file is an inactive reference, not a live
+  `AGENTS.md`, skill or installed agent profile.
+- Draft authority is now agreed: propose tasks for human approval, without
+  modifying/adding requirements, editing source, writing task records,
+  launching workers or publishing. Active prompt/platform integration remains
+  open; saving this example does not complete `k03a` or Jira intake `99gr`.
+- Updated project/tool/workflow context and existing task handoffs; committed
+  the completed document changes locally. No profile/config/service/upstream
+  changes, model requests, corpus access, Jira/Helix requests or publication.
+  No experiment process was started; previous context work was already committed.
+
 ## Manual Jira intake and future coordinator discussion: 11:29 request
 
 - Owner favors a first-ticket manual Jira-to-Kata path before learning enough

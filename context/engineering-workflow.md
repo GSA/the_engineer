@@ -45,8 +45,8 @@ refinement or worker dispatch a prerequisite for the first demo.
 1. Manual intake: retain ticket identity, original acceptance criteria and
    source provenance; agree refinements and create bounded/dependent Kata tasks.
 2. Optional on-demand refinement Pi: use Falcon context and Superpowers to
-   propose the same task contract for human review. Its task-writing authority
-   is not yet decided; it does not imply permission to launch workers.
+   propose the same task contract for human review. The saved draft explicitly
+   forbids task writes and worker launches; it is not an installed agent.
 3. Later service: automate approved Jira reads, reconciliation/retry handling
    and reviewed conversion into Kata tasks after the manual contract is proven.
    Worker scheduling is separate from ingestion/refinement.
@@ -57,13 +57,15 @@ retrieve only relevant qualified evidence and cite actual returned locators.
 Do not turn server discovery into a claim of model-backed Forge-worker use.
 
 The canonical Constitution v2026.08.11 is compact baseline behavior, not an
-intake/orchestrator protocol. A future unloaded example could combine that
-attributed CC BY 4.0 baseline with a concise intake-only overlay: task intent,
-source/decision separation, Falcon grounding, acceptance/dependency proposals,
-uncertainty escalation and explicit non-dispatch authority. Proposed location
-is `context/prompt-drafts/jira-refinement.example.md`, outside live instruction,
-skill and profile discovery. No example file or live coordinator was created;
-creation authority and exact output/stop boundary await agreement.
+intake/orchestrator protocol. At 11:36 the owner approved an inactive reference:
+[`prompt-drafts/jira-refinement.example.md`](prompt-drafts/jira-refinement.example.md).
+It reproduces the Constitution unchanged with its attribution/license/version,
+then appends the owner's exact concise overlay. The adaptation is labeled, and
+the file remains outside live instruction, skill and profile discovery.
+It proposes task outcomes, acceptance criteria and dependencies for human
+approval; it forbids modifying/adding requirements, source edits, task writes,
+worker launches and publication. No live coordinator or automated intake is
+installed.
 
 ## What Forge actually owns
 
