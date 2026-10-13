@@ -26,6 +26,9 @@ requires macOS.
 
 The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated
 as secure/insecure. Do not install it or introduce a competing task ledger.
+At 10:28 the owner also declines Herdr (`r27h`, **wontfix**) and accepts the
+current local setup. Engineering prompt work moves to a separate dedicated
+agent under `k03a`; no additional terminal runtime is on the active agenda.
 The dated research below is retained as provenance, not current selection.
 
 Ghosthub fills the **multiplexer-native terminal frontend** layer in
@@ -38,7 +41,7 @@ covered now without another agent orchestrator.
 | Existing Zed + tmux | Installed Zed 1.23.3 and tmux 3.6. Zed offers editor/diffs and terminals; tmux supplies live-process persistence and session/window/pane switching. Works without Forge provider mapping. | Lowest-friction baseline. `scripts/terminal-local.py` supplies a private-socket entrypoint from any WSL terminal or Zed terminal/thread. No installation/global setting change. |
 | Existing WSL terminal + tmux | Same backend and native clients, without a GUI dependency. | Fully usable fallback and the portable foundation for later approved SSH/Linux use. Remote connectivity and fresh-host installation are not configured. |
 | Ghostty + tmux | Installed Ghostty identifies as `1.3.0-dev+0000000`, channel tip; WSL display variables exist. | Optional frontend, not required or asserted to be a hardened release. No upgrade or GUI trial performed. |
-| Herdr | Additional runtime/status machinery and native resume integrations; previous reports remain below. | Optional future trial `r27h` only if tmux lacks a demonstrated needed feature. No installation. |
+| Herdr | Additional runtime/status machinery and native resume integrations; previous reports remain below. | Declined at 10:28; `r27h` closed wontfix. No installation or active trial. |
 | cmux / Ghosthub | [cmux's current app](https://github.com/manaflow-ai/cmux) is Swift/AppKit macOS; Ghosthub was excluded here for the same host mismatch. | Revisit on a future Mac if useful, not a Linux/WSL dependency. |
 
 [Zed Terminal Threads](https://zed.dev/docs/ai/terminal-threads) organize
@@ -129,7 +132,7 @@ exists, but adds a system package repository/global installation and is not
 needed to make this profile usable. The owner deferred CLI setup at 13:10;
 no installation/App change is planned while the GSA operating path is unresolved.
 
-## Herdr versus the existing layers
+## Herdr versus the existing layers: historical research
 
 [Herdr](https://github.com/herdrdev/herdr) is an Apache-2.0 terminal/runtime
 manager with a background server, terminal UI, agent-aware status, CLI/socket
@@ -170,7 +173,7 @@ restriction. Automatic detection-manifest downloads and saved pane history
 need deliberate reproducibility/retention choices; neither sandboxing nor
 USAi routing is established simply by using Herdr.
 
-## Next research priorities: updated 2026-10-13
+## Next work priorities: updated 2026-10-13 at 10:28
 
 Prioritize gaps in this stack over accumulating overlapping tools. These are
 recommendations using the documented sources above, not new runtime findings
@@ -178,13 +181,13 @@ or approval to install products.
 
 | Priority | Existing Kata task | Target and bounded question |
 | --- | --- | --- |
-| 1 | `tvbf` | Kata's native MCP/agent/attention integration: make private Pi and Copilot reliably discover, claim, update and hand off one real platform task without creating a second ledger. |
-| 2 | `jqwq` | Check the existing Zed terminal/thread UI with the scoped tmux launcher; home-directory access is supplied, ACP remains unnecessary. |
-| 3 | `r27h` | Optional Herdr trial only for a demonstrated gap in the existing tmux baseline; preserve scoped clients and Forge's runtime. |
+| 1 | `k03a` | Separate dedicated prompt agent: adapt shared engineering policy and focused roles, reusing existing Superpowers and preserving provider/publication boundaries. |
+| 2 | `tvbf` | Remaining Kata native attention and Copilot model-driven task pilot; no second ledger or terminal runtime. |
+| 3 | `jqwq` | Check the existing Zed terminal/thread UI with the scoped tmux launcher; home-directory access is supplied, ACP remains unnecessary. |
 
 Gill's Pi extensions/setup is excluded from this research queue; the dedicated
-platform prompt-writing agent owns that review. Ouijit is excluded by the
-2026-10-13 owner decision; `jjw1` is closed wontfix.
+platform prompt-writing agent owns that review. Ouijit and Herdr are excluded
+by the 2026-10-13 owner decisions; `jjw1` and `r27h` are closed wontfix.
 
 Spokenly (`0rc1`) is a separate personal-productivity trial with local models.
 `c3ch` now records the completed existing-tool terminal baseline, not a

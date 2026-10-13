@@ -69,7 +69,7 @@ or restart recovery**. WSL shutdown/reboot kills the live processes; reopen
 tmux and explicitly resume saved native agent sessions afterward. tmux
 attach/detach/disconnect behavior is verified here; Zed's GUI/thread workflow
 still needs the owner's interactive check. Installed Ghostty is a development
-build and is not required; Herdr remains optional research, and cmux's macOS app
+build and is not required; Herdr is excluded from current work, and cmux's macOS app
 is not a replacement for this Linux/WSL host.
 
 ## Start and access the environment

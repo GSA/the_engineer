@@ -1,5 +1,22 @@
 # Status: 2026-10-13
 
+## Herdr declined and engineering prompt handoff: 10:28 request
+
+- Owner accepts the current local setup and removes Herdr from active work.
+  Search found one Herdr-specific open task, `r27h`; it is now closed
+  **wontfix**, not a completed trial. `tvbf` also matched historical comments
+  but is an integration task, not a Herdr evaluation; keep it open.
+- Removed Herdr from current README/tool priorities, retaining dated research
+  as provenance. Zed/tmux and all existing services/profiles stay unchanged.
+- Recorded the separate dedicated prompt-agent handoff on `k03a`, which stays
+  open/unassigned. Its scope includes shared policy, focused roles, prior
+  Constitution/Beck/Gill references and existing Superpowers TDD, preserving
+  USAi/Falcon and human publication/merge control. No agent launched or prompt
+  implementation performed in this backlog-only turn.
+- Refreshed TODO indexes **32 open tasks**, historical entries unchanged.
+  Completed documentation/index work is committed locally; no push, process
+  start/stop, service/global setting change, model request or corpus operation.
+
 ## Ghosthub replacement baseline and Ouijit declined: 10:07 request
 
 - Owner declines Ouijit to avoid adding an unqualified competing stack;

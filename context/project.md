@@ -202,6 +202,13 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   optional research rather than a dependency. macOS tools may be reconsidered
   on a future Mac, not installed here. Cloud/SSH deployment still needs
   approved connectivity and does not follow from choosing tmux.
+- At 10:28 on 2026-10-13 the owner accepts the current local setup and removes
+  remaining Herdr tasks. `r27h` is closed wontfix; Herdr and Ouijit are
+  excluded from active work, with prior research retained only as history.
+  Keep the existing runtime/services unchanged. Engineering policy and prompts
+  are the next focus in a separate dedicated agent under `k03a`; this handoff
+  does not claim prompt implementation or completion of outstanding integration
+  checks.
 - Ask questions early rather than assuming. Favor simple code, correctness,
   maintainability, and a useful end product over prose or speed.
 
