@@ -1,5 +1,24 @@
 # Status: 2026-10-13
 
+## Manual Jira intake and future coordinator discussion: 11:29 request
+
+- Owner favors a first-ticket manual Jira-to-Kata path before learning enough
+  to automate intake/refinement. A later service may be a separate deliverable;
+  no new project/repository/service is created or treated as approved.
+- Falcon/Librarian MCP access is a requirement for engineering agents. Real
+  private Pi MCP discovery connects to Falcon's seven tools and this project's
+  Kata loaders. No corpus content, model call or Forge worker retrieval was
+  used or claimed; new-project bindings still need deliberate setup.
+- Retrieved canonical Constitution v2026.08.11 from the author: suitable
+  reusable baseline with CC BY 4.0 attribution, not a complete coordinator
+  prompt or scheduling capability. Recommendation is an unloaded example plus
+  small intake-specific overlay, without duplicating Superpowers.
+- Coordinator/refinement is not required for the manual demo. Draft-only
+  versus task-writing authority remains a question; no live prompt or archived
+  example is installed yet. Recorded this distinction on existing prompt/intake
+  tasks. Context changes are committed locally; no service/config/upstream
+  changes, Jira/Helix calls, publication or experiment processes remain.
+
 ## Forge-native prompt scope correction: 11:17 request
 
 - Owner wants existing Forge with Superpowers, not a new role orchestrator or
