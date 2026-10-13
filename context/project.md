@@ -22,6 +22,17 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   Keep runtime prompts concise to limit recurring token overhead. Ask all
   outstanding questions and verify assumptions before implementation; exact
   skill adaptation, approval gates, isolation and loading scope remain open.
+  At 11:17 the owner clarifies that the objective is full use of Forge with
+  Superpowers, not wholesale implementation of every Superpowers workflow or
+  a new orchestration system. Prefer existing Forge extension/configuration
+  surfaces over recoding it. Copilot and global Pi are out of prompt scope.
+  Ask-before-assuming applies to designing these prompts; subsequent agents
+  should execute approved steps continuously and escalate consequential scope,
+  architecture, authority or cost uncertainty. The owner expects Forge to
+  break work into Kata tasks and dispatch implementors; verified source shows
+  that decomposition belongs to a human/agent, not a Forge planning engine.
+  First-version coordinator/worker topology is not yet agreed. Server use and
+  worktrees do not establish OS sandboxing or broader publication permission.
 - Linux is the target. Exclude Ghosthub and all macOS-only tools.
 - Begin locally. Later cloud deployment is for private/internal use, not a
   customer-facing hosted service. The intended users and agents must be able

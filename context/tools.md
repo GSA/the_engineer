@@ -37,6 +37,24 @@ does not establish delegated execution. The current roborev config points at
 the same private Pi launcher; dedicated role loading/isolation is not yet
 implemented. No upstream/global profile changes were made.
 
+The 11:17 clarification narrows the objective to Forge-native use with
+Superpowers; Copilot/global Pi are out of scope. Pinned Forge's `Agent` schema
+defines protocol/key/label/command/enabled, not engineering roles. Its Kata
+integration reads canonical tasks and owns links/workspace creation, not task
+decomposition or mutation. Activity hooks relay agent states and explicitly do
+not enable consent/auto-approval. Engineering stops and TDD remain agent/skill/
+repository policy, not Forge's reasoning. Detailed evidence and optional-vs-
+required workflow distinctions are in `engineering-workflow.md`.
+
+Non-secret saved-config inspection shows one enabled `pi` target, zero quick
+actions, `[mcp].enabled` absent/false and Superpowers registered in private Pi.
+Read-only live Forge collections confirm zero provider repos/workspaces.
+The first collection probe used the wrong `/api` prefix and returned 404;
+the existing `/api/v1` helper then succeeded. No configuration was changed.
+The native MCP spawn input supports provider items or ad-hoc repositories,
+not a direct Kata-task source; UI/API Kata workspace creation is a separate
+surface. Do not promise automatic Kata-to-worker dispatch from prompts alone.
+
 # Current terminal choice: Ghosthub substitute, 2026-10-13
 
 The owner declines Ouijit at 10:07; `jjw1` is closed **wontfix**, not evaluated
