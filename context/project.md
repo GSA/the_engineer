@@ -41,6 +41,12 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   tasks versus create them) and its first-version inclusion remain open; no
   Jira service, worker scheduler or live coordinator is authorized by this
   discussion.
+  At 11:36 the owner approves saving the unchanged Constitution with their
+  exact draft-only Jira refinement overlay as an inactive example and
+  committing existing work. The overlay proposes tasks for human approval;
+  it cannot modify/add requirements, edit source, write task records, launch
+  workers or publish. Saved in `context/prompt-drafts/jira-refinement.example.md`;
+  this does not install a coordinator or authorize automated intake.
 - Linux is the target. Exclude Ghosthub and all macOS-only tools.
 - Begin locally. Later cloud deployment is for private/internal use, not a
   customer-facing hosted service. The intended users and agents must be able
