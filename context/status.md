@@ -1,5 +1,46 @@
 # Status: 2026-10-12
 
+## Kata/Pi/Copilot first integration milestone: 23:16 request
+
+- Claimed `tvbf` before work; implemented repeatable `install-kata-mcp` and
+  a fixed-actor, credential-sanitized native stdio adapter. Ignored local
+  `.pi/mcp.json` / `.github/mcp.json` bind `engi-platform`; private Pi trusts
+  only this checkout's project resources. Explicit distrust/conflicting Kata
+  entries fail, unrelated servers/global profiles remain unchanged.
+- Both live adapters initialize, refresh Kata's 16-loader catalog to 37 tools,
+  read `tvbf`/inboxes, preserve actor attribution, explicitly reject cross-
+  project reads and writes and append/retry comments without duplicates.
+  Pi cannot replace Copilot's existing claim. Pi SDK separately proves lazy
+  tool refresh; Copilot CLI reports the enabled **workspace** server.
+- Actual Pi/USAi model-selected retrieval used both loaders and show/status,
+  returning exactly `engi-platform` / `tvbf` / `pi` / `copilot`. The task
+  revision stayed 2 during the read; no builtin filesystem or Falcon tool ran.
+  The successful run recorded five assistant requests, 26,920 input and
+  315 output tokens. Zero-valued alias cost is not treated as free service.
+  Two earlier incorrect allowlists suppressed proxy tools and returned
+  unavailable results despite exit zero; failed JSONL evidence is retained.
+- All 109 focused Python tests pass, including seven new integration
+  regressions; actual repeated setup and read-only transport/SDK checks pass.
+  README/root task guidance and `kata-adoption.md` describe scope, client
+  restart, progressive loaders and limits. Private evidence is
+  `runtime/kata-agent-integration-verification.json` plus three model-pilot
+  JSONL files; saved private Pi sessions remain available to AgentsView.
+  A pre-existing schema-extension peer-dependency warning is not hidden or
+  treated as this integration's success/failure criterion.
+- `tvbf` remains **open and unassigned** after explicit handoff. Native
+  attention hooks, interrupted/resumed session truthfulness and Copilot
+  model-driven MCP still need a pilot. Existing conversations do not gain
+  MCP tools by a config write; this Copilot session uses the scoped CLI.
+- Added concrete operational comparisons and qualified public user/maintainer
+  reports for Herdr/Ouijit to `tools.md` and comments on `r27h`/`jjw1`.
+  Herdr remains a possible standalone-terminal complement; Ouijit overlaps
+  task/worktree/review authority. macOS reports are not WSL reproductions.
+  Neither tool was installed or selected, and no second ledger was created.
+- Refreshed TODO still indexes 35 open tasks with completed history unchanged.
+  No experiment process remains. Kata 25008, Forge 396, AgentsView 395 and
+  roborev 397 are active/unchanged; no service restart, global setting, new
+  listener, Falcon edit, Helix/Jira request, backup or remote publication.
+
 ## Gill review moved to the prompt-writing agent: 23:12 request
 
 - Owner removes Gill's Pi extensions/setup from active platform tool research;

@@ -35,7 +35,46 @@ history/notes, refuses missing/ambiguous markers and concurrent file changes,
 and fails without replacing the index when the daemon read fails. Do not
 manually edit the generated block or treat its cached checkboxes as live state
 while Kata is stopped. Root `AGENTS.md` directs agents to this CLI/index flow.
-Native automatic Pi/Copilot MCP and attention-hook wiring is still task `tvbf`.
+Project-scoped Pi/Copilot MCP is now wired as the first `tvbf` milestone.
+Native attention hooks and a Copilot model-driven MCP pilot remain open.
+README owns repeatable setup/check commands and client restart requirements.
+
+### Agent integration: 23:16 request
+
+`install-kata-mcp` generates ignored local `.pi/mcp.json` / `.github/mcp.json`
+and uses Pi's native trust store for this checkout in the private profile only.
+It preserves other servers, refuses a conflicting Kata entry or explicit
+distrust, and does not change global client settings. `kata-mcp.py` accepts
+only actor `pi` or `copilot`, pins the native single-project stdio server and
+strips inherited credentials. No new service/listener is needed.
+
+Both real adapters passed initialize, progressive tools/list refresh (16 to
+37 tools), issue read, fixed actor, inbox read and cross-project refusal.
+Retry-safe comments on the actual integration task were attributed separately
+to Pi and Copilot. Pi's attempt to claim Copilot-owned `tvbf` was refused;
+ownership remained Copilot's. Pi SDK execution separately verified dynamic
+tool refresh and scope. Cross-project writes also receive explicit scope
+refusals before mutation. `copilot mcp list --json` reports `kata` enabled from
+the workspace `.github/mcp.json`; it is not a model-driven Copilot test.
+
+The final saved Pi/USAi model pilot selected both loaders, searched the refreshed
+catalog, called show/status, and returned exactly
+`{"project":"engi-platform","ref":"tvbf","actor":"pi","owner":"copilot"}`.
+It used no builtin filesystem tools or Falcon reads and did not mutate the task.
+Earlier two pilot invocations restricted the native proxy tools out of the
+allowlist and truthfully returned unavailable results, despite CLI exit zero.
+They are retained as failed evidence, not counted as successful task reads.
+The corrected invocation uses `--no-builtin-tools` without the incomplete
+`--tools` allowlist. A known pre-existing schema-extension peer-dependency
+warning appeared; no extension upgrade or unrelated fix was attempted.
+
+All 109 focused Python tests pass, including seven new setup/actor/config/
+entrypoint regressions. Private JSONL evidence is under `runtime/` in the
+environment profile; the saved Pi sessions remain available to AgentsView.
+No USD price is inferred from Pi's zero-valued cost fields.
+`tvbf` remains open and was explicitly unassigned with a milestone/handoff
+comment: native lifecycle/attention truthfulness, interruption/
+resume behavior and a Copilot model-selected MCP task loop are not proven.
 
 ## Migration and scope
 

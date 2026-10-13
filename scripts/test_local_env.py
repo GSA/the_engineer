@@ -208,6 +208,101 @@ class LocalEnvironmentTests(unittest.TestCase):
         execute.assert_called_once_with(command[0], command, env)
         chdir.assert_not_called()
 
+    def test_kata_mcp_pins_actor_scope_and_sanitizes_credentials(self):
+        with patch.object(Path, "is_file", return_value=True), \
+                patch.object(local_env.os, "access", return_value=True), \
+                patch.dict(os.environ, {"USAI_API_KEY": "not-inherited", "KATA_AUTHOR": "other"}):
+            for actor in ("pi", "copilot"):
+                command, env = local_env.kata_mcp_launch(actor)
+                self.assertEqual(command[-4:], ["--as", actor, "mcp", "serve"])
+                self.assertIn("engi-platform", command)
+                self.assertNotIn("USAI_API_KEY", env)
+                self.assertNotIn("KATA_AUTHOR", env)
+        with self.assertRaisesRegex(RuntimeError, "actor"):
+            local_env.kata_mcp_launch("other")
+
+    def prepare_mcp_install(self):
+        patch.object(local_env, "ROOT", self.root).start()
+        patch.object(local_env, "node_environment", return_value=local_env.base_environment()).start()
+        patch.object(local_env, "kata_mcp_launch", return_value=(["kata"], {})).start()
+        patch.object(local_env.subprocess, "run").start()
+
+    def test_kata_mcp_install_is_repeatable_and_preserves_other_servers(self):
+        self.prepare_mcp_install()
+        local_env.private_dir(self.root / ".pi")
+        path = self.root / ".pi/mcp.json"
+        local_env.json_write(path, {"custom": "retained", "mcpServers": {"other": {"command": "keep"}}})
+        falcon = (self.state / "pi/mcp.json").read_bytes()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.install_kata_mcp()
+            first = path.read_bytes()
+            local_env.install_kata_mcp()
+        document = json.loads(first)
+        self.assertEqual(document["custom"], "retained")
+        self.assertEqual(document["mcpServers"]["other"], {"command": "keep"})
+        self.assertEqual(document["mcpServers"]["kata"]["args"][-1], "pi")
+        self.assertEqual(document["mcpServers"]["kata"]["exposure"], "codemode")
+        self.assertEqual(path.read_bytes(), first)
+        copilot = json.loads((self.root / ".github/mcp.json").read_text())["mcpServers"]["kata"]
+        self.assertEqual(copilot["args"][-1], "copilot")
+        self.assertEqual(copilot["tools"], ["*"])
+        self.assertEqual((self.state / "pi/mcp.json").read_bytes(), falcon)
+        self.assertEqual(list(self.global_pi.iterdir()), [])
+
+    def test_kata_mcp_install_refuses_conflicts_before_writing_either_config(self):
+        self.prepare_mcp_install()
+        local_env.private_dir(self.root / ".github")
+        path = self.root / ".github/mcp.json"
+        local_env.json_write(path, {"mcpServers": {"kata": {"command": "authored"}}})
+        original = path.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "preserving"):
+            local_env.install_kata_mcp()
+        self.assertEqual(path.read_bytes(), original)
+        self.assertFalse((self.root / ".pi/mcp.json").exists())
+        local_env.subprocess.run.assert_not_called()
+
+    def test_kata_mcp_install_refuses_symlink_or_invalid_shape(self):
+        self.prepare_mcp_install()
+        local_env.private_dir(self.root / ".pi")
+        path = self.root / ".pi/mcp.json"
+        for document in ([], {"mcpServers": []}):
+            local_env.json_write(path, document, replace=True)
+            with self.assertRaisesRegex(RuntimeError, "object"):
+                local_env.install_kata_mcp()
+        path.unlink()
+        outside = self.root / "other.json"
+        outside.write_text("{}")
+        path.symlink_to(outside)
+        with self.assertRaises(OSError):
+            local_env.install_kata_mcp()
+        self.assertEqual(outside.read_text(), "{}")
+
+    def test_kata_mcp_install_surfaces_trust_failure_without_config_publication(self):
+        self.prepare_mcp_install()
+        local_env.subprocess.run.side_effect = local_env.subprocess.CalledProcessError(1, ["node"])
+        with self.assertRaises(local_env.subprocess.CalledProcessError):
+            local_env.install_kata_mcp()
+        self.assertFalse((self.root / ".pi/mcp.json").exists())
+        self.assertFalse((self.root / ".github/mcp.json").exists())
+
+    def test_kata_mcp_entrypoint_executes_native_stdio_without_chdir(self):
+        command, env = ["/native/kata", "mcp", "serve"], {"KATA_HOME": "/private"}
+        with patch.object(local_env, "kata_mcp_launch", return_value=(command, env)) as launch, \
+                patch.object(os, "execve") as execute, patch.object(os, "chdir") as chdir, \
+                patch.object(os, "umask"), patch.object(local_env.sys, "argv", ["launcher", "copilot"]):
+            runpy.run_path(str(local_env.ROOT / "scripts/kata-mcp.py"))
+        launch.assert_called_once_with("copilot")
+        execute.assert_called_once_with(command[0], command, env)
+        chdir.assert_not_called()
+
+    def test_kata_mcp_entrypoint_rejects_extra_arguments(self):
+        with patch.object(local_env.sys, "argv", ["launcher", "pi", "--all"]), \
+                contextlib.redirect_stderr(io.StringIO()) as output:
+            with self.assertRaises(SystemExit) as error:
+                runpy.run_path(str(local_env.ROOT / "scripts/kata-mcp.py"))
+        self.assertEqual(error.exception.code, 1)
+        self.assertIn("scope overrides", output.getvalue())
+
     def test_permissive_key_is_rejected(self):
         self.provider()
         self.key()

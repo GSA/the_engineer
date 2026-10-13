@@ -149,6 +149,70 @@ Ghostty (`c3ch`) is lower-priority terminal ergonomics. PiPod/Abyss/smolvm
 execution; none is selected and profile isolation is still not a sandbox.
 Database backup/recovery remains a separate owner-requested session.
 
+## Operational and anecdotal evidence: 23:16 request
+
+These are actual operating scenarios plus public issue reports, not local
+Herdr/Ouijit trials or independent evidence of productivity. Neither product
+is selected or installed. Repository reports were checked on 2026-10-12;
+open/merged status is time-sensitive.
+
+| Question | Herdr | Ouijit |
+| --- | --- | --- |
+| What would I use it for today? | Keep standalone Pi/Copilot terminals, tests and shells in persistent panes; see which agent needs attention and detach/reattach without losing the live process. Complements Kata rather than owning its backlog. | Enter a task on a visual board, start its isolated branch/worktree/terminal, run an agent via a start hook, inspect the diff and advance review state. Overlaps both Kata and Forge rather than simply adding terminal persistence. |
+| What persists? | [Session-state contract](https://herdr.dev/docs/session-state/): detach preserves live processes; full server restart restores layout and optionally native agent conversations, not old processes. Screen history is off by default because output may contain secrets. | [Worktree contract](https://ouijit.com/docs/worktrees/): tasks retain their branches/worktrees across board changes; Continue opens another terminal in the existing worktree. This does not establish that a live process survives app/WSL restart. |
+| How would our agents fit? | Official native restore lists Pi integration >=2 and Copilot >=2. We must verify resume launches our scoped profiles, not ordinary `pi` with a different provider. No inner tmux topology for status detection. | [Harness docs](https://ouijit.com/docs/harnesses/) explicitly cover Pi, Claude, Codex and OpenCode in Ouijit-owned terminals; Copilot first-class status/CLI-awareness is not documented there. Our absolute Pi launcher must preserve its hooks/wrapper PATH. |
+| What could go wrong for this workspace? | A second socket alone is not state isolation; isolate configuration plus named-session state. Existing Forge-owned tmux stays separate. Test both orderly detach and terminal/WSL termination. | Default Quick start copies ignored paths, including `.env` and this large/private `.local/`. Use Clean checkout and an explicit setup hook. Do not let its board silently become a second authoritative ledger or its done hook publish/merge. |
+
+Concrete user/maintainer evidence:
+
+- [Herdr #4920](https://github.com/herdrdev/herdr/issues/4920) is an **open
+  macOS/Ghostty 0.9.3 report**: two users describe losing pane processes when
+  quitting the terminal, including after explicit detach. A user reports
+  signal-level tracing to macOS application-coalition termination; the
+  maintainer cannot reproduce the same ordinary-quit path and is still asking
+  for details. This is a useful persistence acceptance test, not proof of a
+  Linux/WSL defect or a confirmed universal cause.
+- [Herdr #5217](https://github.com/herdrdev/herdr/issues/5217) is an **open
+  macOS 0.9.3/current-master report** with a scripted reproduction: separate
+  `HERDR_SOCKET_PATH` servers share `session.json`, overwrite layouts and can
+  duplicate native agent resumes. The reported experiment supports our need
+  to isolate state, not just sockets. We have not reproduced or generalized it.
+- [Ouijit #302](https://github.com/ouijit/ouijit/issues/302) describes a real
+  terminal-stack workflow where suspending an agent with Ctrl-Z left `fg`
+  unable to resume it. [PR #312](https://github.com/ouijit/ouijit/pull/312)
+  **merged 2026-10-10**, moving startup commands into interactive-shell job
+  control and adding real PTY tests for zsh/bash/fish, Ctrl-Z/fg, Ctrl-C and
+  wrapper PATH. This is inspectable engineering evidence; a future trial
+  must verify its chosen release actually contains the fix.
+- [Ouijit #304](https://github.com/ouijit/ouijit/issues/304) reported an
+  OpenCode-v2 plugin-load failure. Its linked fix PR #311 merged 2026-10-10.
+  This is not a Pi defect, but shows why harness-version compatibility and
+  model/profile routing must be demonstrated rather than assumed.
+- [Ouijit #299](https://github.com/ouijit/ouijit/issues/299) contains a
+  self-reported company trial requesting Linear intake, with the maintainer
+  planning support. That is adoption anecdote, not a verified integration or
+  benchmark; it is also a reminder that Jira/Linear intake is not established
+  merely by having a task board.
+
+Recommendation remains **Herdr first as a bounded complement**, if persistent
+standalone terminal/status management is a demonstrated pain point. Its trial
+should measure attach/detach process identity, restart/resume/profile fidelity,
+Pi/Copilot status versus observed behavior and cleanup, with synthetic work.
+Evaluate Ouijit only as an explicit alternative execution/review interface,
+measuring clean worktrees, scoped Pi/USAi, permissions and task reconciliation
+before considering coexistence. More tools are not themselves an integration
+benefit. Existing issue reports do not establish enterprise/GSA readiness.
+
+## Kata agent-access milestone: 23:16 request
+
+Native scoped stdio MCP now backs both project clients. See README and
+`kata-adoption.md` for setup and actual read/actor/scope/retry evidence.
+Pi uses codemode and refreshes Kata's progressive catalog successfully.
+Copilot discovers the workspace server on new sessions; this running session
+uses the scoped CLI. A successful saved Pi/USAi model read now supplements
+transport evidence; Copilot model-selected MCP and native attention lifecycle
+remain open. No terminal product was needed or installed for this milestone.
+
 ## Pi 0.87.1 removal: 2026-10-12
 
 The old shell command was `~/.local/bin/pi` pointing to the managed
