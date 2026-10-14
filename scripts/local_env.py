@@ -188,7 +188,7 @@ def validate_key(key):
     return key
 
 
-def set_key():
+def set_key(*, private_only=False):
     settings()
     private_dir(STATE / "secrets")
     if not sys.stdin.isatty():
@@ -197,10 +197,13 @@ def set_key():
     path = STATE / "secrets/usai-api-key"
     if path.exists() or path.is_symlink():
         private_read(path)
-    linked = link_cli_key()
+    linked = 0 if private_only else link_cli_key()
     private_write(path, key + "\n", replace=True)
     print("USAi key saved privately (0600); its value was not logged.")
-    print(f"Forge and {linked} existing global Pi USAi provider(s) use the same key file.")
+    if private_only:
+        print("Global Pi credentials were not changed; only the private platform uses this key file.")
+    else:
+        print(f"Forge and {linked} existing global Pi USAi provider(s) use the same key file.")
     print("Restart existing Pi sessions after rotation; settings and sessions remain separate.")
 
 
@@ -615,6 +618,35 @@ def agentsview_environment():
     # Native Pi home overrides configured multi-directory discovery.
     env.pop("PI_CODING_AGENT_DIR")
     return env
+
+
+def configure_private_pi_tracking():
+    settings()
+    sessions = STATE / "pi/sessions"
+    private_dir(sessions)
+    path = STATE / "agentsview/config.toml"
+    metadata = STATE / "agentsview-tracking.json"
+    expected = {"archive_content": "usage", "agents": {"pi": {"dirs": [str(sessions)]}}}
+    lock_fd = os.open(str(path) + ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "rb") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError("AgentsView config is busy; retry configure-private-pi-tracking") from error
+        config = tomllib.loads(private_read(path)) if path.exists() or path.is_symlink() else {}
+        if metadata.exists() or metadata.is_symlink():
+            tracking = json.loads(private_read(metadata))
+            if config.get("archive_content") != tracking["archive_content"]:
+                raise RuntimeError("existing AgentsView archive policy differs from tracking metadata")
+            print("Existing configured AgentsView tracking preserved; no sources or archive policy changed.")
+            return
+        if config and config != expected:
+            raise RuntimeError("existing AgentsView settings require explicit tracking configuration; not overwritten")
+        private_write(path, 'archive_content = "usage"\n\n[agents.pi]\n'
+                      f'dirs = {json.dumps([str(sessions)])}\n')
+        json_write(metadata, {"copilot_dir": None, "pi_dirs": [str(sessions)],
+                              "archive_content": "usage"})
+    print("AgentsView configured offline for private Pi usage metadata only; no global sessions imported.")
 
 
 def systemd_quote(value):
@@ -1082,7 +1114,10 @@ def main():
     commands.add_parser("run", help="run supervised services; retain independent services and saved state")
     commands.add_parser("stop", help="signal only the verified local supervisor")
     commands.add_parser("status", help="show the verified supervisor and persistent project registry")
-    commands.add_parser("set-key", help="prompt privately for the USAi key; never supply it on the command line")
+    key = commands.add_parser("set-key", help="prompt privately for the USAi key; never supply it on the command line")
+    key.add_argument("--private-only", action="store_true", help="do not link/change existing global Pi credentials")
+    commands.add_parser("configure-private-pi-tracking",
+                        help="configure fresh AgentsView for private Pi usage only, without starting it")
     tracking = commands.add_parser("configure-tracking", help="configure explicit Copilot/Pi archive sources")
     tracking.add_argument("--copilot-dir", type=Path, required=True)
     tracking.add_argument("--pi-dir", type=Path, action="append", required=True)
@@ -1119,7 +1154,9 @@ def main():
         elif args.command == "status":
             print(json.dumps(status(), indent=2))
         elif args.command == "set-key":
-            set_key()
+            set_key(private_only=args.private_only)
+        elif args.command == "configure-private-pi-tracking":
+            configure_private_pi_tracking()
         elif args.command == "configure-tracking":
             configure_tracking(args.copilot_dir, args.pi_dir, args.archive_content)
         elif args.command == "install-agentsview-service":

@@ -416,6 +416,14 @@ in AgentsView. Review usage accounting and sandbox selection remain in TODO.
 
 ## First-time setup
 
+For a portable, prerequisite-reporting entrypoint, use
+[`dist/install.sh`](dist/README.md). It initializes pinned source repositories,
+builds the applications, creates private configuration and prints manual
+startup commands. Ubuntu user-service registration/startup is explicitly
+optional. It requires an approved existing Librarian installation and reports
+missing host tools rather than installing system packages or changing global
+agent profiles. Clean-host acceptance is still outstanding.
+
 The current host has built application binaries, Python 3.11+, Node, Git, tmux
 and user-installed Pi **1.0.3**. Falcon's existing MCP installation/index must
 be present under `~/falcon-docs`. Setup validates Pi's exact version but does

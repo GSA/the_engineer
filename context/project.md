@@ -16,6 +16,14 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-14 at 14:25 the owner authorizes beginning an installer under
+  `dist/`, including source acquisition, missing-tool/library reporting and
+  manual startup guidance or optional Ubuntu service registration. The initial
+  recipe reuses existing Linux x86_64 builds and private local configuration;
+  user services require explicit consent and no sudo/lingering/global profile
+  changes are automatic. Approved local Librarian and Pi remain detected
+  prerequisites, not bundled confidential assets. Fresh-host acceptance and
+  automatic Pi provisioning remain outstanding; cloud deployment is unchanged.
 - On 2026-10-14 at 14:16 the owner requires the engineering platform to be
   redistributable to other engineers on the project. A repeatable setup for
   other engineers is a first-version requirement, not merely recovery of this
