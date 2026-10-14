@@ -1,5 +1,35 @@
 # Status: 2026-10-14
 
+## Initial distribution installer: 14:25 implementation request
+
+- Added `dist/install.sh`, Python implementation, operator documentation and
+  regressions. Supports existing checkout gitlinks or explicit URL/exact-commit
+  acquisition; reuses local toolchain/build/setup helpers. Preflight reports
+  host tools, versions, C headers/linker, TLS trust and Librarian runtime needs.
+  No system-package install or confidential corpus distribution is implicit.
+- Manual startup is the safe/noninteractive default; interactive installation
+  asks before registering AND starting four Ubuntu user services. Explicit
+  user-service mode checks manager/unit ownership; existing ports, local
+  source changes, private-path conflicts and concurrent installers fail rather
+  than replacing live state. Normal/temporary Forge build selection is explicit.
+- Added fresh offline private-Pi usage tracking for AgentsView and opt-in
+  `set-key --private-only`, preserving prior shared-key behavior and existing
+  tracking. Installer does not require Copilot or change global agent profiles.
+- Focused evidence: 27 installer and 98 local-environment tests pass, including
+  actual pinned clone/rerun preservation and isolated native AgentsView startup.
+  A synthetic Pi session retains billed input/output usage while dropping
+  prompt/response content; discovered session roots stay in disposable private
+  state. Process exit and listener reuse are verified. Real host preflight,
+  entrypoint/help and shell syntax checks pass.
+- Native runtime-test API path/schema and TIME_WAIT handling were corrected
+  before recording success. No production service was restarted or reinstalled;
+  observed Forge/Kata/roborev/AgentsView PIDs remain 414/416/417/413.
+- `p4ke` remains open: clean Ubuntu full-download/build/service acceptance is
+  not verified. Pi provisioning remains a reported external prerequisite;
+  project onboarding, active prompts and cloud/intake automation are separate.
+  Updated task handoff/index and committed locally; no publication, model
+  request, source corpus read/edit, cloud action or experiment process remains.
+
 ## Engineer redistribution requirement: 14:16 clarification
 
 - Owner requires redistributable engineering tooling/configuration for other

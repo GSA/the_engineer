@@ -31,9 +31,31 @@ are partial and not a verified distribution. `p4ke`/`5xrm` own portable setup;
 retain licenses/attribution and separate distributable configuration from
 per-user credentials and private runtime state. Librarian access must be
 provisioned through an approved dependency/access path, not by bundling the
-confidential corpus. Target host prerequisites, packaging and shared-state
-topology need agreement before implementation; no container or hosted
-multi-user architecture is selected.
+confidential corpus. The initial Ubuntu installer recipe is described below;
+target-engineer compatibility and shared-state topology remain unverified.
+No container or hosted multi-user architecture is selected.
+
+The 14:25 implementation is `dist/install.sh` plus `install.py`, documentation
+and regression tests. It checks Linux x86_64, Python/Node/Pi versions, host
+tools, TLS trust, C headers/linker and the existing Librarian executable/runtime.
+It initializes parent gitlinks or clones an explicitly supplied platform URL
+at an exact commit, then reuses source/toolchain/build/private-setup helpers.
+Normal Forge remains default; the temporary local-Kata build is opt-in.
+No private state/corpus is redistributed and no OS dependencies/global agent
+profiles are automatically changed. Pi 1.0.3 and local Librarian remain external
+prerequisites; clean Ubuntu installation is not established complete.
+
+Services default to manual for noninteractive use; interactive installation
+asks before enabling/starting four user units. Manager availability, conflicting
+unit origins and occupied ports fail explicitly; lingering is never enabled.
+Existing `kenn-kopy-*` names remain. Installer locking prevents concurrent
+same-checkout runs; settings and local changes are preserved.
+`configure-private-pi-tracking` adds offline, usage-only private Pi tracking for
+fresh AgentsView without requiring Copilot. Existing configured tracking stays
+unchanged. `set-key --private-only` adds an isolated credential handoff; the
+existing default shared-key behavior remains unchanged. Runtime isolation here
+is private filesystem/configuration, not an OS or cloud/multi-user sandbox.
+See `dist/README.md` for commands, prerequisite remedies and remaining boundaries.
 
 # Falcon demo boundary: 2026-10-13
 

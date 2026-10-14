@@ -483,6 +483,18 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.set_key()
         self.assertFalse((self.state / "secrets/usai-api-key").exists())
 
+    def test_private_only_key_handoff_does_not_read_or_change_global_profiles(self):
+        self.cli_providers()
+        before = {path.name: path.read_bytes() for path in self.global_pi.iterdir()}
+        with patch.object(local_env.sys.stdin, "isatty", return_value=True), \
+                patch.object(local_env.getpass, "getpass", return_value="test-only-token"), \
+                patch.object(local_env, "link_cli_key", side_effect=AssertionError("global access")), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            local_env.set_key(private_only=True)
+        self.assertEqual(local_env.load_usai_key(), "test-only-token")
+        self.assertEqual(before, {path.name: path.read_bytes() for path in self.global_pi.iterdir()})
+        self.assertIn("Global Pi credentials were not changed", output.getvalue())
+
     def cli_providers(self):
         models = {"providers": {
             "usai": {"apiKey": "old-test-only-token", "models": [{"id": "retained"}]},
@@ -666,6 +678,40 @@ class LocalEnvironmentTests(unittest.TestCase):
             "session_providers": [{"id": "copilot"}, {"id": "pi"}, {"id": "claude"}],
         }).start()
         return copilot, pi, path
+
+    def test_private_pi_tracking_is_offline_and_only_uses_private_sessions(self):
+        with patch.object(local_env, "agentsview_request", side_effect=AssertionError("network")), \
+                contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_private_pi_tracking()
+        config_path = self.state / "agentsview/config.toml"
+        config = local_env.tomllib.loads(config_path.read_text())
+        self.assertEqual(config["archive_content"], "usage")
+        self.assertEqual(config["agents"], {"pi": {"dirs": [str(self.state / "pi/sessions")]}})
+        self.assertEqual(config_path.stat().st_mode & 0o777, 0o600)
+        metadata = self.state / "agentsview-tracking.json"
+        self.assertEqual(json.loads(metadata.read_text())["pi_dirs"], [str(self.state / "pi/sessions")])
+        before = (config_path.read_bytes(), metadata.read_bytes())
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_private_pi_tracking()
+        self.assertEqual(before, (config_path.read_bytes(), metadata.read_bytes()))
+
+    def test_private_pi_tracking_preserves_existing_configured_sources(self):
+        copilot, pi, config = self.tracking_sources()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_tracking(copilot, [pi], "usage")
+        metadata = self.state / "agentsview-tracking.json"
+        before = (config.read_bytes(), metadata.read_bytes())
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_private_pi_tracking()
+        self.assertEqual(before, (config.read_bytes(), metadata.read_bytes()))
+
+    def test_private_pi_tracking_rejects_unconfigured_existing_settings(self):
+        config = self.state / "agentsview/config.toml"
+        local_env.private_write(config, 'archive_content = "full"\n')
+        with self.assertRaisesRegex(RuntimeError, "existing AgentsView"):
+            local_env.configure_private_pi_tracking()
+        self.assertEqual(config.read_text(), 'archive_content = "full"\n')
+        self.assertFalse((self.state / "agentsview-tracking.json").exists())
 
     def test_tracking_preserves_config_and_scopes_sources(self):
         copilot, pi, path = self.tracking_sources()
