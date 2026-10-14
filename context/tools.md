@@ -22,6 +22,19 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Engineer redistribution requirement: 2026-10-14
+
+The owner requires a reusable platform setup for other project engineers;
+private cloud hosting is optional/stretch. Existing bootstrap/setup helpers
+are partial and not a verified distribution. `p4ke`/`5xrm` own portable setup;
+`jmga` owns later approved cloud planning. Reuse pinned upstream components,
+retain licenses/attribution and separate distributable configuration from
+per-user credentials and private runtime state. Librarian access must be
+provisioned through an approved dependency/access path, not by bundling the
+confidential corpus. Target host prerequisites, packaging and shared-state
+topology need agreement before implementation; no container or hosted
+multi-user architecture is selected.
+
 # Falcon demo boundary: 2026-10-13
 
 The intended demo is an application informed by real Falcon product

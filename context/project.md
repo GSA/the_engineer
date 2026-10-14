@@ -16,6 +16,16 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-14 at 14:16 the owner requires the engineering platform to be
+  redistributable to other engineers on the project. A repeatable setup for
+  other engineers is a first-version requirement, not merely recovery of this
+  workstation. Cloud deployment of the tools is a stretch goal, not a
+  prerequisite. Track portable setup under existing `p4ke`/`5xrm` and cloud
+  planning under `jmga`; packaging format, target engineer environments and
+  shared versus per-engineer service/state topology remain undecided.
+  Distribute tools, attributed prompts and non-secret configuration, not this
+  user's credentials, sessions, databases or confidential Falcon corpus.
+  No publication, deployment or new network exposure is authorized.
 - On 2026-10-13 at 15:57 and 16:07 the owner clarifies that the Falcon demo
   should use real product specifications from the actual Librarian, not
   synthetic context or a demo interface to the Librarian itself. The owner

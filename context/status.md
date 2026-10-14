@@ -1,4 +1,19 @@
-# Status: 2026-10-13
+# Status: 2026-10-14
+
+## Engineer redistribution requirement: 14:16 clarification
+
+- Owner requires redistributable engineering tooling/configuration for other
+  project engineers. Cloud hosting is a stretch goal, not a first-version
+  dependency. Existing scripts are not a verified portable distribution.
+- Recorded requirements on existing redeployment/cloud task handoffs without
+  closing tasks, changing priorities or authorizing deployment. Portable
+  packaging, target host prerequisites and shared/per-engineer state remain
+  undecided; private credentials/state/corpus are not distribution assets.
+- Updated context and regenerated the task index; documentation committed
+  locally. No installer implementation, profile/service change, corpus/model
+  request, publication, cloud operation or experiment process.
+
+## Previous status: 2026-10-13
 
 ## Real-specification demo and confidentiality hold: 16:07 discussion
 
