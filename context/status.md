@@ -1,4 +1,29 @@
-# Status: 2026-10-14
+# Status: 2026-10-19
+
+## FCP versus Falcon real-demo discussion: 13:41
+
+- Owner reports FCP SPUD/direct GitHub access and Falcon WorkSpace access,
+  with Falcon's operating process still uncleared. Recorded these as new
+  reported capabilities, not verified source access, transfer approval or
+  runtime readiness. Prior local/USAi approvals remain intact; colleague
+  transfer/mirror descriptions do not override the prior export restriction.
+- Owner prioritizes a real-business Jira-to-task/spec-to-implementation demo
+  with Engineer/Librarian communication evidence outside assigned ORR work.
+  Project selection, corpus/template extraction and code operations are not
+  authorized by this advisory request.
+- Recommendation is a one-ticket feasibility decision: reuse Falcon context
+  if an approved runnable path is available; otherwise use accessible FCP code
+  with only the evidence needed for that ticket, not a full corpus rebuild.
+  Generic Librarian/template extraction and broad deployment can follow.
+- Explicit logging gap: current AgentsView archive is usage-only, not retained
+  MCP exchanges. Actual retrieval trace/decision evidence must be deliberately
+  captured in an approved location; no logging-policy change was made.
+- Reviewed existing intake/demo tasks without changing scope/status. Refreshed
+  the generated task index and committed context locally. No program repo or
+  corpus accessed, transfer/mirror, provider/model operation, deployment or
+  experiment process.
+
+## Previous status: 2026-10-14
 
 ## Initial distribution installer: 14:25 implementation request
 
