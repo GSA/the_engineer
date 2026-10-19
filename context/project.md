@@ -16,6 +16,14 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-19 at 17:14 the owner requests Librarian-grounded selection of
+  a real Jira demo ticket from a supplied screenshot. None of the 33 program
+  repositories is locally checked out. The owner will provide expanded ticket
+  details after selection and obtain code through the cleared process.
+  Provisional recommendation is CCSMFSSM-1290 (NIF Maintenance UI substitute
+  NSN warning for AAC V/Y); exact behavior, current status and UI repo mapping
+  are not yet established. Do not clone a guessed repo or create implementation
+  Katas before the ticket's acceptance criteria and repository are confirmed.
 - On 2026-10-19 at 16:49 the owner confirms permission for FCP repository
   access (exact host/URL unknown) and says the WorkSpace can clone through the
   GSA VPN and clone into a GSA repository on GitHub.com. Accept this access

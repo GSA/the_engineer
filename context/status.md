@@ -1,5 +1,29 @@
 # Status: 2026-10-19
 
+## Librarian-grounded Jira shortlist: 17:14 request
+
+- Reviewed the supplied ticket-title screenshot and used actual Librarian MCP
+  discovery/qualified retrieval, not a synthetic corpus or direct program-code
+  access. Owner will expand the selected ticket and obtain code through the
+  cleared process; none of the 33 repos is locally available.
+- Recommend CCSMFSSM-1290 provisionally: bounded NIF warning behavior offers
+  business-rule refinement and observable tests. CCSMFSSM-9566 is the simpler
+  fallback; its destination-page dependency is unconfirmed. Full bulk upload,
+  cross-service date mapping, AI recognition and KMS access work carry larger
+  apparent dependencies based on titles/context, not inspected ticket bodies.
+- Exact retrieved evidence locators are retained in tools.md. Historical NIF
+  Phrase Code rules must not be equated with this ticket's AAC V/Y condition.
+  Backend national-item-file-maintenance is only a related component lead;
+  falcon-end-users is explicitly permission reconciliation, not frontend code.
+  Exact UI repository, current ticket state and acceptance remain unknown.
+- Retrieval budgets were adjusted to compact qualified packets after an
+  overflow refusal; unindexed source anchors/path filters were not bypassed.
+  Search misses do not prove absence from all corpus/raw Jira sources. No live
+  Jira connector/ticket read is claimed.
+- No implementation Katas, code checkout, profile/service change, model request
+  through private Pi, publication or process was started. Existing tasks remain
+  open; context/index updated and committed locally.
+
 ## Full-corpus requirement and confirmed access: 16:49 clarification
 
 - Owner confirms FCP source-access permission and a WorkSpace GSA-VPN clone

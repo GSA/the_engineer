@@ -24,6 +24,31 @@ requires macOS.
 
 # Real-business demo selection: 2026-10-19
 
+At 17:14 actual read-only Librarian searches/qualified reads support a
+provisional CCSMFSSM-1290 recommendation from the owner's Jira screenshot.
+Relevant returned locators:
+
+- `REFERENCE/program/what-is-falcon.md#cataloging-and-external-order-handoffs--september-29-intake`:
+  historical NIF guidance ties Substitute NSN requirements to selected Phrase
+  Codes; it does not settle this ticket's AAC V/Y warning semantics.
+- `REFERENCE/notes/2026-09-29-spud-ui-catalog.md#d156--s146--national-item-file-maintenance`:
+  generated analysis describes backend NIF acquisition-advice/substitute-item
+  validation, not a confirmed frontend repo or inspected implementation.
+- `REFERENCE/notes/2026-09-29-spud-ui-catalog.md#d144--s134--falcon-end-users`:
+  this is Python user-permission reconciliation, not the browser application.
+  Do not choose it merely because the Jira title says FALCON UI.
+- `REFERENCE/notes/2026-09-29-falcon-validation-and-requirements.md#nif-bulk-upload-and-mockups--s67--d071-s68--d072`:
+  bulk upload has record-level rules, update-rights constraints and planned
+  integration/email paths, making the full feature a larger first-demo scope.
+
+Exact ticket-key searches did not return selected indexed hits; that does not
+prove absence from raw snapshots. The qualified Jira snapshot coverage read
+describes data updated only through September 20, not current Jira. Full
+ticket/acceptance criteria, comments, development links and exact repository
+are pending owner expansion. Treat AAC versus Phrase Code and warning versus
+blocking validation as refinement questions, not new requirements. Homepage
+link CCSMFSSM-9566 is a simpler fallback but its target-page readiness is unknown.
+
 At 16:49 the owner confirms FCP repository permission and a WorkSpace path
 from GSA VPN source to a GSA GitHub.com repository. Exact URLs, destination
 visibility and ticket/build prerequisites remain unknown; source operations
