@@ -1,5 +1,26 @@
 # Status: 2026-10-19
 
+## Full-corpus requirement and confirmed access: 16:49 clarification
+
+- Owner confirms FCP source-access permission and a WorkSpace GSA-VPN clone
+  path into a GSA GitHub.com repo. Exact repository/visibility remain unknown;
+  no source operation requested. Do not continue treating access permission
+  as unconfirmed merely because earlier records described colleague reports.
+- Withdrew ticket-sized FCP corpus advice. The intended Librarian consumes
+  all available program documentation, builds knowledge relationships and
+  selects relevant evidence at refinement time. A bounded implementation demo
+  is compatible with a broad corpus; a deliberately thin corpus is not the
+  owner's intended product.
+- Owner identifies an existing empty corpus builder elsewhere under home;
+  its path is pending. No home search, builder duplication or Falcon/FCP corpus
+  access occurred. Recommend Falcon first using its established corpus/code
+  access path, then full FCP replication through the existing builder.
+- Demo audience is AOS leaders, with eventual cross-team deployment/program
+  corpuses. Protected actual Engineer/Librarian exchange evidence remains
+  required; usage-only AgentsView does not supply it.
+- Updated context/index and committed locally; no task scope/status change,
+  clone/mirror/push, corpus/model operation, configuration change or process.
+
 ## FCP versus Falcon real-demo discussion: 13:41
 
 - Owner reports FCP SPUD/direct GitHub access and Falcon WorkSpace access,
@@ -15,6 +36,8 @@
   if an approved runnable path is available; otherwise use accessible FCP code
   with only the evidence needed for that ticket, not a full corpus rebuild.
   Generic Librarian/template extraction and broad deployment can follow.
+  The 16:49 clarification above withdraws this limited-corpus recommendation
+  and identifies an already existing builder.
 - Explicit logging gap: current AgentsView archive is usage-only, not retained
   MCP exchanges. Actual retrieval trace/decision evidence must be deliberately
   captured in an approved location; no logging-policy change was made.

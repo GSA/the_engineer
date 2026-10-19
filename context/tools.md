@@ -24,20 +24,25 @@ requires macOS.
 
 # Real-business demo selection: 2026-10-19
 
-Owner-reported options now include directly accessible FCP GitHub repositories/
-SPUD outputs and Falcon WorkSpace access/existing corpus. Exact repositories,
-ticket, build/test prerequisites and approved transfer or in-WorkSpace tool
-execution remain unverified. A private GSA-organization GitHub.com mirror and
-Google Drive ZIP are colleague-reported possibilities, not approved routes.
-WorkSpace access may allow in-boundary execution without source export; it
-does not establish approved tool installation or runtime readiness.
+At 16:49 the owner confirms FCP repository permission and a WorkSpace path
+from GSA VPN source to a GSA GitHub.com repository. Exact URLs, destination
+visibility and ticket/build prerequisites remain unknown; source operations
+were not requested. GitHub.com hosting is not public repository visibility.
+The ZIP alternative remains unselected. Do not reopen settled local/USAi or
+newly confirmed repository access as generic permission blockers.
 
-Recommendation, not selected architecture: choose the first runnable bounded
-ticket with sufficient qualified context. Falcon has the corpus head start;
-FCP can use a ticket-sized corpus rather than a full documentation rebuild.
-A future Librarian template should carry generic tooling/instructions only,
-not Falcon facts, Git history, intake records, source IDs, stores or sessions.
-Do not regenerate/publish Confluence/Drive documents merely to prepare a demo.
+Owner corrects the proposed ticket-sized corpus: the Librarian must consume
+all available program documentation and build the knowledge relationships
+used to select relevant context. Narrow the demonstration's implementation,
+not its intended corpus coverage. FCP requires proper corpus construction;
+SPUD outputs alone or a manually selected ticket packet are not equivalent.
+An empty corpus builder already exists in another home-directory folder;
+obtain its path/read its instructions rather than create a competing template.
+Keep Falcon and FCP facts, provenance, stores and sessions separate.
+The established Falcon corpus therefore remains the shortest proposed first
+demo path, with FCP replication afterward; this is advice, not a selected or
+implemented deployment. Audience is AOS leadership, with cross-team reuse the
+eventual goal. No existing builder or corpus was inspected in this discussion.
 
 The requested Engineer/Librarian communication evidence needs an explicit
 protected trace: ticket/task identity, actual MCP requests/results, qualified

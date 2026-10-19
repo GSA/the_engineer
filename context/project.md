@@ -16,6 +16,21 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-19 at 16:49 the owner confirms permission for FCP repository
+  access (exact host/URL unknown) and says the WorkSpace can clone through the
+  GSA VPN and clone into a GSA repository on GitHub.com. Accept this access
+  clarification; do not keep presenting the route as merely colleague hearsay.
+  Exact destination and visibility remain unspecified; "public GitHub" must
+  not be interpreted as authorization for a publicly visible repository.
+  No clone/mirror/push is requested in this advisory turn.
+  The Librarian must ingest/build relationships across all available program
+  documentation before selecting relevant discussion/refinement context.
+  The earlier ticket-sized FCP corpus recommendation is withdrawn; bounded
+  demo implementation does not justify a deliberately narrowed knowledge base.
+  An empty corpus builder already exists elsewhere under the owner's home;
+  its path/instructions need identification, not speculative re-extraction
+  from falcon-docs. Demo audience is AOS leadership above Falcon, with eventual
+  cross-team platform deployment and separately built program corpuses.
 - On 2026-10-19 at 13:41 the owner reports FCP SPUD outputs and direct GitHub
   repository access, plus the existing Falcon corpus and new WorkSpace access.
   Falcon's full operating/transfer process is not yet cleared. Colleagues
@@ -26,8 +41,8 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   Jira-to-local-task/spec-to-implementation demo with observable Engineer/
   Librarian exchanges. Reusable FCP/Falcon Librarians and engineer-platform
   setup remain eventual requirements; project choice and corpus extraction
-  are discussion, not authorized implementation. Prefer proving one runnable
-  ticket before undertaking a full second corpus or shared cloud deployment.
+  are discussion, not authorized implementation. The later 16:49 clarification
+  supersedes the proposed ticket-sized corpus alternative.
 - On 2026-10-14 at 14:25 the owner authorizes beginning an installer under
   `dist/`, including source acquisition, missing-tool/library reporting and
   manual startup guidance or optional Ubuntu service registration. The initial
