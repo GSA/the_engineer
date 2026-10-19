@@ -16,6 +16,19 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-19 at 17:32 the owner supplies the CCSMFSSM-1290 Jira XML
+  exported that day. Its description requires a soft warning,
+  "Substitute NSN is terminal or obsolete", when the substitute NSN's
+  acquisition advice code is V or Y; it also says "It will taken care with
+  NIF changes." Exported state is To Do/unresolved/unassigned, parent
+  CCSMFSSM-4344, with Definition of Ready and Definition of Done both No.
+  There is no separate acceptance-criteria field or repository/development
+  link in the supplied export. Qualified Librarian retrieval now identifies
+  supply-chain-user-interface (Falcon / fss-ui), an Angular SPA with NIF
+  integration, as the strongest frontend checkout target. This is generated
+  documentation evidence, not inspected code or a verified Git URL/branch.
+  Confirm the repository and whether the parent bundles/supersedes the change
+  before implementation; preserve existing Phrase Code rules separately.
 - On 2026-10-19 at 17:14 the owner requests Librarian-grounded selection of
   a real Jira demo ticket from a supplied screenshot. None of the 33 program
   repositories is locally checked out. The owner will provide expanded ticket
