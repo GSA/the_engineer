@@ -16,6 +16,18 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-19 at 13:41 the owner reports FCP SPUD outputs and direct GitHub
+  repository access, plus the existing Falcon corpus and new WorkSpace access.
+  Falcon's full operating/transfer process is not yet cleared. Colleagues
+  describe Google Drive ZIP transfer and a GSA-organization private GitHub.com
+  mirror; neither report establishes an approved route or overrides the prior
+  VDI export restriction. No transfer/mirror is authorized here.
+  Outside assigned ORR objectives, the owner's priority is one real-business
+  Jira-to-local-task/spec-to-implementation demo with observable Engineer/
+  Librarian exchanges. Reusable FCP/Falcon Librarians and engineer-platform
+  setup remain eventual requirements; project choice and corpus extraction
+  are discussion, not authorized implementation. Prefer proving one runnable
+  ticket before undertaking a full second corpus or shared cloud deployment.
 - On 2026-10-14 at 14:25 the owner authorizes beginning an installer under
   `dist/`, including source acquisition, missing-tool/library reporting and
   manual startup guidance or optional Ubuntu service registration. The initial

@@ -22,6 +22,30 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Real-business demo selection: 2026-10-19
+
+Owner-reported options now include directly accessible FCP GitHub repositories/
+SPUD outputs and Falcon WorkSpace access/existing corpus. Exact repositories,
+ticket, build/test prerequisites and approved transfer or in-WorkSpace tool
+execution remain unverified. A private GSA-organization GitHub.com mirror and
+Google Drive ZIP are colleague-reported possibilities, not approved routes.
+WorkSpace access may allow in-boundary execution without source export; it
+does not establish approved tool installation or runtime readiness.
+
+Recommendation, not selected architecture: choose the first runnable bounded
+ticket with sufficient qualified context. Falcon has the corpus head start;
+FCP can use a ticket-sized corpus rather than a full documentation rebuild.
+A future Librarian template should carry generic tooling/instructions only,
+not Falcon facts, Git history, intake records, source IDs, stores or sessions.
+Do not regenerate/publish Confluence/Drive documents merely to prepare a demo.
+
+The requested Engineer/Librarian communication evidence needs an explicit
+protected trace: ticket/task identity, actual MCP requests/results, qualified
+locators, missing/conflicting evidence and resulting decisions. Existing
+AgentsView usage-only ingestion does not retain transcript/tool payloads.
+Do not describe MCP retrieval as autonomous agent-to-agent conversation or
+enable full transcript archiving globally to satisfy this requirement.
+
 # Engineer redistribution requirement: 2026-10-14
 
 The owner requires a reusable platform setup for other project engineers;
