@@ -1,5 +1,26 @@
 # Status: 2026-10-19
 
+## Expanded CCSMFSSM-1290 XML: 17:32
+
+- Preserved the two original description paragraphs in tools.md. The
+  condition is the substitute NSN's AAC V/Y and the exact soft-warning text
+  is "Substitute NSN is terminal or obsolete". The supplied export reports
+  To Do/unresolved/unassigned, parent CCSMFSSM-4344 and Ready/Done both No;
+  it supplies no separate acceptance criteria or repository/development link.
+- Additional qualified Librarian retrieval identifies
+  supply-chain-user-interface (Falcon / fss-ui), an Angular SPA with NIF REST
+  integration, as the strongest frontend checkout target. Documentation is
+  generated analysis, not inspected code or confirmed Git URL/baseline.
+  national-item-file-maintenance remains a possible backend dependency only.
+- Candidate remains suitable pending confirmation that the parent/NIF changes
+  have not superseded or bundled it. Warning timing/flows, nonblocking UX and
+  existing AAC lookup must be resolved without inventing new requirements.
+  Historical Phrase Code validation is a separate rule to preserve.
+- Next input is the exact frontend repository URL/baseline and parent details.
+  No implementation Katas, repository checkout, source/configuration/corpus
+  change, worker launch, publication or experiment process. Context persisted
+  locally; generated task index refreshed without task mutations.
+
 ## Librarian-grounded Jira shortlist: 17:14 request
 
 - Reviewed the supplied ticket-title screenshot and used actual Librarian MCP

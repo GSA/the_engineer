@@ -24,6 +24,50 @@ requires macOS.
 
 # Real-business demo selection: 2026-10-19
 
+At 17:32 the owner supplies a Jira XML export generated October 19 at
+21:31:34 UTC. Preserve the description verbatim as the requirement source:
+
+> If the acquisition advice code of the substitute NSN is V or Y then soft warning: "Substitute NSN is terminal or obsolete"
+>
+> It will taken care with NIF changes.
+
+This refers to the substitute item's AAC, not the maintained item's AAC.
+The export reports To Do/unresolved/unassigned, last updated July 8, 2026,
+parent CCSMFSSM-4344, FALCON O&M, and Definition of Ready/Done both No.
+It contains no separate acceptance-criteria field, Development links,
+attachments or subtasks; no comments section is supplied. Do not infer
+that an absent export field proves no comments or repository associations
+exist in Jira. Its age/status do not prove the behavior is absent from code.
+
+New qualified retrieval:
+`REFERENCE/notes/2026-09-29-spud-ui-catalog.md#d168--s158--supply-chain-user-interface`
+identifies supply-chain-user-interface as Falcon / fss-ui, an Angular SPA
+whose APIService includes NIF REST integration. This is now the strongest
+frontend repository lead, replacing the earlier lack of a named UI target,
+but not a verified Git owner/URL/branch or inspected ticket-to-code mapping.
+The same packet reports generated Cognito configuration and private-network
+routing dependencies for local setup; mock configuration alone does not
+establish functional sign-in/backend access.
+
+Re-read the NIF backend packet and
+`REFERENCE/program/architecture-and-tech-stack.md#nsn-management-lifecycle`:
+historical Phrase Code-dependent substitute requirements remain separate
+from this AAC warning. The October 15 FSS UI permission walkthrough also
+does not identify the browser Git URL. Exact-ticket/parent/soft-warning
+search misses are not evidence of absence. Requests above the configured
+30,000-character source ceiling were rejected, then complete compact packets
+were retrieved within it; an unindexed historical-guide link was not bypassed.
+
+Pending refinement: parent/current-owner confirmation of standalone scope,
+warning timing and affected NIF flows, existing nonblocking-warning behavior,
+and availability of substitute AAC through the current lookup. Interpret
+"soft" as a likely nonblocking warning, not owner-approved interaction design.
+Do not assume a backend change, add lookup-failure behavior or alter existing
+Phrase Code validation before inspecting code and resolving requirements.
+Request the exact supply-chain-user-interface Git URL/default or approved
+baseline branch and parent CCSMFSSM-4344 details, not all 33 repositories.
+No program code, task records, worker launch or live Jira request was made.
+
 At 17:14 actual read-only Librarian searches/qualified reads support a
 provisional CCSMFSSM-1290 recommendation from the owner's Jira screenshot.
 Relevant returned locators:
