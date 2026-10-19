@@ -1,5 +1,20 @@
 # Status: 2026-10-19
 
+## Full Librarian MCP audit logging: 17:42
+
+- Enabled full audit arguments in the existing Copilot user config and Forge's
+  isolated private-Pi MCP config, preserving tools, timeouts, Pi codemode and
+  model routing. Global Pi and credentials are untouched.
+- Separate `copilot` and `forge-pi` logs under the corpus's
+  `tools/context-mcp/.local/audit/` contain verified successful fresh status
+  records and exact responses from temporary stdio smoke clients. Config/log
+  files remain 0600 and the log directory 0700; pre-edit configs are backed up
+  privately. Native Pi still discovers seven FALCON tools and project Kata.
+- No model request, corpus selection/store write, application-code change,
+  service/session restart or publication. Smoke clients closed. Existing
+  Copilot/Forge Pi sessions need reconnect/restart; prior calls are not
+  reconstructed and full tool logs do not capture all inter-agent prose.
+
 ## Expanded CCSMFSSM-1290 XML: 17:32
 
 - Preserved the two original description paragraphs in tools.md. The
