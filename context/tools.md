@@ -22,6 +22,36 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Falcon MCP audit logging: 2026-10-19 at 17:42
+
+Owner-authorized full audit capture is configured in the existing
+`~/.copilot/mcp-config.json` and private
+`.local/environment/pi/mcp.json` FALCON server entries. Existing command/root/
+reader, timeouts and tool exposure are preserved, including Pi codemode.
+Global Pi, credentials, provider/model routing and the supervised services
+are unchanged.
+
+Both pass `--audit-log --audit-log-mode full`, with per-client labels
+`copilot` and `forge-pi`. Their logs live beneath the corpus root:
+
+- `tools/context-mcp/.local/audit/copilot-mcp-access.jsonl`
+- `tools/context-mcp/.local/audit/forge-pi-mcp-access.jsonl`
+
+The directory is 0700 and files/configurations are 0600. Full logs retain
+actual tool arguments and exact returned text/errors and inherit source
+restrictions. Keep them private; they are not complete inter-agent prose,
+authenticated identity, retroactive capture or business acceptance.
+Private byte-identical pre-edit config backups are retained in the originating
+session's files area, not committed to this repository.
+
+Actual temporary stdio clients using each saved configuration initialized
+and completed fresh status reads; each log's label, tool, outcome and exact
+response were checked without printing returned text. Native private-Pi
+`mcp list` still discovers seven FALCON tools with codemode and the project
+Kata tools. No model call was made and all smoke clients closed. Existing
+running sessions need reconnect/restart to load the changed arguments; no
+supervised service or active session was restarted.
+
 # Real-business demo selection: 2026-10-19
 
 At 17:32 the owner supplies a Jira XML export generated October 19 at

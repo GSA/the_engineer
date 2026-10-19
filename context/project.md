@@ -16,6 +16,13 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-19 at 17:42 the owner authorizes full Librarian MCP audit
+  logging in native Copilot and Forge's isolated Pi profile. The existing
+  server connections now have separate private per-client audit paths and
+  labels; Pi codemode, tools, timeouts and model routing stay unchanged.
+  Capture actual tool requests/responses, not model reasoning or complete
+  agent-to-agent prose. Existing sessions require reconnect/restart; no
+  service/session restart or global Pi change is authorized by this edit.
 - On 2026-10-19 at 17:32 the owner supplies the CCSMFSSM-1290 Jira XML
   exported that day. Its description requires a soft warning,
   "Substitute NSN is terminal or obsolete", when the substitute NSN's
