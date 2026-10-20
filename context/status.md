@@ -1,16 +1,23 @@
 # Status: 2026-10-20
 
-## Application Kata authoring decision pending: 17:10 request
+## Application Kata policy approved; concurrent implementation: 17:14
 
 - Confirmed the reported CLI refusal and the four existing application project
   identities. Explicit `--as copilot` resolves correctly. The guard lives in
   shared `kata_launch`; MCP depends on the same default project pin.
-- Await owner approval for explicit CLI selection limited to the four Falcon
-  application projects, attributed to Copilot. Recommended boundaries retain
+- Owner approved explicit CLI selection limited to the four Falcon
+  application projects, attributed explicitly to Copilot. Boundaries retain
   engi-platform defaults/MCP scope, daemon/workspace locks and exclusion of
   librarian/evaluation projects. Particular application task content still
   needs approval; this is not a Jira-decomposition or worker-launch decision.
-- No code, task state, service or configuration changed; no temporary process
+- Another agent committed `7266ac9` during this work, adding allowed-project
+  selection without enforcing explicit Copilot attribution. The attempted
+  test patch failed cleanly against that changed context. No code was edited
+  by this session; pause overlapping implementation pending owner coordination.
+- Owner's 17:16 instruction excludes `pr-check.yml`; leave it unchanged, not
+  disabled or bypassed. Read-only CI observations are in tools.md, not evidence
+  of an actual failed PR run.
+- No task state, service or configuration changed; no temporary process
   started. Existing services and automatic commit reviews remain unchanged.
 
 ## Platform Kata completion reconciliation: 16:50 request

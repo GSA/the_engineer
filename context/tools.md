@@ -10,12 +10,26 @@ scope contract. Native `projects list --json` confirms all four registered
 application project UIDs still match `kata-adoption.md`; `--as copilot whoami
 --json` resolves actor `copilot` from the explicit flag.
 
-Recommendation pending owner approval: allow explicit CLI selection of only
+At 17:14 the owner approved explicit CLI selection of only
 those four application projects with explicit Copilot attribution; retain
 engi-platform as default, platform-only MCP, private daemon/profile and
 workspace locks. Do not grant access to librarian/evaluation projects or infer
-approval to author particular application tasks. No implementation, task
-mutation, configuration/service change or experimental process.
+approval to author particular application tasks.
+
+Concurrent commit `7266ac9` appeared during implementation and changed
+`kata_launch` plus its tests. It allows project selection but does not require
+explicit `--as copilot`. The attempted regression-test patch failed cleanly on
+that changed context; no code was edited by this session. Pause overlapping
+code work pending owner coordination rather than overwrite the other agent.
+
+The owner's intervening CI question prompted read-only inspection of the UI's
+`pr-check.yml`: it references `FSS19-Cloud/github-actions-workflows` (not
+FSS19-FALCON) and CodeBuild runner labels. Normal GitHub API reads can access
+the private GSA mirror, but the reusable-workflow repo and the mirror's workflow
+lookup returned 404; the runner list was empty. This does not establish an
+observed PR failure. At 17:16 the owner said to ignore that script. It remains
+unchanged; no workflow disablement, runner installation or bypass is authorized.
+No task mutation, configuration/service change or experimental process.
 
 # Platform Kata completion audit: 2026-10-20
 
