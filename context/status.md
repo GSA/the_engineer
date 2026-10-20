@@ -1,5 +1,22 @@
 # Status: 2026-10-20
 
+## Mirror script two-host auth: 13:37
+
+- Confirmed cause of the owner's clone failures: authenticated to github.com
+  but not to the Helix host, which is why all four failed instantly. Owner has
+  now added the Helix login.
+- With two hosts logged in, bare `gh` commands follow the active host, so the
+  script could have tried to create GSA repos on Helix. Both `gh repo view` and
+  `gh repo create` are now pinned with `GH_HOST="$DEST_HOST"`, and a
+  `--dest-host` option exists. Non-dry runs also preflight the destination:
+  `gh api user` for the login and `gh api orgs/<org>` for org visibility, so a
+  missing login or org fails before any large clone.
+- Verified locally: destination preflight rejects an invisible org before
+  cloning, dry run skips the destination check, and a real end-to-end dry run
+  against a public repo clones, audits size/blobs/submodules and reports OK.
+  Helix itself is still unreachable from this host; no GSA repository has been
+  created and nothing has been pushed.
+
 ## Mirror script diagnostics: 13:34
 
 - Owner's first run printed nothing and exited 1: the shipped example repos
