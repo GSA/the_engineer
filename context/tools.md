@@ -32,7 +32,7 @@ All original sample-hook bytes and the five external worktree diffs are
 unchanged, including falcon-docs's dirty files. Concurrent Forge/Kata work
 changed this platform's tracked context independently and was preserved.
 Repeated installation is byte-stable; native Git-metadata-only repair skips
-all six external directories. Twelve native-hook integration tests cover
+all six external directories. Thirteen native-hook integration tests cover
 shell-hook preservation, stdin/exit status, symlink targets, worktrees,
 missing launchers, errors, policy guards and registration rollback. All 99
 existing local-environment tests also pass.
@@ -44,6 +44,11 @@ flagged an overly narrow shell-shebang preflight. A new env-bash hook test
 failed before removing that duplicate classifier; the installer now relies
 on native shell recognition and verifies all hooks before reporting success.
 The regression and all other hook tests pass; original hooks stay untouched.
+Review job 5 subsequently identified stale copied hooks after a rejected hook
+was corrected. Retry now refreshes only inactive, manifest-owned staging from
+the original directory. A failure/correction/retry execution test verifies it.
+The env-bash case also exercises bash arrays: POSIX sh syntax validation must
+not reject a preserved hook written for another native-supported shell.
 No manual review command or historical Falcon review was submitted.
 The dashboard works at http://127.0.0.1:17374/reviews; URL-only curl's 404 was
 a content-negotiation mistake, not a broken browser route. Use
