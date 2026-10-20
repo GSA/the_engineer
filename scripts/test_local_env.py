@@ -264,13 +264,30 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("USAI_API_KEY", env)
 
     def test_scoped_kata_rejects_scope_overrides_and_missing_binary(self):
-        for flag in ("--project", "--workspace", "--daemon"):
+        for flag in ("--workspace", "--daemon"):
             for args in ([flag, "other", "list"], ["list", flag + "=other"]):
                 with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins"):
                     local_env.kata_launch(args)
+        for args in (["--project", "librarian", "list"], ["list", "--project=other"]):
+            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "allows only"):
+                local_env.kata_launch(args)
+        with self.assertRaisesRegex(RuntimeError, "needs a registered project"):
+            local_env.kata_launch(["list", "--project"])
         with patch.object(Path, "is_file", return_value=False):
             with self.assertRaisesRegex(RuntimeError, "missing executable"):
                 local_env.kata_launch(["list"])
+
+    def test_scoped_kata_allows_registered_application_projects_only(self):
+        for project in local_env.KATA_APPLICATION_PROJECTS:
+            for args in (["--project", project, "list"], ["list", f"--project={project}"]):
+                with self.subTest(args=args):
+                    self.assertEqual(local_env.kata_project_scope(args), (project, ["list"]))
+        # The platform project stays the default and a pass-through keeps its arguments.
+        self.assertEqual(local_env.kata_project_scope(["ready"]), ("engi-platform", ["ready"]))
+        self.assertEqual(
+            local_env.kata_project_scope(["--project", "infrastructure", "show", "--", "--project", "x"]),
+            ("infrastructure", ["show", "--", "--project", "x"]),
+        )
 
     def test_scoped_kata_entrypoint_preserves_directory(self):
         command = ["/native/kata", "--project", "engi-platform", "ready"]

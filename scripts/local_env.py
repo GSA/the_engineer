@@ -36,6 +36,15 @@ AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
 KATA_UNIT = "kenn-kopy-kata.service"
+KATA_PLATFORM_PROJECT = "engi-platform"
+# Registered Falcon application projects the scoped launcher may also target.
+# Selecting one does not authorize ticket decomposition, workers or publication.
+KATA_APPLICATION_PROJECTS = (
+    "supply-chain-user-interface",
+    "national-item-file-maintenance",
+    "standard-acquisition-interface",
+    "infrastructure",
+)
 SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374),
                  "forge": (18091,), "kata": (17777,)}
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -387,19 +396,48 @@ def github_cli_launch(args):
     return [str(GH_BINARY), *args], env
 
 
-def kata_launch(args):
-    settings()
-    for arg in args:
+def kata_project_scope(args):
+    """Resolve the pinned project and return it with the remaining arguments.
+
+    The workspace and daemon stay pinned. ``--project`` selects one registered
+    project: the platform default or a Falcon application project.
+    """
+    project, rest, index = KATA_PLATFORM_PROJECT, [], 0
+    while index < len(args):
+        arg = args[index]
         if arg == "--":
+            rest.extend(args[index:])
             break
         if any(arg == flag or arg.startswith(flag + "=")
-               for flag in ("--project", "--workspace", "--daemon")):
-            raise RuntimeError("the scoped Kata launcher pins this workspace and engi-platform project")
+               for flag in ("--workspace", "--daemon")):
+            raise RuntimeError("the scoped Kata launcher pins this workspace and local daemon")
+        if arg == "--project" or arg.startswith("--project="):
+            if arg == "--project":
+                index += 1
+                if index >= len(args):
+                    raise RuntimeError("--project needs a registered project name")
+                value = args[index]
+            else:
+                value = arg.split("=", 1)[1]
+            allowed = (KATA_PLATFORM_PROJECT, *KATA_APPLICATION_PROJECTS)
+            if value not in allowed:
+                raise RuntimeError(
+                    f"the scoped Kata launcher allows only these projects: {', '.join(allowed)}")
+            project = value
+        else:
+            rest.append(arg)
+        index += 1
+    return project, rest
+
+
+def kata_launch(args):
+    settings()
+    project, rest = kata_project_scope(args)
     binary = ROOT / "kata/kata"
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError("missing executable Kata binary; build it before using the launcher")
     return [
-        str(binary), "--workspace", str(ROOT), "--project", "engi-platform", *args,
+        str(binary), "--workspace", str(ROOT), "--project", project, *rest,
     ], base_environment()
 
 
