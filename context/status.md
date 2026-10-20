@@ -1,5 +1,25 @@
 # Status: 2026-10-20
 
+## Mirror dry run clean, push verification added: 13:43
+
+- Owner's dry run now succeeds for three repos: supply-chain-user-interface,
+  national-item-file-maintenance, standard-acquisition-interface and
+  infrastructure (24 branches). falcon-end-users was dropped as per-env YAML
+  only, retrievable later. Owner declined secret scanning for infrastructure
+  and accepts full-history exposure in a private GSA repo.
+- Found and fixed a real defect before any push: `git push --mirror` does not
+  transfer HEAD, so every GSA repo would have taken the org default branch
+  rather than the source's. The script now records the source default and sets
+  it with `gh repo edit --default-branch` after a successful push.
+- Added post-push ref-count verification. Annotated tags make `ls-remote` emit
+  an extra peeled `^{}` line, which first produced a false 4-vs-5 mismatch;
+  counting now filters those, confirmed against a repo with both lightweight
+  and annotated tags.
+- Verified end to end with a simulated destination (local bare repo plus a stub
+  gh on PATH): create, mirror push, 4-ref verification and default-branch set
+  all reported OK. No real GSA repository has been created and nothing has been
+  pushed to github.com.
+
 ## Mirror script two-host auth: 13:37
 
 - Confirmed cause of the owner's clone failures: authenticated to github.com
