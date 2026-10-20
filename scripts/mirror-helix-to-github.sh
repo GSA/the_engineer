@@ -18,6 +18,9 @@
 # Options:
 #   --source-host HOST    default: $HELIX_HOST or github.helix.gsa.gov
 #   --source-org ORG      default org for bare repo names ($HELIX_ORG)
+#   --protocol https|ssh  source clone protocol (default https)
+#   --prompt              allow Git to prompt for source credentials
+#   --skip-preflight      skip the source-host reachability check
 #   --dest-org ORG        GitHub.com org (default: $GITHUB_DEST_ORG or GSA)
 #   --dest-prefix STR     prefix added to every destination repo name
 #   --workdir DIR         where mirrors are cloned (default: mktemp -d)
@@ -36,8 +39,14 @@ set -o pipefail
 
 umask 0077
 
+# Never die silently: report where an unexpected non-zero status came from.
+trap 'status=$?; printf "ERROR: unexpected failure at %s line %s (status %s)\n" "${BASH_SOURCE[0]}" "$LINENO" "$status" >&2' ERR
+
 SOURCE_HOST="${HELIX_HOST:-github.helix.gsa.gov}"
 SOURCE_ORG="${HELIX_ORG:-}"
+PROTOCOL="https"
+ALLOW_PROMPT=0
+SKIP_PREFLIGHT=0
 DEST_ORG="${GITHUB_DEST_ORG:-GSA}"
 DEST_PREFIX=""
 WORKDIR=""
@@ -66,14 +75,22 @@ read_repos_file() {
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%%#*}"
         line="$(printf '%s' "$line" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-        [ -n "$line" ] && REPO_ARGS+=("$line")
+        if [ -n "$line" ]; then
+            REPO_ARGS+=("$line")
+        fi
     done < "$file"
+    # A trailing comment or blank line must not leave a non-zero status here,
+    # or errexit would abort the whole script without printing anything.
+    return 0
 }
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --source-host) SOURCE_HOST="${2:?--source-host needs a value}"; shift 2 ;;
         --source-org) SOURCE_ORG="${2:?--source-org needs a value}"; shift 2 ;;
+        --protocol) PROTOCOL="${2:?--protocol needs a value}"; shift 2 ;;
+        --prompt) ALLOW_PROMPT=1; shift ;;
+        --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
         --dest-org) DEST_ORG="${2:?--dest-org needs a value}"; shift 2 ;;
         --dest-prefix) DEST_PREFIX="${2:?--dest-prefix needs a value}"; shift 2 ;;
         --workdir) WORKDIR="${2:?--workdir needs a value}"; shift 2 ;;
@@ -89,7 +106,10 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-[ "${#REPO_ARGS[@]}" -gt 0 ] || die "no repositories given (use arguments or --repos-file)"
+if [ "${#REPO_ARGS[@]}" -eq 0 ]; then
+    die "no repositories to process: every line of the repos file was blank or commented out, and no repository was given as an argument"
+fi
+log_count="${#REPO_ARGS[@]}"
 command -v git >/dev/null 2>&1 || die "git is not installed"
 if [ "$DRY_RUN" -eq 0 ]; then
     command -v gh >/dev/null 2>&1 || die "gh is not installed (needed to create private repos)"
@@ -98,9 +118,21 @@ case "$MAX_BLOB_MB" in
     ''|*[!0-9]*) die "--max-blob-mb must be an integer" ;;
 esac
 
-# Fail instead of hanging on an interactive credential prompt.
-export GIT_TERMINAL_PROMPT=0
-export GIT_ASKPASS=/bin/false
+case "$PROTOCOL" in
+    https|ssh) ;;
+    *) die "--protocol must be https or ssh" ;;
+esac
+
+# By default fail instead of hanging on an interactive credential prompt.
+# --prompt is for the first run on a host where the credential helper has no
+# stored credential yet and you want to type it once.
+if [ "$ALLOW_PROMPT" -eq 0 ]; then
+    export GIT_TERMINAL_PROMPT=0
+    export GIT_ASKPASS=/bin/false
+else
+    export GIT_TERMINAL_PROMPT=1
+    unset GIT_ASKPASS
+fi
 
 CREATED_WORKDIR=0
 if [ -z "$WORKDIR" ]; then
@@ -124,10 +156,74 @@ trap cleanup EXIT
 log "source host : $SOURCE_HOST"
 log "destination : github.com/$DEST_ORG (private)"
 log "workspace   : $WORKDIR"
-[ "$DRY_RUN" -eq 1 ] && log "mode        : DRY RUN (no creation, no push)"
+log "repositories: $log_count -> ${REPO_ARGS[*]}"
+log "protocol    : $PROTOCOL"
+if [ "$DRY_RUN" -eq 1 ]; then
+    log "mode        : DRY RUN (no creation, no push)"
+fi
 
 SUMMARY=()
 FAILED_COUNT=0
+
+source_url() {
+    # $1 = org, $2 = repo
+    if [ "$PROTOCOL" = "ssh" ]; then
+        printf 'git@%s:%s/%s.git' "$SOURCE_HOST" "$1" "$2"
+    else
+        printf 'https://%s/%s/%s.git' "$SOURCE_HOST" "$1" "$2"
+    fi
+}
+
+preflight() {
+    # Distinguish "no network route" from "not authenticated" from "wrong name"
+    # before looping over repositories and reporting four identical failures.
+    local probe_org probe_repo probe_url output
+    probe_org="${1%%/*}"
+    probe_repo="${1##*/}"
+    probe_repo="${probe_repo%.git}"
+    probe_url="$(source_url "$probe_org" "$probe_repo")"
+
+    log "preflight   : resolving $SOURCE_HOST"
+    if ! getent hosts "$SOURCE_HOST" >/dev/null 2>&1 && \
+       ! host "$SOURCE_HOST" >/dev/null 2>&1 && \
+       ! nslookup "$SOURCE_HOST" >/dev/null 2>&1; then
+        die "cannot resolve $SOURCE_HOST. The VPN is probably not connected on this host, or the host name is wrong. Nothing was cloned."
+    fi
+    log "preflight   : DNS resolves"
+
+    log "preflight   : contacting $probe_url"
+    if output="$(git ls-remote --heads "$probe_url" 2>&1)"; then
+        log "preflight   : source reachable and authenticated"
+        return 0
+    fi
+
+    printf 'preflight failed. git said:\n\n%s\n\n' "$output" >&2
+    case "$output" in
+        *"could not read Username"*|*"terminal prompts disabled"*|*"Authentication failed"*|*"403"*)
+            die "the source host needs credentials this host does not have. Run 'gh auth login --hostname $SOURCE_HOST --git-protocol https' (or use --protocol ssh with a registered key), then re-run. Add --prompt to type a token once." ;;
+        *"not found"*|*"Repository not found"*|*"404"*)
+            die "authenticated or anonymous access worked but '$probe_org/$probe_repo' was not found. Check the org/repo spelling in the repos file." ;;
+        *"Could not resolve host"*)
+            die "DNS resolved locally but git could not resolve $SOURCE_HOST. Check the VPN DNS settings or any proxy configuration." ;;
+        *"Connection timed out"*|*"Connection refused"*|*"Failed to connect"*|*"unable to access"*)
+            die "network path to $SOURCE_HOST is blocked. Confirm the VPN is up and that this host is allowed to reach it." ;;
+        *"certificate"*|*"SSL"*|*"TLS"*)
+            die "TLS verification failed for $SOURCE_HOST. The internal CA certificate is probably missing. Install the CA bundle rather than disabling verification." ;;
+        *"Permission denied (publickey)"*)
+            die "SSH key was rejected by $SOURCE_HOST. Register a key on that host or use --protocol https." ;;
+        *)
+            die "could not reach the source host; see the git message above." ;;
+    esac
+}
+
+if [ "$SKIP_PREFLIGHT" -eq 0 ]; then
+    preflight_spec="${REPO_ARGS[0]%%=*}"
+    case "$preflight_spec" in
+        */*) : ;;
+        *) preflight_spec="$SOURCE_ORG/$preflight_spec" ;;
+    esac
+    preflight "$preflight_spec"
+fi
 
 audit_blob_sizes() {
     # Prints offending "size path" lines; returns 1 when any blob is too big.
@@ -159,7 +255,9 @@ audit_submodules() {
 for spec in "${REPO_ARGS[@]}"; do
     source_path="${spec%%=*}"
     dest_name="${spec#*=}"
-    [ "$dest_name" = "$spec" ] && dest_name=""
+    if [ "$dest_name" = "$spec" ]; then
+        dest_name=""
+    fi
 
     case "$source_path" in
         */*/*) log "SKIP $spec: too many path segments"; SUMMARY+=("FAIL  $spec  (bad spec)"); FAILED_COUNT=$((FAILED_COUNT + 1)); continue ;;
@@ -174,11 +272,13 @@ for spec in "${REPO_ARGS[@]}"; do
             src_org="$SOURCE_ORG"; src_repo="$source_path" ;;
     esac
     src_repo="${src_repo%.git}"
-    [ -n "$dest_name" ] || dest_name="$src_repo"
+    if [ -z "$dest_name" ]; then
+        dest_name="$src_repo"
+    fi
     dest_name="${DEST_PREFIX}${dest_name}"
     dest_full="$DEST_ORG/$dest_name"
 
-    src_url="https://$SOURCE_HOST/$src_org/$src_repo.git"
+    src_url="$(source_url "$src_org" "$src_repo")"
     dest_url="https://github.com/$dest_full.git"
     mirror_dir="$WORKDIR/$src_org--$src_repo.git"
     repo_log="$LOGDIR/$dest_name.log"
@@ -194,9 +294,16 @@ for spec in "${REPO_ARGS[@]}"; do
     # 1. Mirror clone from the VPN-side host.
     if [ -d "$mirror_dir" ]; then
         log "    reusing existing clone $mirror_dir"
-    elif ! git clone --mirror "$src_url" "$mirror_dir" >>"$repo_log" 2>&1; then
-        repo_failed "clone failed"
-        continue
+    else
+        log "    cloning $src_url"
+        if ! git clone --mirror "$src_url" "$mirror_dir" >>"$repo_log" 2>&1; then
+            # Show the reason inline; a log path alone is not a diagnosis.
+            log "    git clone output:"
+            sed 's/^/        /' "$repo_log" | tail -15
+            rm -rf "$mirror_dir"
+            repo_failed "clone failed"
+            continue
+        fi
     fi
 
     cd "$mirror_dir"
@@ -262,6 +369,8 @@ for spec in "${REPO_ARGS[@]}"; do
 
     # 6. Push every ref.
     if ! git push --mirror "$dest_url" >>"$repo_log" 2>&1; then
+        log "    git push output:"
+        sed 's/^/        /' "$repo_log" | tail -15
         repo_failed "push failed"
         cd "$WORKDIR"
         continue
