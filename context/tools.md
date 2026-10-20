@@ -1,5 +1,51 @@
 # Upstream components
 
+# Scoped automatic commit reviews: 2026-10-20
+
+The owner's 16:23 approval covers exactly the four ~/falcon application clones,
+this platform checkout and ~/falcon-docs. Inspection found no `core.hooksPath`
+override or non-sample hook in any of them. `scripts/roborev_hooks.py` installs
+explicit paths with platform/application/corpus review guidance and refuses
+differing existing configs rather than overwriting them.
+
+Each gets an ignored/untracked `.roborev.toml`: Pi, standard reasoning,
+commit mode, batch size one, runtime/dependency-directory exclusions and no
+automatic design review. Native config validation runs before hook activation.
+The private daemon retains its original one-worker Pi/USAi config; there is
+no model/provider override, backup route, fix worker, agent hook, roborev CI
+poller, history backfill or publication. Existing Forge provider sync is a
+separate previously authorized feature, not changed by this work.
+
+Private per-repository directories below
+`.local/environment/roborev/hooks/<path-hash>/` copy the original hooks and
+record the previous local hook setting. `core.hooksPath` points outside Git
+metadata, protecting the scoped executable from automatic native repair.
+Native `init --no-daemon --binary <absolute roborev-local.py>` registers each
+repository and generates the three hooks. The installer removes global-binary
+fallback and exposes launcher errors; native enqueue outcomes use `post-commit.log`.
+Registration/installation failures restore the prior hooks-path setting.
+Existing shell post-commit/pre-push hooks are chained; non-shell managed
+hooks and existing post-rewrite hooks require explicit migration because the
+native remap command consumes stdin. No unsupported hook is overwritten.
+
+All original sample-hook bytes and the five external worktree diffs are
+unchanged, including falcon-docs's dirty files. Concurrent Forge/Kata work
+changed this platform's tracked context independently and was preserved.
+Repeated installation is byte-stable; native Git-metadata-only repair skips
+all six external directories. Eleven native-hook integration tests cover
+shell-hook preservation, stdin/exit status, symlink targets, worktrees,
+missing launchers, errors, policy guards and registration rollback. All 99
+existing local-environment tests also pass.
+
+Live platform commit `fb7667a` automatically produced job 2, source
+`post_commit`, agent Pi, standard reasoning, non-agentic, done/pass in 18s.
+No manual review command or historical Falcon review was submitted.
+The dashboard works at http://127.0.0.1:17374/reviews; URL-only curl's 404 was
+a content-negotiation mistake, not a broken browser route. Use
+`Accept: text/html`. Private non-secret evidence is
+`runtime/review-hook-activation.json`; local configs/hooks are intentionally
+not committed. No service restart or experimental background process.
+
 # Falcon Kata projects mapped: 2026-10-20 at 16:27
 
 Owner-authorized native `kata projects create` added one empty project per

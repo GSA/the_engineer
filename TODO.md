@@ -37,7 +37,6 @@ migrated.
 - [ ] [`engi-platform#jqwq`](http://127.0.0.1:17777/kata?issue=01M4S19RH35QH984JS1FPEJQWQ) Verify Zed terminal/thread attachment to the existing launcher
 - [ ] [`engi-platform#6hce`](http://127.0.0.1:17777/kata?issue=01M4S19RHQ5MDPNGNWMRED6HCE) Verify model-selected Falcon retrieval in a real Forge Pi session
 - [ ] [`engi-platform#jgcf`](http://127.0.0.1:17777/kata?issue=01M4S19RJCE81SJDY61BQWJGCF) Complete a bounded real-project coding and review demo
-- [ ] [`engi-platform#hkq0`](http://127.0.0.1:17777/kata?issue=01M4S19RK25VBKZT9BDEYYHKQ0) Agree repository review policy and scoped automatic hooks
 
 ### Extend and integrate
 
