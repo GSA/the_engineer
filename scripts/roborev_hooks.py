@@ -100,6 +100,29 @@ def validate_policy():
         raise RuntimeError("unsafe agents, CI polling, background tasks, panels and fallbacks must stay off")
 
 
+def copy_original_hooks(source, destination):
+    # Native remap consumes stdin; never prepend it to an existing rewrite hook.
+    if (source / "post-rewrite").exists():
+        raise RuntimeError(f"existing post-rewrite hook needs an explicit stdin-preserving migration: {source}")
+    if destination.parent.parent != local_env.STATE / "roborev/hooks":
+        raise RuntimeError(f"staged hooks must stay within the private installation state: {destination}")
+    local_env.private_dir(destination.parent)
+    if destination.exists():
+        if destination.is_symlink() or destination.name != "hooks":
+            raise RuntimeError(f"refusing to replace an unexpected staged hooks path: {destination}")
+        shutil.rmtree(destination)
+    if source.is_dir():
+        shutil.copytree(source, destination, symlinks=True)
+        # Native installation follows hook symlinks; materialize only its targets.
+        for name in HOOKS:
+            path = destination / name
+            if path.is_symlink():
+                path.unlink()
+                shutil.copy2(source / name, path)
+    else:
+        destination.mkdir(mode=0o700)
+
+
 def install(repo, profile):
     repo = repo.expanduser().resolve(strict=True)
     if Path(git(repo, "rev-parse", "--show-toplevel")) != repo or not (repo / ".git").is_dir():
@@ -127,23 +150,12 @@ def install(repo, profile):
         if (saved["repo"] != str(repo) or saved["profile"] != profile
                 or (current != hooks and not original_restored)):
             raise RuntimeError(f"saved hook installation differs from current repository configuration: {repo}")
+        if current != hooks:
+            copy_original_hooks(current, hooks)
     else:
         if base.exists():
             raise RuntimeError(f"incomplete hook installation requires inspection: {base}")
-        # Native remap consumes stdin; never prepend it to an existing rewrite hook.
-        if (current / "post-rewrite").exists():
-            raise RuntimeError(f"existing post-rewrite hook needs an explicit stdin-preserving migration: {repo}")
-        local_env.private_dir(base)
-        if current.is_dir():
-            shutil.copytree(current, hooks, symlinks=True)
-            # Native installation follows hook symlinks; materialize only its targets.
-            for name in HOOKS:
-                path = hooks / name
-                if path.is_symlink():
-                    path.unlink()
-                    shutil.copy2(current / name, path)
-        else:
-            hooks.mkdir(mode=0o700)
+        copy_original_hooks(current, hooks)
         local_env.json_write(manifest, {
             "repo": str(repo), "profile": profile,
             "previous_hooks": str(current), "previous_local_hooks_values": old_values,
@@ -181,7 +193,8 @@ def install(repo, profile):
             if "command -v roborev" in text:
                 raise RuntimeError(f"unexpected global executable fallback: {path}")
             path.write_text(text)
-            subprocess.run(["/bin/sh", "-n", str(path)], check=True)
+            if text.startswith("#!/bin/sh\n"):
+                subprocess.run(["/bin/sh", "-n", str(path)], check=True)
     except (OSError, RuntimeError, subprocess.SubprocessError):
         restore_hooks_values(repo, old_values)
         raise

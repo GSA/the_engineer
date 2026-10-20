@@ -84,7 +84,10 @@ class RoborevHookTests(unittest.TestCase):
 
     def test_env_shell_hook_is_chained_and_executed(self):
         original = self.repo / ".git/hooks/post-commit"
-        content = '#!/usr/bin/env bash\nprintf "env shell\\n" >> "' + str(self.log) + '"\n'
+        content = (
+            '#!/usr/bin/env bash\nvalues=("env shell")\n'
+            'printf "%s\\n" "${values[0]}" >> "' + str(self.log) + '"\n'
+        )
         original.write_text(content)
         original.chmod(0o755)
         hooks = self.install()
@@ -171,6 +174,20 @@ class RoborevHookTests(unittest.TestCase):
                 self.install()
         self.assertEqual(roborev_hooks.local_hooks_values(self.repo), [str(old)])
         self.assertTrue(self.install().is_dir())
+
+    def test_correcting_unsupported_original_hook_allows_retry(self):
+        original = self.repo / ".git/hooks/post-commit"
+        original.write_text("#!/usr/bin/python3\nprint('original')\n")
+        original.chmod(0o755)
+        with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
+            self.install()
+        self.assertEqual(roborev_hooks.local_hooks_values(self.repo), [])
+        content = '#!/usr/bin/env bash\nprintf "corrected\\n" >> "' + str(self.log) + '"\n'
+        original.write_text(content)
+        hooks = self.install()
+        subprocess.run([str(hooks / "post-commit")], cwd=self.repo, check=True)
+        self.assertEqual(self.log.read_text(), "post-commit\ncorrected\n")
+        self.assertEqual(original.read_text(), content)
 
     def test_policy_rejects_unapproved_automation(self):
         baseline = 'max_workers = 1\ndefault_agent = "pi"\n'

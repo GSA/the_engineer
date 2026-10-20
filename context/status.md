@@ -11,7 +11,7 @@
   No fixes, agent hooks, roborev GitHub polling, history backfill or publication.
   Linked worktrees inherit setup; separate future Forge clones do not.
 - Native repeat installation is byte-stable and automatic repair leaves the
-  external paths alone. Twelve hook integration tests and all 99 environment
+  external paths alone. Thirteen hook integration tests and all 99 environment
   tests pass. The installer refuses unsupported/conflicting hooks/configs
   rather than replacing them and restores the hook setting on setup failure.
 - Live commit fb7667a triggered job 2 automatically; it completed/pass in 18s,
@@ -21,6 +21,9 @@
 - Setup commit 50ddfa3 triggered job 3, which found rejection of valid env-bash
   hooks. The behavioral regression reproduced it; removing the duplicate
   classifier delegates recognition to native roborev and fixes the defect.
+- Review job 5 exposed stale copied hooks after an unsupported original was
+  corrected. Retrying now refreshes inactive staging; correction/retry and
+  native bash-syntax regressions are covered without changing active routes.
 - Private evidence: runtime/review-hook-activation.json. Other concurrent
   Forge/Kata changes were preserved. Services remain active: roborev 478,
   Forge 42950, AgentsView 475, Kata 477; no restart or temporary process.

@@ -440,6 +440,8 @@ initially had only inactive sample hooks. Supported shell hooks are chained;
 non-shell managed hooks or an existing post-rewrite hook require an explicit
 migration rather than unsafe replacement. Installation metadata records the
 previous hook settings.
+After rollback, retrying refreshes the inactive copy from the original hooks,
+so correcting an unsupported original hook does not leave a stale failed copy.
 
 This external hook location prevents native startup/update repair from
 replacing the scoped launcher. Missing-launcher errors are visible and never
