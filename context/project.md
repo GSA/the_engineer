@@ -16,6 +16,15 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 16:50 the owner requests reconciliation of the
+  engi-platform Katas. Review all 30 open scopes against recorded/current
+  evidence, not a relaxed completion threshold. Close `7dhp` for the approved
+  WorkSpace/private-mirror access path and `djfr` for the established explicit
+  Librarian contribution/disposition contract. Keep the other 28 open:
+  demonstrated outcomes, owner decisions or required acceptance remain.
+  Clarify `j54x` as the first mapped workspace, not another authentication
+  exercise. No Citrix restriction, publication boundary or deferred scope
+  is waived; no new application tasks, workers or corpus writes are authorized.
 - On 2026-10-20 at 16:23 the owner authorizes scoped automatic reviews
   for kenn-kopy, falcon-docs and all four ~/falcon clones. Each now has a
   local-only review config and private external hooks path targeting the
