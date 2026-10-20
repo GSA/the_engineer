@@ -1,5 +1,42 @@
 # Upstream components
 
+# Helix-to-GitHub mirror script: 2026-10-20
+
+`scripts/mirror-helix-to-github.sh` mirrors Git repositories from a Helix
+GitHub Enterprise host to private repositories in a GitHub.com organization.
+It is written for a single host with both routes (VPN-side source and
+github.com), which is the owner's WorkSpace, not this WSL environment.
+
+It holds no credentials: it relies on the Git credential helpers already
+configured for each host and sets `GIT_TERMINAL_PROMPT=0` plus
+`GIT_ASKPASS=/bin/false` so a missing credential fails instead of hanging.
+
+Per repository it clones `--mirror`, deletes GHE's read-only `refs/pull/*`
+(github.com rejects those on push), logs branch/tag counts and on-disk size,
+fails if any blob in history exceeds `--max-blob-mb` (default 100), lists every
+`.gitmodules` URL found on any branch or tag, creates the destination with
+`gh repo create --private` when absent, refuses a destination that already has
+refs unless `--allow-nonempty`, and then `git push --mirror`.
+
+```
+scripts/mirror-helix-to-github.sh --source-org falcon --dest-org GSA \
+    --dry-run --keep --repos-file scripts/mirror-repos.txt
+```
+
+Repo specs are `name`, `source-org/name`, or `source-org/name=dest-name`.
+`--dry-run` clones and audits without creating or pushing anything. A failed
+repository does not stop the others; the final summary lists each outcome and
+the exit status is non-zero if any failed, with per-repo logs in
+`<workdir>/logs/`. Submodule URLs are reported, never rewritten: a mirrored
+repo whose submodules point at Helix will not clone usably off-VPN.
+
+Secret scanning is not built in. Full history was mirrored by owner choice, so
+anything ever committed to these repositories reaches github.com. Copy
+`scripts/mirror-repos.txt.example` to an untracked `scripts/mirror-repos.txt`
+for the real names. Verification so far is synthetic local repositories only:
+dry run, blob-size failure, submodule detection and bad-spec handling. No
+Helix clone, GSA repository creation or push has been performed.
+
 # USAi model-router catalog refresh: 2026-10-20
 
 The owner requested that Pi expose the latest models advertised by the existing
