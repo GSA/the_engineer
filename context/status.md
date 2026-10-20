@@ -1,5 +1,39 @@
 # Status: 2026-10-20
 
+## CCSMFSSM-1290 ticket-to-PR demonstration: 17:35
+
+- Jira CCSMFSSM-1290 now has a concrete path to a PR:
+  https://github.com/GSA/supply-chain-user-interface/pull/1, commit `09fd1554`
+  on `feat/ccsmfssm-1290-substitute-nsn-terminal-warning`, 3 files, +64/-0.
+  Base `master`; mergeable; no checks reported.
+- Two Katas exist in project `supply-chain-user-interface`, both authored
+  `--as copilot` through the approved CLI entrypoint: `jwn4` for the ticket
+  (claimed, commented with the PR link, deliberately left open) and `v7nw`
+  priority 1 for the missing Angular test harness. `engi-platform` was not
+  touched and remains at 28 open.
+- The change checks the substitute NSN's `d403_acq_ad` through the existing
+  `NIFService.getNSNServiceData`, warning on `V`/`Y` with the ticket's exact
+  wording. No backend change; `functions/get-nsn-service-details` already
+  returns the field. `substituteNSNWarning` is a standalone field that
+  `isFormValid()` never reads, so saving is not blocked. Empty or already
+  hard-invalid values are not looked up, repeated blurs do not re-request, a
+  late response cannot overwrite a newer value, and a failed lookup stays
+  silent.
+- Unresolved and stated in the PR body, not silently assumed: whether the
+  ticket's "It will taken care with NIF changes" means this client lookup, a
+  new NIF response field, or a backend-computed flag. The component method is
+  the single re-point if the backend is meant to decide.
+- Only `npx tsc -p tsconfig.app.json --noEmit` passes. No spec was added
+  because `ng test` cannot run at all; the PR says plainly that the behavior is
+  untested and needs manual QA in dev. `ng build` reaches only the pre-existing
+  5 MB bundle-budget and Google-Fonts failures, which also occur on `master`.
+- Per the owner's instruction, `pr-check.yml` was left untouched and its
+  inability to run on this mirror is explained in the PR rather than worked
+  around. Actions remain enabled on the mirror; zero runs so far.
+- `scripts/local_env.py` was not edited by this session after `7266ac9`; the
+  missing `--as copilot` enforcement was corrected by another agent in
+  `99884c2`. Verification here was read-only.
+
 ## Application Kata CLI policy implemented: 17:19 authorization
 
 - Confirmed the reported CLI refusal and the four existing application project
