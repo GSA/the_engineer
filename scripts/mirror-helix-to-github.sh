@@ -27,6 +27,8 @@
 #   --workdir DIR         where mirrors are cloned (default: mktemp -d)
 #   --keep                keep the clones and logs after a successful run
 #   --max-blob-mb N       fail a repo if any blob exceeds N MB (default 100)
+#   --batch-size N        push refs in batches of N instead of one push
+#                         (default: one push, then automatic batched retry)
 #   --dry-run             clone + audit only: no repo creation, no push
 #   --allow-nonempty      push even if the destination repo already has refs
 #   -h | --help           this text
@@ -54,6 +56,7 @@ DEST_PREFIX=""
 WORKDIR=""
 KEEP=0
 MAX_BLOB_MB=100
+BATCH_SIZE=0
 DRY_RUN=0
 ALLOW_NONEMPTY=0
 REPO_ARGS=()
@@ -99,6 +102,7 @@ while [ "$#" -gt 0 ]; do
         --workdir) WORKDIR="${2:?--workdir needs a value}"; shift 2 ;;
         --repos-file) read_repos_file "${2:?--repos-file needs a value}"; shift 2 ;;
         --max-blob-mb) MAX_BLOB_MB="${2:?--max-blob-mb needs a value}"; shift 2 ;;
+        --batch-size) BATCH_SIZE="${2:?--batch-size needs a value}"; shift 2 ;;
         --keep) KEEP=1; shift ;;
         --dry-run) DRY_RUN=1; shift ;;
         --allow-nonempty) ALLOW_NONEMPTY=1; shift ;;
@@ -119,6 +123,9 @@ if [ "$DRY_RUN" -eq 0 ]; then
 fi
 case "$MAX_BLOB_MB" in
     ''|*[!0-9]*) die "--max-blob-mb must be an integer" ;;
+esac
+case "$BATCH_SIZE" in
+    ''|*[!0-9]*) die "--batch-size must be an integer" ;;
 esac
 
 case "$PROTOCOL" in
@@ -275,6 +282,28 @@ remote_ref_count() {
     git ls-remote --heads --tags "$1" 2>>"$repo_log" | grep -cv '\^{}$' || true
 }
 
+push_in_batches() {
+    # Push refs a batch at a time. GitHub rejects a single pack over ~2GB and
+    # hundreds of refs in one push can also time out; batches keep each
+    # request small and make a partial failure resumable.
+    local url="$1" size="$2" refs=() total sent=0 batch
+    mapfile -t refs < <(git for-each-ref --format='%(refname)' refs/heads refs/tags)
+    total="${#refs[@]}"
+    log "    pushing $total ref(s) in batches of $size"
+    while [ "$sent" -lt "$total" ]; do
+        batch=("${refs[@]:sent:size}")
+        if ! git push "$url" "${batch[@]/#/+}" >>"$repo_log" 2>&1; then
+            log "    git push output:"
+            sed 's/^/        /' "$repo_log" | tail -15
+            log "    failed in batch starting at ref $((sent + 1)) of $total"
+            return 1
+        fi
+        sent=$((sent + ${#batch[@]}))
+        log "    pushed $sent/$total ref(s)"
+    done
+    return 0
+}
+
 for spec in "${REPO_ARGS[@]}"; do
     source_path="${spec%%=*}"
     dest_name="${spec#*=}"
@@ -400,10 +429,24 @@ for spec in "${REPO_ARGS[@]}"; do
         fi
     fi
 
-    # 6. Push every ref.
-    if ! git push --mirror "$dest_url" >>"$repo_log" 2>&1; then
-        log "    git push output:"
+    # 6. Push every ref. One push is fastest; batching is the fallback for
+    # repos with very many refs or a pack too large for a single request.
+    push_ok=0
+    if [ "$BATCH_SIZE" -gt 0 ]; then
+        if push_in_batches "$dest_url" "$BATCH_SIZE"; then
+            push_ok=1
+        fi
+    elif git push --mirror "$dest_url" >>"$repo_log" 2>&1; then
+        push_ok=1
+    else
+        log "    single mirror push failed:"
         sed 's/^/        /' "$repo_log" | tail -15
+        log "    retrying in batches of 50"
+        if push_in_batches "$dest_url" 50; then
+            push_ok=1
+        fi
+    fi
+    if [ "$push_ok" -ne 1 ]; then
         repo_failed "push failed"
         cd "$WORKDIR"
         continue
