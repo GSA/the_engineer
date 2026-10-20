@@ -17,10 +17,37 @@ workspace locks. Do not grant access to librarian/evaluation projects or infer
 approval to author particular application tasks.
 
 Concurrent commit `7266ac9` appeared during implementation and changed
-`kata_launch` plus its tests. It allows project selection but does not require
-explicit `--as copilot`. The attempted regression-test patch failed cleanly on
-that changed context; no code was edited by this session. Pause overlapping
-code work pending owner coordination rather than overwrite the other agent.
+`kata_launch` plus its tests. It allowed project selection without requiring
+explicit `--as copilot`. The initial regression-test patch failed cleanly on
+that changed context; implementation paused rather than overwriting it.
+At 17:19 the owner authorized tightening that implementation.
+
+The existing allowlist is preserved. Only `kata-local.py` enables application
+selection; internal callers and `kata-mcp.py` keep the platform default.
+Application requests require exactly one explicit Copilot actor; a non-
+abbreviating standard parser removes the actor selector and places the fixed
+actor before native arguments. Missing, alternate, duplicate or post-`--`
+actor selectors fail explicitly; duplicate projects also fail rather than
+silently selecting the last one. Literal arguments after `--` are preserved.
+Explicit engi-platform selection retains the existing platform actor behavior.
+
+All 114 local-environment/task-index tests pass. Real CLI reads succeed for all
+four projects and report Copilot; negative cases reject absent/wrong actor,
+librarian and daemon overrides. The live UI project now has two independently
+created tasks; the other three are empty. The first read smoke incorrectly
+assumed all were still empty, so it was corrected to check attribution and
+report counts, not assert stale backlog state.
+
+A disposable loopback-only native daemon verified real create/show round trips
+for all four application names, checking exact project IDs/UIDs, author Copilot
+and stdin body preservation. Its first assertion used the MCP response shape;
+the corrected run checks native CLI issue fields and passes. Both isolated
+daemons were terminated/waited and temporary databases removed, including on
+the failed assertion. No live task mutation was used for this verification.
+Both real MCP adapters pass initialize, progressive tool loading, fixed actor,
+engi-platform binding and cross-project read/write refusal with zero model
+calls. README/adoption instructions are updated; the TODO generator retains
+its platform-only selection.
 
 The owner's intervening CI question prompted read-only inspection of the UI's
 `pr-check.yml`: it references `FSS19-Cloud/github-actions-workflows` (not
@@ -29,7 +56,8 @@ the private GSA mirror, but the reusable-workflow repo and the mirror's workflow
 lookup returned 404; the runner list was empty. This does not establish an
 observed PR failure. At 17:16 the owner said to ignore that script. It remains
 unchanged; no workflow disablement, runner installation or bypass is authorized.
-No task mutation, configuration/service change or experimental process.
+No live task mutation, configuration/service change or publication by this
+session. No experimental process remains; existing services stay running.
 
 # Platform Kata completion audit: 2026-10-20
 

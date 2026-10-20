@@ -1,6 +1,6 @@
 # Status: 2026-10-20
 
-## Application Kata policy approved; concurrent implementation: 17:14
+## Application Kata CLI policy implemented: 17:19 authorization
 
 - Confirmed the reported CLI refusal and the four existing application project
   identities. Explicit `--as copilot` resolves correctly. The guard lives in
@@ -10,15 +10,29 @@
   engi-platform defaults/MCP scope, daemon/workspace locks and exclusion of
   librarian/evaluation projects. Particular application task content still
   needs approval; this is not a Jira-decomposition or worker-launch decision.
-- Another agent committed `7266ac9` during this work, adding allowed-project
-  selection without enforcing explicit Copilot attribution. The attempted
-  test patch failed cleanly against that changed context. No code was edited
-  by this session; pause overlapping implementation pending owner coordination.
+- Preserved and tightened the other agent's `7266ac9` after the owner's 17:19
+  authorization. Only the CLI entrypoint opts into application selection.
+  Exactly one explicit `--as copilot` is required for application projects;
+  duplicate project/actor selectors fail. Platform attribution stays unchanged,
+  including explicit engi-platform selection. Literal arguments after `--`
+  are preserved.
+- All 114 local-environment/task-index tests pass. Live CLI reads verify all
+  four selections and actor Copilot; live MCP checks verify both actors remain
+  platform-scoped and refuse cross-project reads/writes. Disposable native
+  create/show tests verify exact project UID, author and stdin body for all
+  four projects without touching live tasks. All temporary daemons stopped
+  and databases removed; tools.md records corrected smoke assumptions.
+- Live reads found two UI-project tasks created independently during this
+  work; the other three application projects remain empty. No tasks were
+  created, changed or closed by this session. README/adoption docs now explain
+  the approved CLI entrypoint rather than claiming application backlogs stay
+  empty.
 - Owner's 17:16 instruction excludes `pr-check.yml`; leave it unchanged, not
   disabled or bypassed. Read-only CI observations are in tools.md, not evidence
   of an actual failed PR run.
-- No task state, service or configuration changed; no temporary process
-  started. Existing services and automatic commit reviews remain unchanged.
+- No live task state, service or configuration changed by this session.
+  No temporary process remains. Existing services and automatic commit
+  reviews remain unchanged.
 
 ## Platform Kata completion reconciliation: 16:50 request
 
@@ -103,10 +117,11 @@ populated in both (gitignored), and `autoGenConfig.ts` was generated
 created at 20:25 UTC and resolve in `projects list`:
 supply-chain-user-interface (30), national-item-file-maintenance (27),
 standard-acquisition-interface (28), infrastructure (29), plus librarian (26).
-All four issue lists are empty. `scripts/kata-local.py` hard-refuses
-`--project`, `--workspace` and `--daemon`, so it cannot write katas into them;
-authoring application katas needs an explicit decision about which actor and
-entry point may write to a non-platform project.
+At this inspection all four issue lists were empty, and `scripts/kata-local.py`
+refused `--project`, leaving application authoring blocked on an actor/entrypoint
+decision. The later approved CLI-only policy above resolves that entrypoint
+blocker; daemon/workspace overrides remain refused. It does not settle the
+ticket's outstanding requirements.
 
 **Not established:** whether 1290 is still wanted or was bundled into parent
 CCSMFSSM-4344; whether the warning fires on blur, on change or at submit;

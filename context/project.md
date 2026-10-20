@@ -22,9 +22,12 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   approves explicit CLI project selection limited to the four registered
   Falcon application projects, with explicit Copilot attribution. Keep the
   default and MCP scope at engi-platform, and retain daemon/workspace locks.
-  Concurrent commit `7266ac9` adds project selection without requiring that
-  actor; pause overlapping implementation for owner coordination. No task
-  creation, worker or publication is authorized by the entrypoint decision.
+  Concurrent commit `7266ac9` added project selection without requiring that
+  actor. At 17:19 the owner authorizes tightening it; retain explicit Copilot
+  attribution to avoid accidental author labels, with application selection
+  enabled only by the CLI entrypoint. Duplicate selectors fail explicitly;
+  platform attribution behavior is unchanged. No particular task creation,
+  worker or publication is authorized by the entrypoint decision.
   At 17:16 the owner excludes the application's `pr-check.yml` from this work;
   leave it unchanged rather than disabling or bypassing it.
 - On 2026-10-20 at 16:50 the owner requests reconciliation of the

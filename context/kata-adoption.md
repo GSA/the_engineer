@@ -9,7 +9,7 @@ task lists. Falcon's checkout, instructions and backlog were not changed.
 ## Falcon application projects: 2026-10-20
 
 At 16:24 the owner authorized adding all four mirrored repositories to Kata.
-Each now has its own empty daemon project, separate from the platform backlog:
+Each received its own empty daemon project, separate from the platform backlog:
 
 | Project | Immutable project UID |
 | --- | --- |
@@ -22,11 +22,13 @@ Created with native `projects create` through the isolated launcher, without
 binding or editing a checkout. Forge's `kata_projects` settings map each UID
 on daemon `local` to its exact `github` / `github.com` / `gsa/<project>` repo.
 All four persist and resolve as `mapped` after configuration hot reload.
-All four issue lists are empty; no Jira or GitHub task import was requested.
+All four issue lists were empty at registration; no Jira or GitHub task import
+was requested by that step.
 
 The existing engi-platform, librarian and evaluation projects are preserved.
-This checkout's CLI/MCP remains scoped to engi-platform; adding projects does
-not broaden agent authority or install application instructions/hooks.
+Adding projects did not broaden agent authority or install application
+instructions/hooks. At 17:14 the owner separately approved the application CLI
+selection below; this checkout's MCP adapters remain scoped to engi-platform.
 Use Kata's project selector to view the application backlogs. Forge owns the
 repository mapping, not canonical tasks. No task-backed workspace or coding
 loop was launched; evidence is `runtime/falcon-kata-projects.json` under the
@@ -42,9 +44,19 @@ intentionally stopped. README owns installation/restart/journal instructions.
 Supervisor stop leaves all four boot services running.
 
 `scripts/kata-local.py` selects the private daemon/profile and pins this
-workspace and project, independent of the caller's cwd. It strips inherited
-credential/actor environment variables; use `--as` when attribution should
-name an agent instead of the local user. Scope overrides fail explicitly.
+workspace, independent of the caller's cwd. It defaults to engi-platform.
+Explicit `--project <name>` or `--project=<name>` may select one of the four
+registered application projects above, but requires exactly one explicit
+`--as copilot` (or `--as=copilot`). Repeated project/actor selectors, other
+application actors, unrelated projects and daemon/workspace overrides fail
+explicitly. An explicit engi-platform selector retains platform behavior.
+The application-project opt-in belongs only to this CLI entrypoint; internal
+callers, the TODO generator and both MCP adapters retain platform scope.
+
+The launcher strips inherited credential/actor environment variables; platform
+commands retain their existing `--as` behavior. Actor labels are attribution,
+not authentication or OS isolation. This entrypoint decision does not approve
+particular application tasks, ticket decomposition, workers or publication.
 It uses explicit `KATA_SERVER`, so an unavailable daemon fails instead of
 silently starting another one. The native secret-free `.kata.toml` binding was
 changed from the historical `smoke` project with `kata init --replace`, without
