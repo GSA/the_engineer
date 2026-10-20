@@ -1,5 +1,20 @@
 # Status: 2026-10-20
 
+## Forge mirror intake readiness: 16:14
+
+- Normal GitHub CLI API reads confirm biggestbinary can access all four
+  private GSA mirrors with ADMIN permission. The approved github.com mirrors
+  remove the earlier direct-Helix connectivity blocker for Forge intake.
+- Forge is healthy on loopback 18091, but its shared isolated `gh-local.py`
+  profile still exits 4 requesting login. Its service also explicitly passes
+  `--disable-sync`; live repo and workspace collections remain empty.
+- Ready to connect after owner-terminal login to github.com in the isolated
+  profile, explicit repository selection and deliberate scoped-sync enablement.
+  This is not yet a demonstrated provider-backed workspace or coding loop.
+- Assessment only: no auth/config/service/task changes, no application source
+  inspection, model calls, worker launch or publication. Existing services
+  remain running; no temporary process was started.
+
 ## Falcon clones on this machine: 15:37
 
 - Cloned the four private GSA mirrors to this WSL host's `~/falcon`, not the
