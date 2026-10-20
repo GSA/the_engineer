@@ -16,6 +16,15 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 10:01 the owner supplies parent CCSMFSSM-4344's XML
+  and reports beginning the supply-chain-user-interface mirror. The epic's
+  only description is "All FALCON UI enhancement, change and updates."
+  It adds no acceptance criteria or explanation of 1290's "NIF changes".
+  Workflow status Implementing and custom Epic Status To Do are distinct
+  exported values; neither establishes the child feature's implementation.
+  Next is inspection of the mirrored UI at a confirmed URL/branch/commit,
+  not another ancestor export. No mirror completion, checkout, implementation
+  task creation or broader publication is established by this update.
 - On 2026-10-19 at 17:42 the owner authorizes full Librarian MCP audit
   logging in native Copilot and Forge's isolated Pi profile. The existing
   server connections now have separate private per-client audit paths and
