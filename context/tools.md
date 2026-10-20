@@ -1,5 +1,22 @@
 # Upstream components
 
+# Application Kata authoring boundary: 2026-10-20 at 17:10 request
+
+Reproduced `kata-local.py --project supply-chain-user-interface list --json`
+failing before native execution. The guard is in `local_env.py::kata_launch`,
+not the entrypoint itself, and `kata_mcp_launch` shares it. Removing that guard
+without separating CLI selection from MCP pinning would change the established
+scope contract. Native `projects list --json` confirms all four registered
+application project UIDs still match `kata-adoption.md`; `--as copilot whoami
+--json` resolves actor `copilot` from the explicit flag.
+
+Recommendation pending owner approval: allow explicit CLI selection of only
+those four application projects with explicit Copilot attribution; retain
+engi-platform as default, platform-only MCP, private daemon/profile and
+workspace locks. Do not grant access to librarian/evaluation projects or infer
+approval to author particular application tasks. No implementation, task
+mutation, configuration/service change or experimental process.
+
 # Platform Kata completion audit: 2026-10-20
 
 At 16:50 the owner requested marking already-finished platform Katas complete.

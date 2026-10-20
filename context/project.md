@@ -16,6 +16,13 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 17:10 the owner requests addressing the application-Kata
+  authoring blocker. The refusal is an intentional shared CLI scope guard;
+  the existing MCP adapters also use that launcher. Pending owner approval,
+  recommend explicit CLI project selection limited to the four registered
+  Falcon application projects, with explicit Copilot attribution. Keep the
+  default and MCP scope at engi-platform, and retain daemon/workspace locks.
+  No write authority has been broadened or application task created.
 - On 2026-10-20 at 16:50 the owner requests reconciliation of the
   engi-platform Katas. Review all 30 open scopes against recorded/current
   evidence, not a relaxed completion threshold. Close `7dhp` for the approved
