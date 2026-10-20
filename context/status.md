@@ -1,5 +1,22 @@
 # Status: 2026-10-20
 
+## Batched push for many-ref repos: 13:48
+
+- supply-chain-user-interface has 285 branches, the largest of the four;
+  infrastructure has 24. A single `git push --mirror` of hundreds of refs can
+  be rejected or time out, and a mid-push failure leaves a partly populated
+  destination.
+- Added `push_in_batches`. Default behavior still tries one mirror push, then
+  automatically retries in batches of 50 and reports progress as `pushed
+  N/total`; `--batch-size N` forces batching from the start. A failure now
+  names the batch position instead of only "push failed".
+- Verified against a synthetic 286-branch/2-tag repo: single-push path, forced
+  batching, a destination that rejects large pushes (fallback engaged and
+  completed), and a simulated mid-run failure where 150 refs landed and a
+  re-run with `--allow-nonempty` and the same `--workdir` completed to 288 refs
+  without re-cloning. Local simulation only; no GSA repo exists and nothing has
+  been pushed to github.com.
+
 ## Mirror dry run clean, push verification added: 13:43
 
 - Owner's dry run now succeeds for three repos: supply-chain-user-interface,
