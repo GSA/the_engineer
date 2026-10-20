@@ -361,10 +361,12 @@ for spec in "${REPO_ARGS[@]}"; do
     cd "$mirror_dir"
 
     # 2. Drop refs GitHub.com refuses on push (GHE pull-request refs).
-    pull_refs="$(git for-each-ref --format='%(refname)' 'refs/pull/*' | wc -l | tr -d ' ')"
+    # Note the pattern: git's for-each-ref glob does not cross '/', so
+    # 'refs/pull/*' matches nothing. Use the prefix form instead.
+    pull_refs="$(git for-each-ref --format='%(refname)' 'refs/pull' | wc -l | tr -d ' ')"
     if [ "$pull_refs" != "0" ]; then
-        log "    pruning $pull_refs read-only refs/pull/* ref(s)"
-        git for-each-ref --format='delete %(refname)' 'refs/pull/*' | git update-ref --stdin
+        log "    pruning $pull_refs read-only refs/pull ref(s)"
+        git for-each-ref --format='delete %(refname)' 'refs/pull' | git update-ref --stdin
         git gc --prune=now --quiet >>"$repo_log" 2>&1 || true
     fi
 
