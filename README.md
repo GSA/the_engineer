@@ -103,7 +103,8 @@ terminal open; the supervisor owns only dashboards not installed as services.
 
 In this WSL installation, the Windows browser can use these same localhost
 addresses with the current NAT configuration. No public listener, tunnel or
-cloud access is configured. Provider synchronization remains disabled.
+cloud access is configured. Forge syncs the four selected private GSA Falcon
+mirrors; profiles without configured repositories retain disabled provider sync.
 AgentsView now watches explicit Copilot and Pi session sources; it is not a
 model router. Dashboard startup alone does not establish a complete
 model-backed coding/review workflow.
@@ -481,7 +482,8 @@ connectivity is no longer a prerequisite for these mirrors. Local workstation
 handling approval is settled; the separate Citrix VDI export prohibition is
 unchanged.
 
-Forge's isolated GitHub profile still needs its own login. The workspace-local
+Forge's isolated GitHub profile is now authenticated on this host. Other
+installations need their own owner-terminal login. The workspace-local
 GitHub CLI **2.102.0** is installed by `scripts/bootstrap-toolchains.sh` using
 the official release archive and a pinned SHA-256. No global installation or
 shell settings change is needed:
@@ -519,10 +521,16 @@ Then confirm read access to one owner-approved repository:
   --json nameWithOwner,url,viewerPermission
 ```
 
-**Provider sync is still disabled** through `--disable-sync`; a normal restart
-does not enable it. Once the host/repository and its read access are confirmed,
-add that exact repository through Forge Settings and deliberately enable
-scoped sync. Do not select all GSA repositories, add remotes to this integration
+**Repository selection opts into provider sync on the next Forge startup.**
+The launcher passes `--disable-sync` only when native Forge configuration has
+no repositories. Once read access is confirmed, add the exact approved
+repositories through Forge Settings, then restart `kenn-kopy-forge.service`.
+This host now tracks only `GSA/supply-chain-user-interface`,
+`GSA/national-item-file-maintenance`, `GSA/standard-acquisition-interface` and
+`GSA/infrastructure`; all four completed their initial sync.
+Forge's built-in notification sync lists the signed-in user's threads and
+filters them to tracked repositories; it has no notification-off setting.
+Do not select all GSA repositories, add remotes to this integration
 repo, publish Falcon, enable write actions/hooks, or launch a coding task as
 part of initial authentication. The next milestone is one provider-backed
 workspace with Pi/USAi and qualified context, followed by an agreed bounded task.

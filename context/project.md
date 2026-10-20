@@ -16,6 +16,17 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 16:18 the owner confirms isolated-profile authentication
+  and authorizes adding the four private Falcon mirrors to Forge. Exactly
+  those four github.com/GSA repositories are now provider-backed entries with
+  verified IDs and successful initial syncs. Native repository selection now
+  opts into sync on the next startup; repository-free profiles retain
+  `--disable-sync`. Only Forge was restarted, preserving its local project
+  and other services. No application source edits, workspace/worker launch, inference,
+  GitHub mutation or publication was performed. Built-in notifications cannot
+  be disabled; they list user threads and filter to tracked repositories.
+  Existing Pi/USAi and publication boundaries remain unchanged; the first
+  mapped workspace/coding loop remains outstanding.
 - On 2026-10-20 at 16:13 the owner asks whether the mirrored Falcon repos
   can now be added to Forge. Read-only checks confirm the normal GitHub CLI
   can access all four private GSA mirrors; direct Helix access is not needed

@@ -1,5 +1,28 @@
 # Status: 2026-10-20
 
+## Four Falcon repositories connected to Forge: 16:21
+
+- Owner-authorized isolated-profile login verified as biggestbinary. Added
+  exactly the four private GSA mirrors through the native bulk repository API
+  (201), retaining provider-verified IDs and no glob or hidden entries.
+- The launcher now disables sync only for repository-free profiles. Restarted
+  only Forge (476 to 42950); all four entries completed their first sync by
+  20:21:11 UTC with no errors. Saved repository IDs/configuration, enabled boot
+  service, actual process flags and loopback UI/database health were checked.
+- Pi/USAi remains the sole enabled agent, quick actions/workspaces are empty,
+  managed-clone initialization stays off, and falcon-docs's project is retained.
+  AgentsView/roborev/Kata PIDs remain 475/478/477. Existing working clones,
+  application source, corpus, prompts and model routing were untouched.
+- Built-in notification listing cannot be disabled in this Forge version; it
+  filters user threads to tracked repositories. No provider mutation,
+  inference, workspace/worker launch, public exposure or publication occurred.
+- All 99 local-environment tests pass, including an observed red/green
+  regression for repository-enabled sync. Private non-secret evidence:
+  `runtime/forge-falcon-intake.json` under the environment profile.
+- `j54x` records this milestone but stays open: the first mapped workspace
+  has not been created. No temporary process remains; all four boot services
+  remain running.
+
 ## Forge mirror intake readiness: 16:14
 
 - Normal GitHub CLI API reads confirm biggestbinary can access all four

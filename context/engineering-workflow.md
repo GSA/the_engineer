@@ -5,6 +5,16 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Current repository milestone: 2026-10-20, 16:21
+
+The four private GSA Falcon mirrors are now configured in Forge and completed
+their initial sync. This supersedes the earlier zero-provider-repository
+observations below, not the remaining workflow/prompt gaps. Pi/USAi remains
+the sole enabled agent, quick actions and workspaces remain empty, and no
+worker, automatic delegation or coding/review loop was exercised. Details and
+verified identities are in `tools.md`; `j54x` remains open for its workspace
+milestone.
+
 ## Owner clarification and verified boundary: 2026-10-13, 11:17
 
 The owner wants to support existing Forge with Superpowers, not introduce a
@@ -98,7 +108,8 @@ an automatic brainstorm-to-TDD task engine.
   generated override as the durable platform policy.
 - Roborev's endpoint is configured but a complete workspace/review loop has
   not been demonstrated. Kata daemon discovery/repository mapping is separate
-  from Kata merely running. No provider repos/workspaces are currently present.
+  from Kata merely running. Four provider repos are now present; no workspaces
+  have been created.
 
 Evidence in the pinned checkout:
 
