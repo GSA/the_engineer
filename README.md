@@ -144,6 +144,11 @@ blockers and provenance. The reproducible redeployment recipe is task **`5xrm`**
 
 Kata runs under **`kenn-kopy-kata.service`**. Open
 **http://127.0.0.1:17777/kata** and select `engi-platform`.
+The four Falcon repositories also have separate, currently empty Kata
+projects named `supply-chain-user-interface`, `national-item-file-maintenance`,
+`standard-acquisition-interface` and `infrastructure`. Select the matching
+project for application work; each is linked to its corresponding Forge
+repository. Existing platform and Librarian projects are preserved.
 From this repository root:
 
 ```sh
@@ -164,8 +169,10 @@ existing index untouched. Detailed decisions/evidence stay in `context/`.
 Kata does not launch agents or independently execute close-evidence tests.
 Project-scoped MCP access is now configured for private Pi and Copilot;
 automatic attention hooks remain open under `tvbf`.
-Forge can discover/read tasks, but task-to-worktree creation still needs a
-configured repository mapping. [Adoption details](context/kata-adoption.md)
+Forge can discover/read tasks, and the four application repository mappings
+are configured. No application tasks or task-backed workspaces have been
+created. This checkout's agent/CLI scope remains `engi-platform`, not the
+application projects. [Adoption details](context/kata-adoption.md)
 and the [synthetic evaluation](context/kata-evaluation.md) describe the boundaries.
 
 ### Pi and Copilot task access

@@ -15,6 +15,10 @@ worker, automatic delegation or coding/review loop was exercised. Details and
 verified identities are in `tools.md`; `j54x` remains open for its workspace
 milestone.
 
+At 16:27 the same four applications also have separate empty Kata projects
+and exact daemon/project-UID-to-repository mappings. All resolve as `mapped`.
+No task intake, workspace creation or broader agent/MCP scope was added.
+
 ## Owner clarification and verified boundary: 2026-10-13, 11:17
 
 The owner wants to support existing Forge with Superpowers, not introduce a

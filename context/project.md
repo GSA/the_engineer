@@ -16,6 +16,14 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 16:24 the owner authorizes adding the four Falcon
+  repositories to Kata. One empty daemon project per repository is now
+  persisted, with an exact daemon/project-UID-to-repository mapping in Forge.
+  Existing projects and tasks are preserved. No application workspace binding,
+  hook, task import, worker or broader MCP access was added; this checkout's
+  CLI/MCP still pins `engi-platform`. No service restart or source edit was
+  needed. Project creation/mapping does not complete the first-workspace or
+  Jira-to-task milestone.
 - On 2026-10-20 at 16:18 the owner confirms isolated-profile authentication
   and authorizes adding the four private Falcon mirrors to Forge. Exactly
   those four github.com/GSA repositories are now provider-backed entries with

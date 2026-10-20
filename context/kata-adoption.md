@@ -6,6 +6,32 @@ open-task index plus historical completed Markdown records. Keep detailed
 decisions, evidence and operating boundaries in `context/`, not duplicate
 task lists. Falcon's checkout, instructions and backlog were not changed.
 
+## Falcon application projects: 2026-10-20
+
+At 16:24 the owner authorized adding all four mirrored repositories to Kata.
+Each now has its own empty daemon project, separate from the platform backlog:
+
+| Project | Immutable project UID |
+| --- | --- |
+| supply-chain-user-interface | 01M5DFTHB5SDG3BVCZB1DHWB3A |
+| national-item-file-maintenance | 01M5DFTHAQAQSCB9D205R07HZ7 |
+| standard-acquisition-interface | 01M5DFTHAYC77THNNSN9GXBC90 |
+| infrastructure | 01M5DFTHB22JCE92T43C6RQTCY |
+
+Created with native `projects create` through the isolated launcher, without
+binding or editing a checkout. Forge's `kata_projects` settings map each UID
+on daemon `local` to its exact `github` / `github.com` / `gsa/<project>` repo.
+All four persist and resolve as `mapped` after configuration hot reload.
+All four issue lists are empty; no Jira or GitHub task import was requested.
+
+The existing engi-platform, librarian and evaluation projects are preserved.
+This checkout's CLI/MCP remains scoped to engi-platform; adding projects does
+not broaden agent authority or install application instructions/hooks.
+Use Kata's project selector to view the application backlogs. Forge owns the
+repository mapping, not canonical tasks. No task-backed workspace or coding
+loop was launched; evidence is `runtime/falcon-kata-projects.json` under the
+private environment profile.
+
 ## Operations
 
 The owner's 17:55 request moves Kata to independent boot ownership under
