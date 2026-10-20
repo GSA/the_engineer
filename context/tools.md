@@ -1,5 +1,30 @@
 # Upstream components
 
+# USAi model-router catalog refresh: 2026-10-20
+
+The owner requested that Pi expose the latest models advertised by the existing
+USAi router. A fresh authenticated `GET /models` through the secret-safe
+`local_env.py list-models` path returned 22 unique IDs and refreshed the private
+metadata catalog at `.local/environment/usai-models.json`. Both Pi profiles now
+list the 20 chat-model candidates under provider `usai`:
+
+- global CLI: `~/.pi/agent/models.json`
+- Forge/private Pi: `.local/environment/pi/models.json`
+
+`cohere_english_v3` and `text-embedding-005` were excluded because they are
+embedding models rather than Pi chat models. The existing selected/default
+model remains `gpt-5.6-sol-latest-guardrails-defaultv2`; endpoint, API type,
+credential-command/environment references, settings, sessions and MCP config
+are unchanged. The global model's previously verified explicit metadata was
+preserved; newly discovered aliases use Pi's conservative defaults until their
+capabilities and limits are verified rather than guessed.
+
+Both files remain mode 0600. `pi --list-models usai` and the private launcher
+show all 20 IDs, and an exact set check against the fresh router catalog passes.
+No model inference, tool-call compatibility test, credential rotation, service
+restart or publication occurred. Existing interactive sessions can open
+`/model` to reload the file; restart is not required merely for catalog edits.
+
 For the 2026-10-12 live service/boot snapshot, see `status.md`. For Forge
 workflow semantics and draft prompt responsibilities, see
 `engineering-workflow.md`. Repository-free Kata runtime findings and remaining
