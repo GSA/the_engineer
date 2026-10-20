@@ -1,5 +1,35 @@
 # Upstream components
 
+# Helix mirror completed: 2026-10-20
+
+Four FSS19-Cloud repositories are mirrored from `github.helix.gsa.gov` to
+private repositories in the github.com `GSA` organization:
+
+| Repo | Branches | Default |
+| --- | --- | --- |
+| supply-chain-user-interface | 285 | master |
+| national-item-file-maintenance | 97 | master |
+| standard-acquisition-interface | 108 | main |
+| infrastructure | 24 | master |
+
+No repository had tags or submodules, and no blob exceeded 100 MB.
+`falcon-end-users` was deliberately excluded as per-environment YAML only.
+
+GHE exposes read-only `refs/pull/*` refs that github.com rejects with
+`deny updating a hidden ref`. These hold no branch content, so the rejections
+were cosmetic, but the prune step had been written as `for-each-ref
+'refs/pull/*'`, which matches nothing because git's glob does not cross `/`.
+The pattern is now the prefix form `refs/pull`. Mirrors already pushed are
+complete; this only removes the noise from future runs.
+
+`scripts/verify-mirror.sh` is read-only confirmation: it compares every branch
+and tag tip between source and destination and diffs any mismatch. Run it from
+a host with both logins.
+
+Not done: repository settings other than the default branch (topics, Actions,
+branch protection, collaborators) are untouched, and `infrastructure` history
+was pushed without a secret scan by the owner's explicit decision.
+
 # Helix-to-GitHub mirror script: 2026-10-20
 
 `scripts/mirror-helix-to-github.sh` mirrors Git repositories from a Helix

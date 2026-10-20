@@ -1,5 +1,28 @@
 # Status: 2026-10-20
 
+## Real mirror run completed: 13:53
+
+- All four repositories are now mirrored to private github.com/GSA repos by
+  biggestbinary: supply-chain-user-interface (285 branches, default master),
+  national-item-file-maintenance (97, master), standard-acquisition-interface
+  (108, main), infrastructure (24, master). No tags in any repo. Every push
+  verified by ref count and had its default branch set. Clones are retained at
+  the owner's ~/helix-mirror.
+- The `deny updating a hidden ref` rejections were GHE `refs/pull/*` refs,
+  which github.com never accepts and which carry no branch content. They were
+  harmless, but they were supposed to have been pruned: git's `for-each-ref`
+  glob does not cross `/`, so the pattern `refs/pull/*` matched nothing. Fixed
+  to the prefix form `refs/pull`, verified to prune 4 synthetic PR refs.
+  Branch/tag data was unaffected, so the existing GSA mirrors do not need a
+  re-push; a future run will simply not emit the noise.
+- Added `scripts/verify-mirror.sh`, read-only, comparing source and destination
+  branch/tag tips per repo and diffing any mismatch. Verified both identical
+  and extra-branch cases locally. Not yet run against the real repos by the
+  owner.
+- Open items: GSA repo settings beyond default branch are untouched (topics,
+  Actions, branch protection); infrastructure history went up unscanned by
+  owner decision; falcon-end-users remains unmirrored.
+
 ## Batched push for many-ref repos: 13:48
 
 - supply-chain-user-interface has 285 branches, the largest of the four;
