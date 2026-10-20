@@ -1,5 +1,33 @@
 # Status: 2026-10-20
 
+## Falcon clones on this machine: 15:37
+
+- Cloned the four private GSA mirrors to this WSL host's `~/falcon`, not the
+  WorkSpace, with `scripts/clone-gsa-repos.sh`. Took 8 seconds; `origin` is
+  the GSA HTTPS URL in each and no Helix remote exists. `gh api` confirms all
+  four repos report `private=true`.
+
+  | Repo | Branch | Commits | Size | Last commit |
+  | --- | --- | --- | --- | --- |
+  | supply-chain-user-interface | master | 2151 | 20M | 2026-09-22 |
+  | national-item-file-maintenance | master | 723 | 4.1M | 2026-10-16 |
+  | standard-acquisition-interface | main | 893 | 5.5M | 2026-10-19 |
+  | infrastructure | master | 4241 | 24M | 2026-10-16 |
+
+- Verified each clone's `origin/*` branch tips hash-match `git ls-remote`
+  against GSA. Checkouts hold only the default branch's files; the other
+  branches exist as remote refs (285/97/108/24).
+- Shapes: supply-chain-user-interface is an Angular app under `angular/`;
+  national-item-file-maintenance is a Lerna monorepo of `functions`/`shared`
+  with a Node 24 upgrade note; standard-acquisition-interface is AWS CDK
+  TypeScript with `docs/`; infrastructure is CDK with `services/` and a
+  buildspec. supply-chain-user-interface is the one named in CCSMFSSM-1290 and
+  is also the stalest by a month.
+- `scripts/mirror-repos.txt` now holds the four real specs and remains
+  git-ignored. Next: Librarian consumption, then Kata generation; neither has
+  been started, and no decision exists yet on whether katas derive from ticket
+  content or from the code.
+
 ## Working clones script: 14:26
 
 - Owner confirmed all four GSA mirrors are private on github.com. Chose
