@@ -1,5 +1,23 @@
 # Status: 2026-10-20
 
+## Librarian MCP added to this workspace's Pi: 17:40
+
+- `.pi/mcp.json` now declares `falcon-context` beside `kata`. `pi mcp list`
+  shows both connected: 16 Kata tools and 7 corpus tools, `codemode` exposure.
+  Full configuration and verification are in tools.md; the file itself is
+  git-ignored.
+- Separate audit identity for this client: label `pi`, log
+  `tools/context-mcp/.local/audit/pi-mcp-access.jsonl`. The existing `copilot`
+  and `forge-pi` logs were not modified.
+- Preflight exits 0; a temporary stdio client completed one `status` call and
+  wrote exactly one success record. No model call; smoke client closed.
+- This session cannot use the new tools: Pi fixes the codemode tool list at
+  startup, so `mcp__falcon-context__*` needs `/reload` or a new session. The
+  earlier finding stands unchanged — the Librarian contributed nothing to PR 1,
+  and its own audit log is the evidence.
+- Read-only retrieval only. No write path, no network listener, and no
+  authority to publish corpus content.
+
 ## CCSMFSSM-1290 ticket-to-PR demonstration: 17:35
 
 - Jira CCSMFSSM-1290 now has a concrete path to a PR:
