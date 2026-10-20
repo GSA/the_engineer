@@ -1,5 +1,23 @@
 # Status: 2026-10-20
 
+## Mirror script diagnostics: 13:34
+
+- Owner's first run printed nothing and exited 1: the shipped example repos
+  file was all comments, so `read_repos_file`'s last `[ -n "$line" ] &&` test
+  returned 1 under `errexit` and killed the script before any output. Fixed,
+  plus an `ERR` trap so no future silent abort is possible.
+- Second run reached four `FSS19-Cloud` repos but every clone failed inside the
+  same second, and the script only printed a log path. Instant identical
+  failures point at DNS/auth/route, not per-repo problems. Added a preflight
+  `ls-remote` that classifies the cause (no DNS, no credential, 404, TLS CA,
+  blocked route, SSH key) and dies once with that message, plus inline
+  `tail -15` of git's actual output on any clone/push failure, `--protocol ssh`,
+  `--prompt`, and `--skip-preflight`.
+- Local verification covers the all-comment file, blocked host, credential
+  refusal and `--skip-preflight`. The actual Helix failure cause is still
+  unknown: this host has no VPN route and the owner's log file was not read.
+  No Helix clone, GSA repo creation or push has occurred.
+
 ## Helix-to-GitHub mirror script: 11:27
 
 - Owner plans to mirror five Helix repositories to private GitHub.com repos in
