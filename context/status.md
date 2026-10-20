@@ -1,5 +1,28 @@
 # Status: 2026-10-20
 
+## Automatic reviews enabled in six repositories
+
+- Owner-approved scope: kenn-kopy, falcon-docs and all four ~/falcon clones.
+  Each is registered with the existing daemon and has an external private
+  hooks path plus ignored local review config. No active original hooks
+  existed; their sample files and all five external working diffs are intact.
+- Every new local commit queues one standard Pi/USAi review. Existing
+  one-worker routing and private Pi/model/MCP config hashes are unchanged.
+  No fixes, agent hooks, roborev GitHub polling, history backfill or publication.
+  Linked worktrees inherit setup; separate future Forge clones do not.
+- Native repeat installation is byte-stable and automatic repair leaves the
+  external paths alone. Eleven hook integration tests and all 99 environment
+  tests pass. The installer refuses unsupported/conflicting hooks/configs
+  rather than replacing them and restores the hook setting on setup failure.
+- Live commit fb7667a triggered job 2 automatically; it completed/pass in 18s,
+  source post_commit, standard reasoning, non-agentic. Browser dashboard is
+  working; its HTTP check needs Accept: text/html, correcting the earlier 404
+  diagnosis. Details/commands are in tools.md and README.
+- Private evidence: runtime/review-hook-activation.json. Other concurrent
+  Forge/Kata changes were preserved. Services remain active: roborev 478,
+  Forge 42950, AgentsView 475, Kata 477; no restart or temporary process.
+  `hkq0` is closed with specific live-review/test evidence; TODO.md refreshed.
+
 ## Four Falcon Kata projects added and mapped: 16:27
 
 - Created supply-chain-user-interface, national-item-file-maintenance,

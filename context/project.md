@@ -16,6 +16,15 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 16:23 the owner authorizes scoped automatic reviews
+  for kenn-kopy, falcon-docs and all four ~/falcon clones. Each now has a
+  local-only review config and private external hooks path targeting the
+  workspace's scoped roborev launcher. Preserve original hooks, existing
+  dirty files and Pi/USAi routing; review each new local commit with standard
+  reasoning and one worker. No fixes, agent lifecycle hooks, roborev GitHub
+  polling, history backfill or publication. A concurrent real platform commit
+  already triggered completed/pass job 2 without manual review submission.
+  Separate future Forge clones are not covered by these local installations.
 - On 2026-10-20 at 16:24 the owner authorizes adding the four Falcon
   repositories to Kata. One empty daemon project per repository is now
   persisted, with an exact daemon/project-UID-to-repository mapping in Forge.

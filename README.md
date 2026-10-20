@@ -405,18 +405,62 @@ fail the review**. The intentionally broken fixture is retained for inspection,
 not as production code. Its Git hooks are disabled. Falcon was not edited and
 no automatic reviews were enabled in real repositories.
 
-**Future hook setup requires an agreed per-project layout.** Pass this
-executable's absolute path as `--binary` and use `init --no-daemon`; merely
-invoking `init` through the launcher does not select its executable for hooks.
-This roborev version rewrites managed hooks inside `.git/hooks` to the native
-binary on daemon startup/updates. To retain the scoped executable, use an
-explicitly approved, per-repository user-managed hooks directory outside Git
-metadata through `core.hooksPath`, preserving/chaining existing hooks.
-That protected layout was checked in a disposable fixture, including paths
-with spaces and automatic-repair preservation. Do not change a real project's
-hooks path or install hooks before agreeing its review rules and hook migration.
-Manual review can maintain existing roborev hooks, but does not install them
-from scratch.
+### Automatic commit reviews
+
+On 2026-10-20 the owner enabled automatic reviews in **this platform checkout,
+`~/falcon-docs`, and all four `~/falcon/<repository>` clones**. Every new local
+commit queues one standard-reasoning Pi review through the existing USAi
+profile, with one daemon worker. Existing history is not backfilled.
+Automatic fixes, agent lifecycle hooks, roborev GitHub polling and publication
+remain disabled. Reviews do not block commits or pushes.
+
+The repeatable installer takes explicit, approved main-checkout paths:
+
+```sh
+python3 scripts/roborev_hooks.py --profile platform "$PWD"
+python3 scripts/roborev_hooks.py --profile corpus "$HOME/falcon-docs"
+python3 scripts/roborev_hooks.py --profile application \
+  "$HOME/falcon/supply-chain-user-interface" \
+  "$HOME/falcon/national-item-file-maintenance" \
+  "$HOME/falcon/standard-acquisition-interface" \
+  "$HOME/falcon/infrastructure"
+```
+
+It writes a machine-local `.roborev.toml` with actionable-defect guidelines,
+per-commit review policy and generated/runtime-directory exclusions. Local
+`.git/info/exclude` entries keep that config and snapshots out of Git; no
+application/corpus source or tracked ignore file is changed. Existing differing
+review configs are refused, not overwritten.
+
+Each repository's `core.hooksPath` selects its own private directory under
+`.local/environment/roborev/hooks/`. The installer copies existing hooks without
+changing their originals, then uses `init --no-daemon --binary <scoped launcher>`
+to install post-commit, post-rewrite and pre-push hooks. All six repositories
+initially had only inactive sample hooks. Supported shell hooks are chained;
+non-shell managed hooks or an existing post-rewrite hook require an explicit
+migration rather than unsafe replacement. Installation metadata records the
+previous hook settings.
+
+This external hook location prevents native startup/update repair from
+replacing the scoped launcher. Missing-launcher errors are visible and never
+fall back to global roborev discovery. Native enqueue failures are recorded
+in `.local/environment/roborev/post-commit.log`.
+
+Watch results in `./scripts/roborev-local.py tui` or
+http://127.0.0.1:17374/reviews. The browser route needs `Accept: text/html` for
+command-line HTTP checks. Linked worktrees inherit these hooks and the
+untracked main-checkout review config; separate clones, including future
+Forge-managed clones, need their own approved installation.
+
+To disable hooks in any of these six originally unconfigured repositories:
+
+```sh
+git -C /absolute/path/to/repository config --local --unset core.hooksPath
+```
+
+That restores the untouched `.git/hooks` directory. For another repository
+with prior settings, restore the values recorded in its `installation.json`
+instead of blindly unsetting them.
 
 Normal structured reviews use read-only tools and `--no-session`; this is
 **not an OS sandbox**, and those jobs do not become ordinary saved Pi sessions
