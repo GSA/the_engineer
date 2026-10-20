@@ -5,15 +5,19 @@
 - Queried the configured USAi router's authenticated `/models` endpoint through
   the existing secret-safe helper. It returned 22 unique IDs and refreshed the
   private timestamped discovery catalog without logging the key.
-- Updated global CLI Pi and Forge/private Pi `models.json` files with all 20
-  advertised chat-model candidates. Excluded the two embedding-only IDs,
-  `cohere_english_v3` and `text-embedding-005`. Preserved the current selected
-  model and its verified global metadata; did not guess capabilities for new
-  aliases.
-- Exact catalog-set checks pass, both files remain 0600, and normal/private
-  `--list-models usai` show all 20 IDs. Endpoint, protocol, credential linkage,
-  settings, sessions and MCP config are unchanged. No inference request,
-  compatibility claim, service restart, task mutation or publication.
+- Initially updated global CLI Pi and Forge/private Pi with the router's 20 chat
+  candidates, excluding the two embedding-only IDs. At the owner's follow-up
+  choice, reduced both visible catalogs to seven newest-per-family aliases:
+  Claude 5 Opus/Sonnet, Gemini 3.8 Flash, the three GPT-5.6 aliases and Llama 4
+  Maverick. Preserved the current selected model and verified metadata.
+- Removed the duplicate global `litellm-usai` route, its `pi-provider-litellm`
+  package and now-unused LiteLLM settings. Retained explicit `usai` because it
+  is shared conceptually with Forge/private Pi and keeps the curated list stable.
+  Other packages, credentials, sessions and MCP configuration are unchanged.
+- Normal/private model listing now shows only those seven `usai` entries; the
+  duplicate provider is absent, configuration remains 0600 and focused shared-
+  key tests pass. Existing sessions should restart to unload the extension.
+  No inference request, service restart, task mutation or publication.
 
 ## Parent epic and owner-started mirror: 10:01
 
