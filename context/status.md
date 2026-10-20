@@ -1,5 +1,20 @@
 # Status: 2026-10-20
 
+## Pi model-router catalog refresh: 10:38
+
+- Queried the configured USAi router's authenticated `/models` endpoint through
+  the existing secret-safe helper. It returned 22 unique IDs and refreshed the
+  private timestamped discovery catalog without logging the key.
+- Updated global CLI Pi and Forge/private Pi `models.json` files with all 20
+  advertised chat-model candidates. Excluded the two embedding-only IDs,
+  `cohere_english_v3` and `text-embedding-005`. Preserved the current selected
+  model and its verified global metadata; did not guess capabilities for new
+  aliases.
+- Exact catalog-set checks pass, both files remain 0600, and normal/private
+  `--list-models usai` show all 20 IDs. Endpoint, protocol, credential linkage,
+  settings, sessions and MCP config are unchanged. No inference request,
+  compatibility claim, service restart, task mutation or publication.
+
 ## Parent epic and owner-started mirror: 10:01
 
 - Read the supplied CCSMFSSM-4344 XML. It is a broad UI-enhancement epic,
