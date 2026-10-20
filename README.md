@@ -474,14 +474,14 @@ on-demand stack is stopped. Disable boot startup, retaining data, with
 `systemctl --user disable --now kenn-kopy-forge.service`; start the service
 again before running the on-demand stack.
 
-GitHub access was reported available on 2026-10-09, but this WSL profile still
-needs authentication and a specific approved repository. The enterprise host
-is **`github.helix.gsa.gov`**, not GitHub.com. The owner confirmed this
-workstation is approved on 2026-10-12; local handling permission is no longer
-an open blocker. **Login/import still awaits an approved network path**:
-VPN access was last reported unavailable. Workstation approval does not
-override the separate prohibition on exporting assets from Citrix VDI.
-Use the login below once approved connectivity is available. The workspace-local
+As of 2026-10-20, the four private GSA Falcon mirrors and working clones are
+available; normal `gh` can access them. Use **`github.com`** for Forge mirror
+intake, not the original enterprise host `github.helix.gsa.gov`. Direct Helix
+connectivity is no longer a prerequisite for these mirrors. Local workstation
+handling approval is settled; the separate Citrix VDI export prohibition is
+unchanged.
+
+Forge's isolated GitHub profile still needs its own login. The workspace-local
 GitHub CLI **2.102.0** is installed by `scripts/bootstrap-toolchains.sh` using
 the official release archive and a pinned SHA-256. No global installation or
 shell settings change is needed:
@@ -493,8 +493,8 @@ shell settings change is needed:
 The launcher and Forge share ignored `.local/environment/gh/`, not your global
 GitHub CLI profile. Both drop inherited tokens and use the same private HOME.
 Authenticate in **your own terminal**, replacing `HOST` with the confirmed
-bare host from the approved repository URL (`github.helix.gsa.gov`, without
-`https://`):
+bare host from the approved repository URL (`github.com` for the GSA mirrors,
+without `https://`):
 
 ```sh
 ./scripts/gh-local.py auth login --hostname HOST --web \

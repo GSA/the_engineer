@@ -16,6 +16,14 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-20 at 16:13 the owner asks whether the mirrored Falcon repos
+  can now be added to Forge. Read-only checks confirm the normal GitHub CLI
+  can access all four private GSA mirrors; direct Helix access is not needed
+  for this intake. Forge is healthy but its separate CLI profile remains
+  unauthenticated, provider sync is startup-disabled, and its repo/workspace
+  collections are empty. Connection is now feasible pending that local wiring;
+  this readiness question does not authorize credential changes, sync enablement,
+  workers or publication. Existing Pi/USAi routing remains required.
 - On 2026-10-20 at 10:01 the owner supplies parent CCSMFSSM-4344's XML
   and reports beginning the supply-chain-user-interface mirror. The epic's
   only description is "All FALCON UI enhancement, change and updates."

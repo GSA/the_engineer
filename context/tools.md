@@ -1,5 +1,25 @@
 # Upstream components
 
+# Forge repository readiness: 2026-10-20 at 16:14
+
+Normal `gh api` authenticates to github.com as biggestbinary. A bounded GraphQL
+read confirms all four GSA mirrors below are private and accessible with ADMIN
+permission; their default branches match the recorded clones. This does not
+authorize writes or mean Forge can use the normal CLI's credentials.
+
+`python3 scripts/gh-local.py api --hostname github.com graphql ...` exits 4
+with the CLI's login-required message. Forge shares this isolated profile, not
+the normal CLI profile. Its healthy boot service still starts with
+`--disable-sync` (`scripts/local_env.py::forge_command`), and live
+`/api/v1/repos` and `/api/v1/workspaces` reads return empty collections.
+
+Use owner-terminal authentication in that profile against **github.com** for
+these mirrors, then deliberately configure only the selected repositories and
+enable scoped sync. Restart alone does not remove the startup flag. No Helix
+route, GitHub App or local-project UI modification is needed for mirror intake.
+This assessment changed no credentials, services, provider configuration,
+repository content or task state and started no experimental process.
+
 # Helix mirror completed: 2026-10-20
 
 Four FSS19-Cloud repositories are mirrored from `github.helix.gsa.gov` to
