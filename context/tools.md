@@ -1,5 +1,28 @@
 # Upstream components
 
+# Falcon Kata projects mapped: 2026-10-20 at 16:27
+
+Owner-authorized native `kata projects create` added one empty project per
+Falcon repository through `scripts/kata-local.py --as copilot`. Project names
+match repository names; immutable UIDs are recorded in `kata-adoption.md`.
+No checkout binding or alias is needed for a daemon project.
+
+Native partial `PUT /api/v1/settings` persisted four exact `kata_projects`
+entries using daemon `local`, project UID, provider `github`, host
+`github.com` and matching `gsa/<repository>` paths. After native hot reload,
+`GET /api/v1/kata/project-mappings` reports all four `mapped` with source
+`manual_daemon`; no restart was needed. The immediate pre-reload response
+reported `tracked_repo`, so verification checks the resolved repository and
+mapped status rather than assuming that provenance label is stable.
+
+All four native issue-list reads return `issues: []`. Existing engi-platform,
+librarian and evaluation project UIDs are preserved, as are all service PIDs.
+Application checkouts, agent/MCP scope, credentials and existing tasks were
+not changed; no worker, hook, model request or publication occurred.
+Secret-free evidence: `.local/environment/runtime/falcon-kata-projects.json`.
+No temporary process remains. This adds project/mapping metadata only, not
+application tasks or a demonstrated task-to-worktree flow.
+
 # Forge mirrors connected: 2026-10-20 at 16:21
 
 The owner authenticated Forge's isolated github.com profile and authorized
