@@ -52,6 +52,29 @@ Kata tools. No model call was made and all smoke clients closed. Existing
 running sessions need reconnect/restart to load the changed arguments; no
 supervised service or active session was restarted.
 
+# Parent UI epic: 2026-10-20
+
+At 10:01 the owner supplies CCSMFSSM-4344's XML, generated October 20 at
+14:00:43 UTC, and reports beginning the supply-chain-user-interface mirror.
+The epic is titled "[EP] FALCON UI Enhancement" and describes only:
+
+> All FALCON UI enhancement, change and updates.
+
+It reports parent CCSMFSSM-3663, workflow status Implementing, custom Epic
+Status To Do, unresolved/unassigned, last updated April 29, 2026, and
+Definition of Ready/Done both No. Preserve the two status fields separately;
+do not reconcile them into a claim about current delivery. No separate
+acceptance criteria, Development links or explanation of "NIF changes" is
+provided. This establishes broad grouping, not proof of a dependency,
+supersession or an unimplemented child feature.
+
+No further ancestor export is needed at this stage. Await the mirror URL
+and intended baseline branch/commit, then inspect repository instructions,
+the existing warning text/behavior, NIF substitute lookup/AAC response and
+test conventions. Resolve code-answerable questions there before returning
+business ambiguities to the owner. No new requirement or implementation
+Kata is approved by this parent export; no code or mirror was inspected.
+
 # Real-business demo selection: 2026-10-19
 
 At 17:32 the owner supplies a Jira XML export generated October 19 at
