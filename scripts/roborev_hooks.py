@@ -133,14 +133,6 @@ def install(repo, profile):
         # Native remap consumes stdin; never prepend it to an existing rewrite hook.
         if (current / "post-rewrite").exists():
             raise RuntimeError(f"existing post-rewrite hook needs an explicit stdin-preserving migration: {repo}")
-        for name in ("post-commit", "pre-push"):
-            path = current / name
-            if path.exists():
-                first = next(iter(path.read_text().splitlines()), "")
-                if first.startswith("#!") and first.split()[0] not in (
-                    "#!/bin/sh", "#!/bin/bash", "#!/usr/bin/sh", "#!/usr/bin/bash",
-                ):
-                    raise RuntimeError(f"existing non-shell hook requires explicit chaining: {path}")
         local_env.private_dir(base)
         if current.is_dir():
             shutil.copytree(current, hooks, symlinks=True)
