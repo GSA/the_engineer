@@ -384,6 +384,50 @@ Exact source revisions are the parent repository's gitlinks:
 Ghosthub was downloaded and then removed at the user's request because it
 requires macOS.
 
+# Librarian MCP connected to project Pi: 2026-10-20 at 17:40
+
+Added the FALCON `falcon-context` server to this workspace's private
+`.pi/mcp.json` beside the existing `kata` entry, so the project-scoped Pi
+session this repository uses gets qualified read-only corpus retrieval. That
+file is git-ignored (`.gitignore:7`); this entry is the committed record of its
+contents.
+
+`pi mcp list` reports both servers connected: `kata` with 16 tools and
+`falcon-context` with 7 (`status`, `search`, `get`, `get_many`, `coverage`,
+`catalog`, `review_events`), both `codemode` exposure, source `project`.
+
+Configuration follows the server README's example host block rather than the
+shorter form already in `.local/environment/pi/mcp.json`: explicit
+`--event-reader`, `--manifest`, `--db`, `--max-source-chars 30000`,
+`--max-output-chars 60000`, `--max-results 25`, `--timeout-seconds 30`, plus
+`--audit-log --audit-log-mode full` and a **separate** label/path for this
+client:
+
+- `tools/context-mcp/.local/audit/pi-mcp-access.jsonl`, label `pi`
+
+The existing `copilot` and `forge-pi` labels and logs are untouched, so each
+client's trace stays distinguishable. The new log is git-ignored by the corpus
+repository (`.gitignore:22`) and inherits FALCON source handling restrictions.
+
+Verified before and after wiring: `qualified-context-preflight` exits 0 with
+`ok: true` for runtime (Python 3.14.4, SQLite 3.46.1, mcp 2.2.0, FTS5),
+configuration, schema snapshots, catalog (67,852 records, revision 90),
+review events (1,670 events, 1,377 active) and index freshness. A temporary
+stdio client using the exact saved argument list initialized, listed the seven
+tools and completed one `status` call, which appended a single `success` record
+to the new log. The smoke client closed; no model call was made.
+
+This is retrieval only. The server has no network listener, no embeddings and
+no write path; corpus maintenance still goes through the Markdown and
+authoritative store CLIs. Registration is not authorization to publish corpus
+content, and stdio does not stop a client from forwarding returned text to its
+model provider.
+
+Already-running Pi sessions keep the tool list captured at startup, so
+`codemode` in this session cannot call `mcp__falcon-context__*` until `/reload`
+or a new session. Nothing about Copilot's configuration, global Pi, the
+supervised services or the Kata entry changed.
+
 # Falcon MCP audit logging: 2026-10-19 at 17:42
 
 Owner-authorized full audit capture is configured in the existing
