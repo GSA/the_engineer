@@ -22,6 +22,7 @@
 #   --prompt              allow Git to prompt for source credentials
 #   --skip-preflight      skip the source-host reachability check
 #   --dest-org ORG        GitHub.com org (default: $GITHUB_DEST_ORG or GSA)
+#   --dest-host HOST      destination host (default github.com)
 #   --dest-prefix STR     prefix added to every destination repo name
 #   --workdir DIR         where mirrors are cloned (default: mktemp -d)
 #   --keep                keep the clones and logs after a successful run
@@ -48,6 +49,7 @@ PROTOCOL="https"
 ALLOW_PROMPT=0
 SKIP_PREFLIGHT=0
 DEST_ORG="${GITHUB_DEST_ORG:-GSA}"
+DEST_HOST="${GITHUB_DEST_HOST:-github.com}"
 DEST_PREFIX=""
 WORKDIR=""
 KEEP=0
@@ -92,6 +94,7 @@ while [ "$#" -gt 0 ]; do
         --prompt) ALLOW_PROMPT=1; shift ;;
         --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
         --dest-org) DEST_ORG="${2:?--dest-org needs a value}"; shift 2 ;;
+        --dest-host) DEST_HOST="${2:?--dest-host needs a value}"; shift 2 ;;
         --dest-prefix) DEST_PREFIX="${2:?--dest-prefix needs a value}"; shift 2 ;;
         --workdir) WORKDIR="${2:?--workdir needs a value}"; shift 2 ;;
         --repos-file) read_repos_file "${2:?--repos-file needs a value}"; shift 2 ;;
@@ -154,7 +157,7 @@ cleanup() {
 trap cleanup EXIT
 
 log "source host : $SOURCE_HOST"
-log "destination : github.com/$DEST_ORG (private)"
+log "destination : $DEST_HOST/$DEST_ORG (private)"
 log "workspace   : $WORKDIR"
 log "repositories: $log_count -> ${REPO_ARGS[*]}"
 log "protocol    : $PROTOCOL"
@@ -223,6 +226,20 @@ if [ "$SKIP_PREFLIGHT" -eq 0 ]; then
         *) preflight_spec="$SOURCE_ORG/$preflight_spec" ;;
     esac
     preflight "$preflight_spec"
+
+    # Check the destination too, before spending time on large clones.
+    if [ "$DRY_RUN" -eq 0 ]; then
+        log "preflight   : checking $DEST_HOST login"
+        if ! dest_login="$(GH_HOST="$DEST_HOST" gh api user --jq .login 2>&1)"; then
+            printf 'gh said:\n\n%s\n\n' "$dest_login" >&2
+            die "not authenticated to $DEST_HOST. Run 'gh auth login --hostname $DEST_HOST'. Nothing was cloned."
+        fi
+        log "preflight   : $DEST_HOST authenticated as $dest_login"
+        if ! GH_HOST="$DEST_HOST" gh api "orgs/$DEST_ORG" --jq .login >/dev/null 2>&1; then
+            die "account $dest_login cannot see organization $DEST_ORG on $DEST_HOST. Confirm membership and that the token has the 'read:org' scope."
+        fi
+        log "preflight   : $DEST_ORG visible to $dest_login"
+    fi
 fi
 
 audit_blob_sizes() {
@@ -279,7 +296,7 @@ for spec in "${REPO_ARGS[@]}"; do
     dest_full="$DEST_ORG/$dest_name"
 
     src_url="$(source_url "$src_org" "$src_repo")"
-    dest_url="https://github.com/$dest_full.git"
+    dest_url="https://$DEST_HOST/$dest_full.git"
     mirror_dir="$WORKDIR/$src_org--$src_repo.git"
     repo_log="$LOGDIR/$dest_name.log"
 
@@ -349,7 +366,8 @@ for spec in "${REPO_ARGS[@]}"; do
     fi
 
     # 5. Create the private destination if it does not exist.
-    if gh repo view "$dest_full" >>"$repo_log" 2>&1; then
+    # GH_HOST pins gh to the destination host now that two hosts are logged in.
+    if GH_HOST="$DEST_HOST" gh repo view "$dest_full" >>"$repo_log" 2>&1; then
         log "    destination exists"
         existing_refs="$(git ls-remote --heads --tags "$dest_url" 2>>"$repo_log" | wc -l | tr -d ' ')"
         if [ "$existing_refs" != "0" ] && [ "$ALLOW_NONEMPTY" -eq 0 ]; then
@@ -359,8 +377,10 @@ for spec in "${REPO_ARGS[@]}"; do
         fi
     else
         log "    creating private repo $dest_full"
-        if ! gh repo create "$dest_full" --private \
+        if ! GH_HOST="$DEST_HOST" gh repo create "$dest_full" --private \
                 --description "Mirror of $SOURCE_HOST/$src_org/$src_repo" >>"$repo_log" 2>&1; then
+            log "    gh repo create output:"
+            sed 's/^/        /' "$repo_log" | tail -10
             repo_failed "gh repo create failed (token may lack org repo-creation rights)"
             cd "$WORKDIR"
             continue
