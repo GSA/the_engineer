@@ -1,5 +1,80 @@
 # Status: 2026-10-20
 
+## CCSMFSSM-1290 spec readiness against real code: 16:10
+
+Inspected the actual checkouts for the first time; earlier 1290 analysis was
+Librarian-generated documentation.
+
+**The requirement is now locatable.** `nif-addedit.component.ts` and
+`nif-addedit.component.html` under
+`supply-chain-user-interface/angular/fss-ui/src/app/nif-workspace/` own the NIF
+add/edit form. `nif-metadata.ts` confirms the ticket's codes: `V - Terminal
+Item in stock` and `Y - Terminal Item (no stock available)`, matching
+"terminal or obsolete".
+
+**The central design gap is answerable but unanswered.** `substituteNSN` is a
+plain masked text input, validated only for length, format and difference from
+the primary NSN; `grep` confirms it is never passed to any service call. The
+AAC on the form (`acquisitionAdviceCode` / `d403_acq_ad`) is the *edited item's*
+own code, not the substitute's. So the warning needs the substitute's AAC,
+which the UI does not have. `NIFService.getNSNServiceData(nsn)` already returns
+`d403_acq_ad` for an arbitrary NSN, and the backend
+`functions/get-nsn-service-details` populates it, so a lookup on the substitute
+NSN is feasible with no backend change. Whether 1290's "It will taken care with
+NIF changes" means that lookup, a new response field, or a backend-computed
+flag is still unresolved and is the one question worth asking the team.
+
+**Existing rules to preserve, read from code, not inferred:** AAC `Y` forces
+MOP `01` (`acquisitionAdviceCodeChange`); phrase code becomes required when AAC
+is `Y`; substitute NSN becomes required when phrase code is in
+`["A","C","D","F","Y","Z"]`; substitute NSN must be >= 13 chars and differ from
+the NSN. `isFormValid()` is the single submit gate, so a *soft* warning must not
+be added to it. The file already distinguishes blocking `usa-error-message`
+from advisory `usa-hint`, and the app uses `usa-alert--warning` in eight places.
+
+**Verification is the real blocker, and both repos are red before any change.**
+
+- `supply-chain-user-interface` has no working test command. `npm ci
+  --legacy-peer-deps` succeeds (601 packages), but `ng test` dies with `Cannot
+  find module 'karma'`: `karma`, `karma-jasmine`, `karma-chrome-launcher`,
+  `karma-coverage`, `karma-jasmine-html-reporter` and `jasmine-core` are absent
+  from `package.json` and `package-lock.json` entirely, no Chrome exists on this
+  host, and `src/test.ts` imports `zone.js/dist/zone-testing`, a path that does
+  not exist in the pinned zone.js 0.15. `nif-addedit.component.spec.ts` is an
+  empty `describe`. `.github/workflows/pr-check.yml` runs only Snyk and
+  `build:dev`, so CI never executed these specs either.
+- `npm run build:dev` also fails locally for environmental reasons: font
+  inlining cannot reach `fonts.googleapis.com` (TLS CA) and the initial bundle
+  exceeds its 5 MB budget by 5.5 MB. `gen_cognito_conf.sh` must run first or
+  `autoGenConfig.ts` is missing; it works without AWS, leaving empty Cognito
+  IDs. `npx tsc -p tsconfig.app.json --noEmit` passes cleanly and is currently
+  the only green gate in that repo.
+- `national-item-file-maintenance` declares `nyc` and `ts-node` in its test
+  script but neither is in `package.json`. With both installed ad hoc and
+  `--no-experimental-strip-types` plus explicit mocha/chai types, the
+  `get-nsn-service-details` suite runs and all five tests fail on a pre-existing
+  cause: `validateToken` reads `event.headers['x-api-key']` and the tests pass
+  `headers: null`. Auth was added 2022-01-18; the tests were last touched
+  2021-09-15. Seven `.test.ts` files exist across the repo.
+
+No repo file was modified; both checkouts are clean. `node_modules` is now
+populated in both (gitignored), and `autoGenConfig.ts` was generated
+(gitignored).
+
+**Kata registration is already done.** All four application projects were
+created at 20:25 UTC and resolve in `projects list`:
+supply-chain-user-interface (30), national-item-file-maintenance (27),
+standard-acquisition-interface (28), infrastructure (29), plus librarian (26).
+All four issue lists are empty. `scripts/kata-local.py` hard-refuses
+`--project`, `--workspace` and `--daemon`, so it cannot write katas into them;
+authoring application katas needs an explicit decision about which actor and
+entry point may write to a non-platform project.
+
+**Not established:** whether 1290 is still wanted or was bundled into parent
+CCSMFSSM-4344; whether the warning fires on blur, on change or at submit;
+whether a lookup failure on the substitute NSN should warn, stay silent or
+block; and which verification gate a kata may legitimately require.
+
 ## Automatic reviews enabled in six repositories
 
 - Owner-approved scope: kenn-kopy, falcon-docs and all four ~/falcon clones.
