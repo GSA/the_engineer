@@ -1,5 +1,24 @@
 # Status: 2026-10-20
 
+## Working clones script: 14:26
+
+- Owner confirmed all four GSA mirrors are private on github.com. Chose
+  `~/falcon/<repo>` working clones, cloned from github.com/GSA so `origin` is
+  the PR remote, with no Helix remote added.
+- Added `scripts/clone-gsa-repos.sh`: reads the same repos file, verifies the
+  github.com login before looping, clones each mirror, and is idempotent. An
+  existing clone of the same repo is fetched with `--prune`, never reset or
+  checked out, so a dirty tree and a custom branch survive a re-run. A path
+  with a different origin or a non-repo path is skipped, not overwritten.
+  Origin comparison uses `ls-remote --get-url` so insteadOf rules do not cause
+  a false mismatch.
+- Verified locally with a stub gh and a local upstream: clone, re-run fetch,
+  dirty-tree/custom-branch preservation, wrong-origin skip, occupied-path skip,
+  and the unauthenticated guard, which exits before creating the parent dir.
+  The owner has not yet run it against the real GSA repos.
+- Next, per the owner: Librarian consumption of these clones, then Kata
+  generation. No Librarian corpus or Kata work has been started.
+
 ## Real mirror run completed: 13:53
 
 - All four repositories are now mirrored to private github.com/GSA repos by
