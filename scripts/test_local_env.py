@@ -279,14 +279,87 @@ class LocalEnvironmentTests(unittest.TestCase):
 
     def test_scoped_kata_allows_registered_application_projects_only(self):
         for project in local_env.KATA_APPLICATION_PROJECTS:
-            for args in (["--project", project, "list"], ["list", f"--project={project}"]):
+            for args in (["--project", project, "--as", "copilot", "list"],
+                         ["list", "--as=copilot", f"--project={project}"]):
                 with self.subTest(args=args):
-                    self.assertEqual(local_env.kata_project_scope(args), (project, ["list"]))
-        # The platform project stays the default and a pass-through keeps its arguments.
+                    self.assertEqual(
+                        local_env.kata_project_scope(args, allow_application_projects=True),
+                        (project, ["--as", "copilot", "list"]),
+                    )
         self.assertEqual(local_env.kata_project_scope(["ready"]), ("engi-platform", ["ready"]))
         self.assertEqual(
-            local_env.kata_project_scope(["--project", "infrastructure", "show", "--", "--project", "x"]),
-            ("infrastructure", ["show", "--", "--project", "x"]),
+            local_env.kata_project_scope(
+                ["--project", "infrastructure", "--as=copilot", "create", "--",
+                 "--project=librarian", "--as=pi", "--workspace=other"],
+                allow_application_projects=True,
+            ),
+            ("infrastructure", ["--as", "copilot", "create", "--",
+                                "--project=librarian", "--as=pi", "--workspace=other"]),
+        )
+
+    def test_kata_application_selection_requires_cli_opt_in(self):
+        args = ["--project=infrastructure", "--as=copilot", "list"]
+        with self.assertRaisesRegex(RuntimeError, "CLI-only"):
+            local_env.kata_launch(args)
+
+    def test_kata_cli_application_selection_requires_one_explicit_copilot_actor(self):
+        for actor_args in ([], ["--as", "pi"], ["--as=nkirrish"], ["--as="], ["--as"],
+                           ["--as", "copilot", "--as", "pi"],
+                           ["--as=copilot", "--as=copilot"], ["--a=copilot"],
+                           ["--", "--as=copilot"]):
+            args = ["--project=infrastructure", "list", *actor_args]
+            with self.subTest(args=args), patch.dict(os.environ, {"KATA_AUTHOR": "copilot"}):
+                with self.assertRaisesRegex(RuntimeError, "one explicit --as copilot"):
+                    local_env.kata_launch(args, allow_application_projects=True)
+
+    def test_kata_cli_rejects_duplicate_project_selection(self):
+        for project in ("infrastructure", "engi-platform"):
+            args = ["--project", "infrastructure", "--as", "copilot",
+                    "list", "--project=" + project]
+            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "once"):
+                local_env.kata_launch(args, allow_application_projects=True)
+
+    def test_kata_cli_application_selection_keeps_scope_and_credentials_pinned(self):
+        for project in local_env.KATA_APPLICATION_PROJECTS:
+            with self.subTest(project=project), patch.object(Path, "is_file", return_value=True), \
+                    patch.object(local_env.os, "access", return_value=True), \
+                    patch.dict(os.environ, {"KATA_AUTHOR": "pi", "KATA_HOME": "/wrong",
+                                           "KATA_SERVER": "https://wrong.example",
+                                           "USAI_API_KEY": "not-inherited"}):
+                command, env = local_env.kata_launch(
+                    ["list", "--json", "--project=" + project, "--as=copilot"],
+                    allow_application_projects=True,
+                )
+            self.assertEqual(command, [
+                str(local_env.ROOT / "kata/kata"), "--workspace", str(local_env.ROOT),
+                "--project", project, "--as", "copilot", "list", "--json",
+            ])
+            self.assertEqual(env["KATA_HOME"], str(self.state / "kata"))
+            self.assertEqual(env["KATA_SERVER"], "http://127.0.0.1:17777")
+            self.assertNotIn("KATA_AUTHOR", env)
+            self.assertNotIn("USAI_API_KEY", env)
+        for flag in ("--workspace", "--daemon"):
+            for override in ([flag, "other"], [flag + "=other"]):
+                args = ["--project=infrastructure", "--as=copilot", "list", *override]
+                with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins"):
+                    local_env.kata_launch(args, allow_application_projects=True)
+        for project in ("librarian", "kata-evaluation-20261012", "other", ""):
+            args = ["--project=" + project, "--as=copilot", "list"]
+            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "allows only"):
+                local_env.kata_launch(args, allow_application_projects=True)
+
+    def test_kata_cli_preserves_platform_arguments_and_literal_scope_flags(self):
+        for args in (["ready"], ["list", "--as", "pi"],
+                     ["--project=engi-platform", "list", "--as", "nkirrish"]):
+            with self.subTest(args=args):
+                self.assertEqual(
+                    local_env.kata_project_scope(args, allow_application_projects=True),
+                    ("engi-platform", [arg for arg in args if arg != "--project=engi-platform"]),
+                )
+        args = ["create", "--", "--project=librarian", "--as=pi", "--daemon=other"]
+        self.assertEqual(
+            local_env.kata_project_scope(args, allow_application_projects=True),
+            ("engi-platform", args),
         )
 
     def test_scoped_kata_entrypoint_preserves_directory(self):
@@ -296,9 +369,15 @@ class LocalEnvironmentTests(unittest.TestCase):
             with patch.object(os, "execve") as execute, patch.object(os, "chdir") as chdir:
                 with patch.object(os, "umask"), patch.object(local_env.sys, "argv", ["launcher", "ready"]):
                     runpy.run_path(str(local_env.ROOT / "scripts/kata-local.py"))
-        launch.assert_called_once_with(["ready"])
+        launch.assert_called_once_with(["ready"], allow_application_projects=True)
         execute.assert_called_once_with(command[0], command, env)
         chdir.assert_not_called()
+
+    def test_kata_mcp_does_not_enable_application_project_selection(self):
+        for actor in ("pi", "copilot"):
+            with self.subTest(actor=actor), patch.object(local_env, "kata_launch") as launch:
+                local_env.kata_mcp_launch(actor)
+            launch.assert_called_once_with(["--as", actor, "mcp", "serve"])
 
     def test_kata_mcp_pins_actor_scope_and_sanitizes_credentials(self):
         with patch.object(Path, "is_file", return_value=True), \

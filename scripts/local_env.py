@@ -396,13 +396,9 @@ def github_cli_launch(args):
     return [str(GH_BINARY), *args], env
 
 
-def kata_project_scope(args):
-    """Resolve the pinned project and return it with the remaining arguments.
-
-    The workspace and daemon stay pinned. ``--project`` selects one registered
-    project: the platform default or a Falcon application project.
-    """
-    project, rest, index = KATA_PLATFORM_PROJECT, [], 0
+def kata_project_scope(args, *, allow_application_projects=False):
+    """Resolve project selection without broadening the default MCP scope."""
+    project, rest, index = None, [], 0
     while index < len(args):
         arg = args[index]
         if arg == "--":
@@ -412,6 +408,8 @@ def kata_project_scope(args):
                for flag in ("--workspace", "--daemon")):
             raise RuntimeError("the scoped Kata launcher pins this workspace and local daemon")
         if arg == "--project" or arg.startswith("--project="):
+            if project is not None:
+                raise RuntimeError("--project may be specified only once")
             if arg == "--project":
                 index += 1
                 if index >= len(args):
@@ -427,12 +425,27 @@ def kata_project_scope(args):
         else:
             rest.append(arg)
         index += 1
+    if project is None:
+        project = KATA_PLATFORM_PROJECT
+    if project in KATA_APPLICATION_PROJECTS:
+        if not allow_application_projects:
+            raise RuntimeError("application project selection is CLI-only; MCP stays on engi-platform")
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False, exit_on_error=False)
+        parser.add_argument("--as", dest="actors", action="append")
+        actor_error = "application project selection requires exactly one explicit --as copilot"
+        try:
+            selection, rest = parser.parse_known_args(rest)
+        except argparse.ArgumentError as error:
+            raise RuntimeError(actor_error) from error
+        if selection.actors != ["copilot"]:
+            raise RuntimeError(actor_error)
+        rest = ["--as", "copilot", *rest]
     return project, rest
 
 
-def kata_launch(args):
+def kata_launch(args, *, allow_application_projects=False):
     settings()
-    project, rest = kata_project_scope(args)
+    project, rest = kata_project_scope(args, allow_application_projects=allow_application_projects)
     binary = ROOT / "kata/kata"
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError("missing executable Kata binary; build it before using the launcher")

@@ -144,7 +144,7 @@ blockers and provenance. The reproducible redeployment recipe is task **`5xrm`**
 
 Kata runs under **`kenn-kopy-kata.service`**. Open
 **http://127.0.0.1:17777/kata** and select `engi-platform`.
-The four Falcon repositories also have separate, currently empty Kata
+The four Falcon repositories also have separate Kata
 projects named `supply-chain-user-interface`, `national-item-file-maintenance`,
 `standard-acquisition-interface` and `infrastructure`. Select the matching
 project for application work; each is linked to its corresponding Forge
@@ -158,11 +158,23 @@ From this repository root:
 python3 scripts/kata_todo.py
 ```
 
-The launcher pins this project/workspace and the private loopback daemon,
-strips inherited credentials and refuses scope overrides. It does not start a
-missing daemon or require a USAi key. Use `--as <actor>` for explicit agent
-attribution; search before creating tasks, claim before working and close only
-after verified completion with a substantive message and typed evidence.
+The launcher defaults to `engi-platform`, pins this workspace and the private
+loopback daemon, and strips inherited credentials. Explicit `--project`
+selection is CLI-only and limited to the four application projects above
+(or `engi-platform`). Application selection requires exactly one
+`--as copilot`; repeated project/actor selectors and other actors are refused.
+For example, this reads the UI application's backlog without changing it:
+
+```sh
+./scripts/kata-local.py --project supply-chain-user-interface --as copilot list --agent
+```
+
+Daemon/workspace overrides and unrelated projects remain refused. The launcher
+does not start a missing daemon or require a USAi key. Platform commands retain
+their existing `--as <actor>` attribution behavior. Search before creating tasks,
+claim before working and close only after verified completion with a substantive
+message and typed evidence. Selecting a project does not authorize task content,
+workers or publication.
 Refresh `TODO.md` after task changes and before handoff; failed reads leave the
 existing index untouched. Detailed decisions/evidence stay in `context/`.
 
@@ -170,9 +182,9 @@ Kata does not launch agents or independently execute close-evidence tests.
 Project-scoped MCP access is now configured for private Pi and Copilot;
 automatic attention hooks remain open under `tvbf`.
 Forge can discover/read tasks, and the four application repository mappings
-are configured. No application tasks or task-backed workspaces have been
-created. This checkout's agent/CLI scope remains `engi-platform`, not the
-application projects. [Adoption details](context/kata-adoption.md)
+are configured. This checkout's Pi/Copilot MCP adapters remain scoped to
+`engi-platform`; the explicit application CLI selection does not reconfigure
+them or create a task-backed workspace. [Adoption details](context/kata-adoption.md)
 and the [synthetic evaluation](context/kata-evaluation.md) describe the boundaries.
 
 ### Pi and Copilot task access
