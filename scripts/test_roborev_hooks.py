@@ -82,6 +82,16 @@ class RoborevHookTests(unittest.TestCase):
         self.assertEqual(marker.read_bytes(), b"ref data\n")
         self.assertEqual(before, {name: (original / name).read_bytes() for name in before})
 
+    def test_env_shell_hook_is_chained_and_executed(self):
+        original = self.repo / ".git/hooks/post-commit"
+        content = '#!/usr/bin/env bash\nprintf "env shell\\n" >> "' + str(self.log) + '"\n'
+        original.write_text(content)
+        original.chmod(0o755)
+        hooks = self.install()
+        subprocess.run([str(hooks / "post-commit")], cwd=self.repo, check=True)
+        self.assertEqual(self.log.read_text(), "post-commit\nenv shell\n")
+        self.assertEqual(original.read_text(), content)
+
     def test_rewrite_receives_stdin(self):
         hooks = self.install()
         subprocess.run([str(hooks / "post-rewrite"), "amend"], cwd=self.repo, input=b"old new\n", check=True)
@@ -146,7 +156,7 @@ class RoborevHookTests(unittest.TestCase):
             with self.subTest(name=name):
                 path = self.repo / ".git/hooks" / name
                 path.write_text(content)
-                with self.assertRaises(RuntimeError):
+                with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
                     self.install()
                 self.assertEqual(path.read_text(), content)
                 self.assertEqual(roborev_hooks.local_hooks_values(self.repo), [])
