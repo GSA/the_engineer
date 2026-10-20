@@ -5,8 +5,16 @@
 The owner requested that Pi expose the latest models advertised by the existing
 USAi router. A fresh authenticated `GET /models` through the secret-safe
 `local_env.py list-models` path returned 22 unique IDs and refreshed the private
-metadata catalog at `.local/environment/usai-models.json`. Both Pi profiles now
-list the 20 chat-model candidates under provider `usai`:
+metadata catalog at `.local/environment/usai-models.json`. Both Pi profiles initially listed all 20 chat-model candidates under provider
+`usai`; at the owner's follow-up direction, the visible catalog was reduced to
+the newest model generation per family:
+
+- `claude-opus-5`, `claude-sonnet-5`
+- `gemini-3.8-flash`
+- `gpt-5.6-luna`, `gpt-5.6-sol-latest-guardrails-defaultv2`, `gpt-5.6-terra`
+- `llama_4_maverick`
+
+The resulting seven-model `usai` provider is configured in:
 
 - global CLI: `~/.pi/agent/models.json`
 - Forge/private Pi: `.local/environment/pi/models.json`
@@ -19,11 +27,19 @@ are unchanged. The global model's previously verified explicit metadata was
 preserved; newly discovered aliases use Pi's conservative defaults until their
 capabilities and limits are verified rather than guessed.
 
-Both files remain mode 0600. `pi --list-models usai` and the private launcher
-show all 20 IDs, and an exact set check against the fresh router catalog passes.
-No model inference, tool-call compatibility test, credential rotation, service
-restart or publication occurred. Existing interactive sessions can open
-`/model` to reload the file; restart is not required merely for catalog edits.
+The global profile also had a second `litellm-usai` provider pointing to the
+same router. The owner authorized choosing one. Retained the explicit `usai`
+provider because Forge/private Pi already uses it and its curated list will not
+be repopulated by dynamic discovery. Removed the `pi-provider-litellm` package
+and its now-unused global `litellm` settings; no other Pi packages changed.
+
+Both model files and global settings remain mode 0600. Normal and private
+`--list-models usai` now show only the same seven IDs, and `pi list` confirms the
+LiteLLM extension is absent. The shared-key tests pass, confirming normal and
+private credential handoff still works without copying the token. No model
+inference, credential rotation, service restart or publication occurred.
+Existing interactive sessions should restart to unload the removed extension;
+a newly started session reads only `usai`.
 
 For the 2026-10-12 live service/boot snapshot, see `status.md`. For Forge
 workflow semantics and draft prompt responsibilities, see
