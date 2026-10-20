@@ -1,0 +1,14 @@
+# Repositories to mirror from Helix to github.com/GSA (private).
+#
+# One per line. Blank lines and # comments are ignored. Accepted forms:
+#   repo-name                 uses --source-org / $HELIX_ORG
+#   source-org/repo-name      destination repo keeps the same name
+#   source-org/repo-name=dest explicit destination name
+#
+# Replace these five placeholders with the real source org and repo names.
+
+# falcon/supply-chain-user-interface
+# falcon/repo-two
+# falcon/repo-three
+# falcon/repo-four
+# falcon/repo-five

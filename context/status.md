@@ -1,5 +1,23 @@
 # Status: 2026-10-20
 
+## Helix-to-GitHub mirror script: 11:27
+
+- Owner plans to mirror five Helix repositories to private GitHub.com repos in
+  the GSA organization from a WorkSpace that reaches both networks. Selected:
+  full mirror of all refs, `gh repo create --private` from the script, and
+  large-file plus submodule-URL gates. Secret scanning was not selected.
+- Added `scripts/mirror-helix-to-github.sh` and `scripts/mirror-repos.txt.example`.
+  The script clones `--mirror`, prunes `refs/pull/*`, reports ref counts and
+  size, fails a repo whose history holds a blob over `--max-blob-mb` (100 by
+  default), prints every `.gitmodules` URL across branches/tags, refuses a
+  non-empty destination unless `--allow-nonempty`, then `git push --mirror`.
+  It takes no credentials, disables Git credential prompts, writes per-repo
+  logs, and continues past a failed repo with a non-zero summary exit.
+- Verified locally only against synthetic repositories: dry run, blob-gate
+  failure, submodule detection and bad-spec handling. No Helix clone, no
+  GitHub.com repository creation or push, and no VPN access from this host.
+  The real source host/org, repo names and GSA destination are still unset.
+
 ## Pi model-router catalog refresh: 10:38
 
 - Queried the configured USAi router's authenticated `/models` endpoint through
