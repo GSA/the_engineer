@@ -817,14 +817,19 @@ def validate_forge_config():
     config = tomllib.loads(private_read(STATE / "forge/config.toml"))
     if config.get("host") != "127.0.0.1" or config.get("port") != 18091:
         raise RuntimeError("Forge must retain the documented loopback port")
+    return config
 
 
 def forge_command(config):
     binary = Path(config["forge_binary"])
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError(f"missing executable Forge binary: {binary}")
-    return [str(binary), "serve", "--config", str(STATE / "forge/config.toml"),
-            "--host", "127.0.0.1", "--port", "18091", "--disable-sync"]
+    forge_config = validate_forge_config()
+    command = [str(binary), "serve", "--config", str(STATE / "forge/config.toml"),
+               "--host", "127.0.0.1", "--port", "18091"]
+    if not forge_config.get("repos"):
+        command.append("--disable-sync")
+    return command
 
 
 def install_forge_service():

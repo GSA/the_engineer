@@ -964,6 +964,20 @@ class LocalEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "loopback"):
             local_env.validate_forge_config()
 
+    def test_forge_command_enables_sync_only_with_configured_repositories(self):
+        config = self.state / "forge/config.toml"
+        local_env.private_write(
+            config,
+            config.read_text() + '\n[[repos]]\nowner = "example"\nname = "service"\n',
+            replace=True,
+        )
+        before = config.read_bytes()
+        command = local_env.forge_command(local_env.settings())
+        self.assertNotIn("--disable-sync", command)
+        self.assertIn(str(config), command)
+        self.assertEqual(command[command.index("--host") + 1], "127.0.0.1")
+        self.assertEqual(config.read_bytes(), before)
+
     def forge_runtime(self, pid=123):
         record = {"pid": pid, "service": "kenn-forge", "address": "127.0.0.1:18091",
                   "version": "test", "metadata": {

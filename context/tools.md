@@ -1,5 +1,49 @@
 # Upstream components
 
+# Forge mirrors connected: 2026-10-20 at 16:21
+
+The owner authenticated Forge's isolated github.com profile and authorized
+adding the four private GSA mirrors. Native `POST /api/v1/repos/bulk` returned
+201 and persisted exactly these provider-verified identities:
+
+| Repository | GitHub repository ID |
+| --- | --- |
+| GSA/supply-chain-user-interface | 1427373391 |
+| GSA/national-item-file-maintenance | 1427373711 |
+| GSA/standard-acquisition-interface | 1427374148 |
+| GSA/infrastructure | 1427374407 |
+
+Forge canonicalizes the stored owner to `gsa`. No glob, hidden entry, unrelated
+GSA repository, local-clone registration or Kata repository mapping was added.
+The account has ADMIN permissions; this read/integration scope is an operating
+boundary, not a technically read-only credential.
+
+`scripts/local_env.py::forge_command` now appends `--disable-sync` only when
+native Forge config has no repositories. Selecting repositories opts into
+normal provider sync on the next startup, including after reboot; fresh
+repository-free profiles stay offline. This uses the existing config rather
+than a new marker/setting or upstream patch. Adding the first repositories
+to a currently sync-disabled daemon requires a restart.
+
+Only `kenn-kopy-forge.service` was restarted (PID 476 to 42950). All four
+catalog entries completed sync by 20:21:11 UTC with empty `LastSyncError`;
+the loopback UI/health, saved IDs, 0600 config and enabled boot unit were
+verified. AgentsView/roborev/Kata remained PIDs 475/478/477. Pi/USAi is still
+the only enabled agent, quick actions/workspaces are empty,
+`init_managed_clones=false`, and the existing falcon-docs project is unchanged.
+
+Notifications are built in, not switchable: `NotificationsEnabled` returns
+true for a loaded config, including the running pinned revision. The earlier
+proposal to disable them was not implemented. Normal sync lists user threads
+host-wide, then filters to tracked repositories; no notification mutation was
+requested. No application source, prompt, model-route or corpus change, model request,
+worker launch or publication occurred.
+
+The new sync-policy test failed against the hardcoded flag, then all 99
+`test_local_env` tests passed with the change. Secret-free live evidence:
+`.local/environment/runtime/forge-falcon-intake.json`. No experimental
+process remains; the four pre-existing boot services remain running.
+
 # Forge repository readiness: 2026-10-20 at 16:14
 
 Normal `gh api` authenticates to github.com as biggestbinary. A bounded GraphQL
@@ -996,7 +1040,9 @@ cannot hang or interfere with independent services. `status` exposes
 not availability of independently running dashboards.
 
 `status` can read Forge's projects even with the supervisor stopped. Forge's unit pins Node and
-uses the saved binary/config with provider sync disabled. `managed_forge`
+uses the saved binary/config. Provider sync stays disabled at startup only
+while no repositories are configured; the four mirrors above now sync.
+`managed_forge`
 validates systemd MainPID, owned runtime metadata/data/config identity,
 database health/version/revision and HTML readiness. Native runtime JSON is
 0644 inside a 0700 data directory; its reader rejects symlinks and writable-by-
@@ -1008,15 +1054,16 @@ conflicts fail explicitly.
 installer and Node environment. Installer repeatability, independent supervisor
 stop, Forge restart and project/config preservation were verified. No credential
 variable is present in the Forge daemon environment. GitHub CLI credentials
-remain in the shared private `.local/environment/gh/` profile; it is currently
-unauthenticated. Host/repository selection and explicit provider-sync enablement
-remain owner-scoped next steps. README owns login instructions and unit commands.
-The owner subsequently identified the Helix host `github.helix.gsa.gov` and
+remain in the shared private `.local/environment/gh/` profile, now authenticated
+to github.com for the four selected mirrors. Additional repositories and write
+actions remain owner-scoped. README owns login instructions and unit commands.
+Earlier, the owner identified the Helix host `github.helix.gsa.gov` and
 raised the outside-VPC boundary. CLI `--hostname` uses the bare host, not its
 HTTPS URL. No Helix connectivity/authentication request has been performed.
 Workstation approval is confirmed, including the owner's 2026-10-12 13:11
-reconfirmation; the remaining prerequisite is approved network connectivity,
-not another local-handling approval. The VDI export prohibition remains in force.
+reconfirmation; direct Helix access still needs approved network connectivity,
+but this is no longer a prerequisite for github.com mirror intake.
+The VDI export prohibition remains in force.
 
 2026-10-12 clarification: the owner confirms local GSA asset download/use
 clearance; VPN access remains unavailable and admin WorkSpace/VDI tickets are
@@ -1069,7 +1116,8 @@ append under `.local/environment/logs/`; independent services use the user journ
 Forge remains at http://127.0.0.1:18091/, roborev UI at
 http://127.0.0.1:17374/reviews, Kata at http://127.0.0.1:17777/kata,
 and AgentsView at http://127.0.0.1:18080/.
-Provider synchronization remains disabled; scoped AgentsView ingestion is enabled.
+Provider synchronization is enabled for the four selected private GSA mirrors;
+scoped AgentsView ingestion is enabled.
 Use `register /absolute/project/path` for another existing local Git checkout.
 For a new project, initialize it separately, then register it; registration
 does not create starter source or publish a repository.
