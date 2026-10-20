@@ -1,5 +1,57 @@
 # Upstream components
 
+# Platform Kata completion audit: 2026-10-20
+
+At 16:50 the owner requested marking already-finished platform Katas complete.
+Read all 30 open bodies, full comment histories and dependency links; compare
+current acceptance rather than treating historical imported text or working
+infrastructure as a completed application workflow. Actor remained nkirrish
+through `scripts/kata-local.py`; no force claim or cross-project mutation.
+
+| Kata | Disposition and evidence |
+| --- | --- |
+| `7dhp` | Closed **done**. The approved GSA WorkSpace/VPN route successfully mirrored four Helix repositories to private GSA GitHub.com repositories; local clones and four provider-backed Forge entries are established. See mirror/clone status, `ff9b4f4` and `189d044`. This does not establish direct WSL Helix access or permit Citrix exports. |
+| `djfr` | Closed **done**. The committed Librarian `INBOX/README.md#agent-context-contributions`, referenced by its AGENTS.md, defines explicit finding handoff, provenance/limits, receipt, assessment, canonical updates, refresh and returned disposition. This is the requested path definition, not an implemented automatic queue or a claim that a first contribution was processed. |
+
+Both closes include substantive evidence and revision checks. The independent
+Librarian contract was read, not changed. The platform README now points to it;
+this checkout's `context/` is not automatically submitted or ingested.
+
+Remaining scopes were individually reviewed and are not complete:
+
+| Open Katas | Remaining acceptance |
+| --- | --- |
+| `k03a`, `mpew` | Active Forge/private-Pi engineering policy loading and its synthetic behavioral/publication-gate demonstration; the saved refinement example is still inactive. Existing red/green hook repairs do not establish that separate prompt contract. |
+| `5ayh` | Deliberate checkout/state/service-name migration; active kenn-kopy paths and units remain. |
+| `p4ke`, `ww7g`, `5xrm` | Clean-host end-to-end acceptance, automatic pinned Pi provisioning, and the complete reproducible team redeployment/restoration contract. Initial dist scripts and manual Pi instructions are not those outcomes. |
+| `0rc1` | Actual Spokenly microphone/hotkey/text insertion trial; no completed personal GUI trial is recorded. |
+| `6bxa`, `93hq` | Explicit Citrix export policy resolution and standard-VDI tooling permissions respectively. The separate approved WorkSpace/mirror route must not be presented as a lifted Citrix restriction. |
+| `j54x`, `avvp`, `6hce` | First mapped Forge workspace, task/review integration, and actual Forge-Pi model-selected retrieval. Native live reads still report four repositories and zero workspaces. |
+| `8vhd` | Actual model compaction followed by MCP-backed behavior; connectivity is not compaction evidence. |
+| `bbm2` | A confirmed approved renewal API/CLI, if supported; current owner-selected manual console/set-key handoff is not automated renewal. |
+| `jqwq` | Owner-visible Zed terminal/thread attachment; successful standalone tmux launch is already recorded and is not the missing GUI check. |
+| `99gr`, `jgcf`, `d8v5` | Human-approved first-ticket decomposition, actual application coding/review, and explicitly approved Jira-to-PR publication. New code-inspection evidence locates 1290 but leaves NIF/UX/verification questions; all application projects remain empty. |
+| `3c2c`, `fjyf` | Retention/approved alias pricing/client coverage and truthful no-session review accounting; unavailable metrics cannot be turned into zero usage. |
+| `tvbf` | Native Pi attention/lifecycle, interruption/resume/session-end behavior and bounded engineering pilot; existing scoped MCP discovery/task reads are completed milestones only. |
+| `me8k` | Owner retention/retirement decision for historical private profiles; no deletion approval inferred. |
+| `vg0b` | Protected cloud-copy retrieval and actual isolated running-application recovery; local archive extraction is already recorded. |
+| `vkye`, `1dkw` | Normal frozen Forge build/smoke verification and subsequent retirement of the local-Kata workaround, in that order. |
+| `hfbz` | Conditional mirrored-WSL investigation only if needed; working NAT is not a completed mirrored-network investigation. |
+| `jmga` | Approved private cloud architecture/deployment planning; WorkSpace access is not that plan. |
+| `vd8j` | Deferred agent sandbox boundary/candidate evaluation; read-only review tools and Git worktrees are not OS isolation. |
+
+Renamed `j54x` to identify only its remaining first-workspace milestone and
+commented completed authentication/mapping evidence. Added current first-ticket
+limitations to `99gr`. Preserved IDs, imported history, all dependencies,
+deferred/blocked labels and the other task scopes. No unfinished work was
+silently dropped, canceled or marked complete.
+
+The generated TODO index now contains 28 open Katas. Full before/after issue
+snapshots are session artifacts `files/engi-kata-audit-{before,after}.json`.
+Concurrent spec-readiness commit `e1a3b36` was preserved and incorporated as
+evidence, not reimplemented. No service/configuration/corpus changes,
+experimental process, manual model request or publication.
+
 # Scoped automatic commit reviews: 2026-10-20
 
 The owner's 16:23 approval covers exactly the four ~/falcon application clones,

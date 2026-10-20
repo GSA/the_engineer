@@ -1,5 +1,23 @@
 # Status: 2026-10-20
 
+## Platform Kata completion reconciliation: 16:50 request
+
+- Reviewed all 30 open engi-platform Katas, including comments and dependencies.
+  Closed `7dhp` as done for the approved WorkSpace/private-mirror access path
+  and `djfr` as done for the existing explicit Librarian contribution contract.
+  Both have specific close evidence; neither close grants new data authority.
+- The remaining 28 retain genuine acceptance work. Current native Forge
+  reads show four repositories and zero workspaces; authentication/mapping
+  is complete, but first-workspace and coding/retrieval loops are not.
+  Renamed/commented `j54x` accordingly; commented remaining first-ticket
+  decomposition under `99gr`. Original history, links and labels are retained.
+- Detailed disposition for every reviewed task is in tools.md. TODO.md was
+  regenerated from Kata. Before/after snapshots are session files
+  engi-kata-audit-before.json and engi-kata-audit-after.json.
+- Preserved concurrent code-inspection context in e1a3b36. No application
+  tasks, workers, corpus edits, service/configuration changes, experimental
+  processes or publication. Existing automatic commit reviews remain enabled.
+
 ## CCSMFSSM-1290 spec readiness against real code: 16:10
 
 Inspected the actual checkouts for the first time; earlier 1290 analysis was

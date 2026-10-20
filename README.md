@@ -755,6 +755,16 @@ integration without a model call or logging corpus text. In a live Pi session,
 use `/mcp` to inspect the connection. Model-selected retrieval and behavior
 after compaction require separate model-backed verification.
 
+### Returning reusable context discoveries
+
+Follow `INBOX/README.md#agent-context-contributions` in the configured Librarian
+checkout. Read-only engineering/review agents return a finding with its
+provenance, limits and task/run reference; submission requires a separate,
+explicitly authorized context-maintenance handoff. That route owns receipts,
+assessment, canonical updates and returned disposition. A response alone is
+not submission, and this platform's `context/` files are not automatically
+ingested. No MCP write permission or background queue follows from access.
+
 ## USAi credential and provider setup
 
 On this host, the owner has supplied the key. The isolated Pi profile is now

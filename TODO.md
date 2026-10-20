@@ -27,10 +27,9 @@ migrated.
 
 ### Persistent local use and first demo
 
-- [ ] [`engi-platform#7dhp`](http://127.0.0.1:17777/kata?issue=01M4S19RBGHZR19BCP7DRA7DHP) Establish an approved network path to GSA Helix
 - [ ] [`engi-platform#6bxa`](http://127.0.0.1:17777/kata?issue=01M4S19RD7EHFEYG1S8CAP6BXA) Resolve the prohibited Citrix export workflow through an approved policy change **blocked**
 - [ ] [`engi-platform#93hq`](http://127.0.0.1:17777/kata?issue=01M4S19RE7KQNZFJXYWS4C93HQ) Confirm permitted engineering and USAi tooling inside standard VDI
-- [ ] [`engi-platform#j54x`](http://127.0.0.1:17777/kata?issue=01M4S19RESRPQJJF5YG87RJ54X) Authenticate Helix and create the first mapped Forge workspace **deferred**
+- [ ] [`engi-platform#j54x`](http://127.0.0.1:17777/kata?issue=01M4S19RESRPQJJF5YG87RJ54X) Create the first mapped Forge workspace from an approved Falcon mirror **deferred**
 - [ ] [`engi-platform#8vhd`](http://127.0.0.1:17777/kata?issue=01M4S19RFC4HRM3JBDAJCX8VHD) Verify Falcon MCP behavior after real model compaction
 - [ ] [`engi-platform#ww7g`](http://127.0.0.1:17777/kata?issue=01M4S19RFW2VSFK1MQXQG8WW7G) Pin and install Pi in the fresh-host bootstrap
 - [ ] [`engi-platform#bbm2`](http://127.0.0.1:17777/kata?issue=01M4S19RGGHKBFYZRQKV4BBBM2) Investigate an approved USAi renewal interface
@@ -46,7 +45,6 @@ migrated.
 - [ ] [`engi-platform#tvbf`](http://127.0.0.1:17777/kata?issue=01M4S19RPF24GMMA2GR11VTVBF) Verify Pi Kata lifecycle, attention and resume behavior
 - [ ] [`engi-platform#99gr`](http://127.0.0.1:17777/kata?issue=01M4S19RRQ7Z4KKBRD45AQ99GR) Define manual Jira-to-Kata intake for the first ticket
 - [ ] [`engi-platform#d8v5`](http://127.0.0.1:17777/kata?issue=01M4S19RSFPSCGWE83QYCAD8V5) Demonstrate the human-reviewed Jira-to-GitHub-PR workflow
-- [ ] [`engi-platform#djfr`](http://127.0.0.1:17777/kata?issue=01M4S19RT1EJD0YBA3VHXGDJFR) Define the approved context contribution and update path
 
 ### Maintenance and longer term
 
