@@ -269,6 +269,12 @@ audit_submodules() {
     done | sed -n 's/^[[:space:]]*url[[:space:]]*=[[:space:]]*//p' | sort -u
 }
 
+remote_ref_count() {
+    # Count real refs on the destination. Annotated tags also emit a peeled
+    # "refs/tags/x^{}" line, which must not inflate the comparison.
+    git ls-remote --heads --tags "$1" 2>>"$repo_log" | grep -cv '\^{}$' || true
+}
+
 for spec in "${REPO_ARGS[@]}"; do
     source_path="${spec%%=*}"
     dest_name="${spec#*=}"
@@ -336,7 +342,14 @@ for spec in "${REPO_ARGS[@]}"; do
     branches="$(git for-each-ref --format='%(refname)' refs/heads | wc -l | tr -d ' ')"
     tags="$(git for-each-ref --format='%(refname)' refs/tags | wc -l | tr -d ' ')"
     size_kb="$(du -sk . | awk '{print $1}')"
-    log "    refs: $branches branch(es), $tags tag(s); on-disk $((size_kb / 1024)) MB"
+    # The source's default branch. A mirror push does not carry this over, so
+    # the destination would otherwise show whatever the org default is.
+    default_branch="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+    if [ -n "$default_branch" ]; then
+        log "    refs: $branches branch(es), $tags tag(s); on-disk $((size_kb / 1024)) MB; default $default_branch"
+    else
+        log "    refs: $branches branch(es), $tags tag(s); on-disk $((size_kb / 1024)) MB; default branch undetermined"
+    fi
 
     # 3. Large-file gate.
     if ! big_blobs="$(audit_blob_sizes)"; then
@@ -369,7 +382,7 @@ for spec in "${REPO_ARGS[@]}"; do
     # GH_HOST pins gh to the destination host now that two hosts are logged in.
     if GH_HOST="$DEST_HOST" gh repo view "$dest_full" >>"$repo_log" 2>&1; then
         log "    destination exists"
-        existing_refs="$(git ls-remote --heads --tags "$dest_url" 2>>"$repo_log" | wc -l | tr -d ' ')"
+        existing_refs="$(remote_ref_count "$dest_url")"
         if [ "$existing_refs" != "0" ] && [ "$ALLOW_NONEMPTY" -eq 0 ]; then
             repo_failed "destination already has $existing_refs ref(s); use --allow-nonempty"
             cd "$WORKDIR"
@@ -396,8 +409,26 @@ for spec in "${REPO_ARGS[@]}"; do
         continue
     fi
 
-    pushed="$(git ls-remote --heads --tags "$dest_url" 2>>"$repo_log" | wc -l | tr -d ' ')"
-    log "    pushed; destination now reports $pushed ref(s)"
+    # 7. Verify the destination holds exactly the refs we sent, then set the
+    # default branch, which --mirror does not transfer.
+    expected_refs=$((branches + tags))
+    pushed="$(remote_ref_count "$dest_url")"
+    if [ "$pushed" != "$expected_refs" ]; then
+        repo_failed "ref count mismatch: sent $expected_refs, destination reports $pushed"
+        cd "$WORKDIR"
+        continue
+    fi
+    log "    verified $pushed ref(s) on destination"
+
+    if [ -n "$default_branch" ]; then
+        if GH_HOST="$DEST_HOST" gh repo edit "$dest_full" \
+                --default-branch "$default_branch" >>"$repo_log" 2>&1; then
+            log "    default branch set to $default_branch"
+        else
+            log "    WARNING: could not set default branch to $default_branch; set it in the web UI"
+        fi
+    fi
+
     SUMMARY+=("OK    $src_org/$src_repo -> $dest_full  ($branches branches, $tags tags)")
     cd "$WORKDIR"
 done
