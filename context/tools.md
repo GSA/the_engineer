@@ -1,5 +1,40 @@
 # Upstream components
 
+# Dual-remote sync tool: 2026-10-21
+
+`scripts/sync-helix-gsa.py` maintains one working clone per repository that
+carries both remotes, which is what makes continuous pull and later push-back
+possible. `scripts/mirror-helix-to-github.sh` remains the one-shot seeding
+tool; it is not a sync tool and must not be scheduled (see status.md for the
+silent-success defect).
+
+| Remote | URL |
+| --- | --- |
+| `origin` | `https://github.com/GSA/<repo>.git` (PR remote, unchanged) |
+| `helix` | `https://github.helix.gsa.gov/FSS19-Cloud/<repo>.git` |
+
+Commands: `status` compares and changes nothing, `pull` fast-forwards GSA
+branches and new tags from Helix, `push --branch X [--pr]` sends one local
+branch upstream and optionally opens a PR with `gh` pinned via `GH_HOST` to
+the Helix host.
+
+Invariants it will not break: the working tree and checked-out branch are never
+touched (sync uses refspecs, not checkouts), nothing is force-pushed, no merge
+is created, and no branch is deleted on either remote. A branch that moved on
+both sides is reported as `diverged` and skipped, with a non-zero exit. A clone
+that has no Helix refs is a failure, not a clean run. One `flock` per `--into`
+tree prevents overlapping runs. Helix tags are fetched into `refs/helix-tags/*`
+so they cannot shadow existing local tags.
+
+It holds no credentials and relies on the per-host Git credential helpers, with
+`GIT_TERMINAL_PROMPT=0` so a missing credential fails instead of hanging. The
+reachability probe is bounded by `PREFLIGHT_TIMEOUT`; on this WSL host the
+Helix route hangs rather than refusing, so run the tool on the VPN-side host.
+
+Tests: `python3 -m unittest test_sync_helix_gsa` from `scripts/`. They build
+local bare repos as stand-in hosts and use `insteadOf` rewrites for the CLI
+tests, so real git behavior is exercised with no network and no `gh`.
+
 # Application Kata authoring boundary: 2026-10-20 at 17:10 request
 
 Reproduced `kata-local.py --project supply-chain-user-interface list --json`

@@ -1,4 +1,45 @@
-# Status: 2026-10-20
+# Status: 2026-10-21
+
+## Dual-remote sync tool for Helix and GSA: 10:45
+
+- Owner asked whether the one-shot mirror script could pull continuously and
+  later push back. Audit against local stub repos found it cannot: with an
+  existing `--workdir` it reuses the clone without fetching, so a re-run
+  pushes nothing and still prints `verified N ref(s)` and `OK`. An unattended
+  schedule on it would claim success forever. Also `git push --mirror` deletes
+  destination-only refs (verified: a dest-only branch disappeared), every cycle
+  after the first needs `--allow-nonempty`, which disables the new-repo guard,
+  and a relative `--workdir` crashes at the loop's `cd "$WORKDIR"`.
+- Owner chose a different model: keep both remotes in one working clone per
+  repository, run it on the VPN-side host, push back as a branch plus a PR on
+  Helix, report divergence without auto-merging, in Python.
+- Added `scripts/sync-helix-gsa.py` with `status`, `pull` and `push`, plus
+  `scripts/test_sync_helix_gsa.py` (35 tests, all passing). Each clone keeps
+  `origin` on GSA and `helix` upstream. Sync moves remote refs with refspecs
+  rather than checking anything out, so a dirty tree and a feature branch
+  survive; verified against a clone parked on a WIP branch with an
+  uncommitted file. Nothing is force-pushed, no merge is created, no branch is
+  deleted, and a diverged branch is reported and skipped with a non-zero exit.
+- Deliberate choices behind real defects found while testing: branch names are
+  carried alongside their refspecs because batching previously truncated
+  `release/1.0` to `1.0`; the Helix fetch refspecs are rewritten with
+  `--unset-all` first, because a plain `git config` write fails once the key is
+  multi-valued and broke every run after the first; Helix tags land in
+  `refs/helix-tags/*` so adding the remote cannot shadow a tag the clone
+  already had; a clone with no Helix refs is a reported failure rather than a
+  clean run, which is the silent-no-op trap of the old script; and the
+  reachability probe is time-bounded because this host's Helix route hangs
+  instead of failing.
+- Verified on this host only. A `--dry-run --no-fetch` pass over the four real
+  `~/falcon` clones correctly refused to compare and left all four with just
+  `origin`; no remote was added, nothing was fetched or pushed. The real
+  Helix-reachable run on the owner's WorkSpace has not happened, so no GSA or
+  Helix ref has been changed by this tool. `push --pr` has never been executed
+  against a real Helix host.
+- Not done: no schedule or unit is installed, the bidirectional ownership
+  question is unresolved (the tool only ever advances GSA from Helix
+  automatically), and `mirror-helix-to-github.sh` is unchanged, including its
+  relative-`--workdir` bug.
 
 ## Librarian MCP added to this workspace's Pi: 17:40
 
