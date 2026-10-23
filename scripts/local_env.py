@@ -31,7 +31,8 @@ PI_VERSION = "1.0.3"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 GH_VERSION = "2.102.0"
 GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
-PORTS = (17373, 17374, 17777, 18080, 18091)
+PORTS = (17373, 17374, 17777, 18080)
+FORGE_PORT = 18091
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
@@ -45,8 +46,10 @@ KATA_APPLICATION_PROJECTS = (
     "standard-acquisition-interface",
     "infrastructure",
 )
+# Boot-installable user services. Forge is deliberately absent: it is no longer
+# a persistent service and is started only by an explicit `forge-run`.
 SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374),
-                 "forge": (18091,), "kata": (17777,)}
+                 "kata": (17777,)}
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -866,7 +869,7 @@ def roborev_run(node_executable):
 
 def validate_forge_config():
     config = tomllib.loads(private_read(STATE / "forge/config.toml"))
-    if config.get("host") != "127.0.0.1" or config.get("port") != 18091:
+    if config.get("host") != "127.0.0.1" or config.get("port") != FORGE_PORT:
         raise RuntimeError("Forge must retain the documented loopback port")
     return config
 
@@ -877,69 +880,42 @@ def forge_command(config):
         raise RuntimeError(f"missing executable Forge binary: {binary}")
     forge_config = validate_forge_config()
     command = [str(binary), "serve", "--config", str(STATE / "forge/config.toml"),
-               "--host", "127.0.0.1", "--port", "18091"]
+               "--host", "127.0.0.1", "--port", str(FORGE_PORT)]
     if not forge_config.get("repos"):
         command.append("--disable-sync")
     return command
 
 
-def install_forge_service():
-    config = settings()
-    validate_forge_config()
-    node = shutil.which("node")
-    if node is None:
-        raise RuntimeError("Node must be on this shell's PATH before installing Forge")
-    node = Path(node).resolve()
-    verify_pi(config, env=node_environment(node))
-    forge_command(config)
-    private_dir(STATE / "gh")
-    install_user_service(
-        FORGE_UNIT, "forge-run", "Kenn Kopy local workspaces",
-        SERVICE_PORTS["forge"], lambda: managed_forge(required=True),
-        args=("--node-executable", node),
-    )
-    json_write(STATE / "forge-service.json", {"unit": FORGE_UNIT}, replace=True)
-    print("Forge user service enabled and responsive at http://127.0.0.1:18091/")
+def forge_probe():
+    """Report a deliberately started Forge, or None when it is not running.
 
-
-def managed_forge(*, required=False):
-    if not required and not (STATE / "forge-service.json").exists():
+    Forge is no longer supervised or boot-installed, so absence is normal and
+    must not fail status.
+    """
+    try:
+        with HTTP.open(f"http://127.0.0.1:{FORGE_PORT}/healthz", timeout=3) as response:
+            health = json.load(response)
+    except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError):
         return None
-    pid = user_service_pid(FORGE_UNIT)
-    private_dir(STATE / "forge")
-    path = STATE / "forge" / f"daemon.{pid}.json"
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    with os.fdopen(fd, "r") as stream:
-        info = os.fstat(stream.fileno())
-        # Native runtime metadata is 0644, inside the private data directory.
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
-                or info.st_mode & 0o022):
-            raise RuntimeError(f"expected owned, non-writable-by-others Forge runtime metadata: {path}")
-        runtime = json.load(stream)
-    if (runtime.get("pid") != pid or runtime.get("service") != "kenn-forge"
-            or runtime.get("address") != "127.0.0.1:18091"
-            or runtime.get("metadata", {}).get("data_dir") != str(STATE / "forge")
-            or runtime.get("metadata", {}).get("config_path") != str(STATE / "forge/config.toml")):
-        raise RuntimeError("Forge runtime identity does not match the managed user service")
-    with HTTP.open("http://127.0.0.1:18091/healthz", timeout=3) as response:
-        health = json.load(response)
-    if (health.get("status") != "ok" or not health.get("version")
-            or health["version"] != runtime.get("version") or not health.get("revision")):
-        raise RuntimeError("Forge database health does not match its runtime identity")
-    with HTTP.open("http://127.0.0.1:18091/", timeout=3) as response:
-        if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
-            raise RuntimeError("Forge dashboard is not healthy")
-    return {"unit": FORGE_UNIT, "pid": pid, "version": health["version"],
-            "revision": health["revision"]}
+    if health.get("status") != "ok" or not health.get("version"):
+        raise RuntimeError("something is answering the Forge port without healthy Forge identity")
+    return {"managed": False, "version": health["version"],
+            "revision": health.get("revision")}
 
 
-def forge_run(node_executable):
+def forge_run(node_executable=None):
     config = settings()
     validate_forge_config()
+    if node_executable is None:
+        node = shutil.which("node")
+        if node is None:
+            raise RuntimeError("Node must be on this shell's PATH or passed with --node-executable")
+        node_executable = Path(node).resolve()
     env = node_environment(node_executable)
     verify_pi(config, env=env)
-    check_ports(SERVICE_PORTS["forge"])
+    check_ports((FORGE_PORT,))
     command = forge_command(config)
+    private_dir(STATE / "gh")
     os.chdir(STATE / "home")
     os.execve(command[0], command, env)
 
@@ -1007,7 +983,7 @@ def kata_run():
 
 def managed_services():
     services = {"agentsview": managed_agentsview(), "roborev": managed_roborev(),
-                "forge": managed_forge(), "kata": managed_kata()}
+                "kata": managed_kata()}
     return {name: service for name, service in services.items() if service is not None}
 
 
@@ -1022,12 +998,13 @@ def status():
     saved = supervisor()
     if saved and external:
         saved.setdefault("external_services", {}).update(external)
+    forge = forge_probe()
     return {"stack": "running" if saved else "stopped", "supervisor": saved,
             "agentsview_service": external.get("agentsview"),
             "roborev_service": external.get("roborev"),
-            "forge_service": external.get("forge"),
+            "forge": forge,
             "kata_service": external.get("kata"),
-            "projects": api("GET", "/projects") if saved or "forge" in external else None}
+            "projects": api("GET", "/projects") if forge else None}
 
 
 def serve():
@@ -1045,7 +1022,6 @@ def serve():
         external = managed_services()
         owned_ports = supervised_ports(external)
         check_ports(owned_ports)
-        validate_forge_config()
         validate_roborev_config()
         validate_kata_config()
         services = [
@@ -1055,8 +1031,6 @@ def serve():
              "http://127.0.0.1:17777/api/v1/health"),
             ("agentsview", ROOT / "agentsview/agentsview", agentsview_command()[1:],
              "http://127.0.0.1:18080/api/ping"),
-            ("forge", Path(config["forge_binary"]), forge_command(config)[1:],
-             "http://127.0.0.1:18091/healthz"),
         ]
         services = [service for service in services if service[0] not in external]
         for name, service in external.items():
@@ -1088,8 +1062,6 @@ def serve():
                         raise RuntimeError(f"{name} health response has no version")
                     if name in ("kata", "agentsview") and payload.get("ok") is not True:
                         raise RuntimeError(f"{name} did not report a healthy API")
-                    if name == "forge" and payload.get("status") != "ok":
-                        raise RuntimeError("Forge database is not healthy")
                     if name == "agentsview" and (
                             payload.get("pid") != process.pid or payload.get("healthy") is not True):
                         raise RuntimeError("AgentsView answered from another process or is unhealthy")
@@ -1099,13 +1071,12 @@ def serve():
                         raise RuntimeError(f"{name} readiness timed out; inspect {log_path}")
                     time.sleep(0.2)
             print(f"{name} ready (PID {process.pid})", flush=True)
-        register_project(Path(config["corpus"]))
         saved = {"pid": os.getpid(), "start_time": process_identity(os.getpid()),
                  "children": {name: process.pid for name, process in children},
                  "external_services": external}
         json_write(STATE / "runtime/supervisor.json", saved, replace=True)
         saved_supervisor = True
-        print("Local environment ready: Forge http://127.0.0.1:18091/", flush=True)
+        print("Local environment ready; Forge remains stopped unless explicitly started.", flush=True)
         print("Ctrl+C or `python3 scripts/local_env.py stop` stops owned services, not saved data.", flush=True)
         while True:
             for name, process in children:
@@ -1184,9 +1155,8 @@ def main():
     commands.add_parser("install-pi-review-extension", help="install the pinned extension in private Pi only")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
-    commands.add_parser("install-forge-service", help="enable the configured Forge user service")
-    forge_service = commands.add_parser("forge-run", help="run the standalone configured Forge service")
-    forge_service.add_argument("--node-executable", type=Path, required=True)
+    forge_service = commands.add_parser("forge-run", help="explicitly run retained Forge in the foreground")
+    forge_service.add_argument("--node-executable", type=Path)
     commands.add_parser("install-kata-service", help="enable the configured Kata user service")
     commands.add_parser("kata-run", help="run the standalone configured Kata service")
     commands.add_parser("install-kata-mcp", help="configure project-scoped private Pi/Copilot Kata MCP")
@@ -1225,8 +1195,6 @@ def main():
             install_pi_review_extension()
         elif args.command == "roborev-run":
             roborev_run(args.node_executable)
-        elif args.command == "install-forge-service":
-            install_forge_service()
         elif args.command == "forge-run":
             forge_run(args.node_executable)
         elif args.command == "install-kata-service":
@@ -1241,6 +1209,8 @@ def main():
             list_models(args.base_url)
         elif args.command == "register":
             settings()
+            if forge_probe() is None:
+                raise RuntimeError("start Forge explicitly with `forge-run` before registering a project")
             register_project(args.path)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

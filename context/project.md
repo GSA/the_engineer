@@ -16,6 +16,11 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-23 the owner retired Forge as a persistent service and from the
+  foreground multi-dashboard supervisor. Preserve its private state and explicit
+  `forge-run` capability, but do not reinstall boot startup or implicitly launch
+  it. Forge-dependent backlog decisions remain separate and pending.
+
 - On 2026-10-20 at 17:10 the owner requests addressing the application-Kata
   authoring blocker. The refusal is an intentional shared CLI scope guard;
   the existing MCP adapters also use that launcher. At 17:14 the owner

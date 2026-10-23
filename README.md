@@ -74,9 +74,10 @@ is not a replacement for this Linux/WSL host.
 
 ## Start and access the environment
 
-Run commands from this repository's root. On this host, all four dashboards
-start automatically with WSL as independent user-systemd services. No terminal
-or browser autostart is required. Check the saved environment:
+Run commands from this repository's root. On this host, Kata, roborev and
+AgentsView start automatically with WSL as independent user-systemd services.
+Forge is retained but deliberately stopped unless explicitly requested. No
+terminal or browser autostart is required. Check the saved environment:
 
 ```sh
 python3 scripts/local_env.py status
@@ -86,8 +87,8 @@ Configuration/databases are retained, and `~/falcon-docs` remains registered
 as a local Forge project. If you intentionally stopped services, restore them:
 
 ```sh
-systemctl --user start kenn-kopy-kata.service kenn-kopy-forge.service \
-  kenn-kopy-roborev.service kenn-kopy-agentsview.service
+systemctl --user start kenn-kopy-kata.service kenn-kopy-roborev.service \
+  kenn-kopy-agentsview.service
 ```
 
 Before installing independent services on another host,
@@ -510,35 +511,22 @@ Setup creates missing settings only. Repeating it preserves existing settings
 and rejects accidental changes to saved executable/corpus paths. Do not delete
 the state directory to change a setting.
 
-## Forge boot service and GSA GitHub setup
+## On-demand Forge and GSA GitHub setup
 
-Forge runs independently at **http://127.0.0.1:18091/** under
-`kenn-kopy-forge.service`. It retains the existing private database/config and
-Falcon project ID. Its unit records the Node executable for Pi; it does not
-depend on interactive NVM initialization or put credentials into the unit.
-Kata has its own boot service, not a Forge startup dependency.
-
-```sh
-systemctl --user status kenn-kopy-forge.service --no-pager
-systemctl --user restart kenn-kopy-forge.service
-journalctl --user -u kenn-kopy-forge.service
-```
-
-For first-time migration, ensure there are no active workspaces/terminal
-sessions before stopping a supervisor that currently owns Forge:
+Forge is not a persistent service and is not part of the `local_env.py run`
+supervisor. Its private database, configuration, project identity, credentials
+and four working clones remain under `.local/environment/forge/`. Start it only
+for deliberate workspace use, keeping the foreground terminal open:
 
 ```sh
-python3 scripts/local_env.py stop
-python3 scripts/local_env.py install-forge-service
-python3 scripts/local_env.py run
+python3 scripts/local_env.py forge-run
 ```
 
-Skip `stop` if the stack is already stopped. The installer is repeatable and
-refuses occupied ports; do not stop unrelated services to bypass its checks.
-Once installed, `status` still reports Forge and its projects when the
-on-demand stack is stopped. Disable boot startup, retaining data, with
-`systemctl --user disable --now kenn-kopy-forge.service`; start the service
-again before running the on-demand stack.
+The command resolves Node from the current `PATH` (or accepts an explicit
+`--node-executable`), binds only **http://127.0.0.1:18091/**, and refuses an
+occupied port. Stop it with Ctrl+C. `python3 scripts/local_env.py status`
+reports an explicitly running Forge and its projects, but a stopped Forge is
+the normal state. There is no Forge user-systemd unit or boot installer.
 
 As of 2026-10-20, the four private GSA Falcon mirrors and working clones are
 available; normal `gh` can access them. Use **`github.com`** for Forge mirror
@@ -589,7 +577,8 @@ Then confirm read access to one owner-approved repository:
 **Repository selection opts into provider sync on the next Forge startup.**
 The launcher passes `--disable-sync` only when native Forge configuration has
 no repositories. Once read access is confirmed, add the exact approved
-repositories through Forge Settings, then restart `kenn-kopy-forge.service`.
+repositories through Forge Settings, then stop and explicitly restart
+`python3 scripts/local_env.py forge-run`.
 This host now tracks only `GSA/supply-chain-user-interface`,
 `GSA/national-item-file-maintenance`, `GSA/standard-acquisition-interface` and
 `GSA/infrastructure`; all four completed their initial sync.
@@ -863,16 +852,17 @@ python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge
 The smoke script creates fresh isolated state, supplies no credentials, checks
 startup/assets/task storage/offline skills, and shuts down its own processes.
 Do not run it alongside the persistent environment: they use the same ports.
-Stop the dashboard supervisor if running **and** stop all four independent units
-first:
+Stop the dashboard supervisor if running, stop any explicit foreground Forge,
+and stop the three independent units first:
 
 ```sh
-systemctl --user stop kenn-kopy-kata.service kenn-kopy-forge.service \
-  kenn-kopy-roborev.service kenn-kopy-agentsview.service
+systemctl --user stop kenn-kopy-kata.service kenn-kopy-roborev.service \
+  kenn-kopy-agentsview.service
 ```
 
 Afterward, restore them with `systemctl --user start kenn-kopy-kata.service
-kenn-kopy-forge.service kenn-kopy-roborev.service kenn-kopy-agentsview.service`.
+kenn-kopy-roborev.service kenn-kopy-agentsview.service`. Forge stays stopped
+unless you deliberately run `python3 scripts/local_env.py forge-run`.
 
 See [TODO.md](TODO.md) for open work, [context/status.md](context/status.md) for
 observed results/current process state, [context/tools.md](context/tools.md)

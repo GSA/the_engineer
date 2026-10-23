@@ -1,4 +1,31 @@
-# Status: 2026-10-21
+# Status: 2026-10-23
+
+## Forge persistent service retired: 17:20
+
+- Owner decided Forge is not currently needed as a persistent service. Disabled,
+  stopped and unlinked `kenn-kopy-forge.service`; removed only its generated
+  unit and ownership marker. Port 18091 is closed and no `kenn-forge serve`
+  process remains. Kata, roborev and AgentsView user services remained active.
+- Removed Forge from the `local_env.py run` supervisor and persistent-service
+  registry. Retained an explicit foreground `python3 scripts/local_env.py
+  forge-run` path; `status` treats Forge absence as normal and reports projects
+  only while an explicitly started Forge answers its health endpoint.
+- Preserved `.local/environment/forge/` (38 MB after clean shutdown), including
+  the database/config, isolated credentials and four synced clones; preserved
+  the Forge binary and submodule. No repository/provider sync, workspace,
+  publication or task mutation occurred. The six open Forge-related Kata tasks
+  remain unchanged pending the owner's separate deferral choices.
+- Updated local-environment tests and README lifecycle instructions. All 103
+  focused tests pass; Python compilation and whitespace checks pass.
+- Investigated the reported Pi auth break without printing credentials. Both
+  credential helpers exit successfully; global Pi 1.3.0 and private Pi 1.0.3
+  resolve the USAi catalog. The observed HTTP 401 was a roborev routing issue:
+  its global daemon selected Codex with ignored user config, not a broken Pi
+  auth script. Global roborev now defaults to Pi; its retry made authenticated
+  USAi tool calls and later timed out on review size. Existing uncommitted
+  `scripts/roborev_hooks.py` work was preserved and excluded from this change.
+
+# Previous status: 2026-10-21
 
 ## Dual-remote sync tool for Helix and GSA: 10:45
 
