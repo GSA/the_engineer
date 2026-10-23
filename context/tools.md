@@ -1302,28 +1302,25 @@ with HTML content negotiation. The shared API/UI must remain on loopback
 17777; a separate configured web listener is rejected. The owner has not
 requested automatic agent hooks or a backup.
 
-`run` is now only a fallback for profiles without all units. An empty-child
-supervisor still writes/removes its own runtime/shutdown metadata so `stop`
-cannot hang or interfere with independent services. `status` exposes
-`kata_service`; its legacy `stack` field describes the optional supervisor,
-not availability of independently running dashboards.
+`run` is now only a fallback for the three boot-installable dashboards and
+never starts Forge. An empty-child supervisor still writes/removes its own
+runtime/shutdown metadata so `stop` cannot hang or interfere with independent
+services. `status` exposes `kata_service`; its legacy `stack` field describes
+the optional supervisor, not availability of independently running dashboards.
 
-`status` can read Forge's projects even with the supervisor stopped. Forge's unit pins Node and
-uses the saved binary/config. Provider sync stays disabled at startup only
-while no repositories are configured; the four mirrors above now sync.
-`managed_forge`
-validates systemd MainPID, owned runtime metadata/data/config identity,
-database health/version/revision and HTML readiness. Native runtime JSON is
-0644 inside a 0700 data directory; its reader rejects symlinks and writable-by-
-others files rather than assuming this non-secret metadata must be 0600.
-Startup readiness retries an unpublished runtime record, but identity/mode
-conflicts fail explicitly.
+On 2026-10-23 the owner retired Forge's persistent unit and implicit supervisor
+membership. `forge-run` remains as an explicit foreground command, resolving
+Node from the current PATH unless `--node-executable` is supplied. It retains
+the saved binary/config, checks loopback port 18091, and uses the isolated Node,
+Pi and GitHub environments. `status` probes an explicitly running Forge and
+reads its projects only then; absence is normal. Provider sync stays disabled
+at startup only while no repositories are configured; the retained four
+mirrors therefore sync whenever Forge is deliberately started. The old unit,
+service marker and managed runtime-identity reader were removed, while private
+Forge database/config/credentials/clones remain preserved.
 
-`install-forge-service`/`forge-run --node-executable` reuse the shared user-unit
-installer and Node environment. Installer repeatability, independent supervisor
-stop, Forge restart and project/config preservation were verified. No credential
-variable is present in the Forge daemon environment. GitHub CLI credentials
-remain in the shared private `.local/environment/gh/` profile, now authenticated
+GitHub CLI credentials remain in the shared private
+`.local/environment/gh/` profile, now authenticated
 to github.com for the four selected mirrors. Additional repositories and write
 actions remain owner-scoped. README owns login instructions and unit commands.
 Earlier, the owner identified the Helix host `github.helix.gsa.gov` and
