@@ -1,5 +1,18 @@
 # Status: 2026-10-23
 
+## Visual agent demos added to backlog
+
+- Created engi-platform Kata `86ey`, "Let agents capture screenshot or video
+  demos of changes," at priority 2 with `feature` and `agent-workflow` labels.
+- Scope covers private-by-default screenshots and short videos, task/commit
+  provenance, reviewer access, deterministic capture where possible, manual
+  fallback, redaction/privacy boundaries, retention and actionable failures.
+- Acceptance requires a representative local screenshot and video smoke test;
+  creation of the backlog item does not authorize external upload/publication
+  or capture of credentials, PII, unrelated windows or unapproved content.
+- Searched the open backlog first and found no matching task. Refreshed
+  `TODO.md`; it now indexes 31 open Katas.
+
 ## Dormant Forge backlog reconciled
 
 - At owner direction, soft-deleted Forge-specific Katas `k03a`, `j54x`, `6hce`

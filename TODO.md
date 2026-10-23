@@ -61,6 +61,7 @@ migrated.
 - [ ] [`engi-platform#ww85`](http://127.0.0.1:17777/kata?issue=01M5NA49A38XBFP9E69ZWFWW85) D: Complete graph viewer regressions and synthetic acceptance
 - [ ] [`engi-platform#73at`](http://127.0.0.1:17777/kata?issue=01M5NA49E3HRW43PKY5G6J73AT) E: Run authorized-local FALCON graph visualization pilot
 - [ ] [`engi-platform#28jz`](http://127.0.0.1:17777/kata?issue=01M5NA4CXWT8N2YRHB2TQM28JZ) F: Produce sanitized graph-pilot input for Decision 0006
+- [ ] [`engi-platform#86ey`](http://127.0.0.1:17777/kata?issue=01M5NB62JNH6DXZJV0V8PY86EY) Let agents capture screenshot or video demos of changes
 <!-- kata-open-tasks:end -->
 
 ## Completed before Kata adoption
