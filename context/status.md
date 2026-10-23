@@ -1,5 +1,31 @@
 # Status: 2026-10-23
 
+## roborev consolidated onto managed Pi/USAi daemon
+
+- Diagnosed the failed `the_librarian` review: a hand-started second daemon on
+  port 7373 used the auto-materialized global default `codex`; Codex ignored its
+  user config and contacted OpenAI without auth. Global `default_agent` is now
+  Pi. A Pi retry proved USAi routing with real tool calls but the 3,519-line
+  commit exceeded the unchanged 30-minute timeout twice and was canceled.
+- Migrated `~/the_librarian` to the managed daemon on 17373 using private staged
+  hooks. Its repository-owned pre-commit gate is copied byte-identically; the
+  original untracked `.githooks` and existing launcher setting are unchanged.
+  Added ignored Pi/standard toolkit review policy and registered the repo with
+  zero jobs. No migration review was queued.
+- Fixed the installer rule that blocked native roborev post-rewrite hooks:
+  generated markers are recognized across native versions while foreign hooks
+  still fail closed. Added explicit inspected `--restage` recovery for manifest
+  drift and used it to repair the pre-existing `falcon-docs` route mismatch.
+  Sixteen focused hook tests pass.
+- Stopped only global roborev PID 7233/port 7373. Managed service PID 401 remains
+  active on loopback 17373/17374. Historical failed/canceled global records were
+  intentionally not migrated. Timeout stays 30 minutes by owner choice.
+- Investigated the reported Pi auth-script concern. Both private managed Pi and
+  ordinary global Pi complete USAi requests; credential helper output resolves,
+  and `pi-local.py`/`usai-key.py` exactly match committed bytes. The observed 401
+  is Codex/OpenAI, not Pi. A separate pre-existing dirty `local_env.py` change
+  concerns Forge lifecycle and was preserved untouched.
+
 ## Forge persistent service retired: 17:20
 
 - Owner decided Forge is not currently needed as a persistent service. Disabled,

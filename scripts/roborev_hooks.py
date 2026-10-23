@@ -15,6 +15,14 @@ import local_env
 
 
 HOOKS = ("post-commit", "post-rewrite", "pre-push")
+# Stable prefixes from native generated hooks. Do not pin version numbers here:
+# native installation safely upgrades its own old hooks, and a version bump must
+# not make the installer misclassify a roborev post-rewrite hook as foreign.
+MARKER_PREFIXES = {
+    "post-commit": "# roborev post-commit hook v",
+    "post-rewrite": "# roborev post-rewrite hook v",
+    "pre-push": "# roborev pre-push hook v",
+}
 GUIDELINES = {
     "platform": (
         "Check concrete regressions in local setup, service ownership, hook routing, "
@@ -34,6 +42,15 @@ GUIDELINES = {
         "and applicable task guides. Reporting, extraction and indexing are not source "
         "verification or ORR acceptance. Preserve authoritative stores, source wording "
         "and unrelated local work; do not propose invented operational conclusions."
+    ),
+    "toolkit": (
+        "Review a reusable, data-empty toolkit. Report code that embeds customer data, "
+        "business facts, identities, private paths or task history in sources, tests or "
+        "defaults, and any initialization that seeds a demonstration corpus. Follow "
+        "AGENTS.md and the applicable role contract. Do not accept weakened path, "
+        "freshness, attribution, budget, transaction, correction or backup checks as a "
+        "way to make a test pass. Planned connectors, handoffs and automation are not "
+        "installed functionality; do not treat them as such."
     ),
 }
 
@@ -100,9 +117,23 @@ def validate_policy():
         raise RuntimeError("unsafe agents, CI polling, background tasks, panels and fallbacks must stay off")
 
 
+def native_roborev_hook(path, name):
+    """Report whether path carries roborev's generated marker for this hook."""
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        lines = path.read_text().splitlines()
+        return len(lines) > 1 and lines[1].startswith(MARKER_PREFIXES[name])
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def copy_original_hooks(source, destination):
-    # Native remap consumes stdin; never prepend it to an existing rewrite hook.
-    if (source / "post-rewrite").exists():
+    # Native remap consumes stdin; never prepend it to a foreign rewrite hook.
+    # Native installation replaces its own current-version hook rather than
+    # chaining it, so a roborev post-rewrite hook needs no migration.
+    rewrite = source / "post-rewrite"
+    if rewrite.exists() and not native_roborev_hook(rewrite, "post-rewrite"):
         raise RuntimeError(f"existing post-rewrite hook needs an explicit stdin-preserving migration: {source}")
     if destination.parent.parent != local_env.STATE / "roborev/hooks":
         raise RuntimeError(f"staged hooks must stay within the private installation state: {destination}")
@@ -123,7 +154,7 @@ def copy_original_hooks(source, destination):
         destination.mkdir(mode=0o700)
 
 
-def install(repo, profile):
+def install(repo, profile, *, restage=False):
     repo = repo.expanduser().resolve(strict=True)
     if Path(git(repo, "rev-parse", "--show-toplevel")) != repo or not (repo / ".git").is_dir():
         raise RuntimeError(f"select a main repository root, not a subdirectory/worktree: {repo}")
@@ -137,21 +168,29 @@ def install(repo, profile):
 
     identifier = hashlib.sha256(os.fsencode(repo)).hexdigest()[:16]
     base = local_env.STATE / "roborev/hooks" / identifier
-    hooks = base / "hooks"
     manifest = base / "installation.json"
     current = Path(git(repo, "rev-parse", "--path-format=absolute", "--git-path", "hooks"))
     old_values = local_hooks_values(repo)
+    hooks = base / "hooks"
     if manifest.exists():
         saved = json.loads(local_env.private_read(manifest))
         original_restored = (
             str(current) == saved["previous_hooks"]
             and old_values == saved["previous_local_hooks_values"]
         )
-        if (saved["repo"] != str(repo) or saved["profile"] != profile
-                or (current != hooks and not original_restored)):
+        if saved["repo"] != str(repo) or saved["profile"] != profile:
             raise RuntimeError(f"saved hook installation differs from current repository configuration: {repo}")
+        if current != hooks and not original_restored and not restage:
+            raise RuntimeError(
+                f"saved hook installation differs from current repository configuration: {repo}; "
+                "use --restage only after inspecting the active hooks")
         if current != hooks:
             copy_original_hooks(current, hooks)
+            if restage and not original_restored:
+                local_env.json_write(manifest, {
+                    "repo": str(repo), "profile": profile,
+                    "previous_hooks": str(current), "previous_local_hooks_values": old_values,
+                }, replace=True)
     else:
         if base.exists():
             raise RuntimeError(f"incomplete hook installation requires inspection: {base}")
@@ -206,11 +245,13 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", choices=GUIDELINES, required=True)
+    parser.add_argument("--restage", action="store_true",
+                        help="explicitly migrate inspected active hooks into private staging")
     parser.add_argument("repositories", type=Path, nargs="+")
     args = parser.parse_args()
     validate_policy()
     for repo in args.repositories:
-        install(repo, args.profile)
+        install(repo, args.profile, restage=args.restage)
 
 
 if __name__ == "__main__":

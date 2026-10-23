@@ -432,6 +432,7 @@ The repeatable installer takes explicit, approved main-checkout paths:
 ```sh
 python3 scripts/roborev_hooks.py --profile platform "$PWD"
 python3 scripts/roborev_hooks.py --profile corpus "$HOME/falcon-docs"
+python3 scripts/roborev_hooks.py --profile toolkit "$HOME/the_librarian"
 python3 scripts/roborev_hooks.py --profile application \
   "$HOME/falcon/supply-chain-user-interface" \
   "$HOME/falcon/national-item-file-maintenance" \
@@ -450,11 +451,16 @@ Each repository's `core.hooksPath` selects its own private directory under
 changing their originals, then uses `init --no-daemon --binary <scoped launcher>`
 to install post-commit, post-rewrite and pre-push hooks. All six repositories
 initially had only inactive sample hooks. Supported shell hooks are chained;
-non-shell managed hooks or an existing post-rewrite hook require an explicit
-migration rather than unsafe replacement. Installation metadata records the
-previous hook settings.
+non-shell managed hooks and foreign post-rewrite hooks require an explicit
+migration rather than unsafe replacement. Native roborev hooks are recognized
+by their generated marker and safely upgraded in private staging, including
+older versions. Installation metadata records the previous hook settings.
 After rollback, retrying refreshes the inactive copy from the original hooks,
 so correcting an unsupported original hook does not leave a stale failed copy.
+If an installation manifest exists but another tool later changes the active
+hooks path, the installer refuses by default. After inspecting that active hook
+directory, rerun with `--restage` to explicitly copy it into managed staging
+and update the rollback metadata.
 
 This external hook location prevents native startup/update repair from
 replacing the scoped launcher. Missing-launcher errors are visible and never

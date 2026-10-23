@@ -56,6 +56,15 @@ migrated.
 - [ ] [`engi-platform#jmga`](http://127.0.0.1:17777/kata?issue=01M4S19RXSWW6548PD6PEJJMGA) Plan approved private cloud hosting after AWS access is available **deferred**
 - [ ] [`engi-platform#vd8j`](http://127.0.0.1:17777/kata?issue=01M4S19RYDWFPFA9R74285VD8J) Evaluate agent sandboxing boundaries and candidates **deferred**
 - [ ] [`engi-platform#5xrm`](http://127.0.0.1:17777/kata?issue=01M4S19RZ3Z3XG344E161W5XRM) Capture the complete environment in a reproducible redeployment script **deferred**
+
+### New work
+
+- [ ] [`engi-platform#vmhy`](http://127.0.0.1:17777/kata?issue=01M5NA3CTQ88X7192WBTQVVMHY) Deliver bounded FALCON context-graph visualization pilot
+- [ ] [`engi-platform#e7zh`](http://127.0.0.1:17777/kata?issue=01M5NA44GNRXF5ZBWEB9FDE7ZH) B: Implement loopback-only context graph visual server
+- [ ] [`engi-platform#3g58`](http://127.0.0.1:17777/kata?issue=01M5NA44JN4XQWETVV0BNF3G58) C: Implement data-empty accessible context graph UI
+- [ ] [`engi-platform#ww85`](http://127.0.0.1:17777/kata?issue=01M5NA49A38XBFP9E69ZWFWW85) D: Complete graph viewer regressions and synthetic acceptance
+- [ ] [`engi-platform#73at`](http://127.0.0.1:17777/kata?issue=01M5NA49E3HRW43PKY5G6J73AT) E: Run authorized-local FALCON graph visualization pilot
+- [ ] [`engi-platform#28jz`](http://127.0.0.1:17777/kata?issue=01M5NA4CXWT8N2YRHB2TQM28JZ) F: Produce sanitized graph-pilot input for Decision 0006
 <!-- kata-open-tasks:end -->
 
 ## Completed before Kata adoption
