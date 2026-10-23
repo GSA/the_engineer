@@ -1,5 +1,60 @@
 # Upstream components
 
+# One managed roborev daemon and hook migration: 2026-10-23
+
+Official roborev usage centers one daemon/database serving multiple registered
+repositories; isolated daemons are an escape hatch, not the normal topology.
+This workspace now follows that model for `~/the_librarian` as well as the six
+previously managed repositories. The hand-started global daemon on
+`127.0.0.1:7373` (PID 7233, data `~/.roborev`) was stopped with its own explicit
+server address. Its two historical records remain in that database but were not
+migrated. The managed `kenn-kopy-roborev.service` stayed active as PID 401 on
+loopback 17373/17374 with one worker, scoped `pi-local.py`, and USAi routing.
+The global config retains `default_agent = 'pi'` as defense in depth if an
+operator deliberately starts that daemon later.
+
+`~/the_librarian` had a hybrid hook setup: its repository-owned untracked
+`.githooks/pre-commit` already used the scoped launcher, while native roborev
+post-commit/post-rewrite/pre-push hooks baked in `~/.local/bin/roborev` and
+therefore reached the global daemon. The chosen migration uses the established
+private staging topology under
+`.local/environment/roborev/hooks/34f026ce6c3644e2/hooks`. Its original
+`.githooks` bytes are unchanged; the pre-commit gate is copied byte-for-byte,
+the three roborev hooks select `scripts/roborev-local.py`, global executable
+fallback is removed, and `core.hooksPath` selects staging. The existing local
+`roborev.precommitLauncher` remains unchanged. The repository is registered in
+the managed database with zero jobs; migration itself queued no review.
+Its ignored `.roborev.toml` selects Pi/standard commit reviews and a new
+`toolkit` guideline derived from its AGENTS.md: reusable/data-empty defaults,
+no seeded demo corpus, no weakened integrity checks, and no claims that planned
+automation is installed.
+
+The earlier installer guard rejected every existing `post-rewrite`, even a
+native generated roborev hook that native installation safely replaces rather
+than chains. `scripts/roborev_hooks.py` now recognizes the stable generated
+marker prefix without pinning a version, so current and old native hooks can be
+copied and upgraded while a foreign post-rewrite still fails closed. It also
+adds explicit `--restage`: a saved-manifest/active-path mismatch remains an
+error by default, but after human inspection this option copies the active hooks
+into private staging and updates rollback metadata. This repaired the existing
+`~/falcon-docs` mismatch without changing its dirty worktree or original
+`.githooks`. Use `--restage` only for a deliberate inspected recovery, never as
+a routine bypass.
+
+Focused verification: `PYTHONPATH=scripts python3 -m unittest
+scripts.test_roborev_hooks` passes 16 tests, including old native rewrite
+versions, foreign rewrite refusal, original-hook preservation, scoped routing,
+manifest mismatch refusal/recovery, rollback and rerun stability. Both Pi auth
+paths were also checked on 2026-10-23: managed roborev `check-agents` completed
+a real private Pi/USAi request, and ordinary global Pi completed a minimal
+no-session request through the `usai-key.py` command. `scripts/pi-local.py` and
+`scripts/usai-key.py` hash-match committed bytes. The 401 still visible in the
+all-agent health output is Codex contacting OpenAI with ignored user config,
+not a Pi authentication failure. The unrelated pre-existing dirty
+`scripts/local_env.py` Forge lifecycle rewrite was preserved and not attributed
+to this work.
+
+
 # Dual-remote sync tool: 2026-10-21
 
 `scripts/sync-helix-gsa.py` maintains one working clone per repository that

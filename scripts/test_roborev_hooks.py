@@ -143,6 +143,62 @@ class RoborevHookTests(unittest.TestCase):
         result = subprocess.run([str(hooks / "post-commit")], cwd=self.repo, capture_output=True, text=True)
         self.assertIn("ERROR: private profile missing", result.stderr)
 
+    def test_native_roborev_hooks_are_retargeted_in_private_staging(self):
+        original = self.repo / ".githooks"
+        original.mkdir()
+        self.git("config", "--local", "core.hooksPath", ".githooks")
+        subprocess.run(
+            [str(self.native), "install-hook", "--binary", str(self.native)],
+            cwd=self.repo, check=True, capture_output=True, text=True,
+        )
+        gate = original / "pre-commit"
+        gate.write_text("#!/bin/sh\nexit 0\n")
+        gate.chmod(0o755)
+        before = {p.name: p.read_bytes() for p in original.iterdir()}
+        with contextlib.redirect_stdout(io.StringIO()):
+            hooks = roborev_hooks.install(self.repo, "toolkit")
+        self.assertNotEqual(hooks, original.resolve())
+        self.assertEqual(self.git("config", "--local", "core.hooksPath"), str(hooks))
+        self.assertEqual(before, {p.name: p.read_bytes() for p in original.iterdir()})
+        self.assertEqual((hooks / "pre-commit").read_bytes(), gate.read_bytes())
+        for name in roborev_hooks.HOOKS:
+            text = (hooks / name).read_text()
+            self.assertIn(f'ROBOREV="{self.launcher}"', text)
+            self.assertNotIn(str(self.native), text)
+            self.assertNotIn("command -v roborev", text)
+        # Repeating against manifest-owned staging remains byte-stable.
+        staged = {p.name: p.read_bytes() for p in hooks.iterdir()}
+        self.assertEqual(roborev_hooks.install(self.repo, "toolkit"), hooks)
+        self.assertEqual(staged, {p.name: p.read_bytes() for p in hooks.iterdir()})
+
+    def test_old_native_rewrite_version_is_safe_to_stage(self):
+        original = self.repo / ".git/hooks/post-rewrite"
+        original.write_text("#!/bin/sh\n# roborev post-rewrite hook v1\nexit 0\n")
+        original.chmod(0o755)
+        hooks = self.install()
+        self.assertIn("post-rewrite hook v2", (hooks / "post-rewrite").read_text())
+        self.assertIn("post-rewrite hook v1", original.read_text())
+
+    def test_manifest_mismatch_requires_explicit_restage(self):
+        managed = self.install()
+        external = self.repo / ".githooks"
+        external.mkdir()
+        self.git("config", "--local", "core.hooksPath", str(external))
+        subprocess.run(
+            [str(self.native), "install-hook", "--binary", str(self.native)],
+            cwd=self.repo, check=True, capture_output=True, text=True,
+        )
+        with self.assertRaisesRegex(RuntimeError, "use --restage"):
+            roborev_hooks.install(self.repo, "platform")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                roborev_hooks.install(self.repo, "platform", restage=True), managed)
+        self.assertEqual(self.git("config", "--local", "core.hooksPath"), str(managed))
+        self.assertEqual(
+            roborev_hooks.json.loads((managed.parent / "installation.json").read_text())["previous_hooks"],
+            str(external),
+        )
+
     def test_existing_config_is_not_overwritten(self):
         config = self.repo / ".roborev.toml"
         config.write_text('agent = "different"\n')
