@@ -1,5 +1,19 @@
 # Status: 2026-10-23
 
+## Dormant Forge backlog reconciled
+
+- At owner direction, soft-deleted Forge-specific Katas `k03a`, `j54x`, `6hce`
+  and `avvp`; each remains restorable through Kata history. `k03a`'s mixed
+  guidance scope was not retained because its acceptance centered on Forge
+  launch surfaces. `j54x` and `avvp` required Forge workspace/integration use.
+- Clarified that Forge is human-facing but can launch Pi inside a human-created
+  workspace; `6hce` was technically valid as a test of model-selected Falcon
+  retrieval by that Forge-launched Pi. The owner chose removal because that
+  agent-launch path is dormant, not because Forge lacks agent support.
+- Retained maintenance Katas `vkye` (verify the normal frozen Forge build after
+  archive access is resolved) and dependent `1dkw` (then retire the temporary
+  local-Kata build). Refreshed `TODO.md`; it indexes 30 open Katas.
+
 ## roborev consolidated onto managed Pi/USAi daemon
 
 - Diagnosed the failed `the_librarian` review: a hand-started second daemon on
@@ -39,8 +53,8 @@
 - Preserved `.local/environment/forge/` (38 MB after clean shutdown), including
   the database/config, isolated credentials and four synced clones; preserved
   the Forge binary and submodule. No repository/provider sync, workspace,
-  publication or task mutation occurred. The six open Forge-related Kata tasks
-  remain unchanged pending the owner's separate deferral choices.
+  publication occurred. Forge-related backlog disposition was handled
+  separately afterward, as recorded above.
 - Updated local-environment tests and README lifecycle instructions. All 103
   focused tests pass; Python compilation and whitespace checks pass.
 - Investigated the reported Pi auth break without printing credentials. Both
