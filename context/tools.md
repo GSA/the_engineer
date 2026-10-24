@@ -1,5 +1,28 @@
 # Upstream components
 
+# Quiet roborev fail semantics: 2026-10-24
+
+For `roborev review --dirty --wait --quiet`, a completed review with findings
+returns exit 1 and deliberately prints nothing. In pinned v0.71.0 this flows
+through `review.go` (`waitForJob`, `silenceIfExit`, then deferred `quietExit`);
+it is not evidence that the scoped Python wrapper failed before enqueue.
+Runtime/configuration failures still carry a cause internally, but quiet mode's
+exit sentinel suppresses Cobra output.
+
+For retained synthetic snapshots, query the exact repository rather than using
+an unscoped list:
+
+```
+python3 scripts/roborev-local.py list --repo /absolute/snapshot/repo \
+  --all-branches --limit 10 --json
+python3 scripts/roborev-local.py show --job JOB_ID --json
+```
+
+The retained Librarian snapshot `f4f3a3abc760f1cbe97a604f9e60e4ab` produced
+completed failed jobs 26-29. Job 29 is the latest review. Its findings concern
+bounded diagnostic capture, race-safe result-file reading and standard test
+discovery. The review gate correctly treats a fail verdict as a commit block.
+
 # One managed roborev daemon and hook migration: 2026-10-23
 
 Official roborev usage centers one daemon/database serving multiple registered
