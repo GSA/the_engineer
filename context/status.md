@@ -18,6 +18,26 @@
   running tests; the corrected project command passed. No inference, credential
   rotation, service restart, task mutation or publication occurred.
 
+## Gate failure diagnostics repaired
+
+- Owner selected diagnostics-only scope. Changed the Librarian's existing
+  untracked `tools/review/{roborev_precommit.py,test_precommit.py,README.md}`
+  without editing Docling source, the wrapper, hooks configuration or indexes.
+- Nonzero quiet review exits now query the exact snapshot, require one completed
+  failed Pi dirty job with matching stored identity and explicit fail verdict,
+  report bounded findings/job ID, and retain diagnostics in `review.log`.
+  Missing/ambiguous/unavailable evidence still blocks; approval checks are intact.
+- All 44 synthetic gate tests and all 72 standard tests pass with the installed
+  `.venv/bin/python`. System Python's first standard-suite run failed because
+  MCP is not installed there; corrected to the documented environment.
+- Native job 29's stored show response verifies the diagnostic schema; its list
+  was narrowed in a test adapter to that saved job because the retained snapshot
+  now has four review jobs. Real multiple-job lookup refuses ambiguity as intended.
+  No further review/model invocation or experimental process was started.
+- Librarian changes remain unstaged with the owner's pre-existing untracked hook
+  implementation; no whole-file commit of that unrelated baseline was made.
+  The pending source commit remains blocked on review findings, not diagnostics.
+
 ## Retained synthetic review diagnosis
 
 - Reproduced the exact scoped command in the retained Librarian snapshot. The
