@@ -1,5 +1,23 @@
 # Status: 2026-10-24
 
+## USAi model catalog refreshed
+
+- Queried the authenticated USAi `/models` endpoint through the secret-safe
+  helper. It now advertises 24 unique IDs, adding `claude-sonnet-5.5`, three
+  GPT-6 aliases and `gpt-6.1-sol-latest-guardrails-defaultv2` since the prior
+  catalog; the timestamped private discovery file was refreshed.
+- Updated normal Pi and private platform Pi to the newest advertised generation
+  per family: Claude Opus 5/Sonnet 5.5, Gemini 3.8 Flash, GPT-6 Astra/Luna and
+  GPT-6.1 Sol, plus Llama 4 Maverick. Embedding aliases and older generations
+  remain excluded from the visible chat catalog.
+- Preserved the selected default as the previously verified GPT-5.6 Sol alias;
+  newly advertised aliases are discovery-only until chat streaming/tool use is
+  verified. Both model files remain mode 0600 and list the same seven entries.
+- `PYTHONPATH=scripts python3 -m unittest scripts.test_local_env` passes all 103
+  tests. The first invocation omitted `PYTHONPATH` and failed at import before
+  running tests; the corrected project command passed. No inference, credential
+  rotation, service restart, task mutation or publication occurred.
+
 ## Retained synthetic review diagnosis
 
 - Reproduced the exact scoped command in the retained Librarian snapshot. The

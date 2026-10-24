@@ -1,5 +1,30 @@
 # Upstream components
 
+# USAi model-router catalog refresh: 2026-10-24
+
+A fresh authenticated `GET /models` through `local_env.py list-models` returned
+24 unique IDs. Compared with the 2026-10-20 discovery catalog, advertised
+additions are `claude-sonnet-5.5`, `gpt-6-astra`, `gpt-6-luna`,
+`gpt-6-sol-latest-guardrails-defaultv2` and
+`gpt-6.1-sol-latest-guardrails-defaultv2`; older Gemini 2.5 aliases disappeared.
+The private timestamped catalog is `.local/environment/usai-models.json`.
+
+Normal Pi (`~/.pi/agent/models.json`) and private platform Pi
+(`.local/environment/pi/models.json`) now expose the newest advertised
+per-family set:
+
+- `claude-opus-5`, `claude-sonnet-5.5`
+- `gemini-3.8-flash`
+- `gpt-6-astra`, `gpt-6-luna`, `gpt-6.1-sol-latest-guardrails-defaultv2`
+- `llama_4_maverick`
+
+Both files remain 0600 and Pi lists the same seven aliases from each profile.
+The selected launcher default remains the previously verified
+`gpt-5.6-sol-latest-guardrails-defaultv2`; model discovery does not prove chat,
+streaming or tool-call compatibility, so the newly advertised aliases were not
+made the runtime default or invoked. Endpoint, protocol, credential references,
+MCP settings and sessions are unchanged.
+
 # Quiet roborev fail semantics: 2026-10-24
 
 For `roborev review --dirty --wait --quiet`, a completed review with findings
