@@ -90,6 +90,17 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("USAI_API_KEY", local_env.base_environment())
         self.assertNotIn("test-only-token", (self.state / "pi/models.json").read_text())
 
+    def test_selected_model_removed_from_catalog_fails_before_loading_key(self):
+        self.provider()
+        path = self.state / "pi/models.json"
+        config = json.loads(path.read_text())
+        config["providers"]["usai"]["models"] = [{"id": "new-unverified-model"}]
+        local_env.json_write(path, config, replace=True)
+        with patch.object(local_env, "load_usai_key") as key, \
+                self.assertRaisesRegex(RuntimeError, "missing from pi/models.json"):
+            local_env.pi_launch(["--no-session", "-p", "Synthetic test"])
+        key.assert_not_called()
+
     def test_credential_free_mcp_command(self):
         command, env = local_env.pi_launch(["mcp", "list"])
         self.assertEqual(command, ["/usr/bin/pi", "mcp", "list"])

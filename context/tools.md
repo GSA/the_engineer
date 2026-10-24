@@ -1,5 +1,33 @@
 # Upstream components
 
+# roborev model recovery and UI checks: 2026-10-24
+
+The catalog refresh below removed the active private GPT-5.6 entry while
+`usai.json` still selected it. Pi 1.0.3 used an unknown/custom-model fallback
+that emitted a developer role, which USAi rejected with HTTP 422. The selected
+alias is still advertised in the saved USAi catalog. Restored it in private
+`pi/models.json` with `compat.supportsDeveloperRole = false`, verified by a
+completed structured Pi/USAi review (job 36). Global Pi remains unchanged;
+private Pi now lists eight entries, global Pi still seven. The earlier
+seven-entry discovery update was not proof of continued launcher compatibility.
+
+`scripts/local_env.py pi_launch` now rejects an active model absent from the
+private catalog before loading credentials; it never silently chooses a new
+model or accepts Pi custom-model fallback. Keep the selected verified entry
+during future discovery refreshes. This guard is covered by a regression test.
+
+Use `python3 scripts/roborev-local.py ui` to open the managed browser UI, or
+visit http://127.0.0.1:17374/reviews directly. Browser navigation requires
+`Accept: text/html`; bare curl (Accept: */*) returns 404 by design. Check with
+`curl -H "Accept: text/html" http://127.0.0.1:17374/reviews`. HTML and embedded
+JS/CSS returned 200; this is HTTP evidence, not an interactive browser test.
+No extra daemon should be started on native default 7373.
+
+Synthetic recovery fixture and saved job response remain private under
+`.local/environment/runtime/roborev-recovery-smoke/`. Job 36 detected the
+intentional inverted even predicate; its fail verdict means findings, not an
+agent execution failure. No historical failed jobs were resubmitted.
+
 # USAi model-router catalog refresh: 2026-10-24
 
 A fresh authenticated `GET /models` through `local_env.py list-models` returned

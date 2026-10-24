@@ -353,6 +353,13 @@ def pi_launch(args):
             raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
     try:
         model = json.loads(private_read(STATE / "usai.json"))["model"]
+        models = json.loads(private_read(STATE / "pi/models.json"))
+        provider = models.get("providers", {}).get("usai", {})
+        if not any(entry.get("id") == model for entry in provider.get("models", [])):
+            raise RuntimeError(
+                "saved USAi model is missing from pi/models.json; restore its verified model "
+                "entry or explicitly configure-provider before launching; no custom-model fallback"
+            )
         key = load_usai_key()
     except FileNotFoundError as error:
         raise RuntimeError("USAi is not ready: run configure-provider and set-key; no provider fallback") from error

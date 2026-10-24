@@ -1,5 +1,29 @@
 # Status: 2026-10-24
 
+## roborev selected-model recovery (Kata agz5)
+
+- Owner reported absent reviews/UI and a missing model. Managed daemon PID 401
+  was already active: API 200, browser HTML 200 with Accept:text/html, embedded
+  JS/CSS 200. Bare curl 404 is navigation content negotiation, not absent UI.
+  No interactive browser display was verified; use localhost:17374/reviews.
+- Before repair there were 27 completed and 7 failed jobs. Latest jobs 30-35
+  failed with USAi HTTP 422 rejecting developer messages. Job 19 separately
+  records an earlier stream-without-finish_reason error.
+- The catalog refresh removed the selected GPT-5.6 model from private Pi while
+  leaving usai.json unchanged; Pi custom-model fallback emitted the rejected
+  role. Restored the still-advertised selected alias with explicit
+  supportsDeveloperRole=false. Global settings, endpoint, key, default model,
+  MCP, review gates and service are unchanged. No newer alias was selected.
+- Added an active-model-presence guard in scripts/local_env.py with regression
+  coverage in scripts/test_local_env.py. All 104 local-environment tests pass.
+- Bounded private synthetic review job 36 completed through Pi/USAi and found
+  the deliberately inverted is_even predicate (expected fail verdict/exit 1).
+  Stored evidence: .local/environment/runtime/roborev-recovery-smoke/job-36.json.
+  Review: http://127.0.0.1:17374/reviews/36. Historical failures are preserved;
+  no backfill, real-source fixes, daemon restart, or publication performed.
+- Shutdown: existing managed roborev PID 401 remains; no experimental service
+  started. Synthetic Git fixture remains private, with hooks disabled.
+
 ## USAi model catalog refreshed
 
 - Queried the authenticated USAi `/models` endpoint through the secret-safe
