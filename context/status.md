@@ -1,5 +1,29 @@
 # Status: 2026-10-24
 
+## Repeated snapshot failure diagnostics (Kata p2v5)
+
+- Owner reconfirms diagnostics only. Prior lookup refused all multi-job history.
+  Updated only Librarian tools/review/{roborev_precommit.py,test_precommit.py,
+  README.md}; existing staged source/index and all configuration preserved.
+- Nonzero review queries exact snapshot/all branches/up to 10 jobs; verifies
+  each completed failing list/show identity and explicit verdict. Reports stored
+  failed execution separately. Historical results do not attribute this exit or
+  authorize approval; completed_verdict/source/index/diff checks are unchanged.
+- Findings budget is 16,384 characters across jobs; one unavailable show does
+  not hide others. review.log retains text and blocked result.json records
+  diagnostic_job_ids separately from approval job_id.
+- Observed two red tests before implementation. Final 50 gate tests pass;
+  installed venv standard suite passes 74 tests. git diff --check passes.
+  Read-only native lookup verifies failing IDs 42,40,29,28,27,26 and stored
+  infrastructure job 34; 13,173-character diagnostic saved privately in
+  .local/environment/runtime/gate-diagnostic-p2v5.txt. Scoped delta saved beside
+  it as gate-diagnostic-p2v5.patch (0600); no private evidence committed.
+- Librarian delta remains unstaged atop the owner's already-staged gate and
+  unrelated source: no application commit or review-gate bypass. Workspace
+  context/index committed locally; no publication or new inference review.
+  Tests/read-only query children exited; no owned experiment remains.
+
+
 ## Recovered interruption and fixed Librarian CLI scope
 
 - Recovery check found a clean working tree and responsive Kata actor `pi`;
