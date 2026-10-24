@@ -38,6 +38,7 @@ ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
 KATA_UNIT = "kenn-kopy-kata.service"
 KATA_PLATFORM_PROJECT = "engi-platform"
+KATA_LIBRARIAN_PROJECT = "librarian"
 # Registered Falcon application projects the scoped launcher may also target.
 # Selecting one does not authorize ticket decomposition, workers or publication.
 KATA_APPLICATION_PROJECTS = (
@@ -484,7 +485,7 @@ def kata_project_scope(args, *, allow_application_projects=False):
                 value = args[index]
             else:
                 value = arg.split("=", 1)[1]
-            allowed = (KATA_PLATFORM_PROJECT, *KATA_APPLICATION_PROJECTS)
+            allowed = (KATA_PLATFORM_PROJECT, KATA_LIBRARIAN_PROJECT, *KATA_APPLICATION_PROJECTS)
             if value not in allowed:
                 raise RuntimeError(
                     f"the scoped Kata launcher allows only these projects: {', '.join(allowed)}")
@@ -494,19 +495,23 @@ def kata_project_scope(args, *, allow_application_projects=False):
         index += 1
     if project is None:
         project = KATA_PLATFORM_PROJECT
-    if project in KATA_APPLICATION_PROJECTS:
+    if project in (*KATA_APPLICATION_PROJECTS, KATA_LIBRARIAN_PROJECT):
+        librarian = project == KATA_LIBRARIAN_PROJECT
+        label = "librarian" if librarian else "application"
         if not allow_application_projects:
-            raise RuntimeError("application project selection is CLI-only; MCP stays on engi-platform")
+            raise RuntimeError(f"{label} project selection is CLI-only; MCP stays on engi-platform")
         parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False, exit_on_error=False)
         parser.add_argument("--as", dest="actors", action="append")
-        actor_error = "application project selection requires exactly one explicit --as copilot"
+        allowed_actors = ("pi", "copilot") if librarian else ("copilot",)
+        actor_error = (f"{label} project selection requires exactly one explicit --as "
+                       + " or --as ".join(allowed_actors))
         try:
             selection, rest = parser.parse_known_args(rest)
         except argparse.ArgumentError as error:
             raise RuntimeError(actor_error) from error
-        if selection.actors != ["copilot"]:
+        if not selection.actors or len(selection.actors) != 1 or selection.actors[0] not in allowed_actors:
             raise RuntimeError(actor_error)
-        rest = ["--as", "copilot", *rest]
+        rest = ["--as", selection.actors[0], *rest]
     return project, rest
 
 

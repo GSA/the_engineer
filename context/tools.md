@@ -1,5 +1,21 @@
 # Upstream components
 
+# Librarian Kata CLI access (recovered session)
+
+`local_env.py::kata_project_scope` now accepts explicit `--project librarian`
+only through the existing CLI opt-in. Exactly one explicit `--as pi` or
+`--as copilot` is required; inherited actors, abbreviations, duplicate actors/
+projects and daemon/workspace overrides cannot select a different scope.
+Caller `.kata.toml` is intentionally not consulted; engi-platform remains the
+default. Falcon applications still require Copilot and MCP remains platform-only.
+
+Use `python3 scripts/kata-local.py --project librarian --as pi list --json`.
+Live reads resolve nine issues in project ID 26; both explicit actors resolve
+correctly. `PYTHONPATH=scripts python3 -m unittest scripts.test_local_env
+scripts.test_kata_todo` passes 118 tests. `python3 scripts/check-kata-mcp.py`
+passes both actors, platform binding and cross-project read/write refusal
+without model calls or pilot comments. No Librarian issue was mutated.
+
 # Single roborev command and duplicate diagnostics: 2026-10-24
 
 Owner approved deleting the unused global installation, not retaining another
