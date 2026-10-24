@@ -16,6 +16,13 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-24 the owner requests roborev startup/failure diagnosis and asks
+  whether integration is overcomplicated. Repair the existing private model
+  configuration, not a new service or provider: retain selected GPT-5.6/USAi,
+  one managed daemon and scoped hooks. Catalog discovery must retain the active
+  verified model or deliberately change it after validation. Preserve review
+  gates and historical failures; no automatic backfill or global profile edit.
+
 - On 2026-10-24 the owner selects only improved Librarian pre-commit failure
   diagnostics, not Docling finding fixes or review-gate relaxation. Preserve
   quiet mode, exact-snapshot evidence, explicit stored passing verdict and
