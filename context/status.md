@@ -1,4 +1,25 @@
-# Status: 2026-10-23
+# Status: 2026-10-24
+
+## Retained synthetic review diagnosis
+
+- Reproduced the exact scoped command in the retained Librarian snapshot. The
+  wrapper and managed daemon are healthy: each invocation created and completed
+  a Pi/USAi dirty-review job (26-29). Exit 1 with empty stdout/stderr is the
+  pinned CLI's intentional `--quiet --wait` behavior when the stored verdict is
+  fail, not a wrapper failure before enqueue.
+- The initial bare `list --json` result was misleading because list defaults do
+  not identify this retained snapshot reliably. The gate's exact scoped query,
+  `list --repo <snapshot> --all-branches --limit 10 --json`, returns the four
+  completed failed jobs. Review 29 is at
+  http://127.0.0.1:17374/reviews/29 and reports three actionable findings.
+- The source index and retained snapshot remain unchanged. No wrapper, daemon,
+  hook, Librarian source or repository index was edited. The existing 40
+  synthetic pre-commit tests pass.
+- A second unmanaged global daemon had reappeared on 127.0.0.1:7373 (PID 80466),
+  independently of the scoped launcher. Stopped it through its own endpoint;
+  managed service PID 401 remains active on loopback 17373/17374.
+
+# Previous status: 2026-10-23
 
 ## Visual agent demos added to backlog
 
