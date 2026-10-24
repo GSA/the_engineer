@@ -48,6 +48,15 @@ completed failed jobs 26-29. Job 29 is the latest review. Its findings concern
 bounded diagnostic capture, race-safe result-file reading and standard test
 discovery. The review gate correctly treats a fail verdict as a commit block.
 
+The owner's diagnostics-only follow-up adds exact-snapshot failed-job lookup
+and bounded stored output to the Librarian gate's nonzero review path. Findings
+are limited to 16,384 characters in the diagnostic; full text remains in the
+stored job. Matching list/show identity and explicit integer fail verdict are
+required; ambiguity is not resolved by choosing the newest job. Error evidence
+is written to the run's `review.log`, while `result.json` stays blocked.
+44 gate tests cover output retention/bounds, unavailable queries, mismatched
+jobs and unchanged failure gates; 72 standard tests pass in its installed venv.
+
 # One managed roborev daemon and hook migration: 2026-10-23
 
 Official roborev usage centers one daemon/database serving multiple registered
