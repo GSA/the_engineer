@@ -1,5 +1,35 @@
 # Upstream components
 
+# Single roborev command and duplicate diagnostics: 2026-10-24
+
+Owner approved deleting the unused global installation, not retaining another
+profile for history. Removed the old ~/.local/bin/roborev executable and
+~/.roborev (three legacy jobs plus config/logs/cache), after confirming no
+legacy listener or daemon. The managed database was untouched. Git does not
+contain those ignored historical records; deletion was explicitly approved.
+
+`python3 scripts/local_env.py install-roborev-cli` installs a symlink from
+~/.local/bin/roborev to this checkout's scripts/roborev-local.py. Existing
+conflicts require explicit inspected --replace-existing; reruns are no-ops.
+No second wrapper or binary is installed. The entrypoint resolves its real
+script directory so Python imports work through the symlink from any cwd.
+Use `roborev status`, `roborev ui`, `roborev show --job N` and `roborev review`.
+Existing external hooks retain their absolute scoped path; no migration needed.
+Keep the thin Python entrypoint: native config alone does not disable automatic
+discovery/startup, and a shell replacement would duplicate private environment,
+validation and guard logic. Read-only scout source inspection confirms this.
+
+Native daemon and update commands are blocked at the managed entrypoint:
+use systemctl --user start|stop|restart kenn-kopy-roborev.service and deliberate
+pinned source/build updates. This prevents native lifecycle from escaping
+systemd ownership. API address overrides remain blocked.
+
+`roborev status`/`doctor` print read-only warnings on stderr for loopback
+listeners at native port 7373 (IPv4/IPv6) and roborev daemon-run processes
+outside the managed unit/verified optional supervisor. local_env.py status
+returns the same roborev_warnings list. Diagnostic inspection never signals
+processes. A temporary real loopback socket verified the warning and was closed.
+
 # roborev model recovery and UI checks: 2026-10-24
 
 The catalog refresh below removed the active private GPT-5.6 entry while

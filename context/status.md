@@ -1,5 +1,39 @@
 # Status: 2026-10-24
 
+## Duplicate roborev installation removed (Kata qc5a)
+
+- Owner approves deletion rather than archival, canonical command, simple docs
+  and duplicate-daemon diagnostics; requests subagent simplification analysis.
+- Deleted unused ~/.roborev including three jobs, config/logs/cache and replaced
+  the global native executable with a symlink to scripts/roborev-local.py.
+  Confirmed only PID 401 daemon and no 7373 listener before deletion. Managed
+  database/profile and existing hooks are unchanged. No backup copy created.
+- Canonical roborev status and show --job 36 succeed from /tmp. The entrypoint
+  resolves its real directory for imports. Installer is explicit, repeatable
+  and refuses existing conflicts unless --replace-existing is approved.
+- Native daemon/update commands now reject with systemd lifecycle guidance.
+  Duplicate diagnostics warn about 7373 IPv4/IPv6 listeners and unmanaged
+  daemon-run processes; status/doctor/local_env status share this check.
+- 107 environment and 16 hook tests pass separately. Combined first run also
+  passed 123 tests but emitted getcwd warnings because earlier tests leave
+  process cwd in a deleted fixture; separate documented invocations are clean.
+  Symlink, repeat install, lifecycle refusal, process classification covered.
+- Actual temporary 127.0.0.1:7373 socket produced the expected warning while
+  status remained successful; context manager closed it. Final local_env status
+  reports roborev_warnings=[], service PID 401; only 17373/17374 listen.
+- Read-only scout a505cb51-2958-4d90-a9db-1f17e5473a84 recommends keeping
+  the thin Python entrypoint: shell/native replacements duplicate or lose
+  isolation/validation/no-autostart safeguards. Its review caught root flag
+  lifecycle bypasses; parent corrected command-prefix detection and added
+  --from-skill/--verbose=true tests. Supervisor lookup errors no longer break
+  duplicate diagnostics; command operands do not trigger diagnostic scans.
+- Native direct binary remains an implementation escape hatch, not a sandbox.
+  local_env status still requires managed-service health and may fail before
+  duplicate diagnostics if a service is down; canonical roborev status/doctor
+  run the warnings first. No stopped-service live test or interactive browser
+  test was performed. No second service started, no new inference review or
+  publication, and no owned experiment remains.
+
 ## roborev selected-model recovery (Kata agz5)
 
 - Owner reported absent reviews/UI and a missing model. Managed daemon PID 401
