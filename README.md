@@ -161,13 +161,16 @@ python3 scripts/kata_todo.py
 
 The launcher defaults to `engi-platform`, pins this workspace and the private
 loopback daemon, and strips inherited credentials. Explicit `--project`
-selection is CLI-only and limited to the four application projects above
-(or `engi-platform`). Application selection requires exactly one
-`--as copilot`; repeated project/actor selectors and other actors are refused.
+selection is CLI-only and limited to the four application projects above,
+`librarian`, or `engi-platform`. Application selection requires exactly one
+`--as copilot`; Librarian requires exactly one `--as pi` or `--as copilot`.
+Repeated project/actor selectors and unsupported actors are refused. Caller
+repository `.kata.toml` files do not change the launcher default.
 For example, this reads the UI application's backlog without changing it:
 
 ```sh
 ./scripts/kata-local.py --project supply-chain-user-interface --as copilot list --agent
+./scripts/kata-local.py --project librarian --as pi list --agent
 ```
 
 Daemon/workspace overrides and unrelated projects remain refused. The launcher

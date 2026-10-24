@@ -16,6 +16,13 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- The owner authorizes a scoped Librarian CLI launcher fix and selects explicit
+  `--project librarian` with exactly one `--as pi` or `--as copilot`. This
+  supersedes the earlier Librarian CLI exclusion only; retain platform default/
+  MCP scope, Falcon Copilot attribution and private daemon/workspace locks.
+  Do not infer permission to change repository-config defaults or clean up
+  Librarian tasks without issue-specific evidence and scope.
+
 - On 2026-10-24 the owner approves deleting (not archiving) the accidental
   global roborev installation/state, unifying the normal CLI, simplifying
   usage docs and adding duplicate-daemon warnings. This explicitly supersedes

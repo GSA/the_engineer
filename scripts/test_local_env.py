@@ -343,7 +343,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             for args in ([flag, "other", "list"], ["list", flag + "=other"]):
                 with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins"):
                     local_env.kata_launch(args)
-        for args in (["--project", "librarian", "list"], ["list", "--project=other"]):
+        for args in (["--project", "kata-evaluation-20261012", "list"], ["list", "--project=other"]):
             with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "allows only"):
                 local_env.kata_launch(args)
         with self.assertRaisesRegex(RuntimeError, "needs a registered project"):
@@ -418,10 +418,48 @@ class LocalEnvironmentTests(unittest.TestCase):
                 args = ["--project=infrastructure", "--as=copilot", "list", *override]
                 with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins"):
                     local_env.kata_launch(args, allow_application_projects=True)
-        for project in ("librarian", "kata-evaluation-20261012", "other", ""):
+        for project in ("kata-evaluation-20261012", "other", ""):
             args = ["--project=" + project, "--as=copilot", "list"]
             with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "allows only"):
                 local_env.kata_launch(args, allow_application_projects=True)
+
+    def test_kata_librarian_selection_requires_cli_opt_in(self):
+        with self.assertRaisesRegex(RuntimeError, "CLI-only"):
+            local_env.kata_project_scope(["--project=librarian", "--as=pi", "list"])
+
+    def test_kata_librarian_selection_accepts_each_explicit_actor(self):
+        for actor in ("pi", "copilot"):
+            for args in (["--project", "librarian", "--as", actor, "list"],
+                         ["list", f"--as={actor}", "--project=librarian"]):
+                with self.subTest(args=args), patch.object(Path, "is_file", return_value=True), \
+                        patch.object(local_env.os, "access", return_value=True), \
+                        patch.dict(os.environ, {"KATA_AUTHOR": "foreign", "KATA_HOME": "/wrong",
+                                               "KATA_SERVER": "https://wrong.example"}):
+                    command, env = local_env.kata_launch(args, allow_application_projects=True)
+                self.assertEqual(command, [
+                    str(local_env.ROOT / "kata/kata"), "--workspace", str(local_env.ROOT),
+                    "--project", "librarian", "--as", actor, "list",
+                ])
+                self.assertEqual(env["KATA_HOME"], str(self.state / "kata"))
+                self.assertEqual(env["KATA_SERVER"], "http://127.0.0.1:17777")
+                self.assertNotIn("KATA_AUTHOR", env)
+
+    def test_kata_librarian_selection_rejects_implicit_or_ambiguous_actor(self):
+        for actor_args in ([], ["--as=nkirrish"], ["--as="], ["--as"], ["--a=pi"],
+                           ["--as=pi", "--as=copilot"], ["--as=pi", "--as=pi"],
+                           ["--", "--as=pi"]):
+            with self.subTest(args=actor_args), patch.dict(os.environ, {"KATA_AUTHOR": "pi"}):
+                with self.assertRaisesRegex(RuntimeError, "one explicit --as pi or --as copilot"):
+                    local_env.kata_project_scope(
+                        ["--project=librarian", "list", *actor_args], allow_application_projects=True,
+                    )
+        for overrides in (["--project=librarian"], ["--project=engi-platform"],
+                          ["--daemon=other"], ["--workspace", "other"]):
+            with self.subTest(overrides=overrides), self.assertRaises(RuntimeError):
+                local_env.kata_project_scope(
+                    ["--project=librarian", "--as=pi", "list", *overrides],
+                    allow_application_projects=True,
+                )
 
     def test_kata_cli_preserves_platform_arguments_and_literal_scope_flags(self):
         for args in (["ready"], ["list", "--as", "pi"],

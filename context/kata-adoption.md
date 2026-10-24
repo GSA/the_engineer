@@ -50,8 +50,11 @@ registered application projects above, but requires exactly one explicit
 `--as copilot` (or `--as=copilot`). Repeated project/actor selectors, other
 application actors, unrelated projects and daemon/workspace overrides fail
 explicitly. An explicit engi-platform selector retains platform behavior.
-The application-project opt-in belongs only to this CLI entrypoint; internal
+The non-platform project opt-in belongs only to this CLI entrypoint; internal
 callers, the TODO generator and both MCP adapters retain platform scope.
+The owner subsequently approved `--project librarian` with exactly one explicit
+`--as pi` or `--as copilot`. Falcon application actor rules are unchanged;
+caller repository `.kata.toml` files do not alter the platform default.
 
 The launcher strips inherited credential/actor environment variables; platform
 commands retain their existing `--as` behavior. Actor labels are attribution,

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Invoke private Kata with explicit, actor-checked application project selection."""
+"""Invoke private Kata with explicit, actor-checked project selection."""
 
 import os
 import subprocess

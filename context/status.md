@@ -1,5 +1,22 @@
 # Status: 2026-10-24
 
+## Recovered interruption and fixed Librarian CLI scope
+
+- Recovery check found a clean working tree and responsive Kata actor `pi`;
+  no prior patch/task mutation had been applied. Resumed the owner's explicit
+  project/actor choice rather than broadening repository-config defaults.
+- Added CLI-only `--project librarian`, requiring exactly one `--as pi` or
+  `--as copilot`. Platform default/MCP, Falcon actor restrictions and private
+  daemon/workspace locks remain intact. README and operation notes updated.
+- 118 environment/index tests pass; live whoami resolves both selected actors
+  and Librarian list returns nine issues in project ID 26. Both real MCP adapters
+  pass platform binding and cross-project read/write refusal without inference.
+- Platform task `8d24` records the fix and is closed with test/read evidence.
+  Task registration followed the initial recovered patch/test run, recorded
+  explicitly in its body. TODO refreshed: 31 open tasks; history preserved.
+- Librarian tasks/source/config were not changed. No experimental daemon or
+  service was started; short-lived MCP check children exited. No publication.
+
 ## Duplicate roborev installation removed (Kata qc5a)
 
 - Owner approves deletion rather than archival, canonical command, simple docs
