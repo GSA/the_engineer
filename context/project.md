@@ -16,6 +16,14 @@ Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
+- On 2026-10-24 the owner approves deleting (not archiving) the accidental
+  global roborev installation/state, unifying the normal CLI, simplifying
+  usage docs and adding duplicate-daemon warnings. This explicitly supersedes
+  legacy-global-state preservation, not preservation of the managed database.
+  Plain roborev should select the existing private launcher, with systemd
+  lifecycle and no automatic process killing. Subagent analysis of further
+  launcher simplification is authorized; keep Pi/USAi isolation and hooks.
+
 - On 2026-10-24 the owner requests roborev startup/failure diagnosis and asks
   whether integration is overcomplicated. Repair the existing private model
   configuration, not a new service or provider: retain selected GPT-5.6/USAi,

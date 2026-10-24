@@ -239,10 +239,71 @@ class LocalEnvironmentTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "missing executable"):
                 local_env.roborev_launch(["status"])
 
+    def test_managed_roborev_refuses_native_lifecycle_and_update(self):
+        for args in (["daemon", "start"], ["daemon", "run"], ["daemon", "restart"],
+                     ["--verbose", "daemon", "stop"], ["update"],
+                     ["--from-skill", "daemon", "run"],
+                     ["--verbose=true", "daemon", "run"]):
+            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "systemctl"):
+                local_env.roborev_launch(args)
+        with patch.object(Path, "is_file", return_value=True), \
+                patch.object(local_env.os, "access", return_value=True):
+            command, _ = local_env.roborev_launch(["review", "--repo", "daemon"])
+        self.assertEqual(command[-1], "daemon")
+
+    def test_roborev_cli_install_is_explicit_repeatable_and_symlinked(self):
+        home = self.root / "user-home"
+        command = home / ".local/bin/roborev"
+        command.parent.mkdir(parents=True)
+        command.write_text("old native binary")
+        with patch.object(Path, "home", return_value=home):
+            with self.assertRaisesRegex(RuntimeError, "--replace-existing"):
+                local_env.install_roborev_cli()
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_env.install_roborev_cli(replace_existing=True)
+                local_env.install_roborev_cli()
+        self.assertTrue(command.is_symlink())
+        self.assertEqual(command.resolve(), local_env.ROOT / "scripts/roborev-local.py")
+        # Execute the symlink from another cwd to exercise Python import resolution.
+        result = local_env.subprocess.run([str(command), "--help"], cwd=self.root,
+                                          capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("roborev", result.stdout)
+
+    def test_roborev_warnings_distinguish_managed_and_unmanaged_processes(self):
+        proc = self.root / "proc"
+        for pid, cmd in ((111, b"/native/roborev\0daemon\0run\0"),
+                         (222, b"/native/roborev\0daemon\0run\0"),
+                         (333, b"/native/roborev\0status\0")):
+            entry = proc / str(pid)
+            entry.mkdir(parents=True)
+            (entry / "cmdline").write_bytes(cmd)
+        with patch.object(local_env, "user_service_pid", return_value=111), \
+                patch.object(local_env, "supervisor", return_value=None), \
+                patch.object(local_env.socket, "socket") as socket:
+            socket.return_value.__enter__.return_value.connect_ex.return_value = 1
+            warnings = local_env.roborev_warnings(proc_root=proc)
+            self.assertEqual(len(warnings), 1)
+            self.assertIn("PID 222", warnings[0])
+            socket.return_value.__enter__.return_value.connect_ex.return_value = 0
+            warnings = local_env.roborev_warnings(proc_root=proc)
+            self.assertEqual(sum("7373" in w for w in warnings), 2)
+        with patch.object(local_env, "user_service_pid", side_effect=RuntimeError("inactive")), \
+                patch.object(local_env, "supervisor", return_value={"children": {"roborev": 111}}), \
+                patch.object(local_env.socket, "socket") as socket:
+            socket.return_value.__enter__.return_value.connect_ex.return_value = 1
+            self.assertEqual(len(local_env.roborev_warnings(proc_root=proc)), 1)
+        with patch.object(local_env, "user_service_pid", return_value=111), \
+                patch.object(local_env, "supervisor", side_effect=RuntimeError("stale identity")), \
+                patch.object(local_env.socket, "socket") as socket:
+            socket.return_value.__enter__.return_value.connect_ex.return_value = 1
+            self.assertEqual(len(local_env.roborev_warnings(proc_root=proc)), 1)
+
     def test_scoped_roborev_entrypoint_executes_without_changing_directory(self):
         command = ["/native/roborev", "--server", "127.0.0.1:17373", "status"]
         env = {"ROBOREV_DATA_DIR": "/private"}
-        with patch.object(local_env, "roborev_launch", return_value=(command, env)) as launch:
+        with patch.object(local_env, "roborev_launch", return_value=(command, env)) as launch, \
+                patch.object(local_env, "roborev_warnings", return_value=[]):
             with patch.object(os, "execve") as execute, patch.object(os, "chdir") as chdir:
                 with patch.object(os, "umask"), patch.object(local_env.sys, "argv", ["launcher", "status"]):
                     runpy.run_path(str(local_env.ROOT / "scripts/roborev-local.py"))

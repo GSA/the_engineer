@@ -381,6 +381,57 @@ def install_pi_review_extension():
     print(f"Installed {PI_REVIEW_EXTENSION} in the isolated Pi profile; no model request was made.")
 
 
+def install_roborev_cli(*, replace_existing=False):
+    """Expose the existing scoped launcher, not a second binary or config."""
+    settings()
+    target = ROOT / "scripts/roborev-local.py"
+    destination = Path.home() / ".local/bin/roborev"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.is_symlink() and destination.resolve() == target:
+        print(f"roborev already selects {target}")
+        return
+    if destination.exists() or destination.is_symlink():
+        if not replace_existing or destination.is_dir():
+            raise RuntimeError("roborev command already exists; inspect it before --replace-existing")
+        destination.unlink()
+    destination.symlink_to(target)
+    print(f"roborev now selects {target}")
+
+
+def roborev_warnings(*, proc_root=Path("/proc")):
+    """Read-only diagnostics: never start or signal another daemon."""
+    warnings = []
+    for host, family in (("127.0.0.1", socket.AF_INET), ("::1", socket.AF_INET6)):
+        try:
+            with socket.socket(family, socket.SOCK_STREAM) as probe:
+                probe.settimeout(0.2)
+                if probe.connect_ex((host, 7373)) == 0:
+                    warnings.append(f"unexpected listener at {host}:7373; managed roborev uses 17373")
+        except OSError:
+            pass
+    allowed = set()
+    try:
+        allowed.add(user_service_pid(ROBOREV_UNIT))
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        pass
+    try:
+        saved = supervisor()
+    except (OSError, ValueError, KeyError, RuntimeError):
+        saved = None
+    if saved:
+        allowed.add(saved.get("children", {}).get("roborev"))
+    for entry in proc_root.glob("[0-9]*"):
+        try:
+            args = (entry / "cmdline").read_bytes().split(b"\0")
+            if (Path(os.fsdecode(args[0])).name == "roborev"
+                    and b"daemon" in args[1:] and b"run" in args[1:]
+                    and int(entry.name) not in allowed):
+                warnings.append(f"unmanaged roborev daemon PID {entry.name}; inspect before stopping it")
+        except (OSError, ValueError):
+            continue
+    return warnings
+
+
 def roborev_launch(args):
     settings()
     validate_roborev_config()
@@ -389,6 +440,12 @@ def roborev_launch(args):
             break
         if arg == "--server" or arg.startswith("--server="):
             raise RuntimeError("the scoped roborev launcher pins the private server at 127.0.0.1:17373")
+    command_args = [arg for arg in args if not arg.startswith("-")]
+    if command_args and command_args[0] in ("daemon", "update"):
+        raise RuntimeError(
+            "manage roborev with systemctl --user start|stop|restart kenn-kopy-roborev.service; "
+            "native daemon/update commands are disabled by the managed launcher"
+        )
     binary = ROOT / "roborev/bin/roborev"
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError("missing executable roborev binary; build it before using the launcher")
@@ -1009,6 +1066,7 @@ def status():
     return {"stack": "running" if saved else "stopped", "supervisor": saved,
             "agentsview_service": external.get("agentsview"),
             "roborev_service": external.get("roborev"),
+            "roborev_warnings": roborev_warnings(),
             "forge": forge,
             "kata_service": external.get("kata"),
             "projects": api("GET", "/projects") if forge else None}
@@ -1159,6 +1217,9 @@ def main():
     commands.add_parser("install-agentsview-service", help="enable the configured AgentsView user service")
     commands.add_parser("agentsview-run", help="run the standalone configured AgentsView service")
     commands.add_parser("install-roborev-service", help="enable the configured roborev user service")
+    review_cli = commands.add_parser("install-roborev-cli", help="make plain roborev use the managed launcher")
+    review_cli.add_argument("--replace-existing", action="store_true",
+                            help="replace an explicitly inspected existing roborev command")
     commands.add_parser("install-pi-review-extension", help="install the pinned extension in private Pi only")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
@@ -1198,6 +1259,8 @@ def main():
             agentsview_run()
         elif args.command == "install-roborev-service":
             install_roborev_service()
+        elif args.command == "install-roborev-cli":
+            install_roborev_cli(replace_existing=args.replace_existing)
         elif args.command == "install-pi-review-extension":
             install_pi_review_extension()
         elif args.command == "roborev-run":

@@ -386,25 +386,40 @@ USAi credential, and can be repeated. Global Pi configuration is untouched.
 Roborev explicitly loads the extension and supplies the review JSON schema.
 The extension validates the result before roborev stores it.
 
-Use the scoped executable rather than a global `roborev` command:
+Use one managed command. Install it explicitly into your user-local bin directory:
 
 ```sh
-./scripts/roborev-local.py status
-./scripts/roborev-local.py show --job 1
+python3 scripts/local_env.py install-roborev-cli
+# Only after inspecting a conflicting existing command:
+# python3 scripts/local_env.py install-roborev-cli --replace-existing
+roborev status
+roborev ui
+roborev show --job 1
 ```
+
+`~/.local/bin/roborev` is a symlink to the existing scoped launcher, not another
+binary or wrapper. Ensure `~/.local/bin` is on your PATH. On this host the
+unused global binary and `~/.roborev` state have been deleted. The one database
+is `.local/environment/roborev/reviews.db`.
 
 From an approved project, a bounded manual review is:
 
 ```sh
-/absolute/path/to/kenn-kopy/scripts/roborev-local.py review \
+roborev review \
   --repo /absolute/path/to/approved/project \
   --type default --agent pi --panel none --reasoning fast --wait
 ```
 
 The launcher preserves the caller's working directory, arguments and stdin,
 selects `.local/environment/roborev/`, and pins the API to `127.0.0.1:17373`.
-Server overrides are refused. An unavailable explicit endpoint fails instead
-of starting/discovering another daemon. No key is read by this launcher or
+Server overrides and native `daemon`/`update` commands are refused. Use
+`systemctl --user start|stop|restart kenn-kopy-roborev.service` for lifecycle;
+update pinned source/builds deliberately, not through a separate self-updater.
+An unavailable explicit endpoint fails instead of starting/discovering another
+daemon. `roborev status` and `roborev doctor` warn about listeners on native
+port 7373 or roborev daemons outside the managed service/optional supervisor.
+`python3 scripts/local_env.py status` includes the same diagnostics. Warnings
+never kill processes. No key is read by this launcher or
 passed in CLI arguments; the daemon launches the private Pi/USAi child.
 Forge and GitHub are not involved. Use the saved USAi model rather than
 `--model`/`--provider` overrides, which the Pi launcher rejects.
