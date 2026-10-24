@@ -38,6 +38,11 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   verified model or deliberately change it after validation. Preserve review
   gates and historical failures; no automatic backfill or global profile edit.
 
+- On 2026-10-24 the owner reconfirms diagnostics-only scope for repeated
+  Librarian snapshot reviews: report verified failed job history and stored
+  infrastructure statuses, never select a historical pass or infer the job
+  responsible for an unattributed quiet exit. Leave Docling findings untouched.
+
 - On 2026-10-24 the owner selects only improved Librarian pre-commit failure
   diagnostics, not Docling finding fixes or review-gate relaxation. Preserve
   quiet mode, exact-snapshot evidence, explicit stored passing verdict and

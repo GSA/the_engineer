@@ -122,6 +122,20 @@ completed failed jobs 26-29. Job 29 is the latest review. Its findings concern
 bounded diagnostic capture, race-safe result-file reading and standard test
 discovery. The review gate correctly treats a fail verdict as a commit block.
 
+The repeated-review follow-up (Kata p2v5) supersedes the unique-job diagnostic
+restriction described below, not the unique-job approval requirement. The gate
+now queries --repo <exact snapshot> --all-branches --limit 10 --json and validates
+each done/fail list/show identity independently. Failed execution statuses are
+reported separately. History is explicitly not attribution of the command exit.
+Findings share a 16,384-character budget across returned rows; missing one show
+does not hide other verified results. Verified failing IDs persist separately as
+result.json diagnostic_job_ids; approval job_id semantics stay unchanged.
+50 synthetic gate tests and 74 standard tests pass in the Librarian venv. Native
+read-only history verifies IDs 42,40,29,28,27,26 and infrastructure job 34 without
+submitting a review. Scoped delta and output are private runtime artifacts, not
+committed corpus data; Librarian pre-existing staged work is preserved.
+
+Historical first fix:
 The owner's diagnostics-only follow-up adds exact-snapshot failed-job lookup
 and bounded stored output to the Librarian gate's nonzero review path. Findings
 are limited to 16,384 characters in the diagnostic; full text remains in the
