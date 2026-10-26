@@ -840,12 +840,44 @@ class LocalEnvironmentTests(unittest.TestCase):
         before = marker.read_bytes()
         with patch.object(local_env.shutil, "which", return_value=str(node)), \
                 patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)), \
-                patch.object(local_env, "install_user_service") as install, \
                 self.assertRaisesRegex(RuntimeError, "finish reviews and stop"):
             local_env.install_roborev_service(binary)
-        install.assert_not_called()
         self.assertEqual(marker.read_bytes(), before)
         self.assertFalse((self.state / "systemd").exists())
+
+    def test_roborev_binary_change_does_not_save_marker_after_late_start(self):
+        node = self.node_executable()
+        binary = self.root / "replacement-roborev"
+        binary.touch()
+        binary.chmod(0o755)
+        marker = self.state / "roborev-service.json"
+        local_env.json_write(marker, {"unit": local_env.ROBOREV_UNIT})
+        before = marker.read_bytes()
+        def systemctl(command, **kwargs):
+            return MagicMock(returncode=3 if "is-active" in command else 0)
+
+        with patch.object(local_env.shutil, "which", return_value=str(node)), \
+                patch.object(local_env.subprocess, "run", side_effect=systemctl), \
+                patch.object(local_env, "check_ports"), \
+                patch.object(local_env, "user_service_pid", return_value=123), \
+                patch.object(local_env.os.path, "samefile", return_value=False), \
+                self.assertRaisesRegex(RuntimeError, "executable differs"):
+            local_env.install_roborev_service(binary)
+        self.assertEqual(marker.read_bytes(), before)
+
+    def test_managed_roborev_checks_requested_executable_identity(self):
+        opener = MagicMock()
+        response = opener.open.return_value.__enter__.return_value
+        response.read.side_effect = [b'{"pid":123,"ok":true,"version":"test"}', b'{"version":"test"}']
+        response.status = 200
+        response.headers = {"Content-Type": "text/html"}
+        binary = self.root / "native-roborev"
+        with patch.object(local_env, "user_service_pid", return_value=123), \
+                patch.object(local_env.os.path, "samefile", return_value=True) as samefile, \
+                patch.object(local_env, "HTTP", opener):
+            result = local_env.managed_roborev(required=True, binary=binary)
+        self.assertEqual(result["pid"], 123)
+        samefile.assert_called_once_with("/proc/123/exe", binary)
 
     def test_managed_roborev_refuses_another_process(self):
         local_env.json_write(self.state / "roborev-service.json", {"unit": local_env.ROBOREV_UNIT})
@@ -1086,6 +1118,8 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual((self.state / "systemd" / local_env.KATA_UNIT).read_bytes(), first)
         self.assertIn(f'ExecStart="{local_env.ROOT / "kata/kata"}" "daemon" "start"', first.decode())
         self.assertIn(f'Environment="KATA_HOME={self.state / "kata"}"', first.decode())
+        self.assertIn(f'Environment="KATA_DSN={database}"', first.decode())
+        self.assertIn('Environment="KATA_DB="', first.decode())
         self.assertNotIn("local_env.py", first.decode())
         self.assertIn("WantedBy=default.target", first.decode())
         self.assertNotIn("USAI_API_KEY", first.decode())
@@ -1094,6 +1128,35 @@ class LocalEnvironmentTests(unittest.TestCase):
             check=True, timeout=60), run.call_args_list)
         self.assertEqual(json.loads((self.state / "kata-service.json").read_text()),
                          {"unit": local_env.KATA_UNIT})
+
+    def test_supervisor_pins_only_kata_storage(self):
+        external = {name: {"unit": name + ".service", "pid": 123}
+                    for name in ("forge", "roborev", "agentsview")}
+        process = MagicMock(pid=456)
+        process.poll.return_value = None
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value.read.return_value = json.dumps(
+            {"ok": True, "version": "test"},
+        ).encode()
+        with patch.dict(os.environ, {"KATA_DSN": "/other/dsn.db", "KATA_DB": "/other/legacy.db"}), \
+                patch.object(local_env, "managed_services", return_value=external), \
+                patch.object(local_env, "check_ports"), \
+                patch.object(local_env, "HTTP", opener), \
+                patch.object(local_env.subprocess, "Popen", return_value=process) as start, \
+                patch.object(local_env.time, "sleep", side_effect=SystemExit(0)), \
+                patch.object(local_env.signal, "signal"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                local_env.serve()
+        start.assert_called_once()
+        self.assertEqual(start.call_args.args[0], local_env.kata_command())
+        env = start.call_args.kwargs["env"]
+        self.assertEqual(env["KATA_DSN"], str(self.state / "kata/kata.db"))
+        self.assertEqual(env["KATA_DB"], "")
+        self.assertNotIn("KATA_DSN", local_env.base_environment())
+        self.assertNotIn("KATA_DB", local_env.base_environment())
+        process.terminate.assert_called_once()
+        process.wait.assert_called_once_with(timeout=15)
 
     def test_kata_rejects_nonlocal_or_separate_web_bindings_and_missing_binary(self):
         for content in ('listen = "0.0.0.0:17777"\n',

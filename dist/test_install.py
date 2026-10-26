@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import socket
 import sqlite3
 import subprocess
@@ -150,11 +151,33 @@ class InstallerTests(unittest.TestCase):
             installer.service_choice("ask")
 
     def test_foreign_user_unit_is_not_replaced(self):
-        with patch.object(installer, "capture", side_effect=[
-                "", "kenn-kopy-forge.service enabled",
-                "/some/other/install/kenn-kopy-forge.service"]):
-            with self.assertRaisesRegex(RuntimeError, "another installation"):
+        for name in installer.MANAGED_SERVICES:
+            unit = f"kenn-kopy-{name}.service"
+
+            def capture(command):
+                if "list-unit-files" in command and command[-1] == unit:
+                    return f"{unit} enabled"
+                if "--property=FragmentPath" in command:
+                    return f"/some/other/install/{unit}"
+                return ""
+
+            with self.subTest(service=name), \
+                    patch.object(installer.shutil, "which", return_value="/usr/bin/tool"), \
+                    patch.object(installer, "capture", side_effect=capture), \
+                    self.assertRaisesRegex(RuntimeError, "another installation"):
                 installer.check_user_services(self.root)
+
+    def test_managed_services_match_runtime_and_supported_install_commands(self):
+        environment = installer.load_environment(installer.ROOT)
+        self.assertEqual(set(installer.MANAGED_SERVICES), set(environment.SERVICE_PORTS))
+        for name in installer.MANAGED_SERVICES:
+            with self.subTest(service=name):
+                result = subprocess.run(
+                    [installer.sys.executable, str(installer.ROOT / "scripts/local_env.py"),
+                     f"install-{name}-service", "--help"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_manual_instructions_quote_paths_and_cover_all_services(self):
         output = io.StringIO()
@@ -165,6 +188,92 @@ class InstallerTests(unittest.TestCase):
             self.assertIn(command, text)
         self.assertIn("'installation", text.replace(str(self.root) + "/", ""))
         self.assertIn("--node-executable '/node with spaces/node'", text)
+
+    def test_kata_startup_paths_ignore_inherited_and_stored_database_overrides(self):
+        for startup in ("manual", "unit"):
+            with self.subTest(startup=startup):
+                self.check_kata_startup_store(startup)
+
+    def check_kata_startup_store(self, startup):
+        binary = installer.ROOT / "kata/kata"
+        if not binary.is_file():
+            self.skipTest("Requires the locally built native Kata binary")
+        checkout = self.root / f"{startup} installation with spaces"
+        home = checkout / ".local/environment/kata"
+        home.mkdir(parents=True, mode=0o700)
+        target = checkout / "kata/kata"
+        target.parent.mkdir()
+        target.symlink_to(binary)
+        alternatives = [checkout / f"{name}.db" for name in ("inherited-dsn", "legacy-db", "stored-dsn")]
+        config = home / "config.toml"
+        config.write_text('listen = "127.0.0.1:17777"\n'
+                          f'[storage]\ndsn = {json.dumps(str(alternatives[2]))}\n')
+        config.chmod(0o600)
+        before = config.read_bytes()
+        unit_environment = {}
+        if startup == "manual":
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                installer.instructions(checkout, Path("/unused/node"))
+            command = next(shlex.split(line) for line in output.getvalue().splitlines()
+                           if " daemon start --foreground " in line)
+        else:
+            environment = installer.load_environment(installer.ROOT)
+            with patch.object(environment, "STATE", home.parent), \
+                    patch.object(environment, "settings", return_value={}), \
+                    patch.object(environment, "managed_kata", return_value={}), \
+                    patch.object(environment.subprocess, "run", return_value=MagicMock(returncode=0)), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                environment.install_kata_service()
+            unit = (home.parent / "systemd" / environment.KATA_UNIT).read_text().splitlines()
+            command = shlex.split(next(line.removeprefix("ExecStart=") for line in unit
+                                       if line.startswith("ExecStart=")))
+            for line in unit:
+                if line.startswith("Environment="):
+                    unit_environment.update(
+                        entry.split("=", 1) for entry in shlex.split(line.removeprefix("Environment=")))
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            port = listener.getsockname()[1]
+        command[command.index("--listen") + 1] = f"127.0.0.1:{port}"
+        env = {
+            "HOME": str(self.root), "PATH": os.environ["PATH"],
+            "KATA_HOME": str(self.root / "wrong-home"),
+            "KATA_DSN": str(alternatives[0]), "KATA_DB": str(alternatives[1]),
+            "KATA_TELEMETRY_ENABLED": "0", "TELEMETRY_ENABLED": "0",
+        }
+        env.update(unit_environment)
+        log = checkout / "kata.log"
+        with log.open("w") as stream:
+            process = subprocess.Popen(command, cwd=checkout, env=env,
+                                       stdout=stream, stderr=subprocess.STDOUT)
+        http = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            deadline = time.monotonic() + 15
+            while True:
+                if process.poll() is not None:
+                    self.fail(f"Isolated Kata exited: {log.read_text()}")
+                try:
+                    with http.open(f"http://127.0.0.1:{port}/api/v1/health", timeout=1) as response:
+                        health = json.load(response)
+                    break
+                except (urllib.error.URLError, TimeoutError):
+                    if time.monotonic() >= deadline:
+                        self.fail(f"Isolated Kata readiness timed out: {log.read_text()}")
+                    time.sleep(0.1)
+            self.assertTrue(health["ok"])
+            self.assertEqual(health["db_path"], str(home / "kata.db"))
+            self.assertTrue((home / "kata.db").is_file())
+            self.assertEqual(config.read_bytes(), before)
+            for path in alternatives:
+                self.assertFalse(path.exists(), f"alternate store was created: {path}")
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
 
     def test_check_mode_does_not_clone_build_configure_or_enable_services(self):
         args = ["--check", "--checkout", str(self.root / "absent"),
@@ -190,7 +299,8 @@ class InstallerTests(unittest.TestCase):
             binary.parent.mkdir(parents=True, exist_ok=True)
             binary.touch()
             binary.chmod(0o755)
-        environment = MagicMock(PI_VERSION=installer.PI_VERSION)
+        environment = MagicMock(PI_VERSION=installer.PI_VERSION,
+                                SERVICE_PORTS=dict.fromkeys(installer.MANAGED_SERVICES))
         patch.object(installer, "load_environment", return_value=environment).start()
         patch.object(installer.shutil, "which", return_value="/usr/bin/node").start()
         patch.object(installer, "check_submodules").start()
@@ -225,6 +335,15 @@ class InstallerTests(unittest.TestCase):
         environment.check_ports.side_effect = RuntimeError("occupied port")
         with patch.object(installer, "run") as run, self.assertRaisesRegex(RuntimeError, "occupied"):
             installer.install(self.root, self.corpus, "normal", "manual")
+        run.assert_not_called()
+
+    def test_runtime_service_drift_aborts_before_changes(self):
+        environment = self.installation()
+        environment.SERVICE_PORTS = {"kata": (17777,)}
+        with patch.object(installer, "run") as run, \
+                self.assertRaisesRegex(RuntimeError, "services differ"):
+            installer.install(self.root, self.corpus, "normal", "manual")
+        environment.check_ports.assert_not_called()
         run.assert_not_called()
 
     def test_failed_build_never_configures_or_starts_services(self):

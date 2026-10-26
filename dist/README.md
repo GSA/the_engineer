@@ -7,8 +7,8 @@ deployment or confidential-data bundle.
 
 **Known gaps (2026-10-26):** this recipe still requires the legacy Falcon MCP
 executable described below, not the renamed data-empty Librarian executable.
-Native Kata CLI/client provisioning and managed database isolation also remain
-open reproduction work. Do not treat this as a complete fresh-host recipe until
+Native Kata CLI/client provisioning also remains open reproduction work.
+Do not treat this as a complete fresh-host recipe until
 Kata `p4ke` reconciles these gaps. See the
 [architecture gap inventory](../context/system-architecture.md#concrete-reproduction-gaps).
 Forge's `install-forge-service` command is restored; keep all four services.
@@ -24,6 +24,9 @@ bash dist/install.sh --corpus /approved/path/to/falcon-docs
 
 The default asks whether to **enable and start** four systemd **user** services.
 Enter defaults to **no**; noninteractive execution also defaults to manual.
+One ordered service list drives registration, conflict checks and printed
+commands; installation rejects a mismatched runtime service set before builds
+or configuration changes.
 Explicit alternatives:
 
 ```sh
@@ -128,6 +131,11 @@ python3 scripts/local_env.py stop
 ```
 
 The installer also prints independent foreground commands for each service.
+Its native Kata command pins `KATA_DSN` to the installation's private database
+and clears inherited `KATA_DB`, without rewriting retained configuration.
+Generated Kata units and the foreground supervisor use the same private-store
+boundary. Existing running units are not changed by updating these source files;
+deliberate reinstallation/restart is a separate operator action.
 Dashboards listen on **loopback only**:
 
 | Service | URL |

@@ -5,6 +5,42 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Kata to Forge: current pickup boundary, 2026-10-26
+
+Creating a Kata does not queue an agent. The current handoff is explicit:
+
+1. A human or coordinating agent selects ready work and claims it in native
+   Kata. `.kata.toml` selects that repository's task project; it does not map a
+   repository into Forge.
+2. Forge discovers the Kata daemon from its native daemon catalog. In
+   **Settings > Kata mappings**, the task's daemon/project identity must
+   resolve to the intended repository.
+3. In **New workspace**, select that daemon and task. Forge verifies the
+   canonical issue identity and creates or reopens its mapped Git worktree.
+   Choose an agent to launch it with the workspace, or launch it afterward.
+4. The agent reads the task and repository instructions, implements and
+   reviews the work, and records evidence/closure in native Kata. A workspace,
+   running agent or completed review does not itself close the task.
+
+Read-only live checks found the `local` Kata daemon connected, but
+`engi-platform`, `librarian` and `spud` **unmapped**. Only the four earlier
+Falcon application projects are mapped. Consequently, the cleanup Katas are
+persisted work, not automatically dispatched Forge workspaces.
+
+Task `repo` metadata distinguishes toolkit from corpus work inside the shared
+`librarian` project; Forge's project mapping does not interpret that field as
+per-task repository routing. The local-only Engineer/toolkit/corpus checkouts
+also cannot be made provider-backed by inventing remotes. Existing local-project
+worktree/session APIs are distinct from the main mapped-workspace UI. Preserve
+this boundary while the Forge integration is reimplemented.
+
+No automatic ready-task scheduler, mapping change, agent launch or publication
+was enabled by this investigation. The existing end-to-end demo task `jgcf`
+now records the missing intended-repository handoff. Evidence: live
+`/api/v1/kata/daemons` and `/api/v1/kata/project-mappings`,
+`forge/docs/integrations.md`, `forge/docs/workflows/workspaces.md`, and
+`forge/internal/server/kata/workspace.go::createKataWorkspace`.
+
 ## Current repository milestone: 2026-10-20, 16:21
 
 The four private GSA Falcon mirrors are now configured in Forge and completed
