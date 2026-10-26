@@ -7,11 +7,13 @@ deployment or confidential-data bundle.
 
 **Known gaps (2026-10-26):** this recipe still requires the legacy Falcon MCP
 executable described below, not the renamed data-empty Librarian executable.
-The `--services user` branch also requests `install-forge-service`, which the
-runtime no longer provides after Forge's retirement from managed startup.
-Do not treat this as a complete fresh-host recipe until Kata `p4ke` reconciles
-these paths. See the [architecture gap inventory](../context/system-architecture.md#concrete-reproduction-gaps).
-No existing service should be changed merely to accommodate this older recipe.
+Native Kata CLI/client provisioning and managed database isolation also remain
+open reproduction work. Do not treat this as a complete fresh-host recipe until
+Kata `p4ke` reconciles these gaps. See the
+[architecture gap inventory](../context/system-architecture.md#concrete-reproduction-gaps).
+Forge's `install-forge-service` command is restored; keep all four services.
+Forge is required for agent execution, not an optional packaging branch.
+No existing service should be changed merely to accommodate this recipe.
 
 From the platform checkout:
 

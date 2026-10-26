@@ -17,6 +17,35 @@ do not claim registration alone makes a local project usable in that UI.
 Tracking: 7pq7. Retired model-workflow tasks are not silently restored or
 declared complete; a real end-to-end coding loop remains separate.
 
+## Cleanup lifecycle resolved: 2026-10-26, 17:03
+
+The owner confirms Forge is required for launching/managing coding and review
+agents while its reimplementation proceeds. Keep the four-service installation
+and existing user-systemd startup; no competing native detached daemon.
+The upstream README supports foreground `serve`, which the existing service
+launcher uses. Retaining this setup is simpler than migrating lifecycle owners
+or adding a core-only installation profile. `rzsc` now covers four-service
+installer consistency and independent Kata storage isolation; `k79n` is closed
+`wontfix`. Preserve the ongoing Forge work.
+
+## Cleanup-first direction: 2026-10-26, 16:42
+
+The owner prioritizes deep safe refactoring, reducing code and especially
+complexity, before memory-service trials. Use native Katas across the four
+repository scopes, bounded subagents where useful and roborev reviews.
+Tests are selective by risk/value, not a mandatory full TDD pipeline.
+Preserve safety, source fidelity, compatibility and unrelated local changes.
+
+`context/refactoring.md` records nine backlog proposals (eight active) and rejected
+refactors. Superpowers design gates apply before implementation; the first
+proposed slice is four-service installer consistency and Kata isolation (`rzsc`). No new shared
+runtime, SPUD ownership, task rebinding, service migration or memory selection
+is implied. Toolkit/corpus tasks remain distinguished by repo metadata inside
+their existing shared `librarian` project.
+The first slice also covers inherited Kata storage overrides for managed
+startup; native CLI/client provisioning is separate (`0sfx`), with explicit
+approval before changing any real user-home configuration.
+
 ## Cross-project architecture direction: 2026-10-26
 
 The owner requests an architectural evaluation of this checkout, the adjacent
