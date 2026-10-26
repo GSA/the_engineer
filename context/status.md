@@ -1,5 +1,21 @@
 # Status: 2026-10-26
 
+## First source cleanup delivered (Kata rzsc)
+
+- a650c44 consolidates the installer service inventory, rejects runtime drift,
+  and pins private Kata storage across manual, generated-unit and supervisor
+  startup. All four services remain required/supported; no new dispatcher.
+- 146 focused environment/hook/installer checks pass, including isolated native
+  Kata startup against conflicting environment/configuration. Review 86 found
+  one concurrently captured roborev issue; its owner fixed it in 3365355 and
+  review 87 passed. No unresolved finding targets the cleanup slice.
+- Live Kata-to-Forge discovery works, but engi-platform/librarian/spud mappings
+  are absent. Tasks are not automatically picked up. The explicit supported
+  handoff and local-only repository limitation are in engineering-workflow.md.
+- Seven other cleanup slices remain; optional-Forge k79n is withdrawn.
+  Existing live services/settings and other repositories were left unchanged.
+  Synthetic processes/fixtures are cleaned up; no owned process needs shutdown.
+
 ## Updated roborev consolidated natively (Kata 9hj3)
 
 - One managed v0.73.0 daemon now runs at 17373/17374, PID 44494. Native CLI,

@@ -1,5 +1,35 @@
 # Upstream components
 
+## Installer simplification and Kata pickup evidence: 2026-10-26 (rzsc)
+
+Source cleanup is committed as a650c44. One MANAGED_SERVICES tuple replaces
+repeated installer inventories; a runtime set mismatch fails before port
+checks/builds/configuration. Tests execute the actual CLI help for all four
+install commands rather than trusting mocked dispatch alone.
+
+Manual Kata startup pins KATA_DSN and clears KATA_DB. Generated native units
+and the supervisor reuse kata_environment; it is not applied to ordinary
+client invocations. Removed duplicate kata_command validation. Synthetic
+native Kata processes launched from printed commands and generated-unit
+settings selected the expected private db_path despite inherited and stored
+overrides, left all alternate database paths absent, and preserved config.
+Both processes were stopped and temporary fixtures removed.
+
+146 environment/hook/installer tests passed after the final shared runtime
+fix. Commit a650c44 also captured late concurrent roborev follow-up hunks in
+the shared files; this was disclosed on 9hj3, not rewritten away. Exact review
+86 found a roborev replacement-unit rollback issue, not a Kata/installer
+finding. Its owner fixed it in 3365355; stored review 87 passed. Do not describe
+review 86 itself as a pass. Existing live units were not reapplied by rzsc.
+
+Live Forge GETs found the native `local` Kata daemon connected. Project
+mappings resolve only the four earlier Falcon application projects;
+engi-platform, librarian and spud are unmapped. Forge creates/reuses a mapped
+task workspace after an explicit request; task creation does not dispatch an
+agent or claim/close a task. Source references and the supported handoff are
+in engineering-workflow.md; existing demo task jgcf records the integration
+gap. No provider catalog, repository mapping or remote was changed.
+
 ## Native roborev convergence: 2026-10-26 (Kata 9hj3)
 
 Owner's update replaced the former ~/.local/bin/roborev launcher symlink with

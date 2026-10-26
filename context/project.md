@@ -1,5 +1,18 @@
 # Objective and decisions
 
+## First cleanup implemented: 2026-10-26 (rzsc)
+
+The owner resumed implementation at 17:12. The installer now uses one ordered
+four-service inventory and rejects runtime drift before changes. Managed Kata
+startup pins the private database in manual commands, generated units and the
+foreground supervisor; ordinary native client selectors remain unrestricted.
+No live unit rollout was requested or performed.
+
+Task pickup is explicit, not automatic: Kata readiness/claim, Forge project
+mapping, workspace creation, agent launch, then native task evidence/closure.
+The cleanup projects are currently unmapped in Forge; `.kata.toml` and per-task
+`repo` metadata do not configure that mapping. See `engineering-workflow.md`.
+
 ## Native roborev consolidation and intended Forge projects: 2026-10-26
 
 At 17:06 the owner reports updating roborev and authorizes consolidation,

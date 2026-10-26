@@ -83,14 +83,14 @@ These are deliberate non-changes, not missed cleanup opportunities.
 
 ## Refined native backlog
 
-Nine backlog items were created after inspecting existing work; eight remain
-open and optional-Forge proposal `k79n` was closed `wontfix` after the owner's
-clarification. Refinement task `ycns` is separate. This table is a dated
-navigation aid; live task bodies/status/dependencies remain in Kata.
+Nine backlog items were created after inspecting existing work. First slice
+`rzsc` is implemented; seven other slices remain and optional-Forge proposal
+`k79n` was closed `wontfix`. Refinement task `ycns` is separate. This table is a
+dated navigation aid; live task bodies/status/dependencies remain in Kata.
 
 | Repository | Kata | Deliverable |
 | --- | --- | --- |
-| kenn-kopy | `engi-platform#rzsc` | Simplify the four-service installer, check runtime CLI parity and pin managed Kata startup to its private database |
+| kenn-kopy | `engi-platform#rzsc` | Implemented in a650c44: one four-service installer inventory, runtime CLI parity and private Kata startup |
 | kenn-kopy | `engi-platform#f47m` | Explicit Librarian executable/reader/root/selection binding shared by preflight and setup |
 | kenn-kopy | `engi-platform#k79n` | Closed `wontfix`: optional/dormant-Forge packaging is unnecessary; Forge is required |
 | kenn-kopy | `engi-platform#qc96` | Current operating guidance separated from preserved dated history; proposed mandatory-entrypoint budget <=16 KiB each |

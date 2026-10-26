@@ -152,10 +152,10 @@ than replacing another process.
 
 **Kata project `engi-platform` is the source of truth for this project's open
 tasks.** `.kata.toml` binds this checkout; the private database stays under
-`.local/environment/kata/`. `TODO.md` is a generated open-task index plus
-historical completed entries, not a second backlog. Falcon's tasks are unchanged.
-The original open TODO descriptions are preserved in task bodies, including
-blockers and provenance. The reproducible redeployment recipe is task **`5xrm`**.
+`.local/environment/kata/`. `TODO.md` retains historical completed entries,
+not a live duplicate task index. Original open descriptions, blockers and
+provenance are preserved in Kata. The reproducible redeployment recipe is
+task **`5xrm`**.
 
 Kata runs under **`kenn-kopy-kata.service`**. Open
 **http://127.0.0.1:17777/kata** and select `engi-platform`.
@@ -181,8 +181,19 @@ Kata's normal selectors and attribution. In another repository, run
 `kata init --project <name> --with-agents` to bind it and add agent guidance.
 Search before creating, claim work, and close only with verified evidence.
 
-`TODO.md` retains historical completed entries, not a live duplicate task index.
-Use `kata list`, `kata ready` or the browser for current work.
+### From a Kata to a Forge agent
+
+Creating or claiming a Kata does **not** dispatch an agent. The explicit flow is:
+choose/claim ready work in Kata, map its project in **Forge Settings > Kata
+mappings**, select the task in **New workspace**, then launch the configured
+agent. The agent records evidence and closes the task through native Kata;
+workspace creation and review completion do not do that automatically.
+
+The current `engi-platform`, shared `librarian`, and `spud` projects are
+**unmapped**; only the four earlier Falcon application projects are mapped.
+`.kata.toml` and per-task `repo` metadata do not provide Forge mappings.
+Local-only repositories also need a supported local-workspace route, not a
+fabricated provider remote. See the [current handoff and evidence](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26).
 
 ### Pi and Copilot task access
 
@@ -230,9 +241,11 @@ python3 scripts/local_env.py install-kata-service
 ```
 
 The installer is repeatable and preserves the existing config/database; occupied
-ports or mismatched service/database identities fail explicitly. The unit runs
-the native binary directly in the foreground with an explicit `KATA_HOME`,
-shared loopback API/UI and no automatic token creation. It needs neither Node
+ports or mismatched service/database identities fail explicitly. Generated units
+run the native binary directly with explicit `KATA_HOME` and private `KATA_DSN`,
+cleared legacy `KATA_DB`, shared loopback API/UI and no automatic token creation.
+Updating source does not regenerate or restart an already running unit.
+It needs neither Node
 nor a USAi key. The existing user manager/lingering setup starts it with WSL;
 no dependency on Forge or the other dashboards is added.
 
