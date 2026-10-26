@@ -687,21 +687,31 @@ def install_user_service(unit_name, command, description, ports, readiness, args
         "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=45\n"
         "[Install]\nWantedBy=default.target\n"
     )
-    private_write(unit, text, replace=True)
-    subprocess.run(["systemd-analyze", "--user", "verify", str(unit)], check=True, timeout=15)
-    subprocess.run(["systemctl", "--user", "link", str(unit)], check=True, timeout=15)
-    subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, timeout=15)
-    subprocess.run(["systemctl", "--user", "enable", "--now", unit_name],
-                   check=True, timeout=60)
-    deadline = time.monotonic() + 60
-    while True:
-        try:
-            readiness()
-            break
-        except (urllib.error.URLError, TimeoutError, ConnectionError, FileNotFoundError):
-            if time.monotonic() >= deadline:
-                raise RuntimeError(f"{unit_name} readiness timed out; inspect its user journal")
-            time.sleep(0.5)
+    previous_unit = private_read(unit) if require_stopped and unit.exists() else None
+    try:
+        private_write(unit, text, replace=True)
+        subprocess.run(["systemd-analyze", "--user", "verify", str(unit)], check=True, timeout=15)
+        subprocess.run(["systemctl", "--user", "link", str(unit)], check=True, timeout=15)
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, timeout=15)
+        subprocess.run(["systemctl", "--user", "enable", "--now", unit_name],
+                       check=True, timeout=60)
+        deadline = time.monotonic() + 60
+        while True:
+            try:
+                readiness()
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError, FileNotFoundError):
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(f"{unit_name} readiness timed out; inspect its user journal")
+                time.sleep(0.5)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        if require_stopped:
+            if previous_unit is None:
+                unit.unlink(missing_ok=True)
+            else:
+                private_write(unit, previous_unit, replace=True)
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, timeout=15)
+        raise
 
 
 def user_service_pid(unit_name):

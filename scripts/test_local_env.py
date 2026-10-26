@@ -845,7 +845,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(marker.read_bytes(), before)
         self.assertFalse((self.state / "systemd").exists())
 
-    def test_roborev_binary_change_does_not_save_marker_after_late_start(self):
+    def test_roborev_binary_change_preserves_unit_and_marker_after_late_start(self):
         node = self.node_executable()
         binary = self.root / "replacement-roborev"
         binary.touch()
@@ -853,17 +853,27 @@ class LocalEnvironmentTests(unittest.TestCase):
         marker = self.state / "roborev-service.json"
         local_env.json_write(marker, {"unit": local_env.ROBOREV_UNIT})
         before = marker.read_bytes()
+        unit = self.state / "systemd" / local_env.ROBOREV_UNIT
         def systemctl(command, **kwargs):
             return MagicMock(returncode=3 if "is-active" in command else 0)
 
-        with patch.object(local_env.shutil, "which", return_value=str(node)), \
-                patch.object(local_env.subprocess, "run", side_effect=systemctl), \
-                patch.object(local_env, "check_ports"), \
-                patch.object(local_env, "user_service_pid", return_value=123), \
-                patch.object(local_env.os.path, "samefile", return_value=False), \
-                self.assertRaisesRegex(RuntimeError, "executable differs"):
-            local_env.install_roborev_service(binary)
-        self.assertEqual(marker.read_bytes(), before)
+        for previous in (None, "original unit bytes\n"):
+            with self.subTest(previous=previous):
+                if previous is not None:
+                    local_env.private_write(unit, previous)
+                with patch.object(local_env.shutil, "which", return_value=str(node)), \
+                        patch.object(local_env.subprocess, "run", side_effect=systemctl) as run, \
+                        patch.object(local_env, "check_ports"), \
+                        patch.object(local_env, "user_service_pid", return_value=123), \
+                        patch.object(local_env.os.path, "samefile", return_value=False), \
+                        self.assertRaisesRegex(RuntimeError, "executable differs"):
+                    local_env.install_roborev_service(binary)
+                self.assertEqual(marker.read_bytes(), before)
+                if previous is None:
+                    self.assertFalse(unit.exists())
+                else:
+                    self.assertEqual(unit.read_text(), previous)
+                self.assertEqual(run.call_args.args[0], ["systemctl", "--user", "daemon-reload"])
 
     def test_managed_roborev_checks_requested_executable_identity(self):
         opener = MagicMock()
