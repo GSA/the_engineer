@@ -1,6 +1,6 @@
 # Objective and decisions
 
-## Private GSA publication authorized: 2026-10-26, 17:41 (7943)
+## Private GSA publication and task separation: 2026-10-26 (7943)
 
 The owner authorizes private GitHub repositories with exact names
 `GSA/the_engineer` and `GSA/the_librarian`, origin remotes, checked history
@@ -13,12 +13,17 @@ existing `engi-platform` project maps explicitly to `gsa/the_engineer`, using
 `~/kenn-kopy` for worktrees. SPUD's mapping is preserved. This provider-backed
 route supersedes local-only UI work as the immediate onboarding prerequisite.
 
-Librarian's mapping and configured clone path remain blocked on owner agreement:
-its shared Kata project contains toolkit and corpus work. Forge auto-maps
-configured clone paths through `.kata.toml`, so omitting a manual mapping alone
-would not protect corpus tasks. Propose a separate corpus task project while
-retaining `librarian` for the toolkit, with native history-preserving migration.
-No split, binding change or agent launch is authorized by this assumption.
+At 17:55 the owner approves corpus/toolkit task separation and requires the
+Librarian to remain empty for reproduction. Empty means no deployment corpus,
+records or task history in the distribution, not deleting reusable source or
+legitimate toolkit development tasks.
+
+Native Kata now binds Falcon to separate project `falcon-docs`; its three open
+corpus tasks and one withdrawn integration task retain their UIDs, history,
+status and cross-project relationships. Toolkit project `librarian` now maps
+explicitly to `gsa/the_librarian`, with `~/the_librarian` as worktree base.
+Falcon stays local and unmapped. No source processing, populated-store change,
+agent launch, service restart or directory migration follows from this split.
 
 ## Three-project Forge reset authorized: 2026-10-26, 17:39
 

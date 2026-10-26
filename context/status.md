@@ -1,6 +1,6 @@
 # Status: 2026-10-26
 
-## Private remotes delivered; Librarian task routing blocked (7943)
+## Private remotes and separated task routing delivered (7943)
 
 - Created private `GSA/the_engineer` and `GSA/the_librarian`, added HTTPS origins
   and pushed checked main history. Both are synced provider entries in Forge
@@ -9,17 +9,23 @@
   Full-history local secret scans found no leaks; fresh-repository ignore
   probes passed without local/global exclusions. Existing dirty toolkit
   ROADMAP/Decision 0006 work is preserved and unpublished.
-- Engineer maps explicitly from `engi-platform` on daemon `local`, with
-  `~/kenn-kopy` as worktree base. SPUD remains mapped. Saved configuration
-  and live diagnostics agree; no unrelated setting changed.
-- `7943` remains open for Librarian: its shared Kata project mixes toolkit and
-  corpus tasks. Both explicit mapping and clone-path linking are withheld,
-  because the latter would auto-map through `.kata.toml`. Owner approval is
-  needed for history-preserving task-domain separation before enabling it.
-  The provider entry itself is available; `falcon-docs` stays local/unregistered.
+- Engineer, Librarian and SPUD map explicitly from `engi-platform`, `librarian`
+  and `spud` on daemon `local`, using their existing checkout paths as worktree
+  bases. Saved configuration and live diagnostics agree.
+- Owner-approved separate `falcon-docs` project now owns corpus tasks 939r,
+  51kq, 5njc and closed/wontfix gb16. Native moves preserve UIDs, short IDs,
+  issue contents, comments, statuses, links and historical events. The corpus
+  checkout/alias is rebound; it remains remote-free and unmapped in Forge.
+  Toolkit retains two open development tasks, not instance work.
+- The toolkit remains data-empty: its source package excludes task bindings
+  and runtime data and initializes with zero catalog records, review
+  events or indexed documents. Its live stores also report zero records.
+  No reusable code or legitimate task history was deleted.
+- Corpus commit 26f69bf contains only its new binding and required history
+  additions; pre-existing dirty content is preserved and nothing was published.
 - Shutdown: no new process, worktree or agent was launched; temporary ignore
-  fixtures were removed. All four persistent services remain active with
-  unchanged PIDs. Private rollback/evidence is in .local/publication-7943/.
+  and reproduction fixtures were removed. All four persistent services remain
+  active with unchanged PIDs. Private rollback/evidence is in .local/publication-7943/.
   The real coding/review pilot remains separate under `jgcf`.
 
 ## Forge reset to Librarian, Engineer and SPUD (3b94)
