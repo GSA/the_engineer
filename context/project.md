@@ -1,5 +1,20 @@
 # Objective and decisions
 
+## Reconciliation and first implementation authorized: 2026-10-26, 18:28
+
+The owner authorizes immediate reconciliation of retired Forge prerequisites,
+native Kata decomposition, bounded implementation agents and the first Engineer
+end-to-end pilot. REA is deferred. Hindsight configuration preparation is
+authorized, not automatic conversation capture or an unattended deployment.
+
+Restored original k03a/j54x/6hce/avvp identities/history and reconciled their
+current acceptance without marking them done. Keep genuine prerequisite links;
+onboarding is delivered, model/workspace/guidance/review acceptance is separate.
+Use f47m's explicit provider change as useful pilot work under jgcf, preserving
+legacy behavior and live state. Coordinator: txt3. Hindsight preparation: svg1;
+synthetic evaluation: zbww, after svg1 and jgcf. No publication, real memory
+capture, new source acquisition, corpus write, global setting or rename.
+
 ## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
 
 The owner asks what follows cleanup now that the three private repositories

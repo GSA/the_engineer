@@ -407,6 +407,11 @@ Drive access and memory handling/model policy are later separate approvals.
 
 ## Skills and optional investigation: Superpowers, REA and Hindsight
 
+**Owner update, 2026-10-26 18:28:** defer REA; no installation or pilot is in
+active scope. Prepare Hindsight configuration under `svg1`; `zbww` tracks its
+gated synthetic evaluation. The REA assessment below is retained rationale,
+not queued implementation.
+
 The owner's follow-up asks where Hindsight fits and whether Reverse Engineer
 Anything (REA) should join the agent pipeline. The evaluated project is
 [`morluto/rea`](https://github.com/morluto/rea), not similarly named forks.

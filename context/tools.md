@@ -1,5 +1,21 @@
 # Upstream components
 
+## Restored acceptance and implementation dispatch: 2026-10-26 (txt3)
+
+Native restore recovered k03a, j54x, 6hce and avvp with their original UIDs and
+history. Current scope is prepended above preserved earlier scope. Existing
+k03a -> mpew, j54x -> d8v5 and j54x -> 6hce prerequisites remain; the latter
+edit returned unchanged because the edge already existed. No restoration
+counts as completed execution acceptance.
+
+Live Forge daemon `local` is connected; Engineer/Librarian/SPUD mappings remain
+explicit manual_daemon and Falcon remains unmapped. Existing application
+workspace 96ca6f1e3b862ad7 is preserved. Native POST /kata/workspaces created
+f47m workspace 803ec1b7ee18ca6d under the_engineer; creation and model-backed
+execution are distinct checkpoints. Private evidence: .local/engineer-pilot-txt3/.
+Hindsight preparation svg1 is delegated independently; zbww records the gated
+synthetic pilot. REA is excluded from active work.
+
 ## Post-onboarding planning evidence: 2026-10-26 (kamh)
 
 Reread the private original request/conclusion and current architecture,
