@@ -31,20 +31,51 @@ Hot reload briefly returned the previous mapping; subsequent diagnostics and
 saved TOML agree on manual_daemon for Engineer and unchanged SPUD. Only repos
 and kata_projects changed in parsed configuration.
 
-Do not set Librarian's worktree base yet: workspace.go's
-kataAutomaticWorkspaceRepoByTOML reads the shared librarian binding and would
-route every corpus task into the toolkit even without an explicit mapping.
-Its catalog entry is synced, but clone-path linking and mapping are deferred.
-Three open corpus tasks (939r, 51kq, 5njc) coexist with two toolkit tasks
-(7bna, 55nx); 14 total tasks include unclassified historical entries.
-Native task/domain migration needs owner agreement and classification.
+Initially withheld Librarian's base: workspace.go's
+kataAutomaticWorkspaceRepoByTOML would auto-map shared corpus tasks even
+without an explicit entry. Owner approval at 17:55 resolves that gate.
+Created project falcon-docs (UID 01M5X3G1WJ28FX9GCAD53H6EV0), then native
+init --replace --reassign moved the existing local corpus alias and binding.
+Name-based move initially failed because that alias still belonged to librarian;
+the CLI does not accept a project UID selector. Rebinding resolved ambiguity
+without direct database edits or a second task identity.
+
+Native move --dry then move transferred 939r, 51kq, 5njc and gb16 to falcon-docs.
+UIDs and short IDs are unchanged; gb16 stays closed/wontfix, not completed.
+All 14 issue payloads/statuses, 108 existing comments, 72 links, 157 labels and
+355 historical events matched the before snapshot; four migration comments and
+nine project/move/comment events were appended. Cross-project parent and
+prerequisite links remain intact. Toolkit retains ten development/history
+tasks, two open; corpus has four, three open. No task was deleted or cloned.
+
+Then set /home/nkirrish/the_librarian as its validated worktree base and append
+explicit local / librarian UID 01M5DFQQZW90K6DMGD6VFV7XHB ->
+github/github.com/gsa/the_librarian. Saved TOML and live diagnostics confirm
+all three intended mappings as manual_daemon; falcon-docs stays unmapped.
+Only repos/kata_projects changed in Forge configuration.
+
+Committed toolkit b368d7e packages 65 allowlisted files without task bindings,
+deployment configuration or runtime data. An isolated package initialized with
+zero catalog records, review events and indexed documents using the installed
+interpreter; five targeted empty/clean-copy contracts pass. Read-only status
+also confirms the toolkit's existing three stores have zero records. This is
+data-empty reproduction evidence, not a fully locked fresh-host install claim.
+
+Corpus-local commit 26f69bf contains only .kata.toml and the new required
+prompt/maintenance entries. Staged the difference against before-state copies,
+not the much larger pre-existing dirty history. All prior dirty content is
+preserved; edited history is outside retrieval selection, so no index refresh
+or authoritative-store write was needed. Falcon has no remote and was not
+published. Toolkit dirty ROADMAP/Decision 0006 remain untouched/unpublished.
 
 Ignored private rollback/evidence: .local/publication-7943/ contains the
 online integrity-checked Forge snapshot, before config, redacted scan reports,
 protected-file hashes and verified API state. Environment config and existing
 dirty toolkit files retain their hashes. Existing project registrations,
 worktrees, task history and service PIDs 35810/23538/44494/417 are preserved.
-No worker, new worktree, service restart or experimental daemon was started.
+Task-split snapshots and exact preservation/reproduction evidence are under
+.local/publication-7943/task-split/. No worker, new worktree, service restart
+or experimental daemon was started; disposable reproduction fixtures are gone.
 
 ## Native Forge catalog reset: 2026-10-26 (3b94)
 

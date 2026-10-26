@@ -196,12 +196,13 @@ agent. The agent records evidence and closes the task through native Kata;
 workspace creation and review completion do not do that automatically.
 
 On daemon `local`, `engi-platform` is **mapped** to `GSA/the_engineer` with
-`~/kenn-kopy` as worktree base, and `spud` to `GSA/aos-spud` with `~/aos-spud`.
-Shared `librarian` remains **unmapped** pending corpus/toolkit task separation;
-the four earlier application mappings have been removed.
-Per-task `repo` metadata does not control Forge routing. Configuring a provider
-repository's clone path can auto-map through `.kata.toml`, so Librarian's
-clone-path link is also deferred. See the [current handoff and evidence](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26)
+`~/kenn-kopy` as worktree base, `librarian` to `GSA/the_librarian` with
+`~/the_librarian`, and `spud` to `GSA/aos-spud` with `~/aos-spud`.
+Corpus work now belongs to separate project `falcon-docs`, which remains local
+and **unmapped**. All issue history and cross-project relationships are retained.
+Per-task `repo` metadata does not control Forge routing. Configured clone paths
+can also auto-map through `.kata.toml`; keep toolkit and instance bindings
+separate. See the [current handoff and evidence](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26)
 and [private provider onboarding](context/engineering-workflow.md#private-provider-onboarding-2026-10-26-1741-7943).
 
 ### Pi and Copilot task access
@@ -597,12 +598,13 @@ available for foreground diagnosis after stopping the unit; never run both.
 `status` reports `forge_service` and checks its PID, private runtime identity,
 health and dashboard.
 
-For the next browser session using Engineer or SPUD:
+For the next browser session using Engineer, Librarian or SPUD:
 
 1. Open http://127.0.0.1:18091/ and choose **Workspaces**, then **New workspace**.
-2. Select **gsa/the_engineer** or **gsa/aos-spud** and a new branch, or choose
-   the Kata source, daemon **local**, and an agreed task in **engi-platform**
-   or **spud** respectively. Claim the task through native Kata before work.
+2. Select **gsa/the_engineer**, **gsa/the_librarian** or **gsa/aos-spud** and a
+   new branch, or choose the Kata source, daemon **local**, and an agreed task
+   in **engi-platform**, **librarian** or **spud** respectively.
+   Claim the task through native Kata before work.
 3. Choose **Pi (USAi)** to create the worktree and launch the configured agent.
    Give it one bounded task; inspect **Files** and **Diff** before accepting work.
 4. Reopen the workspace to return to its sessions. Closing a browser pane does
@@ -611,11 +613,11 @@ For the next browser session using Engineer or SPUD:
 
 New Forge-managed clones do not automatically inherit the review hooks from
 your existing checkouts. Confirm the intended review setup before real work.
-Engineer and SPUD create worktrees from their existing checkouts, not new
-managed clones; preserve their hooks and uncommitted changes.
-Librarian is synced in the catalog, but its clone-path link and Kata mapping
-are withheld until shared corpus/toolkit tasks are separated. Do not use it
-for a Kata-backed launch yet. The real coding/review pilot has not been run.
+All three create worktrees from their existing checkouts, not new managed
+clones; preserve their hooks and uncommitted changes. Librarian is the
+data-empty reusable toolkit, not the populated Falcon instance. Its release
+package excludes task bindings, deployment data and runtime stores.
+The real coding/review pilot has not been run.
 For repositories without remotes, see [local-only projects](#local-projects-are-not-provider-repositories).
 The upstream [workspace guide](forge/docs/workflows/workspaces.md) explains the
 controls in more detail.
@@ -801,7 +803,7 @@ After the owner's 2026-10-26 catalog reset and approved private publication:
 | Checkout | Remote | Main workspace dialog |
 | --- | --- | --- |
 | Engineer: `~/kenn-kopy` | Private `GSA/the_engineer` on GitHub | Synced; `engi-platform` mapping and existing clone configured |
-| Librarian: `~/the_librarian` | Private `GSA/the_librarian` on GitHub | Synced; task mapping and clone-path link await corpus/toolkit split |
+| Librarian: `~/the_librarian` | Private `GSA/the_librarian` on GitHub | Synced; toolkit-only `librarian` mapping and existing clone configured |
 | SPUD: `~/aos-spud` | Private `GSA/aos-spud` on GitHub | Synced; `spud` Kata mapping configured |
 
 The prior `falcon-docs` local registration, four application provider entries

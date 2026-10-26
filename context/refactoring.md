@@ -97,17 +97,17 @@ dated navigation aid; live task bodies/status/dependencies remain in Kata.
 | kenn-kopy | `engi-platform#0sfx` | Design opt-in native Kata CLI/client provisioning, with fresh synthetic-home discovery, daemon selection and collision handling |
 | the_librarian | `librarian#7bna` | Generic-module/instance-divergence matrix and safe consolidation candidates, without adopting shared runtime |
 | the_librarian | `librarian#55nx` | Receiving contract for supplied SPUD exports using existing inbox/catalog/extraction/selection boundaries |
-| falcon-docs | `librarian#939r` | Compatibility map protecting legacy verification, current preparation and intentional coverage loading |
+| falcon-docs | `falcon-docs#939r` | Compatibility map protecting legacy verification, current preparation and intentional coverage loading |
 | aos-spud | `spud#3sv9` | Local producer contract/Markdown-only compatibility investigation; no upstream source changes or publication |
 
-Both Librarian checkouts still use project `librarian`. New tasks distinguish
-`repo=the_librarian` from `repo=falcon-docs`, with toolkit/FALCON title prefixes.
-This avoids silently changing bindings or migrating historical work. A future
-project split still requires the owner's naming/scope decision.
+Owner-approved task separation at 17:55 on October 26 now binds the toolkit to
+`librarian` and the populated instance to `falcon-docs`. Native moves preserve
+issue UIDs, history and cross-project links. Existing repo metadata/title
+prefixes remain descriptive, not Forge routing.
 
 Actual prerequisite: **`spud#3sv9` blocks `librarian#55nx`**, because receiving
 design consumes the producer contract evidence. `55nx` is a child of existing
-automation roadmap `51kq`; that does not activate unattended processing.
+automation roadmap `falcon-docs#51kq`; that does not activate unattended processing.
 The installer slices are children of `p4ke`; `5xrm` retains full reproduction.
 Shared files require serialized writes, not invented logical dependency edges.
 

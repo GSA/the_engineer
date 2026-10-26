@@ -17,16 +17,19 @@ Engineer maps explicitly from daemon `local`, project UID
 Its worktree base is the existing `/home/nkirrish/kenn-kopy`; SPUD's base and
 explicit mapping remain unchanged.
 
-Librarian is in the provider catalog but its configured clone path and task
-mapping remain withheld. `kataAutomaticWorkspaceRepoByTOML` auto-maps a
-configured base using `.kata.toml`; setting that path would route the shared
-corpus tasks to the toolkit even without an explicit mapping. Agree and perform
-a native, history-preserving corpus/toolkit task split first. Do not silently
-move tasks, change bindings, or link the local-only project to a provider as
-a workaround. Existing local project registrations and worktrees are retained.
+At 17:55 the owner approved the corpus/toolkit split. Native Kata moved corpus
+tasks 939r, 51kq, 5njc and withdrawn gb16 into `falcon-docs`, preserving UIDs,
+history, status and cross-project links, and rebound the corpus checkout/alias.
+Only then was `/home/nkirrish/the_librarian` configured as the toolkit base,
+with an explicit `local` / `01M5DFQQZW90K6DMGD6VFV7XHB` (`librarian`) mapping
+to `gsa/the_librarian`. This order matters: a configured clone can auto-map
+through `.kata.toml` even without a manual entry.
 
-No automatic dispatch or real coding/review pilot was performed. `7943` stays
-open for the routing decision; `jgcf` retains the separate pilot.
+The reusable toolkit remains data-empty; its package excludes task bindings
+and runtime state and initializes empty. Development tasks are not distributed
+records. The Falcon corpus stays local and unmapped. Existing local project
+registrations and worktrees are retained. No automatic dispatch or real
+coding/review pilot was performed; `jgcf` retains the separate pilot.
 
 ## Authorized catalog reset delivered: 2026-10-26, 17:39 (3b94)
 
@@ -132,14 +135,14 @@ Creating a Kata does not queue an agent. The current handoff is explicit:
    running agent or completed review does not itself close the task.
 
 Following `7943`, the `local` Kata daemon is connected; `spud` maps explicitly
-to `GSA/aos-spud` and `engi-platform` to `GSA/the_engineer`. Shared `librarian`
-remains **unmapped** pending task-domain separation. The four earlier
-application mappings were removed. Tasks remain persisted work, not
-automatically dispatched Forge workspaces.
+to `GSA/aos-spud`, `engi-platform` to `GSA/the_engineer`, and `librarian` to
+`GSA/the_librarian`. Separate corpus project `falcon-docs` remains **unmapped**.
+The four earlier application mappings were removed. Tasks remain persisted
+work, not automatically dispatched Forge workspaces.
 
-Task `repo` metadata distinguishes toolkit from corpus work inside the shared
-`librarian` project; Forge's project mapping does not interpret that field as
-per-task repository routing. Engineer/toolkit now have real private remotes;
+Toolkit/corpus routing now uses separate native projects, not `repo` metadata;
+Forge does not interpret that field as per-task repository routing.
+Engineer/toolkit now have real private remotes;
 the Falcon corpus remains local-only. Existing local-project worktree/session
 APIs are distinct from the main mapped-workspace UI.
 

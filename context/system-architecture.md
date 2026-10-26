@@ -130,11 +130,11 @@ artifacts/revisions or report unavailable evidence rather than invent edges.
 
 Native Kata reads found `engi-platform` with 31 open issues before this
 investigation, `librarian` with two open issues, and `spud` with none.
-**Both `the_librarian/.kata.toml` and `falcon-docs/.kata.toml` select
-`librarian`.** This is observed shared task scope, not proof of an accidental
-binding: that project's records include toolkit work and instance automation.
-Agree whether to split software-maintenance tasks from corpus-operation tasks
-before moving any issue or changing either binding.
+Those initial reads found both checkouts bound to `librarian`. On October 26
+at 17:55 the owner approved separation: the toolkit retains `librarian`;
+the instance now binds to `falcon-docs`. Native moves preserve the four
+corpus-scoped issues, including withdrawn integration history and cross-project
+links. The toolkit's source package and initialized stores remain data-empty.
 
 SPUD's empty local Kata project does not mean no backlog: `project/epics/`
 contains its upstream story records. Epic 013 still labels ingestion stories
@@ -267,10 +267,10 @@ selected or installed here.
 | Runtime/version drift | Librarian decision 0002 still calls out missing complete reader/adapter lock; Engineer's full clean-host run is outstanding | Pin reproducible artifacts; validate a new isolated project and rerun without state loss |
 | Instance portability | Librarian decisions 0003/0004 identify toolkit-relative policy/store homes and absolute-root index identity | Use independent full-clone instances now; make store-home/policy changes under explicit compatibility work, not a shared-root shortcut |
 | Existing populated instance divergence | Falcon's old identities/layout and additional tools differ from the reusable toolkit | Inventory capability parity and rehearse any migration on a copy with recovery; never reinitialize populated stores |
-| Intake throughput | Librarian roadmap and `librarian#51kq` describe automation, not installed orchestration | Reuse SPUD exports and native writers; prove resumable handoff before adding watchers |
+| Intake throughput | Librarian roadmap and `falcon-docs#51kq` describe automation, not installed orchestration | Reuse SPUD exports and native writers; prove resumable handoff before adding watchers |
 | Code-context access | SPUD exports exist; online bounded queries and complete historical companions are not established | Accept source-pinned artifacts now; seek upstream contract/support without making its roadmap ours |
 | Durable engineering lessons | Existing `8cne` research is complete, but no selective-memory service exists | Evaluate the [memory contract](engineering-memory.md), not transcript capture or a lossless ledger |
-| Names and task domains | Legacy names and shared Librarian task binding remain | `5ayh`: inventory stable IDs/references and agree final names/task split before migration |
+| Names and task domains | Toolkit/corpus task separation is delivered; legacy runtime names remain | `5ayh` / `eb48`: inventory stable IDs/references before deferred directory/service migration |
 
 ## Delivery sequence and decision gates
 
@@ -281,7 +281,7 @@ selected or installed here.
    `p4ke`/`5xrm`, retain native Kata, select a supplied Librarian provider and
    verify two isolated synthetic projects cannot mix state. Fresh installation
    and restoration are separate acceptance runs. No cloud requirement.
-3. **Prove one export handoff.** Under `librarian#51kq` after deliberate
+3. **Prove one export handoff.** Under `falcon-docs#51kq` after deliberate
    activation, ingest a permitted SPUD Confluence export through the receiving
    contract, then exercise duplicates, changed versions, partial failures and
    interrupted publication. Start with existing exports, not a new crawler.
