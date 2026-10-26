@@ -588,6 +588,15 @@ token accounting alongside AgentsView is still unverified/unavailable.
 
 # Shared context: Falcon Context
 
+On 2026-10-26 the owner requests Hacker News research into centralized,
+agent-native memory/event stores with eventual cloud hosting and possible MCP.
+This authorizes research, not product adoption, installation or transcript
+upload. Distinguish an exact action/evidence ledger from derived semantic
+memory; preserve raw events independently of summarization or forgetting.
+Candidate findings and source links are in tools.md and status.md (Kata 8cne).
+Kata remains the task authority; existing Falcon and AgentsView boundaries
+remain unchanged. Own-GSA-AWS deployment remains the eventual destination.
+
 The intended context MCP server is the Falcon Context server available in this
 Copilot session, not a generic filesystem server or the repository's
 `context/` directory. The long-term goal is to host its database and server in
