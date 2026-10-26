@@ -17,6 +17,8 @@ class LocalEnvironmentTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="local-env-test-", dir=local_env.ROOT / ".local")
         self.addCleanup(self.temporary.cleanup)
+        cwd = Path.cwd()
+        self.addCleanup(os.chdir, cwd)
         self.root = Path(self.temporary.name)
         self.state = self.root / "environment"
         self.addCleanup(patch.stopall)
@@ -845,9 +847,9 @@ class LocalEnvironmentTests(unittest.TestCase):
     def test_supervised_ports_exclude_both_independent_services(self):
         self.assertEqual(local_env.supervised_ports({}), local_env.PORTS)
         self.assertEqual(local_env.supervised_ports({"agentsview": {}}),
-                         (17373, 17374, 17777))
+                         (17373, 17374, 17777, 18091))
         self.assertEqual(local_env.supervised_ports({"agentsview": {}, "roborev": {}}),
-                         (17777,))
+                         (17777, 18091))
 
     def test_stop_preserves_both_independent_services(self):
         external = {
@@ -861,7 +863,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                     with contextlib.redirect_stdout(io.StringIO()):
                         local_env.stop()
         kill.assert_called_once_with(123, local_env.signal.SIGTERM)
-        ports.assert_called_once_with((17777,))
+        ports.assert_called_once_with((17777, 18091))
 
     def test_status_includes_roborev_without_starting_forge(self):
         service = {"unit": local_env.ROBOREV_UNIT, "pid": 123}
@@ -922,6 +924,120 @@ class LocalEnvironmentTests(unittest.TestCase):
 
     def test_all_persistent_services_leave_no_supervised_ports(self):
         self.assertEqual(local_env.supervised_ports(dict.fromkeys(local_env.SERVICE_PORTS)), ())
+
+    def test_forge_service_installation_preserves_state_and_pins_node(self):
+        node = self.node_executable()
+        config = self.state / "forge/config.toml"
+        database = self.state / "forge/forge.db"
+        database.write_bytes(b"persistent-workspace-fixture")
+        before = config.read_bytes()
+        with patch.object(local_env.shutil, "which", return_value=str(node)):
+            with patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)) as run:
+                with patch.object(local_env, "managed_forge", return_value={"pid": 123}):
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        local_env.install_forge_service()
+                        first = (self.state / "systemd" / local_env.FORGE_UNIT).read_bytes()
+                        local_env.install_forge_service()
+        self.assertEqual(config.read_bytes(), before)
+        self.assertEqual(database.read_bytes(), b"persistent-workspace-fixture")
+        self.assertEqual((self.state / "systemd" / local_env.FORGE_UNIT).read_bytes(), first)
+        self.assertIn('"forge-run" "--node-executable" ' + local_env.systemd_quote(node), first.decode())
+        self.assertIn("WantedBy=default.target", first.decode())
+        self.assertNotIn("USAI_API_KEY", first.decode())
+        self.assertIn(unittest.mock.call(
+            ["systemctl", "--user", "enable", "--now", local_env.FORGE_UNIT],
+            check=True, timeout=60), run.call_args_list)
+        self.assertEqual(json.loads((self.state / "forge-service.json").read_text()),
+                         {"unit": local_env.FORGE_UNIT})
+
+    def forge_runtime(self, **overrides):
+        runtime = {"pid": 123, "service": "kenn-forge", "version": "test",
+                   "address": "127.0.0.1:18091",
+                   "metadata": {"data_dir": str(self.state / "forge"),
+                                "config_path": str(self.state / "forge/config.toml")}}
+        local_env.json_write(self.state / "forge/daemon.123.json",
+                             {**runtime, **overrides}, replace=True)
+
+    def forge_opener(self, **overrides):
+        opener = MagicMock()
+        response = opener.open.return_value.__enter__.return_value
+        response.read.return_value = json.dumps(
+            {"status": "ok", "version": "test", "revision": "commit", **overrides}).encode()
+        response.status = 200
+        response.headers = {"Content-Type": "text/html; charset=utf-8"}
+        return opener
+
+    def test_managed_forge_checks_runtime_health_and_dashboard(self):
+        self.forge_runtime()
+        opener = self.forge_opener()
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            with patch.object(local_env, "HTTP", opener):
+                service = local_env.managed_forge(required=True)
+        self.assertEqual(service, {"unit": local_env.FORGE_UNIT, "pid": 123,
+                                   "version": "test", "revision": "commit"})
+        self.assertEqual([call.args[0] for call in opener.open.call_args_list], [
+            "http://127.0.0.1:18091/healthz", "http://127.0.0.1:18091/",
+        ])
+
+    def test_managed_forge_requires_marker_unless_installing(self):
+        with patch.object(local_env, "user_service_pid") as pid:
+            self.assertIsNone(local_env.managed_forge())
+        pid.assert_not_called()
+
+    def test_managed_forge_rejects_wrong_runtime_identity(self):
+        for key, value in (("pid", 456), ("service", "other"), ("address", "0.0.0.0:18091"),
+                           ("metadata", {"data_dir": "/other", "config_path": "/other/config"})):
+            with self.subTest(key=key):
+                self.forge_runtime(**{key: value})
+                with patch.object(local_env, "user_service_pid", return_value=123):
+                    with self.assertRaisesRegex(RuntimeError, "runtime identity"):
+                        local_env.managed_forge(required=True)
+
+    def test_managed_forge_rejects_invalid_health_and_dashboard(self):
+        self.forge_runtime()
+        with patch.object(local_env, "user_service_pid", return_value=123):
+            for key, value in (("status", "error"), ("version", "other"), ("revision", "")):
+                with self.subTest(key=key):
+                    with patch.object(local_env, "HTTP", self.forge_opener(**{key: value})):
+                        with self.assertRaisesRegex(RuntimeError, "database health"):
+                            local_env.managed_forge(required=True)
+            opener = self.forge_opener()
+            opener.open.return_value.__enter__.return_value.headers = {"Content-Type": "application/json"}
+            with patch.object(local_env, "HTTP", opener):
+                with self.assertRaisesRegex(RuntimeError, "dashboard"):
+                    local_env.managed_forge(required=True)
+
+    def test_status_reports_managed_forge_without_unmanaged_probe(self):
+        service = {"unit": local_env.FORGE_UNIT, "pid": 123, "version": "test", "revision": "commit"}
+        with patch.object(local_env, "managed_services", return_value={"forge": service}):
+            with patch.object(local_env, "api", return_value={"projects": []}):
+                result = local_env.status()
+        self.assertEqual(result["forge_service"], service)
+        self.assertEqual(result["forge"], {"managed": True, **service})
+        local_env.forge_probe.assert_not_called()
+
+    def test_supervisor_launches_and_stops_only_unmanaged_forge(self):
+        external = {name: {"unit": name + ".service", "pid": 123}
+                    for name in ("kata", "roborev", "agentsview")}
+        process = MagicMock(pid=456)
+        process.poll.return_value = None
+        with patch.object(local_env, "managed_services", return_value=external), \
+                patch.object(local_env, "check_ports") as ports, \
+                patch.object(local_env, "HTTP", self.forge_opener()), \
+                patch.object(local_env.subprocess, "Popen", return_value=process) as start, \
+                patch.object(local_env.time, "sleep", side_effect=SystemExit(0)), \
+                patch.object(local_env.signal, "signal"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                local_env.serve()
+        start.assert_called_once()
+        self.assertEqual(start.call_args.args[0], local_env.forge_command(local_env.settings()))
+        self.assertEqual(ports.call_args_list, [
+            unittest.mock.call((18091,)), unittest.mock.call((18091,)),
+        ])
+        process.terminate.assert_called_once()
+        process.wait.assert_called_once_with(timeout=15)
+        self.assertFalse((self.state / "runtime/supervisor.json").exists())
 
     def test_kata_service_installation_preserves_profile_and_is_repeatable(self):
         config = self.state / "kata/config.toml"
