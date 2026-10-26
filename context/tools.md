@@ -56,6 +56,57 @@ Exact runtime commit bc00164 received roborev job 80: completed/pass, no
 actionable issues. Review inference is distinct from the model-free local
 project smoke; no real coding session or end-to-end task loop is claimed.
 
+## Cleanup lifecycle reconciliation: 2026-10-26, 17:03
+
+The owner resolved the earlier concurrent-edit blocker: Forge is required for
+agent execution, not a dormant optional component. Runtime restoration is now
+committed separately in bc00164/18ba217. Read Forge README, commands and runtime
+contracts: native `daemon start` owns detached execution; `serve` is foreground.
+Keep the existing user-systemd owner running `forge-run`/`serve`, not both.
+Read-only checks found the unit enabled/active/running, Restart=on-failure,
+WantedBy=default.target, user Linger=yes and a healthy loopback endpoint.
+No service was restarted or configuration changed by this reconciliation.
+
+Updated rzsc to retain four services and its independent Kata safeguards;
+closed k79n `wontfix` rather than create unnecessary optional packaging. Eight
+backlog items remain active. Prior review 78 covers the old design, not the
+reconciled service boundary; final review/commit evidence belongs to ycns.
+Stored managed design review 82 passed the reconciled six-file diff with no
+findings. The default `roborev` CLI now routes to a separate v0.73.0 daemon;
+this task's initial review there (job 1) was canceled, not accepted as evidence.
+Review 82 used the pinned `roborev/bin/roborev` with explicit
+`--server http://127.0.0.1:17373` (managed v0.71.0). Neither daemon was stopped
+or reconfigured. Preserve the existing scoped commit hook.
+
+## Cleanup refinement evidence: 2026-10-26 (Kata ycns)
+
+See `refactoring.md` for the nine task references, source-backed deletion
+targets, preserved behavior and first bounded design. Parent inspected Engineer;
+two read-only scouts inspected Librarian/Falcon and externally owned SPUD.
+No neighbor source was edited. A follow-up challenged suggested abstractions:
+XLSX helper extraction and typed coverage-loader replacement were rejected
+because they add compatibility/freshness complexity rather than remove it.
+
+Native Kata records use repo metadata to distinguish both Librarian checkouts.
+Only the producer-to-receiver dependency is added: spud#3sv9 blocks
+librarian#55nx. Existing p4ke/5xrm, 51kq and vkye/1dkw remain authoritative for
+their broader scope. No shared binding is changed or historical task moved.
+
+Managed roborev is healthy. Stored job 75 for prior architecture commit c1acc84
+reports pass/no issues across seven files; that is not a review of this later
+refinement or proof of a working environment. Subsequent review evidence belongs
+to this task's exact diff/commit. No new product/model trial is enabled.
+Stored dirty design review 76 completed with two medium findings: missing
+managed Kata storage-override coverage and missing fresh-host native CLI/client
+provisioning. Source confirms both. Created 0sfx under p4ke. Review 77 found
+that a stored `[storage].dsn` still redirects Kata after environment clearing;
+rzsc now requires an authoritative managed KATA_DSN plus checks covering both
+inherited variables and conflicting stored configuration. Stored design review
+78 passed with no findings on the revised five-file diff. Runtime fixes remain
+unimplemented. This review preceded the required-Forge clarification above;
+final local commit and commit-review evidence belong to ycns. No broad runtime
+suite is needed for this documentation-only work.
+
 ## Cross-project architecture evidence: 2026-10-26 (Kata qt7g)
 
 Detailed current evidence and proposals are in `system-architecture.md`;

@@ -20,6 +20,8 @@ owned SPUD, including reuse of SPUD acquisition and current reproduction gaps.
 [Selective engineering memory](context/engineering-memory.md) describes
 decisions, corrections and handoffs rather than full conversation capture.
 These are design drafts, not installed integrations or completed deployment.
+The [cleanup refinement](context/refactoring.md) maps the next small,
+complexity-reducing slices to native Katas; memory trials follow that cleanup.
 
 ## Standalone agent terminals: Ghosthub replacement
 
@@ -88,6 +90,12 @@ terminal or browser autostart is required. Check the saved environment:
 ```sh
 python3 scripts/local_env.py status
 ```
+
+Forge is a required component for launching and managing coding/review agents.
+Keep its existing systemd lifecycle owner: the service runs native foreground
+`serve` through `forge-run`. Upstream `kenn-forge daemon start` is for standalone
+background use; do not start or restart a second lifecycle for this managed
+profile. Use `systemctl --user` here.
 
 Configuration/databases are retained, and `~/falcon-docs` remains registered
 as a local Forge project. If you intentionally stopped services, restore them:

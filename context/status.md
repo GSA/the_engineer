@@ -25,6 +25,42 @@
   removed; no experimental process remains. Pre-existing documentation work
   is preserved separately from this task's changes.
 
+## Cleanup lifecycle resolved: 2026-10-26, 17:03
+
+Forge is required for launching/managing coding and review agents. Keep the
+restored four-service user-systemd setup and ongoing Forge reimplementation.
+Reconciled rzsc to installer consistency plus Kata storage isolation; closed
+the unnecessary optional-Forge proposal k79n `wontfix`. Eight backlog items
+remain active. The prior lifecycle blocker is resolved; no service restart,
+runtime edit or competing daemon was needed. Existing services remain running;
+this investigation has no experimental process to shut down.
+Managed design review 82 passed the reconciled six-file diff; final commit
+and normal scoped commit-review evidence belong to ycns. A review accidentally
+routed through the newer default CLI was canceled; it is not acceptance evidence.
+
+## Cleanup refinement (Kata ycns)
+
+- Decomposed cleanup into nine native backlog items across four repo scopes:
+  Engineer rzsc/f47m/k79n/qc96/0sfx; toolkit 7bna/55nx; FALCON 939r; SPUD 3sv9.
+  Both Librarian repos retain their existing project binding, distinguished by
+  repo metadata. Producer contract 3sv9 blocks receiver design 55nx.
+- Saved `refactoring.md` with concrete simplifications, the first bounded
+  installer design and risk-based review/verification. Memory trials follow
+  cleanup. No runtime implementation or unseen-plan approval is claimed.
+- Two read-only scouts completed. Rejected style-driven changes to legacy XLSX
+  helpers and direct-source coverage loading after examining compatibility and
+  freshness costs. No cross-checkout shared runtime is adopted.
+- Prior architecture roborev job 75 is completed/pass. Dirty design review 76
+  found two missing native Kata requirements; review 77 refined storage
+  isolation to cover stored DSNs as well as inherited variables. rzsc now
+  specifies authoritative managed KATA_DSN; 0sfx owns fresh-host CLI/client
+  setup. Review 78 passed the earlier design, before the required-Forge
+  clarification. Reconciled design and final commit-review evidence belong to
+  ycns; existing review gates stay on. Eight slices remain open; k79n is withdrawn.
+- Existing dirty neighboring changes, corpora, services and identities are
+  untouched. No experimental process or model/product trial was started;
+  scouts are idle and no owned service needs shutdown.
+
 ## Architecture and selective-memory design (Kata qt7g)
 
 - Saved `system-architecture.md` with ownership/acquisition/reproduction
