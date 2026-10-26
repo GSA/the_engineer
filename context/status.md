@@ -1,5 +1,27 @@
 # Status: 2026-10-26
 
+## Private remotes delivered; Librarian task routing blocked (7943)
+
+- Created private `GSA/the_engineer` and `GSA/the_librarian`, added HTTPS origins
+  and pushed checked main history. Both are synced provider entries in Forge
+  alongside SPUD. Checkout paths and existing task identities are unchanged.
+- Portable ignore protections are committed in 67644da and toolkit b368d7e.
+  Full-history local secret scans found no leaks; fresh-repository ignore
+  probes passed without local/global exclusions. Existing dirty toolkit
+  ROADMAP/Decision 0006 work is preserved and unpublished.
+- Engineer maps explicitly from `engi-platform` on daemon `local`, with
+  `~/kenn-kopy` as worktree base. SPUD remains mapped. Saved configuration
+  and live diagnostics agree; no unrelated setting changed.
+- `7943` remains open for Librarian: its shared Kata project mixes toolkit and
+  corpus tasks. Both explicit mapping and clone-path linking are withheld,
+  because the latter would auto-map through `.kata.toml`. Owner approval is
+  needed for history-preserving task-domain separation before enabling it.
+  The provider entry itself is available; `falcon-docs` stays local/unregistered.
+- Shutdown: no new process, worktree or agent was launched; temporary ignore
+  fixtures were removed. All four persistent services remain active with
+  unchanged PIDs. Private rollback/evidence is in .local/publication-7943/.
+  The real coding/review pilot remains separate under `jgcf`.
+
 ## Forge reset to Librarian, Engineer and SPUD (3b94)
 
 - Exactly three local projects are registered at the owner's existing paths:

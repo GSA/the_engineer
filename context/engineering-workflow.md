@@ -5,6 +5,29 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Private provider onboarding: 2026-10-26, 17:41 (7943)
+
+The owner approved private `GSA/the_engineer` and `GSA/the_librarian`, checked
+history publication, and provider onboarding. Both origins and main branches
+now exist; Forge has synced these two repositories and existing `GSA/aos-spud`.
+No local-only picker implementation or directory rename was required.
+
+Engineer maps explicitly from daemon `local`, project UID
+`01M4S19R2P14V94BD856BATMWJ` (`engi-platform`), to `gsa/the_engineer`.
+Its worktree base is the existing `/home/nkirrish/kenn-kopy`; SPUD's base and
+explicit mapping remain unchanged.
+
+Librarian is in the provider catalog but its configured clone path and task
+mapping remain withheld. `kataAutomaticWorkspaceRepoByTOML` auto-maps a
+configured base using `.kata.toml`; setting that path would route the shared
+corpus tasks to the toolkit even without an explicit mapping. Agree and perform
+a native, history-preserving corpus/toolkit task split first. Do not silently
+move tasks, change bindings, or link the local-only project to a provider as
+a workaround. Existing local project registrations and worktrees are retained.
+
+No automatic dispatch or real coding/review pilot was performed. `7943` stays
+open for the routing decision; `jgcf` retains the separate pilot.
+
 ## Authorized catalog reset delivered: 2026-10-26, 17:39 (3b94)
 
 The owner authorizes a fresh Forge inventory with exactly Librarian
@@ -95,8 +118,9 @@ was changed by this recommendation.
 Creating a Kata does not queue an agent. The current handoff is explicit:
 
 1. A human or coordinating agent selects ready work and claims it in native
-   Kata. `.kata.toml` selects that repository's task project; it does not map a
-   repository into Forge.
+   Kata. `.kata.toml` selects that repository's task project. It does not add a
+   provider repository, but Forge can infer task mappings from it after a
+   provider-backed local clone is configured or linked.
 2. Forge discovers the Kata daemon from its native daemon catalog. In
    **Settings > Kata mappings**, the task's daemon/project identity must
    resolve to the intended repository.
@@ -107,21 +131,21 @@ Creating a Kata does not queue an agent. The current handoff is explicit:
    reviews the work, and records evidence/closure in native Kata. A workspace,
    running agent or completed review does not itself close the task.
 
-Following `3b94`, the `local` Kata daemon is connected and `spud` is explicitly
-mapped to `GSA/aos-spud`. `engi-platform` and `librarian` remain **unmapped**;
-the four earlier application mappings were removed. Tasks remain persisted
-work, not automatically dispatched Forge workspaces.
+Following `7943`, the `local` Kata daemon is connected; `spud` maps explicitly
+to `GSA/aos-spud` and `engi-platform` to `GSA/the_engineer`. Shared `librarian`
+remains **unmapped** pending task-domain separation. The four earlier
+application mappings were removed. Tasks remain persisted work, not
+automatically dispatched Forge workspaces.
 
 Task `repo` metadata distinguishes toolkit from corpus work inside the shared
 `librarian` project; Forge's project mapping does not interpret that field as
-per-task repository routing. The local-only Engineer/toolkit/corpus checkouts
-also cannot be made provider-backed by inventing remotes. Existing local-project
-worktree/session APIs are distinct from the main mapped-workspace UI. Preserve
-this boundary while the Forge integration is reimplemented.
+per-task repository routing. Engineer/toolkit now have real private remotes;
+the Falcon corpus remains local-only. Existing local-project worktree/session
+APIs are distinct from the main mapped-workspace UI.
 
-No automatic ready-task scheduler, agent launch or publication was enabled.
-The existing end-to-end demo task `jgcf` records SPUD's available mapping and
-the remaining remote-free repository handoff gap. Evidence: live
+No automatic ready-task scheduler or agent launch was enabled.
+The existing end-to-end demo task `jgcf` remains a separate acceptance gate.
+Evidence: live
 `/api/v1/kata/daemons` and `/api/v1/kata/project-mappings`,
 `forge/docs/integrations.md`, `forge/docs/workflows/workspaces.md`, and
 `forge/internal/server/kata/workspace.go::createKataWorkspace`.
