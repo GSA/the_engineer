@@ -16,6 +16,19 @@ execution are distinct checkpoints. Private evidence: .local/engineer-pilot-txt3
 Hindsight preparation svg1 is delegated independently; zbww records the gated
 synthetic pilot. REA is excluded from active work.
 
+Forge's repeat-create response omits the false `created` field; checking for a
+required false boolean was an incorrect probe. Verified reuse instead through
+stable ID/path/branch/task metadata and exactly one matching workspace. The
+worktree shares the canonical Git common directory and has byte-identical
+AGENTS.md. Clean fast-forward from published 6821263 to local 5555225 preceded
+Pi launch; no remote update. Agent-handoff returned running session
+803ec1b7ee18ca6d_3d55e11afef62133 with a delivered initial message, and its own
+tmux pane shows model-backed task/instruction inspection.
+
+Reconciliation commit 5555225 review found a stale architecture paragraph
+still directing reconciliation; it is corrected to the actual restored/open
+task state. Exact follow-up review evidence belongs to txt3.
+
 ## Post-onboarding planning evidence: 2026-10-26 (kamh)
 
 Reread the private original request/conclusion and current architecture,

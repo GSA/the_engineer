@@ -4,6 +4,10 @@
 **Status:** architecture proposal grounded in local inspection, not an installed
 integration or authority to rename, migrate, deploy or change SPUD.
 
+**Activation, 2026-10-26 18:28 (`txt3`):** the owner authorizes reconciliation,
+the first bounded Engineer implementation/pilot and Hindsight configuration
+preparation. Other proposed integrations remain gated; REA is deferred.
+
 ## Post-onboarding recommendation: 2026-10-26 (kamh)
 
 Private GSA repositories, Forge catalog entries and explicit Kata mappings now
@@ -355,10 +359,12 @@ AgentsView client (`3c2c`) or no-session review accounting (`fjyf`).
 
 The next expanded acceptance is manual Jira intake (`99gr`) and the authorized
 ticket-to-PR loop (`d8v5`). Private repository creation did not authorize future
-pushes, PRs or merges. The former Forge guidance/workspace tasks `k03a` and
-`j54x` were soft-deleted during retirement and still appear in older dependency
-links. Reconcile their required acceptance with the owner before relying on
-readiness for `mpew`/`d8v5`; neither restoration nor completion is implied.
+pushes, PRs or merges. At the owner's 18:28 direction, the former Forge tasks
+`k03a`, `j54x`, `6hce` and `avvp` were restored under their original identities.
+Their current scopes preserve earlier history and distinguish delivered
+onboarding from still-open execution acceptance. Existing `k03a -> mpew`,
+`j54x -> d8v5` and `j54x -> 6hce` prerequisites remain; restoration does not
+satisfy them. Use the restored native tasks, not another reconciliation backlog.
 Do not silently reselect an old application ticket or remap its repository.
 
 ### Automation order and source safeguards

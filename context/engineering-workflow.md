@@ -5,6 +5,27 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## First implementation pilot activated: 2026-10-26, 18:28 (txt3)
+
+The owner authorizes immediate reconciliation and bounded implementation
+agents. Original k03a/j54x/6hce/avvp identities/history are restored with
+current acceptance, not falsely completed. Existing prerequisite links remain.
+Engineer f47m is the useful provider-boundary change for jgcf; no unrelated
+application remapping, publication or automatic ready-task scheduling.
+
+Native Kata workspace creation selected gsa/the_engineer for f47m and produced
+workspace 803ec1b7ee18ca6d. Forge initially based it on published 6821263;
+before launch, a clean fast-forward to local 5555225 supplied current guidance
+without pushing. Repeating the same canonical task creation returns the same
+workspace/path/branch and exactly one matching roster entry.
+
+Native agent-handoff launched configured private Pi in runtime session
+803ec1b7ee18ca6d_3d55e11afef62133 and reports initial message delivered.
+Terminal output shows actual model activity and task/instruction inspection;
+that is startup evidence, not completed implementation, review or qualified
+retrieval. Capture each further milestone in its native task. Private API
+evidence is under .local/engineer-pilot-txt3/; do not copy source bodies here.
+
 ## Private provider onboarding: 2026-10-26, 17:41 (7943)
 
 The owner approved private `GSA/the_engineer` and `GSA/the_librarian`, checked
