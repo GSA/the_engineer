@@ -1,5 +1,22 @@
 # Status: 2026-10-26
 
+## Post-cleanup next steps refined (kamh)
+
+- Updated the existing architecture, not a second roadmap: bounded cleanup
+  and explicit boundaries through one real Engineer task; existing SPUD
+  producer/receiver contract; durable ingestion; then Drive, with selective
+  memory after the first workflow and reproduction before distribution.
+- Forge/provider/task onboarding is delivered; real model-backed coding,
+  failure/resume, qualified intake and fresh-host acceptance are not implied.
+  Existing Katas remain open. No connector/automation backlog was activated.
+- Reuse jgcf and spud#3sv9 as independent next tracks after scope approval;
+  3sv9 still blocks librarian#55nx. Reconcile retired k03a/j54x acceptance
+  before relying on historical synthetic-gate/ticket-to-PR dependencies.
+- Recommendation only: no runtime/configuration or neighboring code changes,
+  source acquisition, corpus writes, agent launch, publication or rename.
+  Shutdown: no experimental process was started; persistent services were
+  left unchanged. Planning closure/commit evidence belongs to native kamh.
+
 ## Private remotes and separated task routing delivered (7943)
 
 - Created private `GSA/the_engineer` and `GSA/the_librarian`, added HTTPS origins
