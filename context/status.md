@@ -1,38 +1,38 @@
 # Status: 2026-10-26
 
-## Reconciliation delivered; first implementation/pilot running (txt3)
+## Reconciled pilot delivered; full integration still gated (txt3)
 
-- Restored k03a/j54x/6hce/avvp under original identities, preserving their
-  history and earlier scope while stating current acceptance. j54x subsequently
-  passed native create/reopen/launch acceptance; the other scopes remain open.
-- Activated coordination and jgcf/j54x claims. Native Forge created f47m
-  workspace 803ec1b7ee18ca6d for the first explicit-provider implementation.
-  The private Pi worker is model-active and claimed f47m; implementation/review
-  remains pending. AgentsView exposes its usage metadata with one-shot
-  sessions included; model cost is unavailable, not measured zero.
-- Hindsight prep svg1 has an independent bounded agent; synthetic evaluation
-  zbww waits for svg1 and jgcf. No service installation, real capture or default
-  automatic history/conversation ingestion. REA is deferred.
-- Existing services, provider mappings and unrelated application workspace
-  remain unchanged. Preserve the active workers/worktree until their recorded
-  completion or explicit stop; final process/acceptance disposition follows.
-- The first worker exposed a real profile defect: main-project MCP worked,
-  but worktrees inherited a stale private-profile executable. Repaired only
-  the private falcon-context entry against the existing authorized binding,
-  preserving audit mode/path/label. Native worktree discovery now connects;
-  the dedicated 6hce worker then actually selected status/search. Both fail
-  closed on a stale selected index; no get locator was returned. Parent
-  independently confirmed freshness failure. No corpus/index was modified;
-  that completed read-only worker is stopped, with 6hce still open.
-- Isolated browser rendering verifies the real workspace, both Pi tabs and
-  f47m's canonical native Kata detail/comments/association. Native Reviews
-  is PR-workspace-only; avvp retains this gap. Exact implementation review
-  101 found an outside-root selection validation defect; its worker is
-  fixing the finding and will supply follow-up evidence.
-- Hindsight prep artifacts are delivered: pinned 1.1.0 API-only image,
-  disabled profile, loopback, private storage/credential references, separate
-  model choices and explicit auth/isolation gates. Offline checks pass; no
-  image, service or memory request. svg1 awaits parent commit/review.
+- Restored k03a/j54x/6hce/avvp under original identities/history and reconciled
+  their actual scopes. j54x passed native create/reopen/launch acceptance;
+  k03a/6hce/avvp remain open on the concrete gaps below.
+- f47m and bounded coding-demo jgcf are complete: real Forge/private Pi,
+  explicit provider binding, compatibility checks, two review findings fixed
+  and exact final review 104 Pass. Parent reran 36 installer cases (three
+  expected local-binary skips) and eight focused setup cases successfully.
+  Commit dae66cd remains on its clean Forge branch/worktree, not merged or
+  published. Main contains Hindsight preparation f2ffd9e, review 103 Pass.
+- Repaired the worktree MCP executable mismatch only in the owned private
+  profile, preserving its authorized scope/audit settings. Actual
+  model-selected status/search then failed closed on a stale source index.
+  No locator/get or corpus/index write: successful qualified retrieval 6hce
+  still needs a separately approved refresh of that selection.
+- Live isolated browsers verify canonical Forge task details/Pi tabs and
+  the standalone roborev exact-commit finding/Pass views. Forge restricts its
+  Reviews tab to PR workspaces; avvp remains open for Kata-workspace linkage.
+  AgentsView records actual usage metadata; cost remains unavailable.
+- The external dispatch omitted the parent no-amend rule. Reviewed original
+  and intermediate commits are preserved by local refs; AGENTS.md and workflow
+  guidance now state additive fixes explicitly. k03a remains open for distinct
+  policy-loading/behavior acceptance, not falsely closed by instruction reads.
+- Hindsight preparation svg1 is closed with a disabled, pinned 1.1.0 API
+  profile, required private/model selectors and explicit auth/isolation gates.
+  Seven offline checks pass; optional Docker absence skips explicitly.
+  zbww still needs approved launch/model/auth/storage decisions. No image,
+  service, memory request, automatic capture or REA installation.
+- Shutdown: both owned model sessions and the pilot's idle base shell are
+  stopped; browsers/temporary checks exited. The worktree, four running
+  managed services and unrelated application workspace remain intact.
+  No push, merge, source acquisition or global-setting change.
 
 ## Post-cleanup next steps refined (kamh)
 

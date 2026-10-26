@@ -1,5 +1,9 @@
 # Engineering workflow and prompts
 
+Reviewed changes keep additive correction commits. Do not amend a commit
+without explicit owner approval; carry that rule into external-agent dispatch,
+not only the coordinating agent's private instructions.
+
 Investigated 2026-10-12 for Engi Platform. Source facts below describe the pinned
 Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
@@ -25,6 +29,22 @@ Terminal output shows actual model activity and task/instruction inspection;
 that is startup evidence, not completed implementation, review or qualified
 retrieval. Capture each further milestone in its native task. Private API
 evidence is under .local/engineer-pilot-txt3/; do not copy source bodies here.
+
+Subsequent outcome: f47m and the bounded jgcf coding demo are complete on the
+clean preserved Forge branch at dae66cd, with exact review 104 Pass. Parent
+reran 36 installer cases (three expected local-binary skips) and eight focused
+setup cases. No merge or publication. Native Forge task rendering and separate
+roborev review rendering are verified, as is AgentsView usage visibility.
+This is not full platform acceptance: 6hce's actual model-selected requests
+fail closed on a stale source selection, avvp lacks a Reviews tab for Kata
+workspaces, and k03a retains distinct policy-loading/behavior acceptance.
+
+The original external-worker dispatch omitted the explicit no-amend rule.
+Its reviewed local amendments are preserved through named refs for reviews
+101/102; the concise rule is now in AGENTS.md and was delivered to the worker.
+Do not misdescribe this propagation gap as disobedience of a loaded rule.
+Completed model sessions and the owned idle base shell are stopped; the
+worktree, four managed services and unrelated application workspace remain.
 
 ## Private provider onboarding: 2026-10-26, 17:41 (7943)
 
