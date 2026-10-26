@@ -1,19 +1,38 @@
 # Status: 2026-10-26
 
-## Reconciliation delivered; first implementation/pilot starting (txt3)
+## Reconciliation delivered; first implementation/pilot running (txt3)
 
 - Restored k03a/j54x/6hce/avvp under original identities, preserving their
-  history and earlier scope while stating current acceptance. They remain
-  open; restored services/catalog entries are not execution evidence.
+  history and earlier scope while stating current acceptance. j54x subsequently
+  passed native create/reopen/launch acceptance; the other scopes remain open.
 - Activated coordination and jgcf/j54x claims. Native Forge created f47m
   workspace 803ec1b7ee18ca6d for the first explicit-provider implementation.
-  Model-backed execution, review, visibility and resume evidence are pending.
+  The private Pi worker is model-active and claimed f47m; implementation/review
+  remains pending. AgentsView exposes its usage metadata with one-shot
+  sessions included; model cost is unavailable, not measured zero.
 - Hindsight prep svg1 has an independent bounded agent; synthetic evaluation
   zbww waits for svg1 and jgcf. No service installation, real capture or default
   automatic history/conversation ingestion. REA is deferred.
 - Existing services, provider mappings and unrelated application workspace
   remain unchanged. Preserve the active workers/worktree until their recorded
   completion or explicit stop; final process/acceptance disposition follows.
+- The first worker exposed a real profile defect: main-project MCP worked,
+  but worktrees inherited a stale private-profile executable. Repaired only
+  the private falcon-context entry against the existing authorized binding,
+  preserving audit mode/path/label. Native worktree discovery now connects;
+  the dedicated 6hce worker then actually selected status/search. Both fail
+  closed on a stale selected index; no get locator was returned. Parent
+  independently confirmed freshness failure. No corpus/index was modified;
+  that completed read-only worker is stopped, with 6hce still open.
+- Isolated browser rendering verifies the real workspace, both Pi tabs and
+  f47m's canonical native Kata detail/comments/association. Native Reviews
+  is PR-workspace-only; avvp retains this gap. Exact implementation review
+  101 found an outside-root selection validation defect; its worker is
+  fixing the finding and will supply follow-up evidence.
+- Hindsight prep artifacts are delivered: pinned 1.1.0 API-only image,
+  disabled profile, loopback, private storage/credential references, separate
+  model choices and explicit auth/isolation gates. Offline checks pass; no
+  image, service or memory request. svg1 awaits parent commit/review.
 
 ## Post-cleanup next steps refined (kamh)
 
@@ -25,8 +44,8 @@
   failure/resume, qualified intake and fresh-host acceptance are not implied.
   Existing Katas remain open. No connector/automation backlog was activated.
 - Reuse jgcf and spud#3sv9 as independent next tracks after scope approval;
-  3sv9 still blocks librarian#55nx. Reconcile retired k03a/j54x acceptance
-  before relying on historical synthetic-gate/ticket-to-PR dependencies.
+  3sv9 still blocks librarian#55nx. Subsequent txt3 restored and reconciled
+  k03a/j54x; use their native acceptance state, not another reconciliation.
 - Follow-up places Hindsight as the first selective-memory service candidate
   after the first workflow, not after Drive. REA is an optional artifact/runtime
   investigation tool, not a replacement for Superpowers or routine SPUD/source
