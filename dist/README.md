@@ -9,8 +9,9 @@ Python 3.11+ and Node.js 24.11+ are required; Ubuntu 24.04+ is the recommended
 starting point. This is a source-build installer, not a container, cloud
 deployment or confidential-data bundle.
 
-**Known gaps (2026-10-26):** this recipe still requires the legacy Falcon MCP
-executable described below, not the renamed data-empty Librarian executable.
+**Known gaps (2026-10-26):** omitted Librarian options retain the legacy Falcon
+layout described below. The data-empty Librarian toolkit is available through
+an explicit opt-in binding; it is not selected or migrated automatically.
 Native Kata CLI/client provisioning also remains open reproduction work.
 Do not treat this as a complete fresh-host recipe until
 Kata `p4ke` reconciles these gaps. See the
@@ -31,12 +32,29 @@ Enter defaults to **no**; noninteractive execution also defaults to manual.
 One ordered service list drives registration, conflict checks and printed
 commands; installation rejects a mismatched runtime service set before builds
 or configuration changes.
-Explicit alternatives:
+Explicit service alternatives:
 
 ```sh
 bash dist/install.sh --corpus /approved/path/to/falcon-docs --services manual
 bash dist/install.sh --corpus /approved/path/to/falcon-docs --services user
 ```
+
+To select a data-empty Librarian toolkit instead of the legacy Falcon command,
+supply its executable, trusted reader and data root together. Selection remains
+optional and is passed through only when explicitly supplied:
+
+```sh
+bash dist/install.sh --check \
+  --corpus /approved/path/to/the_librarian \
+  --librarian-executable /approved/path/to/the_librarian/.venv/bin/librarian-mcp \
+  --librarian-reader /approved/path/to/the_librarian/tools/context-index/context_index.py \
+  --librarian-root /approved/path/to/the_librarian \
+  --librarian-selection /approved/path/to/the_librarian/config/selection.local.json
+```
+
+Use the same options without `--check` for installation. Omit
+`--librarian-selection` to retain that toolkit instance's default manifest.
+Partial explicit bindings fail rather than guessing a command or reader.
 
 ## Source acquisition
 
@@ -91,14 +109,22 @@ export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 ```
 
 Librarian is an **external approved dependency**, not an automatically cloned
-or distributed confidential corpus. Its supplied checkout must contain:
+or distributed confidential corpus. With no explicit binding options, its
+supplied checkout must contain:
 
 - `tools/context-mcp/.venv/bin/qualified-context-mcp` (working executable).
 - `tools/context-index/context_index.py` (readable).
 
-Obtain/install that dependency through its own approved process. This initial
-installer uses its existing local stdio MCP interface; a remotely hosted
-Librarian is not yet supported by this recipe.
+That omitted-option route preserves existing Falcon commands and saved
+configuration shape. The explicit toolkit route requires a readable root and
+reader plus a working executable; an explicitly selected manifest must also be
+readable. Preflight runs the selected executable's `--help` to expose missing
+runtime dependencies. Setup saves the exact selected binding and refuses later
+mismatches instead of probing aliases or silently migrating it. Reruns preserve
+unrelated MCP entries and existing state.
+
+Obtain/install the dependency through its own approved process. Both routes use
+local stdio MCP; a remotely hosted Librarian is not supported by this recipe.
 
 After checks, the installer:
 
