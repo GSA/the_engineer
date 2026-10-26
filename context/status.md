@@ -1,5 +1,29 @@
 # Status: 2026-10-26
 
+## Centralized agent memory/event-store research (Kata 8cne)
+
+- Owner requested public Hacker News discovery for agent-native centralized
+  memory/action ledgers, eventual cloud hosting and possible MCP. Searched
+  broad, named-product and current-date-bounded recent submissions; checked
+  product documentation and HN discussions, not only search snippets.
+- Detailed source-linked comparison is at the start of tools.md. Proposed
+  shortlist: Hindsight for shared recall, Graphiti/Zep for temporal provenance,
+  kcap/Capacitor for actual session/action capture; LongMemory is a smaller
+  ledger-shaped candidate. Mem0/Cognee provide additional comparison baselines.
+- Important gates: exact raw events are not synthesized memory; MCP does not
+  ensure automatic capture. Graphiti's reference MCP is explicitly not
+  production-authenticated. Hindsight auth is opt-in. kcap's documented local
+  edition is Mac/personal; own-AWS team deployment remains unconfirmed.
+- AWS AgentCore has an actual operational memory MCP but raw events expire
+  within 365 days. Mnemora advertises AWS-native episodic storage but needs
+  archival/license/MCP confirmation. Supermemory's current local server is
+  closed-source and excludes the hosted product's MCP.
+- Research only: no product selected, services installed, configurations/hooks
+  changed, inference requested or private assets uploaded. Kata remains the
+  task authority; Falcon/AgentsView handling boundaries remain intact.
+  Only existing context documents changed; no experimental process was started.
+  Product behavior and GSA deployment authorization remain future evaluation.
+
 ## Native Kata cleanup (tracking task tvbf; broader lifecycle scope open)
 
 - Owner authorizes deleting custom Kata wrappers/guards/non-native usage.

@@ -1,5 +1,115 @@
 # Upstream components
 
+## Centralized agent memory/event-store research: 2026-10-26 (Kata 8cne)
+
+Public HN Algolia story searches covered agent memory, MCP memory, shared
+memory, action ledgers, event stores, named products and recent submissions.
+Product capabilities below are checked against current upstream documentation,
+not deployment evidence. HN points measure discussion visibility, not adoption
+or correctness; several plausible products have only 2-9 points.
+
+The important split is exact events versus derived recall. An agent saying
+"deployment succeeded" is not evidence that deployment succeeded. Preserve tool
+outcomes and evidence references, explicit failure states, actor/session/project/
+task identity, event IDs and timestamps. A memory engine's ADD-only extraction,
+immutable nodes or source episodes do not establish a complete, append-only,
+tamper-proof execution ledger. MCP is access, not automatic event capture.
+Capture through runtime/tool hooks for completeness rather than relying solely
+on the model remembering to write. Treat retrieved memories as untrusted data.
+
+Main candidates:
+
+| Candidate | Hosting and MCP evidence | Fit and limitations |
+| --- | --- | --- |
+| Hindsight (Vectorize) | Self-hosted Docker/Helm with PostgreSQL + pgvector; managed cloud. Built-in HTTP MCP, bank-scoped endpoints, retain/recall/reflect. | First shared-memory pilot candidate: experience/fact memory and evidence-backed observations. MIT. Extraction/model routing, retention and exact-event durability still need evaluation. MCP is unauthenticated by default; API-key tenant extension is documented. |
+| Graphiti / Zep | Graphiti is self-managed; Neo4j, FalkorDB or Neptune backends. Reference HTTP/stdio MCP. Zep is a distinct managed/BYOC product, not a hosted drop-in promise for the OSS MCP. | Strong temporal history and source-episode provenance. More graph/service operations. Reference MCP explicitly lacks authentication/authorization and is not for production; tenancy and access control must be supplied. |
+| Mem0 | OSS self-hosted server and managed platform; official authenticated remote MCP documents memory CRUD and memory-operation events. | Useful established comparison baseline. Current April 2026 algorithm describes ADD-only extraction and agent-action facts; that still is not a lossless execution log. Managed optimizations differ from OSS. Hosted MCP verified; self-hosted MCP parity needs separate confirmation. Historical openmemory directory is now 404. |
+| Cognee | Self-hosted and Cognee Cloud; MCP supports stdio, SSE and Streamable HTTP, local/API/cloud modes. | Good shared company/project brain from docs, code and session lessons. More knowledge processing than action-ledger infrastructure; do not equate rotating tool logs with a durable ledger. |
+| LongMemory (CaviraOSS, formerly OpenMemory) | Self-hosted TypeScript service with SQLite; REST plus stdio/authenticated Streamable HTTP MCP. | Particularly relevant immutable-content/provenance and recorded-time/valid-time model, decisions/project-event tools. Single-server SQLite is not proof of HA or distributed-writer scale. Temporal/governance claims require a bounded pilot. Not Mem0's different OpenMemory project. |
+| kcap (Kurrent, formerly Capacitor) | Hosted workspace; documented local server is Mac-only/loopback/personal. Local stdio MCP adapters call authenticated workspace APIs; session-read and memory-write tools exist. | Closest action-capture fit: session/tool/result/commit recording into KurrentDB event streams plus recall, handoffs and team memory. Supports Copilot CLI and Pi (Pi uses an extension bridge). Invite-only; self-managed multiuser Linux/AWS deployment is not established by current docs despite homepage self-management language. Broad runtime/task features overlap existing authorities. |
+
+Primary sources and HN discovery:
+
+- Hindsight: https://github.com/vectorize-io/hindsight and
+  https://hindsight.vectorize.io/developer/mcp-server ;
+  https://news.ycombinator.com/item?id=46294975 (4 points, 2025-12-16).
+- Graphiti: https://github.com/getzep/graphiti and
+  https://github.com/getzep/graphiti/blob/main/mcp_server/README.md ;
+  https://news.ycombinator.com/item?id=41445445 (142 points, 2024-09-04).
+- Mem0: https://github.com/mem0ai/mem0 and
+  https://docs.mem0.ai/platform/mem0-mcp ;
+  https://news.ycombinator.com/item?id=41447317 (201 points, 2024-09-04).
+- Cognee: https://github.com/topoteretes/cognee and
+  https://github.com/topoteretes/cognee/blob/main/cognee-mcp/README.md ;
+  https://news.ycombinator.com/item?id=44169594 (9 points, 2025-06-03).
+- LongMemory: https://github.com/CaviraOSS/LongMemory and its docs/mcp.md;
+  https://news.ycombinator.com/item?id=46262294 (48 points, 2025-12-14).
+  The HN thread refers to its earlier OpenMemory name/version.
+- kcap: https://www.kurrent.io/docs/ and its configuration/local-edition/
+  and reference/mcp-tools-and-skills/ pages;
+  https://news.ycombinator.com/item?id=48734560 (2 points, 2026-06-30).
+  HN's Capacitor URL redirects to the current kcap site.
+
+Other relevant findings:
+
+- AWS AgentCore Memory: managed AWS service, not self-hostable software.
+  AWS Labs MCP now includes operational memory event/record tools, not only
+  documentation search. Raw event retention is at most 365 days, fixed at
+  write time; extending the setting cannot extend already-written events.
+  Thus it cannot alone be a permanent raw ledger. Region/service approval and
+  model-processing authorization in the eventual GSA environment are unknown.
+  https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html
+  https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-create-a-memory-store.html
+  https://awslabs.github.io/mcp/servers/amazon-bedrock-agentcore-mcp-server
+  HN platform launch: https://news.ycombinator.com/item?id=44583456 (4 points).
+- Mnemora: README describes own-account AWS CDK deployment with DynamoDB/S3
+  append-only episodic events plus Aurora pgvector semantic memory. No native
+  MCP documentation/path found in the inspected repository tree; SDK/REST.
+  Early candidate, not selected: handler documents 48-hour hot TTL and an
+  archival library, so archival wiring/replay must be proven before trusting
+  durability. README labels infra/api BSL 1.1, SDK MIT; actual license terms
+  need reconciliation before adoption, not an unqualified OSS assumption.
+  https://github.com/mnemora-db/mnemora ;
+  https://news.ycombinator.com/item?id=47260077 (4 points, 2026-03-05).
+- Supermemory: current remote OAuth MCP supports authorized shared spaces.
+  Current downloadable self-hosted server is non-public-source and its feature
+  comparison explicitly excludes Supermemory MCP; do not conflate a self-hosted
+  adapter calling their cloud with owning the memory backend.
+  https://supermemory.ai/docs/self-hosting/overview
+  https://supermemory.ai/docs/supermemory-mcp/mcp
+  https://news.ycombinator.com/item?id=44218106 (4 points, 2025-06-08).
+- MemMachine: Apache-2.0, self-hosted/managed, native HTTP/stdio MCP, episodic
+  Neo4j plus SQL profile memory. Another comparison candidate, not a demonstrated
+  exact action ledger. https://github.com/MemMachine/MemMachine ;
+  https://news.ycombinator.com/item?id=46008220 (4 points).
+- Letta has shifted active development to letta-code; the former API server is
+  archived. It is an agent harness/platform, less suitable as a neutral drop-in
+  memory store. https://github.com/letta-ai/letta ;
+  https://news.ycombinator.com/item?id=43294974 (121 points).
+- HN's Elasticsearch memory thread (116 points) argues both for a shared team
+  service and against needless operational complexity. The linked implementation
+  is a demo, not a production-ready ledger; it explicitly omits agent replies
+  and some advertised production guards.
+  https://news.ycombinator.com/item?id=48583703
+  https://www.elastic.co/search-labs/blog/agent-memory-elasticsearch
+- Simpler baselines: Memoryfields (191 HN points) is a portable Markdown/
+  optional SQLite format, not a multiwriter service; fellowgeek/mcp-memory
+  (70 points) is local project files/SQLite, not established hosted infrastructure.
+  LedgerSync is append-only local JSONL, not a centralized service.
+  OneMemory's new HN submission describes HTTP/MCP shared notes but its own
+  README says only the latest note body is retained; metadata change history
+  is pruned after 90 days. These are not equivalent to a durable action ledger.
+
+Recommendation is a proposal: compare Hindsight for portable shared recall,
+Graphiti for temporal provenance, and kcap for actual action capture (subject to
+deployment availability). LongMemory merits a smaller ledger-shaped pilot.
+Keep exact raw events as authoritative and semantic memory as a rebuildable,
+source-linked projection, potentially in one service/database. Require restart,
+retry/idempotency, concurrent-agent isolation, exact evidence retrieval,
+read-after-write, backup/restore and export/retention demonstrations before
+adoption. Preserve Kata's task authority and Falcon's qualified-source interface;
+no selection, new service, cloud account, hook or private-content upload occurred.
+
 ## Native Kata usage (2026-10-26; supersedes launcher guidance below)
 
 `~/.local/bin/kata` points directly to `/home/nkirrish/kenn-kopy/kata/kata`.
