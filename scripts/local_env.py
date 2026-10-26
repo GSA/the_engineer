@@ -777,8 +777,16 @@ def install_roborev_service(binary=None):
     if node is None:
         raise RuntimeError("Node must be on this shell's PATH before installing roborev")
     node = Path(node).resolve()
-    binary = roborev_binary() if binary is None else binary.expanduser().resolve()
+    previous_binary = roborev_binary()
+    binary = previous_binary if binary is None else binary.expanduser().resolve()
     command = roborev_command(binary)
+    if binary != previous_binary:
+        active = subprocess.run(["systemctl", "--user", "is-active", "--quiet", ROBOREV_UNIT],
+                                timeout=15)
+        if active.returncode == 0:
+            raise RuntimeError("finish reviews and stop the roborev service before selecting a different binary")
+        if active.returncode not in (3, 4):
+            raise RuntimeError(f"cannot inspect {ROBOREV_UNIT}")
     env = node_environment(node, roborev_executable=binary)
     verify_pi(config, env=env)
     install_user_service(
