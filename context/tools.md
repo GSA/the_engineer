@@ -29,6 +29,48 @@ Reconciliation commit 5555225 review found a stale architecture paragraph
 still directing reconciliation; it is corrected to the actual restored/open
 task state. Exact follow-up review evidence belongs to txt3.
 
+The first model worker discovered a real private-profile mismatch: main
+checkout native `pi-local.py mcp list` uses project .pi/mcp.json and connects,
+whereas the Forge worktree inherited .local/environment/pi/mcp.json with a
+missing qualified-context-mcp executable. Backed up its exact 0600 bytes to
+.local/engineer-pilot-txt3/pi-mcp-before.json, then changed only falcon-context
+to the existing working librarian-mcp executable/reader/event-reader/root/
+pilot selection/bounds. Original forge-pi audit mode/path/label and 0600 mode
+are preserved. Native discovery from the actual worktree now connects seven
+tools. Pi calls this its global scope, but it is the workspace-owned private
+profile, not ~/.pi or any user-global setting. Existing sessions need a new
+connection; discovery alone does not close 6hce.
+
+AgentsView session pi:01a17a57-1947-7208-bf55-f0adcbba507f matches the exact
+Forge worktree and has real token usage. Default session discovery excludes
+one-shot sessions; explicitly include them for the initial single-prompt run.
+Existing archive_content=usage is unchanged. has_cost=false/unpriced model
+means cost unavailable, not a measured zero. No transcript-policy expansion.
+
+The dedicated read-only Forge worker (session 803ec1b7ee18ca6d_023337179f7e28a2)
+selected actual mcp__falcon_context status/search, not a CLI discovery proxy.
+Both returned stale-index failure for five changed selected source records.
+Parent status confirms it. No locator was available; no get, fabricated
+qualification, index refresh or corpus write followed. Native comment
+01M5X5S6VM65D50J6Y0VV7YYQF records body-free evidence. Stopped that completed
+session through its exact runtime DELETE endpoint; 6hce stays open.
+
+Existing Playwright from forge/frontend/node_modules and the ignored pinned
+browser cache render the live workspace, both Pi tabs and canonical f47m
+task detail. The initial import from forge/node_modules was the wrong path;
+no package installation followed. Browser contexts/processes are closed,
+with no screenshots or user profile. The native Reviews tab is absent for
+Kata workspaces by explicit WorkspaceTerminalView.svelte conditions: both
+tab validity and button visibility require item_type=pull_request. Forge's
+roborev proxy itself responds. Do not invent a PR or manipulate browser state
+to claim a supported task-workspace review UI. avvp retains the gap.
+
+Actual f47m commit 6fd6014 queued post-commit review 101, resolving canonical
+repo plus worktree/branch and the distinct read-only private-Pi invocation.
+Its outside-root manifest finding is being fixed by the implementation
+worker. The worker also resumed after native automatic compaction; this is
+observed continuation, not a restart/recovery or synthetic-gate certification.
+
 ## Post-onboarding planning evidence: 2026-10-26 (kamh)
 
 Reread the private original request/conclusion and current architecture,

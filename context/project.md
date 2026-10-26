@@ -15,6 +15,21 @@ legacy behavior and live state. Coordinator: txt3. Hindsight preparation: svg1;
 synthetic evaluation: zbww, after svg1 and jgcf. No publication, real memory
 capture, new source acquisition, corpus write, global setting or rename.
 
+The pilot now proves real model-backed implementation and exposes two
+separate integration boundaries. A worktree-specific MCP discovery failure
+was repaired in the workspace-owned private profile, not a user-global
+configuration. Actual model-selected calls then fail closed on a stale
+selected source index; refreshing that corpus state is not authorized by
+this bounded code/preparation task. Forge renders the canonical task and Pi
+sessions, but its Reviews tab is restricted to PR workspaces, not Kata
+workspaces. Keep those acceptance gaps open rather than publishing a PR or
+bypassing freshness to make the demonstration pass.
+
+Hindsight preparation is now a disabled, pinned API-only Compose profile,
+with blank required deployment/model selectors and explicit launch gates.
+Built-in bearer authentication does not isolate projects or reader/writer
+roles. Preparation is not deployment approval or a passed memory evaluation.
+
 ## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
 
 The owner asks what follows cleanup now that the three private repositories

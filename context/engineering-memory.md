@@ -1,8 +1,223 @@
 # Selective engineering memory
 
 **Date:** 2026-10-26. **Tracking:** engi-platform Kata `qt7g`.
-**Status:** proposed contract and pilot, not an installed service or selected
-vendor. Companion: [system architecture](system-architecture.md).
+**Status:** proposed contract/pilot with disabled Hindsight preparation under
+`svg1`; no installed service or adopted vendor.
+Companion: [system architecture](system-architecture.md).
+
+## Disabled Hindsight preparation: 2026-10-26 (svg1)
+
+The owner's 18:28 approval covers preparation, not a launch, model call or
+unattended capture. The separate
+[`dist/hindsight.compose.yaml`](../dist/hindsight.compose.yaml) and
+[blank selectors](../dist/hindsight.env.example) are **not** part of the four
+managed services or installer. They have no automatic startup/update, default
+active profile, control plane, MCP registration, conversation/history import
+or source checkout mounts. No existing Pi configuration or credential was read
+or copied during this preparation.
+
+### Verified upstream contract and pin
+
+GitHub's latest stable, non-prerelease release on October 26 is
+[v1.1.0](https://github.com/vectorize-io/hindsight/releases/tag/v1.1.0), published
+October 21, resolving to commit
+`a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5`. The API-only full image is pinned to:
+
+```text
+ghcr.io/vectorize-io/hindsight-api:1.1.0@sha256:cdfeb26e92ad33d54a8a7e4cfe6e67b55d619f25ea5f5bba0a3281d701a82b36
+```
+
+Public registry metadata lists Linux amd64/arm64. Its returned manifest bytes
+match that SHA-256. No image layers were pulled, signature verified, image
+executed or runtime compatibility demonstrated. The digest freezes the image,
+including its bundled local models; it does not replace provenance review.
+
+Contract evidence below is from that release commit, not moving `main` docs:
+
+- [Installation and image variants](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-docs/docs/developer/installation.md),
+  [image build](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/docker/standalone/Dockerfile)
+  and [startup](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/docker/standalone/start-all.sh):
+  API-only image, embedded PostgreSQL/pg0 storage at `/home/hindsight/.pg0`,
+  unprivileged UID 1000 and named-volume ownership seeding.
+- [Configuration](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-api-slim/hindsight_api/config.py)
+  and [initialization](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-api-slim/hindsight_api/engine/memory_engine.py):
+  distinct extraction/embedding/reranker settings; startup normally verifies
+  LLM connectivity, and LLM request tracing defaults to **enabled**.
+- [Built-in tenant extension](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-api-slim/hindsight_api/extensions/builtin/tenant.py)
+  and [MCP authentication](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-api-slim/hindsight_api/api/mcp.py):
+  missing service key fails initialization; one valid bearer key selects one
+  schema, **not** a project-specific/read-only permission. Legacy MCP-token
+  authentication is a separate path.
+- [REST retain/recall/export](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-api-slim/hindsight_api/api/http.py):
+  explicit retain supports `async:false`; reusing a `document_id` performs an
+  upsert/replacement, not our proposed conflicting-retry rejection contract.
+
+### Proposed configuration, not deployment/model authorization
+
+This small template proposes one API-only container and an **external named
+volume**. Volume name, dedicated private env-file path, extraction
+provider/model/endpoint, and both local model identities are intentionally
+blank and required. Compose refuses incomplete selectors or a missing env
+file. `pull_policy: never` requires a separately approved image acquisition.
+The `hindsight` profile and explicit `-f` opt-in are operational safeguards,
+not access controls; explicitly naming a service can activate its profile.
+
+Only `127.0.0.1:18888` is published. The API binds `0.0.0.0:8888` **inside**
+its ordinary container network; no database/UI port, host networking or Docker
+socket is exposed. Loopback is not authentication or an outbound firewall.
+Host administrators, Docker operators and authorized local processes remain
+part of the trust boundary. Verify the port is free before launch.
+
+| Processing | Prepared boundary / outstanding choice |
+| --- | --- |
+| Retain extraction | Required explicit provider, model and credential-free base URL; dedicated approved LLM credential comes from the private env file. The existing Pi/USAi route does not prove Hindsight's client/schema/protocol compatibility or authorize this new use. |
+| Embeddings | Proposed in-process CPU `local`, not the extraction endpoint. Full upstream image bundles `BAAI/bge-small-en-v1.5`; operator must explicitly approve/select it. |
+| Reranking | Proposed in-process CPU `local`, independently of extraction/embeddings. Full image bundles `cross-encoder/ms-marco-MiniLM-L-6-v2`; operator must explicitly approve/select it. |
+| Downloads and background work | Hugging Face offline/telemetry flags and disabled remote-code trust prevent the proposed local providers from downloading missing models. Startup LLM verification, automatic consolidation, observations, decision model, file-upload API, request traces, debug dumps and access/audit/OTel traces are disabled. A health check is not a model validation. |
+
+Local providers are a conservative **proposal**, not a settled model choice.
+If local models are not approved or absent from the verified image cache,
+stop: do not clear offline flags or silently fall back to a public provider.
+An approved external embedding/reranking alternative needs a revised template
+and separate endpoints, credentials and traffic tests. Likewise, no
+per-operation LLM override, stored bank override, remote parser or webhook is
+approved. Disabling traces does not prove every error log is body-free.
+
+### Launch gates (all unresolved until recorded evidence)
+
+1. Explicit approval to acquire/run this exact image on an approved **local**
+   Docker daemon; confirm architecture, capacity, image signature/provenance
+   and Compose support for `env_file.format: raw` (Compose 2.30+). No runtime or
+   global package installation is part of this preparation.
+2. Approve extraction route/protocol/model and both local model identities,
+   permitted egress and a synthetic model-call budget. Verify outbound
+   destinations and no downloads/provider fallback before accepting private
+   content. No credential-bearing URLs or default public model endpoint.
+3. Provision a **new, empty, dedicated** private volume and separate service
+   key. Approve Docker-data-root permissions/encryption, encrypted backup
+   location, retention/erasure and restore procedure. Do not reuse an unknown
+   volume: restored queued work and bank configuration can change processing.
+4. Approve authentication/authorization topology. Built-in bearer auth grants
+   every holder access to every bank in its schema, including writes/config;
+   it cannot meet two-project/different-audience or reader/writer isolation.
+   A first synthetic exercise may use a single trusted scope. Real multi-scope
+   use needs separately isolated deployments/keys or a reviewed tenant
+   solution. The upstream
+   [static-keys extension](https://github.com/vectorize-io/hindsight/blob/a5a619b5ca59c5c39e0f96be6f7a31fabd136bd5/hindsight-extensions/static-keys-tenant/README.md)
+   requires a custom build; it is not included or selected here.
+5. Exercise absent/wrong/valid/revoked credentials and cross-scope guessed
+   IDs, list/get/recall/export/write/config paths against the chosen topology.
+   Test persistence/restart/restore and exact-record export/corrections.
+   Bank IDs, URL paths and metadata filters are **not authorization**.
+   Offline Compose checks do not establish any of these runtime guarantees.
+6. Before real capture, approve the bounded record admission/handling policy
+   below and prove rejection before model processing. Stock API/file-upload
+   settings are not a secret scanner or a selected-record admission layer.
+   Keep exact selected submissions separately in approved private storage
+   until export, correction and retry semantics satisfy the contract.
+
+### Future operator procedure — not executed or authorized by this document
+
+After the gates above are approved, provision `.local/hindsight/` as mode 0700
+and copy `dist/hindsight.env.example` to `.local/hindsight/compose.env`, mode
+0600. Fill only approved **non-secret** selectors; the private env path must
+be absolute. Provision that separate mode-0600 raw env file by approved secret
+handoff with only `HINDSIGHT_API_TENANT_API_KEY` and, for the approved
+key-authenticated extraction provider, `HINDSIGHT_API_LLM_API_KEY`.
+The two credentials have different purposes. No literal key belongs in
+commands, shell history, tracked files or logs. No `_FILE` support is assumed.
+
+The private env file is external to the repository's tracked distribution,
+not a new secret manager. `format: raw` avoids dollar interpolation; do not
+shell-source it or quote values. Docker administrators can inspect container
+environment. Do not run unredacted `docker inspect`, `compose config` or
+`config --environment` on real configuration; use **`config --quiet`**.
+The tracked test suite renders synthetic values only.
+
+Check the selected Docker context is local and approved. Explicitly create
+the named volume selected in `compose.env` using native `docker volume create
+APPROVED_PRIVATE_VOLUME`; verify its protected storage location. Acquire only
+the exact image reference shown above with native `docker pull` after
+provenance approval. Then, from this repository root:
+
+```sh
+umask 077
+docker compose --env-file .local/hindsight/compose.env \
+  -f dist/hindsight.compose.yaml --profile hindsight config --quiet
+docker compose --env-file .local/hindsight/compose.env \
+  -f dist/hindsight.compose.yaml --profile hindsight up -d --pull never hindsight
+docker compose --env-file .local/hindsight/compose.env \
+  -f dist/hindsight.compose.yaml --profile hindsight ps
+curl --fail --silent --show-error http://127.0.0.1:18888/health
+```
+
+Check ready state, authentication and actual bound ports; stop on mismatch.
+No inference is proved by health, and startup verification is deliberately
+skipped. No boot service, automatic restart or worker integration is added.
+
+After separate approval for synthetic retain/recall, prepare a mode-0600
+`.local/hindsight/client.header` containing the dedicated service bearer
+header via the approved secret handoff, not an expanded shell argument.
+Save a small synthetic `.local/hindsight/retain.json`, for example:
+
+```json
+{"async":false,"items":[{"content":"Synthetic proposed decision: retry once after checking the fixture version.","document_id":"synthetic-001","metadata":{"project":"synthetic-a","basis":"proposed","kind":"decision"}}]}
+```
+
+Use this only as a transport fixture, not a complete accepted memory record:
+
+```sh
+curl --fail --silent --show-error --header @.local/hindsight/client.header \
+  --header 'Content-Type: application/json' --data-binary @.local/hindsight/retain.json \
+  http://127.0.0.1:18888/v1/default/banks/synthetic-a/memories \
+  --output .local/hindsight/retain-response.json
+curl --fail --silent --show-error --header @.local/hindsight/client.header \
+  --header 'Content-Type: application/json' \
+  --data '{"query":"What should be checked before retrying?","budget":"low","max_tokens":512,"trace":false}' \
+  http://127.0.0.1:18888/v1/default/banks/synthetic-a/memories/recall \
+  --output .local/hindsight/recall-response.json
+```
+
+Keep response files private; inspect actual IDs/readiness and retained basis,
+not just HTTP success. Do not treat an upsert as immutable correction history.
+MCP stays off; adding explicit MCP retain/recall later requires its own
+authenticated tool-surface tests, not the coding-agent integration installer.
+
+Stop cleanly without deleting data:
+
+```sh
+docker compose --env-file .local/hindsight/compose.env \
+  -f dist/hindsight.compose.yaml --profile hindsight stop --timeout 60 hindsight
+docker compose --env-file .local/hindsight/compose.env \
+  -f dist/hindsight.compose.yaml --profile hindsight down
+```
+
+The external volume survives `down`; do not use `volume rm`, pruning or
+destructive reset as rollback. Before any future upgrade, stop writes, take a
+consistent encrypted backup of the stopped volume plus exact submissions and
+record the image/config identity. Restore only into a separately approved
+isolated volume, recheck deletion/revocation and stored settings, and verify
+before switching. Do not point an older image at a migrated live database.
+No automated upgrade/backup job is prepared here.
+
+### Preparation validation and shutdown
+
+`python3 -m unittest discover -s dist -p test_hindsight.py -v` checks the
+configuration offline using synthetic env files and a nonexistent Docker
+socket: all **7 tests pass**, covering profile inactivity, blank/missing gates,
+digest pin, loopback publication, external persistent volume, literal secret-file loading and
+explicit model/privacy controls. Docker Compose v5.6.0 is present; no
+dependency installation was needed. All 31 `HINDSIGHT_API_*` template names
+were also checked against the pinned configuration/tenant source.
+These optional checks explicitly skip when Docker/Compose is absent; the
+existing four-service distribution does not acquire a Docker prerequisite.
+
+These are configuration-contract checks, **not** running-service/model,
+authorization, persistence or usefulness acceptance. No Hindsight process,
+container, network, volume, image download, live memory/model request or
+coding-agent integration was created. Existing four services and global
+configuration were untouched; no experimental process needs shutdown.
+Native `svg1` retains progress/evidence and remains open for parent integration.
 
 ## Post-onboarding placement and candidate recommendation (kamh)
 
