@@ -801,8 +801,14 @@ class LocalEnvironmentTests(unittest.TestCase):
         binary.chmod(0o755)
         config = self.state / "roborev/config.toml"
         before = config.read_bytes()
+        def systemctl(command, **kwargs):
+            inactive = ("is-active" in command
+                        and not (self.state / "roborev-service.json").exists())
+            return MagicMock(returncode=3 if inactive else 0)
+
         with patch.object(local_env.shutil, "which", return_value=str(node)):
-            with patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)) as run:
+            with patch.object(local_env.subprocess, "run", side_effect=systemctl) as run, \
+                    patch.object(local_env, "check_ports"):
                 with patch.object(local_env, "managed_roborev", return_value={"pid": 123}):
                     with contextlib.redirect_stdout(io.StringIO()):
                         local_env.install_roborev_service(binary)
@@ -823,6 +829,23 @@ class LocalEnvironmentTests(unittest.TestCase):
             check=True, timeout=60), run.call_args_list)
         self.assertTrue((self.state / "roborev-service.json").exists())
         self.assertEqual(local_env.roborev_binary(), binary)
+
+    def test_roborev_binary_change_refuses_active_service_without_mutation(self):
+        node = self.node_executable()
+        binary = self.root / "replacement-roborev"
+        binary.touch()
+        binary.chmod(0o755)
+        marker = self.state / "roborev-service.json"
+        local_env.json_write(marker, {"unit": local_env.ROBOREV_UNIT})
+        before = marker.read_bytes()
+        with patch.object(local_env.shutil, "which", return_value=str(node)), \
+                patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)), \
+                patch.object(local_env, "install_user_service") as install, \
+                self.assertRaisesRegex(RuntimeError, "finish reviews and stop"):
+            local_env.install_roborev_service(binary)
+        install.assert_not_called()
+        self.assertEqual(marker.read_bytes(), before)
+        self.assertFalse((self.state / "systemd").exists())
 
     def test_managed_roborev_refuses_another_process(self):
         local_env.json_write(self.state / "roborev-service.json", {"unit": local_env.ROBOREV_UNIT})
