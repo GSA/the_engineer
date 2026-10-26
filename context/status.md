@@ -1,5 +1,20 @@
 # Status: 2026-10-26
 
+## Reconciliation delivered; first implementation/pilot starting (txt3)
+
+- Restored k03a/j54x/6hce/avvp under original identities, preserving their
+  history and earlier scope while stating current acceptance. They remain
+  open; restored services/catalog entries are not execution evidence.
+- Activated coordination and jgcf/j54x claims. Native Forge created f47m
+  workspace 803ec1b7ee18ca6d for the first explicit-provider implementation.
+  Model-backed execution, review, visibility and resume evidence are pending.
+- Hindsight prep svg1 has an independent bounded agent; synthetic evaluation
+  zbww waits for svg1 and jgcf. No service installation, real capture or default
+  automatic history/conversation ingestion. REA is deferred.
+- Existing services, provider mappings and unrelated application workspace
+  remain unchanged. Preserve the active workers/worktree until their recorded
+  completion or explicit stop; final process/acceptance disposition follows.
+
 ## Post-cleanup next steps refined (kamh)
 
 - Updated the existing architecture, not a second roadmap: bounded cleanup
