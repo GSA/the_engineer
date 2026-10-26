@@ -21,6 +21,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parent.parent
 PI_VERSION = "1.0.3"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
+MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
 REQUIRED_FILES = (
     ".gitmodules", "scripts/bootstrap-sources.sh", "scripts/bootstrap-toolchains.sh",
     "scripts/build.sh", "scripts/local_env.py",
@@ -172,7 +173,9 @@ def service_choice(choice):
     if not sys.stdin.isatty():
         print("Noninteractive input: services remain manual; use --services user for explicit opt-in.")
         return "manual"
-    answer = input("Enable AND start all four Ubuntu user services now? [y/N] ").strip().lower()
+    answer = input(
+        f"Enable AND start all {len(MANAGED_SERVICES)} Ubuntu user services now? [y/N] "
+    ).strip().lower()
     if answer in ("y", "yes"):
         return "user"
     if answer in ("", "n", "no"):
@@ -185,7 +188,7 @@ def check_user_services(checkout):
         if shutil.which(tool) is None:
             raise RuntimeError(f"{tool} is required for user services; use --services manual instead.")
     capture(["systemctl", "--user", "show-environment"])
-    for project in ("forge", "kata", "roborev", "agentsview"):
+    for project in MANAGED_SERVICES:
         unit = f"kenn-kopy-{project}.service"
         listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit])
         if not listed:
@@ -208,6 +211,8 @@ def install(checkout, corpus, forge_build, choice):
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
         raise RuntimeError("Installer/runtime Pi pins differ; use dist from the selected platform revision.")
+    if set(environment.SERVICE_PORTS) != set(MANAGED_SERVICES):
+        raise RuntimeError("Installer/runtime services differ; use dist from the selected platform revision.")
     environment.check_ports()
     check_submodules(checkout)
     print("\nInitializing repositories at the platform's exact gitlink revisions...")
@@ -233,7 +238,7 @@ def install(checkout, corpus, forge_build, choice):
     instructions(checkout, node)
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
-        for name in ("kata", "agentsview", "roborev", "forge"):
+        for name in MANAGED_SERVICES:
             run([*command, f"install-{name}-service"], cwd=checkout)
         print("User services are enabled and responsive. They start with your user manager/login.")
         print("Boot without login requires administrator-approved lingering; it was NOT enabled here.")
@@ -246,8 +251,9 @@ def instructions(checkout, node):
     print("\nManual startup (all dashboards in the foreground; Ctrl+C stops owned processes):")
     print("  " + shlex.join([*command, "run"]))
     print("Or run each service in a separate terminal:")
-    for name in ("kata", "agentsview", "roborev", "forge"):
-        args = (["env", f"KATA_HOME={checkout / '.local/environment/kata'}",
+    for name in MANAGED_SERVICES:
+        args = (["env", "-u", "KATA_DB", f"KATA_HOME={checkout / '.local/environment/kata'}",
+                 f"KATA_DSN={checkout / '.local/environment/kata/kata.db'}",
                  str(checkout / "kata/kata"), "daemon", "start", "--foreground",
                  "--no-auto-token", "--listen", "127.0.0.1:17777"]
                 if name == "kata" else [*command, f"{name}-run"])
@@ -257,7 +263,7 @@ def instructions(checkout, node):
     print("Stop a supervisor from another terminal:")
     print("  " + shlex.join([*command, "stop"]))
     print("Independent user services are NOT stopped by that command. For each installed unit:")
-    for name in ("forge", "kata", "roborev", "agentsview"):
+    for name in MANAGED_SERVICES:
         print(f"  systemctl --user stop kenn-kopy-{name}.service")
     print("\nDashboards: Forge http://127.0.0.1:18091/ | Kata http://127.0.0.1:17777/kata")
     print("roborev http://127.0.0.1:17374/reviews | AgentsView http://127.0.0.1:18080/")

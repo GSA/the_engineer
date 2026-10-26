@@ -1,8 +1,10 @@
 # Deletion-first cleanup refinement
 
 **Date:** 2026-10-26. **Tracking:** engi-platform `ycns`.
-**Status:** refined backlog; this investigation has not implemented source
-refactors. [Architecture](system-architecture.md) remains the ownership baseline.
+**Status:** first source cleanup implemented in `rzsc`: one installer service
+inventory and explicit private Kata storage across manual, unit and supervisor
+startup. Remaining slices are still backlog; review/commit evidence belongs to
+the native task. [Architecture](system-architecture.md) remains the ownership baseline.
 
 **Resolved lifecycle, 17:03:** Forge is required to launch/manage coding and
 review agents. Keep four managed services and preserve its ongoing
@@ -114,7 +116,7 @@ The previous memory research stays complete, but no memory product trial is
 started. Graph visualization, cloud, sandboxing and unrelated demo work are
 not silently cancelled or promoted.
 
-## Recommended first slice: rzsc
+## First implemented slice: rzsc
 
 Use the restored runtime's four-service boundary: Kata, roborev, AgentsView
 and Forge. Consolidate managed-service names inside the installer and use them
@@ -156,10 +158,13 @@ be opened. Retain the four-service requirement while improving verification
 beyond mocked command strings. No real service restart or full download/build
 is needed for this slice.
 
-The lifecycle decision is settled; coordinate shared-file writes with Forge
-work and review the bounded implementation plan before coding. Larger provider
-changes follow their own written design and planning review. Optional Forge
-packaging is not on the execution path.
+The owner resumed implementation at 17:12. Repeated installer service lists
+are now one ordered tuple, with a pre-mutation runtime-parity guard. Unit and
+supervisor startup reuse one scoped Kata environment helper; the redundant
+second Kata command validation was removed. Focused checks include actual
+isolated native Kata launches from printed commands and generated-unit settings.
+No live service was restarted or unit regenerated. Larger provider changes
+remain separate; optional Forge packaging is not on the execution path.
 
 ## Review and execution discipline
 
@@ -169,7 +174,8 @@ environment isolation, and new `0sfx` owns fresh-host CLI/client provisioning.
 Review 77 identified that clearing environment overrides alone still permits a
 stored DSN redirect. The revised contract explicitly pins managed `KATA_DSN`
 and includes conflicting stored configuration in acceptance. These are refined
-acceptance requirements, not implemented fixes.
+acceptance requirements; the Kata startup fix is now implemented under `rzsc`,
+while fresh-host native client provisioning remains open.
 Review 78 passed the earlier design before the lifecycle clarification; it is
 not approval of a three-service implementation now. This revision preserves
 its independent safeguards while correcting the service boundary.

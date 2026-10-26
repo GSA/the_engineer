@@ -653,10 +653,13 @@ def install_agentsview_service():
 
 
 def install_user_service(unit_name, command, description, ports, readiness, args=(),
-                         executable=None, environment=(), working_directory=None):
+                         executable=None, environment=(), working_directory=None,
+                         require_stopped=False):
     active = subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit_name],
                             timeout=15)
     if active.returncode == 0:
+        if require_stopped:
+            raise RuntimeError(f"finish reviews and stop {unit_name} before selecting a different binary")
         readiness()
     elif active.returncode in (3, 4):
         check_ports(ports)
@@ -780,29 +783,26 @@ def install_roborev_service(binary=None):
     previous_binary = roborev_binary()
     binary = previous_binary if binary is None else binary.expanduser().resolve()
     command = roborev_command(binary)
-    if binary != previous_binary:
-        active = subprocess.run(["systemctl", "--user", "is-active", "--quiet", ROBOREV_UNIT],
-                                timeout=15)
-        if active.returncode == 0:
-            raise RuntimeError("finish reviews and stop the roborev service before selecting a different binary")
-        if active.returncode not in (3, 4):
-            raise RuntimeError(f"cannot inspect {ROBOREV_UNIT}")
     env = node_environment(node, roborev_executable=binary)
     verify_pi(config, env=env)
     install_user_service(
         ROBOREV_UNIT, None, "Engi Platform local code review",
-        SERVICE_PORTS["roborev"], lambda: managed_roborev(required=True),
+        SERVICE_PORTS["roborev"], lambda: managed_roborev(required=True, binary=binary),
         executable=command, environment=tuple(f"{key}={value}" for key, value in env.items()),
         working_directory=STATE / "home",
+        require_stopped=binary != previous_binary,
     )
     json_write(STATE / "roborev-service.json", {"unit": ROBOREV_UNIT, "binary": str(binary)}, replace=True)
     print("roborev user service enabled and responsive at http://127.0.0.1:17374/reviews")
 
 
-def managed_roborev(*, required=False):
+def managed_roborev(*, required=False, binary=None):
     if not required and not (STATE / "roborev-service.json").exists():
         return None
     pid = user_service_pid(ROBOREV_UNIT)
+    if binary is not None and not os.path.samefile(f"/proc/{pid}/exe", binary):
+        raise RuntimeError("running roborev executable differs from the requested binary; "
+                           "finish reviews, stop the service and reinstall before restarting")
     with HTTP.open("http://127.0.0.1:17373/api/ping", timeout=3) as response:
         health = json.load(response)
     if health.get("pid") != pid or health.get("ok") is not True or not health.get("version"):
@@ -943,14 +943,19 @@ def kata_command():
             "--listen", "127.0.0.1:17777"]
 
 
+def kata_environment():
+    return {"KATA_HOME": str(STATE / "kata"),
+            "KATA_DSN": str(STATE / "kata/kata.db"), "KATA_DB": ""}
+
+
 def install_kata_service():
     settings()
     validate_kata_config()
-    kata_command()
     install_user_service(
         KATA_UNIT, None, "Engi Platform local task ledger",
         SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
-        executable=kata_command(), environment=(f"KATA_HOME={STATE / 'kata'}",),
+        executable=kata_command(),
+        environment=tuple(f"{key}={value}" for key, value in kata_environment().items()),
     )
     json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
     print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
@@ -1051,9 +1056,12 @@ def serve():
                 raise RuntimeError(f"missing {name} binary: {binary}")
             log_path = STATE / "logs" / f"{name}.log"
             private_write(log_path, "")
+            env = agentsview_environment() if name == "agentsview" else base_environment()
+            if name == "kata":
+                env.update(kata_environment())
             with open(log_path, "a") as log:
                 process = subprocess.Popen([str(binary), *args], cwd=STATE / "home",
-                                           env=agentsview_environment() if name == "agentsview" else base_environment(),
+                                           env=env,
                                            stdin=subprocess.DEVNULL,
                                            stdout=log, stderr=subprocess.STDOUT)
             children.append((name, process))
