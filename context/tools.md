@@ -1,5 +1,38 @@
 # Upstream components
 
+## Native Forge catalog reset: 2026-10-26 (3b94)
+
+Native APIs removed the falcon-docs project registration, four application
+provider entries and four old Kata mappings. Project deletion stops registered
+runtime sessions, so confirmed the Falcon primary had none before deletion.
+Repository unconfiguration stops tracking/sync, not filesystem worktrees or
+historical rows. Preserved existing PR workspace `96ca6f1e3b862ad7` and tmux
+state; no live runtime session or checkout was killed/deleted.
+
+Registered Engineer `prj_da90fa0831bead6430eeea4d`, Librarian
+`prj_2c1787eca546f70fecfb90ff`, and SPUD `prj_cdc20373328030ea39dfb6a4`.
+Each discovers its existing primary worktree and reports private Pi available.
+Added only real private GitHub `GSA/aos-spud`, provider ID 1419762646; sync
+completed at 21:41:38Z without error. Set worktree_base_path to
+/home/nkirrish/aos-spud through its validating native endpoint, avoiding an
+unintended new managed clone. No worktree or agent was created.
+
+PUT settings replaces Kata mappings with only daemon local/project UID
+01M5WT376VQHTW5JWTYW4VSWMD -> github/github.com/gsa/aos-spud.
+Immediate diagnostics briefly showed registered_project resolution before
+hot reload; subsequent live checks confirm manual_daemon and the saved TOML.
+Native Forge lookup resolves existing spud#3sv9; no task mutation there.
+Engineer/Librarian stay unmapped because provider-free mapping is not supported.
+
+Private rollback: runtime/forge-reset-3b94/{config-before.toml,
+forge-before.sqlite3,before.json}; online SQLite snapshot integrity is ok.
+Bounded result.json records exact inventory, mapping, sync and preservation.
+Compared parsed configuration: only repos/kata_projects changed. Environment
+and private Pi settings/models/MCP hashes match; four checkout HEAD/status/diff
+and .kata.toml hashes matched before these documentation edits. Forge/Kata/
+roborev/AgentsView PIDs remain 35810/23538/44494/417. No restart, alternate
+daemon, publication or experimental process; real coding/review pilot is pending.
+
 ## Engineer branding and Forge onboarding evidence: 2026-10-26 (w5yr)
 
 Live read-only Forge GETs confirm native daemon `local` is connected, while

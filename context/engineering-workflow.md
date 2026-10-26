@@ -5,7 +5,39 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Authorized catalog reset delivered: 2026-10-26, 17:39 (3b94)
+
+The owner authorizes a fresh Forge inventory with exactly Librarian
+(`~/the_librarian`), Engineer (`~/kenn-kopy`) and SPUD (`~/aos-spud`).
+All three are now registered, with discovered primary worktrees and the
+existing private Pi target available. The former Falcon instance registration
+was removed without deleting its checkout, corpus or MCP integration.
+
+The four earlier GSA application provider entries and their Kata mappings were
+removed through native APIs. Private `GSA/aos-spud` is the only configured
+provider repository and completed sync. An explicit mapping binds daemon
+`local`, Kata project UID `01M5WT376VQHTW5JWTYW4VSWMD` (`spud`) to
+`github/github.com/gsa/aos-spud`; the configured worktree base is
+`/home/nkirrish/aos-spud`. Native task reference `spud#3sv9` resolves through
+Forge, but that task was not claimed or launched as an unapproved demo.
+
+SPUD is the available main-UI route for the next agreed end-to-end pilot.
+Engineer and Librarian remain local-only and unmapped; registration does not
+implement the missing provider-free picker/resolver path. The shared Librarian
+task domain, deferred names/paths and all Kata task history are unchanged.
+No automatic dispatch or coding/review pilot was performed.
+
+One pre-existing application PR workspace (`96ca6f1e3b862ad7`) remains with
+its worktree and tmux state; catalog removal is not worktree deletion.
+Forge configuration updates were hot-applied with all four service PIDs
+unchanged. Private rollback snapshot and bounded evidence:
+`.local/environment/runtime/forge-reset-3b94/`.
+
 ## Proposed intended-repository onboarding: 2026-10-26
+
+This 17:33 recommendation predates the 17:39 reset above, which supersedes
+its proposed inventory and retention of application catalog entries. The
+local-project integration and task-domain split remain proposals.
 
 The owner means Engineer (`~/kenn-kopy`), the Librarian toolkit
 (`~/the_librarian`), the FALCON knowledge instance (`~/falcon-docs`) and
@@ -75,10 +107,10 @@ Creating a Kata does not queue an agent. The current handoff is explicit:
    reviews the work, and records evidence/closure in native Kata. A workspace,
    running agent or completed review does not itself close the task.
 
-Read-only live checks found the `local` Kata daemon connected, but
-`engi-platform`, `librarian` and `spud` **unmapped**. Only the four earlier
-Falcon application projects are mapped. Consequently, the cleanup Katas are
-persisted work, not automatically dispatched Forge workspaces.
+Following `3b94`, the `local` Kata daemon is connected and `spud` is explicitly
+mapped to `GSA/aos-spud`. `engi-platform` and `librarian` remain **unmapped**;
+the four earlier application mappings were removed. Tasks remain persisted
+work, not automatically dispatched Forge workspaces.
 
 Task `repo` metadata distinguishes toolkit from corpus work inside the shared
 `librarian` project; Forge's project mapping does not interpret that field as
@@ -87,9 +119,9 @@ also cannot be made provider-backed by inventing remotes. Existing local-project
 worktree/session APIs are distinct from the main mapped-workspace UI. Preserve
 this boundary while the Forge integration is reimplemented.
 
-No automatic ready-task scheduler, mapping change, agent launch or publication
-was enabled by this investigation. The existing end-to-end demo task `jgcf`
-now records the missing intended-repository handoff. Evidence: live
+No automatic ready-task scheduler, agent launch or publication was enabled.
+The existing end-to-end demo task `jgcf` records SPUD's available mapping and
+the remaining remote-free repository handoff gap. Evidence: live
 `/api/v1/kata/daemons` and `/api/v1/kata/project-mappings`,
 `forge/docs/integrations.md`, `forge/docs/workflows/workspaces.md`, and
 `forge/internal/server/kata/workspace.go::createKataWorkspace`.
