@@ -88,11 +88,12 @@ def settings():
     return json.loads(private_read(STATE / "environment.json"))
 
 
-def base_environment():
+def base_environment(roborev_executable=None):
     home = STATE / "home"
+    roborev_executable = roborev_binary() if roborev_executable is None else roborev_executable
     return {
-        "PATH": os.pathsep.join([str(GH_BINARY.parent)] + [str(ROOT / p) for p in
-                               ("roborev/bin", "kata", "agentsview")] + [os.environ["PATH"]]),
+        "PATH": os.pathsep.join([str(GH_BINARY.parent), str(roborev_executable.parent),
+                                str(ROOT / "kata"), str(ROOT / "agentsview"), os.environ["PATH"]]),
         "HOME": str(home),
         "USER": getpass.getuser(),
         "XDG_CONFIG_HOME": str(home / ".config"),
@@ -371,23 +372,6 @@ def install_pi_review_extension():
     print(f"Installed {PI_REVIEW_EXTENSION} in the isolated Pi profile; no model request was made.")
 
 
-def install_roborev_cli(*, replace_existing=False):
-    """Expose the existing scoped launcher, not a second binary or config."""
-    settings()
-    target = ROOT / "scripts/roborev-local.py"
-    destination = Path.home() / ".local/bin/roborev"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if destination.is_symlink() and destination.resolve() == target:
-        print(f"roborev already selects {target}")
-        return
-    if destination.exists() or destination.is_symlink():
-        if not replace_existing or destination.is_dir():
-            raise RuntimeError("roborev command already exists; inspect it before --replace-existing")
-        destination.unlink()
-    destination.symlink_to(target)
-    print(f"roborev now selects {target}")
-
-
 def roborev_warnings(*, proc_root=Path("/proc")):
     """Read-only diagnostics: never start or signal another daemon."""
     warnings = []
@@ -436,9 +420,7 @@ def roborev_launch(args):
             "manage roborev with systemctl --user start|stop|restart kenn-kopy-roborev.service; "
             "native daemon/update commands are disabled by the managed launcher"
         )
-    binary = ROOT / "roborev/bin/roborev"
-    if not binary.is_file() or not os.access(binary, os.X_OK):
-        raise RuntimeError("missing executable roborev binary; build it before using the launcher")
+    binary = roborev_command()[0]
     # An explicit server makes native CLI calls fail rather than auto-start another daemon.
     return [str(binary), "--server", "127.0.0.1:17373", *args], base_environment()
 
@@ -671,7 +653,7 @@ def install_agentsview_service():
 
 
 def install_user_service(unit_name, command, description, ports, readiness, args=(),
-                         executable=None, environment=()):
+                         executable=None, environment=(), working_directory=None):
     active = subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit_name],
                             timeout=15)
     if active.returncode == 0:
@@ -689,10 +671,16 @@ def install_user_service(unit_name, command, description, ports, readiness, args
         sys.executable, ROOT / "scripts/local_env.py", command, *args,
     )))
     environment_lines = "".join(f"Environment={systemd_quote(value)}\n" for value in environment)
+    directory_line = ""
+    if working_directory is not None:
+        systemd_quote(working_directory)
+        if not Path(working_directory).is_absolute():
+            raise RuntimeError("systemd working directory must be absolute")
+        directory_line = f"WorkingDirectory={str(working_directory).replace('%', '%%')}\n"
     text = (
         f"[Unit]\nDescription={description}\n"
         "[Service]\nType=simple\nUMask=0077\nNoNewPrivileges=true\n"
-        f"{environment_lines}ExecStart={executable}\n"
+        f"{environment_lines}{directory_line}ExecStart={executable}\n"
         "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=45\n"
         "[Install]\nWantedBy=default.target\n"
     )
@@ -753,36 +741,53 @@ def validate_roborev_config():
         raise RuntimeError("roborev must retain the documented loopback API and UI ports")
 
 
-def node_environment(node_executable):
+def node_environment(node_executable, *, roborev_executable=None):
     node = node_executable.expanduser().resolve()
     if not node.is_file() or not os.access(node, os.X_OK):
         raise RuntimeError(f"missing executable Node runtime for Pi agents: {node}")
-    env = base_environment()
+    env = base_environment(roborev_executable)
     env["PATH"] = str(node.parent) + os.pathsep + env["PATH"]
     return env
 
 
-def roborev_command():
-    return [str(ROOT / "roborev/bin/roborev"), "daemon", "run",
+def roborev_binary():
+    marker = STATE / "roborev-service.json"
+    if marker.exists():
+        saved = json.loads(private_read(marker))
+        if "binary" in saved:
+            binary = Path(saved["binary"])
+            if not binary.is_absolute():
+                raise RuntimeError("saved roborev binary must be an absolute path")
+            return binary
+    return ROOT / "roborev/bin/roborev"
+
+
+def roborev_command(binary=None):
+    binary = roborev_binary() if binary is None else binary
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError(f"missing executable roborev binary: {binary}")
+    return [str(binary), "daemon", "run",
             "--addr", "127.0.0.1:17373", "--config", str(STATE / "roborev/config.toml")]
 
 
-def install_roborev_service():
+def install_roborev_service(binary=None):
     config = settings()
     validate_roborev_config()
     node = shutil.which("node")
     if node is None:
         raise RuntimeError("Node must be on this shell's PATH before installing roborev")
     node = Path(node).resolve()
-    verify_pi(config, env=node_environment(node))
-    if not (ROOT / "roborev/bin/roborev").is_file():
-        raise RuntimeError("missing roborev binary; build it before installing the service")
+    binary = roborev_binary() if binary is None else binary.expanduser().resolve()
+    command = roborev_command(binary)
+    env = node_environment(node, roborev_executable=binary)
+    verify_pi(config, env=env)
     install_user_service(
-        ROBOREV_UNIT, "roborev-run", "Kenn Kopy local code review",
+        ROBOREV_UNIT, None, "Engi Platform local code review",
         SERVICE_PORTS["roborev"], lambda: managed_roborev(required=True),
-        args=("--node-executable", node),
+        executable=command, environment=tuple(f"{key}={value}" for key, value in env.items()),
+        working_directory=STATE / "home",
     )
-    json_write(STATE / "roborev-service.json", {"unit": ROBOREV_UNIT}, replace=True)
+    json_write(STATE / "roborev-service.json", {"unit": ROBOREV_UNIT, "binary": str(binary)}, replace=True)
     print("roborev user service enabled and responsive at http://127.0.0.1:17374/reviews")
 
 
@@ -1015,8 +1020,9 @@ def serve():
         validate_roborev_config()
         validate_kata_config()
         forge = forge_command(config)
+        roborev = roborev_command()
         services = [
-            ("roborev", ROOT / "roborev/bin/roborev", roborev_command()[1:],
+            ("roborev", Path(roborev[0]), roborev[1:],
              "http://127.0.0.1:17373/api/status"),
             ("kata", ROOT / "kata/kata", kata_command()[1:],
              "http://127.0.0.1:17777/api/v1/health"),
@@ -1145,10 +1151,9 @@ def main():
     tracking.add_argument("--archive-content", choices=("usage", "transcripts", "full"), required=True)
     commands.add_parser("install-agentsview-service", help="enable the configured AgentsView user service")
     commands.add_parser("agentsview-run", help="run the standalone configured AgentsView service")
-    commands.add_parser("install-roborev-service", help="enable the configured roborev user service")
-    review_cli = commands.add_parser("install-roborev-cli", help="make plain roborev use the managed launcher")
-    review_cli.add_argument("--replace-existing", action="store_true",
-                            help="replace an explicitly inspected existing roborev command")
+    review_install = commands.add_parser("install-roborev-service",
+                                        help="enable the configured native roborev user service")
+    review_install.add_argument("--binary", type=Path, help="select an existing native roborev executable")
     commands.add_parser("install-pi-review-extension", help="install the pinned extension in private Pi only")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
@@ -1186,9 +1191,7 @@ def main():
         elif args.command == "agentsview-run":
             agentsview_run()
         elif args.command == "install-roborev-service":
-            install_roborev_service()
-        elif args.command == "install-roborev-cli":
-            install_roborev_cli(replace_existing=args.replace_existing)
+            install_roborev_service(args.binary)
         elif args.command == "install-pi-review-extension":
             install_pi_review_extension()
         elif args.command == "roborev-run":
