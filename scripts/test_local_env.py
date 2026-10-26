@@ -253,24 +253,24 @@ class LocalEnvironmentTests(unittest.TestCase):
             command, _ = local_env.roborev_launch(["review", "--repo", "daemon"])
         self.assertEqual(command[-1], "daemon")
 
-    def test_roborev_cli_install_is_explicit_repeatable_and_symlinked(self):
-        home = self.root / "user-home"
-        command = home / ".local/bin/roborev"
-        command.parent.mkdir(parents=True)
-        command.write_text("old native binary")
-        with patch.object(Path, "home", return_value=home):
-            with self.assertRaisesRegex(RuntimeError, "--replace-existing"):
-                local_env.install_roborev_cli()
-            with contextlib.redirect_stdout(io.StringIO()):
-                local_env.install_roborev_cli(replace_existing=True)
-                local_env.install_roborev_cli()
-        self.assertTrue(command.is_symlink())
-        self.assertEqual(command.resolve(), local_env.ROOT / "scripts/roborev-local.py")
-        # Execute the symlink from another cwd to exercise Python import resolution.
-        result = local_env.subprocess.run([str(command), "--help"], cwd=self.root,
-                                          capture_output=True, text=True, timeout=10)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("roborev", result.stdout)
+    def test_roborev_selected_native_binary_is_shared_by_commands_and_child_path(self):
+        binary = self.root / "native/bin/roborev"
+        binary.parent.mkdir(parents=True)
+        binary.touch()
+        binary.chmod(0o755)
+        local_env.json_write(self.state / "roborev-service.json",
+                             {"unit": local_env.ROBOREV_UNIT, "binary": str(binary)})
+        self.assertEqual(local_env.roborev_command()[0], str(binary))
+        command, env = local_env.roborev_launch(["status"])
+        self.assertEqual(command[0], str(binary))
+        self.assertEqual(env["PATH"].split(os.pathsep)[1], str(binary.parent))
+        binary.unlink()
+        with self.assertRaisesRegex(RuntimeError, "missing executable"):
+            local_env.roborev_command()
+        local_env.json_write(self.state / "roborev-service.json",
+                             {"binary": "relative/roborev"}, replace=True)
+        with self.assertRaisesRegex(RuntimeError, "absolute path"):
+            local_env.roborev_binary()
 
     def test_roborev_warnings_distinguish_managed_and_unmanaged_processes(self):
         proc = self.root / "proc"
@@ -796,25 +796,33 @@ class LocalEnvironmentTests(unittest.TestCase):
 
     def test_roborev_service_installation_preserves_settings_and_records_node(self):
         node = self.node_executable()
+        binary = self.root / "native-roborev"
+        binary.touch()
+        binary.chmod(0o755)
         config = self.state / "roborev/config.toml"
         before = config.read_bytes()
         with patch.object(local_env.shutil, "which", return_value=str(node)):
             with patch.object(local_env.subprocess, "run", return_value=MagicMock(returncode=0)) as run:
                 with patch.object(local_env, "managed_roborev", return_value={"pid": 123}):
                     with contextlib.redirect_stdout(io.StringIO()):
-                        local_env.install_roborev_service()
+                        local_env.install_roborev_service(binary)
                         first = (self.state / "systemd" / local_env.ROBOREV_UNIT).read_bytes()
                         local_env.install_roborev_service()
         self.assertEqual(config.read_bytes(), before)
         self.assertEqual((self.state / "systemd" / local_env.ROBOREV_UNIT).read_bytes(), first)
         text = first.decode()
-        self.assertIn('"roborev-run" "--node-executable" ' + local_env.systemd_quote(node), text)
+        self.assertIn(f'ExecStart="{binary}" "daemon" "run"', text)
+        self.assertIn(str(node.parent), text)
+        self.assertIn(f'Environment="ROBOREV_DATA_DIR={self.state / "roborev"}"', text)
+        self.assertIn(f'WorkingDirectory={self.state / "home"}\n', text)
+        self.assertNotIn("local_env.py", text)
         self.assertIn("WantedBy=default.target", text)
         self.assertNotIn("USAI_API_KEY", text)
         self.assertIn(unittest.mock.call(
             ["systemctl", "--user", "enable", "--now", local_env.ROBOREV_UNIT],
             check=True, timeout=60), run.call_args_list)
         self.assertTrue((self.state / "roborev-service.json").exists())
+        self.assertEqual(local_env.roborev_binary(), binary)
 
     def test_managed_roborev_refuses_another_process(self):
         local_env.json_write(self.state / "roborev-service.json", {"unit": local_env.ROBOREV_UNIT})
