@@ -22,6 +22,28 @@ inspect new neighboring source revisions, test exporter throughput, access
 remote documents, run an agent pilot or prove application security boundaries.
 No new dependency was installed.
 
+Follow-up primary-source reads retain Hindsight as the leading service
+candidate, not a measured winner. Its coding-agent integration still documents
+automatic history/conversation capture and auto-update; MCP is unauthenticated
+by default. Use the existing explicit-capture pilot rather than that installer.
+Sources: [integration](https://hindsight.vectorize.io/sdks/integrations/coding-agents),
+[MCP](https://hindsight.vectorize.io/developer/mcp-server),
+[README](https://github.com/vectorize-io/hindsight),
+[Mem0 OSS](https://docs.mem0.ai/open-source/overview).
+
+REA source baseline: morluto/rea `779d548c4e553f01cb1aaf61d6949885c6f02806`,
+package metadata 6.8.0, MIT. Read README, the bundled reverse-engineer-anything
+skill, installation docs and MCP contracts. The skill explicitly excludes
+ordinary complete-source repository architecture work. Docs list Pi/Copilot
+setup, scoped tool families and stdio; no local integration is established.
+Findings/placement and a bounded optional pilot are in system-architecture.md.
+No install, target analysis, global config or private upload occurred.
+
+Automatic review 97 of planning commit 3f7d920 identified an older contradictory
+README repository-selection paragraph. The follow-up corrects it to the three
+current provider repositories, without changing actual Forge configuration.
+Final follow-up review/commit evidence belongs to native kamh.
+
 ## Private GSA remotes and Forge onboarding: 2026-10-26 (7943)
 
 Created `GSA/the_engineer` (provider ID 1434960775) and `GSA/the_librarian`

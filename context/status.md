@@ -12,6 +12,13 @@
 - Reuse jgcf and spud#3sv9 as independent next tracks after scope approval;
   3sv9 still blocks librarian#55nx. Reconcile retired k03a/j54x acceptance
   before relying on historical synthetic-gate/ticket-to-PR dependencies.
+- Follow-up places Hindsight as the first selective-memory service candidate
+  after the first workflow, not after Drive. REA is an optional artifact/runtime
+  investigation tool, not a replacement for Superpowers or routine SPUD/source
+  analysis. Primary docs inspected; neither product installed or benchmarked.
+- Initial planning commit 3f7d920 received review 97's stale README catalog
+  finding; follow-up corrects that paragraph. Native kamh retains exact final
+  commit/review evidence; no implementation milestone is closed by this plan.
 - Recommendation only: no runtime/configuration or neighboring code changes,
   source acquisition, corpus writes, agent launch, publication or rename.
   Shutdown: no experimental process was started; persistent services were

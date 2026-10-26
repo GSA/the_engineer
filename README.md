@@ -677,9 +677,9 @@ The launcher passes `--disable-sync` only when native Forge configuration has
 no repositories. Once read access is confirmed, add the exact approved
 repositories through Forge Settings, then run
 `systemctl --user restart kenn-kopy-forge.service`.
-This host now tracks only `GSA/supply-chain-user-interface`,
-`GSA/national-item-file-maintenance`, `GSA/standard-acquisition-interface` and
-`GSA/infrastructure`; all four completed their initial sync.
+This host tracks `GSA/the_engineer`, `GSA/the_librarian` and `GSA/aos-spud`;
+all three completed sync. The four former Falcon application entries were
+removed from Forge's configured catalog on 2026-10-26; their checkouts remain.
 Forge's built-in notification sync lists the signed-in user's threads and
 filters them to tracked repositories; it has no notification-off setting.
 Do not select all GSA repositories, add remotes to this integration
