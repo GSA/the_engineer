@@ -4,6 +4,21 @@
 **Status:** architecture proposal grounded in local inspection, not an installed
 integration or authority to rename, migrate, deploy or change SPUD.
 
+## Post-onboarding recommendation: 2026-10-26 (kamh)
+
+Private GSA repositories, Forge catalog entries and explicit Kata mappings now
+exist for Engineer, Librarian toolkit and SPUD (`7943`). Toolkit/corpus task
+separation is also delivered; Falcon remains local and unmapped. This removes
+the onboarding blocker, not the need to demonstrate a real engineering loop.
+The toolkit distribution remains data-empty.
+
+The next milestone should be **one useful, bounded task through Engineer**,
+with interface checks exercised along the way, plus the existing SPUD export
+contract investigation. Do not wait for every cleanup item, a new context
+service or Drive support before using the platform. This recommendation updates
+the delivery order below; it does not activate implementation or unattended
+ingestion. Existing native Katas remain the work authority.
+
 ## The correction to the previous plan
 
 Keep three product boundaries, but separate **who acquires material** from
@@ -109,7 +124,7 @@ comparative ingestion-throughput benchmark.
 
 | Checkout | Present evidence | Missing or materially different |
 | --- | --- | --- |
-| `kenn-kopy` | Engineer integration; native Kata; Pi/USAi; roborev; AgentsView; source-pinned submodules; partial installer | No selective shared memory, complete multi-project onboarding or clean-host acceptance. Installer is still coupled to legacy Falcon MCP. |
+| `kenn-kopy` | Engineer integration; native Kata; Pi/USAi; roborev; AgentsView; source-pinned submodules; partial installer; three provider-backed Forge/Kata mappings | No selective shared memory, demonstrated full coding/review loop or clean-host acceptance. Installer is still coupled to legacy Falcon MCP. |
 | `the_librarian` | Data-empty toolkit; catalog/review stores; qualified read-only MCP; explicit selection; transcript extraction; optional Docling PDF/image lifecycle | No remote connector or durable automatic intake. Toolkit policy/store-path assumptions prevent casually sharing one install across roots. Full clones are the current instance model. |
 | `falcon-docs` | Populated institutional corpus, retained original material, broader format/cohort tools, Drive metadata planner, qualified retrieval and explicit derived relationship graph | Not the distributable toolkit and not automatically on its version. Drive mount/planner is not continuous copying. Native Google exports lack a verified revision/export mapping in the current planner. |
 | `aos-spud` | Local and cloud Jira/Confluence export orchestration; repository Graphify pipeline; node index, OKF documentation, HTML/archives; upstream epic/story records | No Drive connector or code-context MCP found in inspected `src/`, `docs/` and manifest. Export wrappers do not prove remote completeness or version guarantees. Query API is a proposal, not a discovered service. |
@@ -128,7 +143,7 @@ artifacts/revisions or report unavailable evidence rather than invent edges.
 
 ### Task and naming evidence
 
-Native Kata reads found `engi-platform` with 31 open issues before this
+Initial architecture-era Kata reads found `engi-platform` with 31 open issues before this
 investigation, `librarian` with two open issues, and `spud` with none.
 Those initial reads found both checkouts bound to `librarian`. On October 26
 at 17:55 the owner approved separation: the toolkit retains `librarian`;
@@ -136,11 +151,13 @@ the instance now binds to `falcon-docs`. Native moves preserve the four
 corpus-scoped issues, including withdrawn integration history and cross-project
 links. The toolkit's source package and initialized stores remain data-empty.
 
-SPUD's empty local Kata project does not mean no backlog: `project/epics/`
+SPUD's initially empty local Kata project did not mean no backlog: `project/epics/`
 contains its upstream story records. Epic 013 still labels ingestion stories
 `ready-for-test`; that is recorded workflow status, not verified deployment.
 Falcon's roadmap/goals and canonical question registers provide context;
 its owner-private `TODO.md` was not used as a task authority.
+The later cleanup refinement created `spud#3sv9` and the toolkit receiver task
+`librarian#55nx`; their actual prerequisite link remains in native Kata.
 
 `falcon-docs` calls itself The Librarian, while `the_librarian` is the reusable
 software. For architecture discussions, use **Librarian toolkit** and
@@ -274,31 +291,119 @@ selected or installed here.
 
 ## Delivery sequence and decision gates
 
-1. **Agree boundaries and inventory.** Adopt or amend this proposal; decide
-   task-scope separation and target onboarding audience. Record logical names
-   now; defer path/service/store renames. No upstream SPUD commitment assumed.
-2. **Make one repeatable empty project.** Reconcile installer drift using
-   `p4ke`/`5xrm`, retain native Kata, select a supplied Librarian provider and
-   verify two isolated synthetic projects cannot mix state. Fresh installation
-   and restoration are separate acceptance runs. No cloud requirement.
-3. **Prove one export handoff.** Under `falcon-docs#51kq` after deliberate
-   activation, ingest a permitted SPUD Confluence export through the receiving
-   contract, then exercise duplicates, changed versions, partial failures and
-   interrupted publication. Start with existing exports, not a new crawler.
-4. **Pilot selective memory in parallel.** Synthetic scoped records, two
-   agents and two projects; compare a plain structured-record baseline with
-   Hindsight, then Mem0 if useful. Evaluate reduced repeated investigation,
-   correction handling and privacy before any automatic capture.
-5. **Connect one real ticket.** Reuse `99gr`, `jgcf` and `d8v5`: refinement,
-   Kata, coding, review and evidence-linked handoff. Missing provider data stays
-   explicit. A demonstrated local commit is not publication authorization.
-6. **Scale only demonstrated contracts.** Add Drive automation, more instances,
-   upstream code-query support and approved GSA-hosted services as separate
-   decisions. Reproduction must not wait on every future capability.
+This post-onboarding sequence supersedes the earlier requirement to finish
+fresh-host setup and trial memory before connecting a real task. It is proposed
+prioritization, not new Kata dependency edges or permission to launch agents.
+Time-box cleanup to concrete behavior-preserving cuts; "all three projects are
+fully refactored" is not a useful readiness gate.
 
-The next consequential choices are the target engineer environment, the
-Librarian task split, the first permitted export/source scope, and the memory
-pilot's hosting/model/data policy. They are not silently settled by this draft.
+| Stage | Deliverable and completion evidence | Existing work / scope |
+| --- | --- | --- |
+| 1. Boundaries exercised through a real workflow | One approved task goes from clarification and Kata claim through a correctly mapped Forge worktree, private Pi/Superpowers, relevant qualified context, implementation, focused checks, roborev disposition, available AgentsView visibility and evidence-linked Kata closure. Reopen/resume the workspace without duplicate work or false completion. | `engi-platform#jgcf`, with `tvbf`, `mpew` and `8vhd` retaining their separate lifecycle, synthetic-gate and compaction acceptance. An approved remaining cleanup slice can be the useful change, not a throwaway demo. |
+| 2. SPUD export to Librarian evidence | Document actual producer fields/layouts; approve the receiver design; then implement and exercise one supplied export in a disposable instance, followed by one explicitly authorized source cohort. Trace an origin/version through retained bytes, receipt, extraction, actual review/selection and a qualified cited read. | Existing prerequisite `spud#3sv9 -> librarian#55nx`. Both are initially contract/design work, not permission for real intake. Reusable implementation belongs in the toolkit; deployment policy and rollout remain with the instance. |
+| 3. Reliable unattended ingestion | Persist per-item progress and recovery; reconcile approved scopes; exercise retries, interruption, partial exports, changes and operator pause/replay before enabling a schedule. Report acquired, registered, extracted, awaiting review and retrieval-ready separately. | Refine approved toolkit implementation children and deliberately activate the instance roadmap `falcon-docs#51kq`. It is still parked; a scheduler alone does not complete it. |
+| 4. Drive as another acquisition adapter | Feed the same handoff through one approved Drive scope. Preserve source permissions/handling, stable IDs, upstream versions where available, export representation and change/deletion semantics. | A separate design slice after the common receiver/recovery contract is proven. Reuse Falcon's planner evidence; do not assume SPUD already has Drive support or replace retained originals. |
+| 5. Selective engineering memory | After the first real workflow, compare explicit bounded handoffs/lessons against the structured-record baseline using the existing synthetic pilot gates. Adopt a service only if it reduces repeated investigation without losing correction, provenance or scope. | [Memory proposal](engineering-memory.md); prior research is complete, implementation is not. Can proceed independently of Drive and wider connector rollout once its own handling/model decisions are approved. |
+| 6. Reproduction and expansion | Install an empty independent project, rerun without data loss, and restore it from an exercised backup. Verify task/provider/store separation across two synthetic projects before promoting multi-project deployment. | `engi-platform#f47m`, `0sfx`, `p4ke`, `5xrm`. Fix relevant portability gaps throughout stages 1-3; the full fresh-host/restore gate is required before distribution claims, not before using the current host. |
+
+Two tracks can advance independently after the relevant cleanup/design gates:
+the Engineer pilot and the producer-contract investigation. The receiver design
+really depends on producer evidence; unrelated documentation cleanup and all
+future connectors do not block the first local workflow.
+
+### Harden interfaces, not a new platform framework
+
+Keep the existing authority split executable at the points where products
+meet. `engi-platform#f47m` is the concrete first provider boundary: explicit
+executable/reader/root/selection, preserved Falcon compatibility, visible
+configuration failures and no accidental instance-state substitution.
+`0sfx` addresses native Kata provisioning, not a replacement CLI wrapper.
+`qc96`, `librarian#7bna` and `falcon-docs#939r` already cover current-guidance
+cleanup and safe toolkit/instance consolidation.
+
+For each supplied context packet, preserve origin/revision, inspected scope,
+qualification and freshness; distinguish unavailable, partial and stale data
+from an authoritative empty answer. Do not collapse review, retrieval selection
+and extraction into one "ingested" flag. Engineer owns execution and its
+permissions; a source document or memory cannot authorize a task mutation,
+publication or broader access.
+
+Start with fixtures for wrong provider/root, missing/stale context, failed
+review and interruption. Exercise the exact affected workflow rather than
+building a giant cross-product test suite first. One integration scenario may
+provide evidence to several Katas, but each retains its own unmet criteria.
+Worktree/project routing is not access isolation. Before broader users or
+untrusted execution, separately agree and exercise OS/service or authenticated
+authorization boundaries (`vd8j`); do not resurrect removed native-Kata guards
+or claim local routing checks establish security.
+
+### What the Engineer pilot must establish
+
+Demonstrate the actual model-backed path, not only tool discovery or green
+health endpoints. The run must bind task, repository/worktree, commit, test
+result, review job/disposition and session identity. Check the visibility
+actually configured in AgentsView; a missing session or review-usage gap is a
+reported limitation, not permission to enable full transcript capture.
+Native Kata remains authoritative after interruption and explicit closure.
+
+Use synthetic failure cases without stopping production services. A failing
+check or unresolved review must not be presented as completion; a missing
+optional context source must be disclosed, while missing required evidence
+blocks the affected decision. Human-input and publication gates must remain
+visible. Closure of `jgcf` would not establish real compaction (`8vhd`), every
+AgentsView client (`3c2c`) or no-session review accounting (`fjyf`).
+
+The next expanded acceptance is manual Jira intake (`99gr`) and the authorized
+ticket-to-PR loop (`d8v5`). Private repository creation did not authorize future
+pushes, PRs or merges. The former Forge guidance/workspace tasks `k03a` and
+`j54x` were soft-deleted during retirement and still appear in older dependency
+links. Reconcile their required acceptance with the owner before relying on
+readiness for `mpew`/`d8v5`; neither restoration nor completion is implied.
+Do not silently reselect an old application ticket or remap its repository.
+
+### Automation order and source safeguards
+
+Use this progression: explicit dry-run and import, repeatable batch, durable
+resume/retry, then an operator-enabled schedule. Reuse existing supported
+writers and exporter manifests; add only genuinely missing receiving metadata.
+Prefer a small bounded worker using existing persistence over a new event bus,
+generic connector framework or mandatory web service.
+
+An exact retry must not duplicate a receipt/version or extraction. Changed
+bytes must not overwrite previous evidence; a partial source listing or
+ambiguous commit must not advance a "complete" checkpoint. Scope inventories,
+pagination failures, rate limits and permission loss need visible dispositions.
+Do not infer upstream deletion from an incomplete crawl. Agree how revocation
+affects future retrieval while preserving governed retained originals before
+real unattended operation. Automated acquisition does not authorize automatic
+review, qualification, selection or publication.
+
+SPUD's export orchestration is useful reuse, not proof that this whole lifecycle
+already exists. Prefer supported Markdown/artifacts without HTML/ZIP work when
+the producer contract permits it. Route Jira change requests to Engineer and
+business evidence to Librarian using shared source references, not competing
+task authorities.
+
+Drive native Docs/Sheets/Slides need an explicit revision-to-export mapping;
+an export hash proves bytes, not a remote revision. Folder/shortcut exclusions,
+permission changes, failed exports and change-cursor recovery belong in that
+connector's acceptance. Start small to prove mechanics, then reconcile whole
+approved scopes rather than quietly limiting the intended corpus to one ticket.
+
+### Defer capability expansion until there is an observed need
+
+SPUD's queryable code-context direction remains valuable, but revision-bound
+local artifacts and direct repository reads can support the first workflow.
+Use that workflow to identify which symbol, dependency or source-range lookups
+need a bounded upstream query interface; do not make a new SPUD MCP service or
+knowledge graph the entry fee for integration. Upstream changes require its
+maintainer agreement.
+
+Do not add cloud deployment, directory migration, automatic agent dispatch or
+full-session memory capture to these milestones. The decisions needed to
+activate the next slices are the bounded pilot change, its acceptance/model
+scope, the producer/receiver design and first authorized source cohort.
+Drive access and memory handling/model policy are later separate approvals.
 
 ## Evidence map
 
@@ -312,6 +417,13 @@ before this work. Neighbor observations include existing uncommitted changes:
 | Librarian `2f1cd9f` plus dirty roadmap/decision 0006 | [`README`](../../the_librarian/README.md), [`ROADMAP`](../../the_librarian/ROADMAP.md), decisions [0002](../../the_librarian/docs/decisions/0002-updateable-distribution.md), [0003](../../the_librarian/docs/decisions/0003-store-compatibility.md), [0004](../../the_librarian/docs/decisions/0004-instance-topology.md), [0007](../../the_librarian/docs/decisions/0007-execution-traces.md), [contributions](../../the_librarian/agents/contributions.md) |
 | Falcon `0adcad5` plus existing corpus/tool edits | [`README`](../../falcon-docs/README.md), [`long-term goals`](../../falcon-docs/REFERENCE/planning/long-term-goals.md), [`Drive planner`](../../falcon-docs/tools/drive-intake/README.md), [`artifact-gap note`](../../falcon-docs/REFERENCE/notes/2026-10-23-spud-graph-artifact-gap.md), `.kata.toml`; no original corpus imported here |
 | SPUD `c80837a` plus local instructions/binding edits | [`README`](../../aos-spud/README.md), [`ingestion epic`](../../aos-spud/project/epics/epic-013-jira-and-confluence-knowledge-ingestion/README.md), [`CLI`](../../aos-spud/src/spud/api/cli.py), [`ingest runner`](../../aos-spud/src/spud/services/ingest_runner.py), [`steps`](../../aos-spud/src/spud/services/steps.py), [`node index`](../../aos-spud/src/spud/services/index_service.py) |
+
+The post-onboarding `kamh` pass reread the private original request/conclusion,
+current context and live native Kata bodies/comments/links. It also reconfirmed
+the hard-coded provider path in `dist/install.py` and `scripts/local_env.py`.
+Neighbor capability descriptions above retain their earlier inspected
+baselines; this pass did not rerun SPUD or independently audit its latest
+exporters. It started no ingestion, workflow pilot or memory trial.
 
 The session-history search did not recover the recent architecture discussion;
 the supplied conversation and existing local context are the historical basis.

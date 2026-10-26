@@ -1,5 +1,21 @@
 # Objective and decisions
 
+## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
+
+The owner asks what follows cleanup now that the three private repositories
+are available in Forge. This is planning, not implementation authorization.
+The revised `system-architecture.md` recommends a bounded real Engineer
+workflow with interface checks, independently advancing the existing SPUD
+producer-to-Librarian receiver design, then durable intake before scheduling
+and Drive. Selective memory follows observed workflow needs and can proceed
+independently of connector expansion; fresh-host reproduction remains a
+distribution gate, not a blocker to using the current host.
+
+Reuse existing Katas rather than create another implementation backlog.
+No native task guard, shared toolkit runtime, new upstream SPUD commitment,
+source access, automatic dispatch or publication is adopted. Pilot selection,
+receiver design/source cohort and later Drive/memory policies need approval.
+
 ## Private GSA publication and task separation: 2026-10-26 (7943)
 
 The owner authorizes private GitHub repositories with exact names

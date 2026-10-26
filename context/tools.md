@@ -1,5 +1,27 @@
 # Upstream components
 
+## Post-onboarding planning evidence: 2026-10-26 (kamh)
+
+Reread the private original request/conclusion and current architecture,
+refactoring, workflow and memory proposals; native Kata list/show/search
+confirmed the existing open cleanup/integration slices. The actual dependency
+remains spud#3sv9 -> librarian#55nx. Both initially cover contract/design, not
+permission to import real sources. falcon-docs#51kq stays parked for unattended
+intake. Source inspection reconfirms the legacy executable assumption in
+dist/install.py::prerequisites and scripts/local_env.py::setup (f47m).
+
+Existing jgcf is the real coding/review pilot; tvbf, mpew, 8vhd, 99gr and d8v5
+retain distinct acceptance. Historical k03a/j54x prerequisite references are
+not proof of completion: native search with include-deleted confirms their
+October 23 deletion timestamps, as well as deleted 6hce/avvp workflow scopes.
+Reconcile relevant acceptance explicitly before relying on the older dependency
+graph; no restoration here.
+
+The revised delivery sequence is in system-architecture.md. This pass did not
+inspect new neighboring source revisions, test exporter throughput, access
+remote documents, run an agent pilot or prove application security boundaries.
+No new dependency was installed.
+
 ## Private GSA remotes and Forge onboarding: 2026-10-26 (7943)
 
 Created `GSA/the_engineer` (provider ID 1434960775) and `GSA/the_librarian`
