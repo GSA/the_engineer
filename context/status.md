@@ -36,6 +36,8 @@
 
 ## Post-cleanup next steps refined (kamh)
 
+Historical planning snapshot; current acceptance is in the txt3 section above.
+
 - Updated the existing architecture, not a second roadmap: bounded cleanup
   and explicit boundaries through one real Engineer task; existing SPUD
   producer/receiver contract; durable ingestion; then Drive, with selective
@@ -43,9 +45,10 @@
 - Forge/provider/task onboarding is delivered; real model-backed coding,
   failure/resume, qualified intake and fresh-host acceptance are not implied.
   Existing Katas remain open. No connector/automation backlog was activated.
-- Reuse jgcf and spud#3sv9 as independent next tracks after scope approval;
-  3sv9 still blocks librarian#55nx. Subsequent txt3 restored and reconciled
-  k03a/j54x; use their native acceptance state, not another reconciliation.
+- Subsequent txt3 completed bounded demo jgcf; remaining integration
+  acceptance belongs to open k03a/6hce/avvp. spud#3sv9 remains an independent
+  next track after scope approval and still blocks librarian#55nx.
+  k03a/j54x were restored and reconciled; do not repeat reconciliation.
 - Follow-up places Hindsight as the first selective-memory service candidate
   after the first workflow, not after Drive. REA is an optional artifact/runtime
   investigation tool, not a replacement for Superpowers or routine SPUD/source
