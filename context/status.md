@@ -1,5 +1,30 @@
 # Status: 2026-10-26
 
+## Forge running again (Kata 7pq7)
+
+- Owner authorizes persistent startup alongside the other services. Forge is
+  enabled/active at http://127.0.0.1:18091/, PID 35810 after a verified restart.
+  Other service PIDs and saved Forge/Pi configuration are unchanged.
+- Restored repeatable service installation, four-service foreground fallback
+  and identity-checked managed status. All 123 focused lifecycle/installer
+  tests pass using the existing pinned Pi installation. Runtime changes are
+  locally committed as bc00164; exact-commit roborev job 80 passed with no
+  actionable issues.
+- Demonstrated remote-free native project registration, worktree/branch
+  creation, tmux runtime in that worktree, dirty-delete refusal and clean
+  cleanup. The main provider-backed workspace UI remains separate: local
+  registration is not a visible/launchable main workspace entry.
+- README covers first use with the four existing mirrors and manual local
+  Git/private-Pi worktrees. No fake remotes, new project publication, coding-agent
+  inference, source upgrades or real application workspaces were created.
+- rzsc/k79n comments record that today's dormant/three-service premise is
+  superseded. Kata database isolation and unrelated cleanup remain open.
+  Historical Forge workflow tasks have not been silently reactivated.
+- Shutdown: the requested four persistent services remain running. Disposable
+  smoke runtime, fixture project, branch/worktree and temporary files were
+  removed; no experimental process remains. Pre-existing documentation work
+  is preserved separately from this task's changes.
+
 ## Architecture and selective-memory design (Kata qt7g)
 
 - Saved `system-architecture.md` with ownership/acquisition/reproduction

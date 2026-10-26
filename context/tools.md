@@ -1,5 +1,61 @@
 # Upstream components
 
+## Restored Forge and remote-free Git evidence: 2026-10-26 (Kata 7pq7)
+
+Restored the existing `install-forge-service`/managed-service boundary in
+`scripts/local_env.py`, using the same private profile and pinned temporary
+binary `v0.3.0-136-gd6b14b9f-local-kata`. The native four-service installer
+invocation is supported again; no dependency upgrade/build or provider change.
+The foreground supervisor can own Forge when it is not independently managed.
+Status distinguishes the managed unit from a foreground probe and checks the
+runtime PID/address/data/config identity, health version/revision and HTML.
+
+Installed the unit, repeated installation, then restarted only Forge.
+`systemctl --user` reports enabled/active/running; PID 35810 and listener
+127.0.0.1:18091. Original AgentsView/roborev/Kata PIDs remain 417/419/23538.
+SHA-256 comparisons preserve environment.json, Forge config and all three
+Pi settings/MCP/model files. Pre-start private online SQLite snapshot and
+metadata are `runtime/forge-restore-before.sqlite3` and
+`runtime/forge-restore-before.json`; no credentials or corpus text are committed.
+
+Actual installed API, disposable repository with an initial empty commit and
+zero remotes:
+
+- `POST /api/v1/projects` with local_path/default_branch registers without
+  platform_identity. Existing primary worktree discovery is separate from the
+  provider workspace catalog.
+- `POST /api/v1/projects/{id}/worktrees` with branch, path, base_ref and
+  create_on_disk=true creates the Git branch and linked worktree.
+- Worktree `POST /runtime/sessions` with a synthetic command launches a live
+  tmux-backed process. Native runtime listing plus tmux pane_current_path verify
+  the process is in the new worktree; DELETE stops only that session.
+- Worktree `POST /delete` with remove_from_disk/remove_branch refuses an
+  uncommitted file with HTTP 409. Removing only our synthetic file permits
+  clean deletion. Fixture project registration and temporary tree are removed.
+
+Saved bounded result: `runtime/forge-local-smoke-result.json`. No model request
+or real-project mutation was part of this smoke. Existing project's launch
+targets report Pi (USAi) available through pi-local.py; other model targets stay
+disabled. Terminal-agent launch is supported by source, not newly demonstrated
+model-selected retrieval. Project runtime rejects workspace-only ACP targets.
+
+Source confirms NewWorkspaceDialog reads RepositoryReads/provider identity;
+WorkspaceFirstRunPanel offers local intake without gh auth. Thus no-remote Git
+is supported by the backend, while registration does not bridge the main UI
+catalog. A fake remote, a local bare remote or publication is not the fix.
+README now gives first-session UI guidance and a native Git/private-Pi fallback.
+No submodule changes or bespoke local-project launcher were introduced.
+
+123 local-environment/installer tests pass with the already-installed pinned
+Pi on PATH (`PATH=/home/nkirrish/.nvm/versions/node/v26.9.0/bin:$PATH
+PYTHONPATH=scripts python3 -m unittest scripts.test_local_env dist.test_install`).
+Initial default-PATH run hit the known global Pi 1.3.0 versus required 1.0.3
+fixture mismatch; no dependency installation or global setting change was
+needed. Test teardown now restores cwd after the foreground launcher test.
+Exact runtime commit bc00164 received roborev job 80: completed/pass, no
+actionable issues. Review inference is distinct from the model-free local
+project smoke; no real coding session or end-to-end task loop is claimed.
+
 ## Cross-project architecture evidence: 2026-10-26 (Kata qt7g)
 
 Detailed current evidence and proposals are in `system-architecture.md`;

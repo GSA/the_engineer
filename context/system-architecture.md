@@ -90,7 +90,7 @@ business evidence.
 | Drive discovery/export | Librarian intake boundary | Preserve Falcon assets; generalize its planner separately; SPUD support unconfirmed |
 | Business meaning, conflicts, review and qualified reads | Librarian | Reusable toolkit plus separate program instances |
 | Revision-bound structure and generated technical documentation | SPUD | Graphify and OKF artifacts; query capability requires upstream agreement or an external adapter |
-| Ticket refinement, task execution, code changes and review | Engineer | Kata, agents, Superpowers, roborev; Forge remains optional/dormant |
+| Ticket refinement, task execution, code changes and review | Engineer | Kata, agents, Superpowers, roborev; Forge restored as the managed worktree/session service on 2026-10-26 |
 | Engineering experience, corrections and resumable handoffs | Engineer | Proposed project-scoped memory, separate from corpus review events |
 | Transcript/usage inspection | Engineer / AgentsView | Existing visibility; not automatic memory ingestion |
 | Reusable composition and onboarding | Engineer integration package | Pins and non-secret bindings to independently supplied providers |
@@ -260,7 +260,7 @@ selected or installed here.
 | Gap | Evidence and consequence | Existing work / proposed action |
 | --- | --- | --- |
 | Legacy MCP assumption | `dist/install.py::prerequisites` and `local_env.py::setup` require `tools/context-mcp/.venv/bin/qualified-context-mcp`; toolkit now uses `.venv/bin/librarian-mcp` | `p4ke` / `5xrm`: explicit provider configuration and preflight; preserve legacy Falcon support rather than add a blind alias |
-| Installer/service drift | `dist/install.py::install` still requests `install-forge-service`; `local_env.py` removed that command and boot-installable Forge | `p4ke`: reconcile recipe with three managed services and optional foreground Forge before claiming deployability |
+| Installer/service drift | `7pq7` restores `install-forge-service` and four managed services at owner request; the dormant-Forge premise is superseded | `p4ke`/`rzsc`: retain independent installer and Kata storage-isolation acceptance; restored Forge does not prove fresh-host deployment |
 | Runtime/version drift | Librarian decision 0002 still calls out missing complete reader/adapter lock; Engineer's full clean-host run is outstanding | Pin reproducible artifacts; validate a new isolated project and rerun without state loss |
 | Instance portability | Librarian decisions 0003/0004 identify toolkit-relative policy/store homes and absolute-root index identity | Use independent full-clone instances now; make store-home/policy changes under explicit compatibility work, not a shared-root shortcut |
 | Existing populated instance divergence | Falcon's old identities/layout and additional tools differ from the reusable toolkit | Inventory capability parity and rehearse any migration on a copy with recovery; never reinitialize populated stores |
