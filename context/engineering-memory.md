@@ -217,7 +217,9 @@ authorization, persistence or usefulness acceptance. No Hindsight process,
 container, network, volume, image download, live memory/model request or
 coding-agent integration was created. Existing four services and global
 configuration were untouched; no experimental process needs shutdown.
-Native `svg1` retains progress/evidence and remains open for parent integration.
+Parent integrated the preparation in f2ffd9e; exact review 103 passes.
+Native `svg1` is closed for preparation only. The bounded coding pilot jgcf
+is also complete; neither closure removes the explicit launch gates for zbww.
 
 ## Post-onboarding placement and candidate recommendation (kamh)
 

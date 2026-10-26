@@ -67,9 +67,34 @@ to claim a supported task-workspace review UI. avvp retains the gap.
 
 Actual f47m commit 6fd6014 queued post-commit review 101, resolving canonical
 repo plus worktree/branch and the distinct read-only private-Pi invocation.
-Its outside-root manifest finding is being fixed by the implementation
-worker. The worker also resumed after native automatic compaction; this is
-observed continuation, not a restart/recovery or synthetic-gate certification.
+Review 101 found missing manifest confinement; review 102 of 694ced2 found
+missing root search-permission validation. Final dae66cd fixes both and exact
+review 104 passes. Parent reran 36 installer cases (three expected local-binary
+skips) and eight focused setup cases. The worker also resumed after native
+automatic compaction; this is observed continuation, not a restart/recovery
+or synthetic-gate certification.
+
+The external dispatch and AGENTS.md did not explicitly propagate the parent's
+no-amend rule. Preserve reviewed 6fd6014 and 694ced2 through local refs
+kenn-forge/pilot-f47m-review-101 and kenn-forge/pilot-f47m-review-102.
+No published history changed. Parent delivered the rule to the worker and
+added it to concise tracked guidance; k03a retains policy-loading acceptance.
+The clean final implementation remains in the Forge branch, unmerged.
+
+Standalone roborev browser rendering verifies actual review 101 findings and
+review 104's exact commit, Pass and no findings. Network-idle navigation
+timed out because of ongoing traffic; DOM/content readiness succeeds.
+Body-free final evidence: .local/engineer-pilot-txt3/rendered-review-104.json.
+Hindsight preparation f2ffd9e passed exact review 103; seven offline checks
+and explicit missing-optional-Docker skip are verified. svg1 and bounded
+coding-demo jgcf are closed; full integration gates remain open.
+
+Shutdown: exact native runtime DELETE stopped both completed model workers,
+and runtime now reports no sessions. The owned idle base shell PID 77723
+ignored HUP; after confirming its worktree cwd, targeted termination removed
+it. Only unrelated forge-96ca6f1e3b862ad7 remains in that tmux socket. All four
+kenn-kopy user services remain active; no experimental browser/model process,
+Hindsight container or temporary test fixture remains.
 
 ## Post-onboarding planning evidence: 2026-10-26 (kamh)
 

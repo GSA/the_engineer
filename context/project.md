@@ -30,6 +30,13 @@ with blank required deployment/model selectors and explicit launch gates.
 Built-in bearer authentication does not isolate projects or reader/writer
 roles. Preparation is not deployment approval or a passed memory evaluation.
 
+The bounded coding demo and preparation are now complete under f47m/jgcf and
+svg1, with exact passing reviews and persistent local commits. Provider code
+remains on its clean Forge branch, unmerged. Native acceptance k03a/6hce/avvp
+stays open; the no-amend propagation gap is corrected in concise guidance
+without claiming full behavioral acceptance. Completed experimental workers
+are stopped, while the worktree and four managed services are preserved.
+
 ## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
 
 The owner asks what follows cleanup now that the three private repositories
