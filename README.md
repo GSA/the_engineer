@@ -329,13 +329,23 @@ installed Pi/Node runtime available:
 
 ```sh
 python3 scripts/local_env.py stop
-python3 scripts/local_env.py install-roborev-service
+python3 scripts/local_env.py install-roborev-service \
+  --binary "$HOME/.local/bin/roborev"
 python3 scripts/local_env.py run
 ```
 
-Skip `stop` if the on-demand stack is already stopped. The installer records
-the resolved Node executable in the generated private unit so Pi remains
-available under systemd's minimal PATH. It verifies Pi 1.0.3, preserves
+Skip `stop` if the on-demand stack is already stopped. The service executes
+the selected native binary directly, with private HOME/data/config and the
+resolved Node directory on PATH so Pi remains available under systemd.
+The installer records the binary for existing hook compatibility and foreground
+startup; subsequent installs without `--binary` preserve that selection.
+A fresh installation without a selection uses the pinned source-built binary.
+To change an already-managed executable path, finish reviews and explicitly
+stop `kenn-kopy-roborev.service` before passing a different `--binary`.
+The installer refuses active binary switches without restarting reviews.
+If another start races installation, executable-identity checks reject it and
+restore the previous unit and selection rather than leave a future switch armed.
+The installer verifies Pi 1.0.3, preserves
 configuration and refuses occupied ports instead of replacing another daemon.
 Installation is repeatable. If deliberately moving to another compatible
 Node installation, rerun the installer and restart the service.
@@ -367,21 +377,51 @@ USAi credential, and can be repeated. Global Pi configuration is untouched.
 Roborev explicitly loads the extension and supplies the review JSON schema.
 The extension validates the result before roborev stores it.
 
-Use one managed command. Install it explicitly into your user-local bin directory:
+Use the native release binary for both normal commands and the managed service:
 
 ```sh
-python3 scripts/local_env.py install-roborev-cli
-# Only after inspecting a conflicting existing command:
-# python3 scripts/local_env.py install-roborev-cli --replace-existing
 roborev status
 roborev ui
-roborev show --job 1
+roborev tui
 ```
 
-`~/.local/bin/roborev` is a symlink to the existing scoped launcher, not another
-binary or wrapper. Ensure `~/.local/bin` is on your PATH. On this host the
-unused global binary and `~/.roborev` state have been deleted. The one database
-is `.local/environment/roborev/reviews.db`.
+`~/.local/bin/roborev` is the owner-updated native v0.73.0 executable, not a
+Python wrapper or a symlink that an updater can replace with different routing.
+Native `~/.roborev` points to `.local/environment/roborev/`, so the CLI discovers
+the same configuration, runtime records, database lock and review history as
+systemd. Ensure `~/.local/bin` is on PATH. The original source-built v0.71.0
+binary remains in its upstream checkout but is no longer selected by this
+installation or its existing hook entrypoints.
+
+On another host, install the native executable through its supported release
+mechanism and link its absent default data directory to the configured private
+store before using the CLI:
+
+```sh
+test ! -e "$HOME/.roborev" &&
+  ln -s "$PWD/.local/environment/roborev" "$HOME/.roborev"
+```
+
+Do not overwrite an existing directory: first drain its reviews and preserve
+its state. This host's secondary store (one canceled job) is retained under
+`.local/environment/runtime/roborev-native-9hj3/secondary-profile/`, not merged
+into the authoritative history. Its already-open TUI still targets the old
+port; close it and run `roborev tui` again.
+
+For later service-managed updates, finish active reviews before restarting:
+
+```sh
+roborev pause
+# Use roborev status / roborev wait --job ID until running reviews finish.
+roborev update --no-restart
+systemctl --user restart kenn-kopy-roborev.service
+roborev unpause
+```
+
+`--no-restart` is native support for systemd/launchd ownership; it also skips
+automatic hook/skill rewriting. Do not run a competing `daemon run` or select
+a different `ROBOREV_DATA_DIR`. Sharing the default store prevents the previous
+update-induced split; it does not prohibit deliberate alternate profiles.
 
 From an approved project, a bounded manual review is:
 
@@ -391,17 +431,15 @@ roborev review \
   --type default --agent pi --panel none --reasoning fast --wait
 ```
 
-The launcher preserves the caller's working directory, arguments and stdin,
-selects `.local/environment/roborev/`, and pins the API to `127.0.0.1:17373`.
-Server overrides and native `daemon`/`update` commands are refused. Use
-`systemctl --user start|stop|restart kenn-kopy-roborev.service` for lifecycle;
-update pinned source/builds deliberately, not through a separate self-updater.
-An unavailable explicit endpoint fails instead of starting/discovering another
-daemon. `roborev status` and `roborev doctor` warn about listeners on native
-port 7373 or roborev daemons outside the managed service/optional supervisor.
-`python3 scripts/local_env.py status` includes the same diagnostics. Warnings
-never kill processes. No key is read by this launcher or
-passed in CLI arguments; the daemon launches the private Pi/USAi child.
+Normal CLI use and duplicate prevention need no custom routing script.
+Existing Git hooks retain `scripts/roborev-local.py` as a compatibility entrypoint;
+it now invokes the same selected native binary, preserving arguments/stdin/cwd,
+private state and explicit `127.0.0.1:17373` routing. That compatibility path
+still refuses server overrides and native lifecycle/update commands; ordinary
+native `roborev` does not. Use systemd for service lifecycle.
+`python3 scripts/local_env.py status` retains read-only duplicate diagnostics;
+warnings never kill processes. No key is passed in CLI arguments; the configured
+private Pi launcher reads it only for the review child.
 Forge and GitHub are not involved. Use the saved USAi model rather than
 `--model`/`--provider` overrides, which the Pi launcher rejects.
 
@@ -537,11 +575,12 @@ available for foreground diagnosis after stopping the unit; never run both.
 `status` reports `forge_service` and checks its PID, private runtime identity,
 health and dashboard.
 
-For a first browser session:
+For a first browser session using the currently configured application mirrors:
 
 1. Open http://127.0.0.1:18091/ and choose **Workspaces**, then **New workspace**.
-2. Select one of the already tracked Falcon mirrors and a new branch. A linked
-   Kata task can also be used when its project has a repository mapping.
+2. Select an actual repository entry, such as **gsa/supply-chain-user-interface**,
+   and a new branch. "Falcon mirror" is a description, not a dialog item.
+   A linked Kata task can also be used when its project has a repository mapping.
 3. Choose **Pi (USAi)** to create the worktree and launch the configured agent.
    Give it one bounded task; inspect **Files** and **Diff** before accepting work.
 4. Reopen the workspace to return to its sessions. Closing a browser pane does
@@ -727,6 +766,20 @@ edit it, install Git hooks or grant permission to change its authoritative
 stores. Its own `AGENTS.md` and task guides govern work there.
 
 ### Local projects are not provider repositories
+
+The owner's intended engineering projects are:
+
+| Checkout | Remote | Main workspace dialog |
+| --- | --- | --- |
+| `~/kenn-kopy` | None | Not in the provider catalog |
+| `~/the_librarian` | None | Not in the provider catalog |
+| `~/falcon-docs` | None | Registered local project only |
+| `~/aos-spud` | Private `GSA/aos-spud` on GitHub | Access confirmed; not yet added to Forge |
+
+These are not the four GSA application mirrors already in the dialog. No new
+remotes, provider registrations or project publications were made by the
+roborev consolidation. The first three need a usable local-project UI path,
+not another local registration or a fabricated GitHub identity.
 
 **No remote is required by Git or Forge's local-project API.** A live synthetic
 repository with zero remotes successfully registered, created a new branch and

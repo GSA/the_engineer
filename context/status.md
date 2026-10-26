@@ -1,5 +1,33 @@
 # Status: 2026-10-26
 
+## Updated roborev consolidated natively (Kata 9hj3)
+
+- One managed v0.73.0 daemon now runs at 17373/17374, PID 44494. Native CLI,
+  systemd and existing compatibility hooks select ~/.local/bin/roborev and the
+  original managed store via native ~/.roborev aliasing. Port 7373 is closed.
+- Both queues were idle before shutdown; original reviews/documents/responses
+  are preserved. Secondary one-canceled-job state is archived privately.
+  Native compressed-content migration is checked against the online snapshot;
+  five differing historical review-prompt variants remain in that snapshot.
+- Removed obsolete wrapper-symlink installation; service ExecStart is native.
+  Repeat install and native daemon-start discovery keep the same PID. Queue is
+  unpaused and Pi configuration unchanged. 116 focused environment/hook tests
+  pass after the final fix; the preceding combined installer suite passed 146.
+- Reviews 84/85/86 caught active-switch and late-start safety gaps. Final
+  rollback fix 3365355 received completed/pass job 87. Different executable
+  paths require an explicitly stopped service; failed identity/readiness
+  checks preserve both the marker and previous unit, without killing reviews.
+  Native selection first landed in c9ae1c1; identity checks were included in
+  concurrent rzsc commit a650c44 and its independent work remains intact.
+- Owner means kenn-kopy/the_librarian/falcon-docs/aos-spud for Forge work.
+  First three are remote-free; aos-spud is accessible private GSA/aos-spud but
+  not yet in Forge. Existing dialog entries are the four GSA application
+  mirrors. Local-project browser integration remains unresolved.
+- Shutdown: old PID 419 and secondary PID 38540 exited only after idle checks.
+  Four requested services remain active; no experimental daemon remains.
+  User's previously open TUI was not killed and must reconnect to the unified
+  endpoint. No application changes, remotes, publication or provider additions.
+
 ## Forge running again (Kata 7pq7)
 
 - Owner authorizes persistent startup alongside the other services. Forge is

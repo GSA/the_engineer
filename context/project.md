@@ -1,5 +1,25 @@
 # Objective and decisions
 
+## Native roborev consolidation and intended Forge projects: 2026-10-26
+
+At 17:06 the owner reports updating roborev and authorizes consolidation,
+including stopping the older process after reviews finish. Prefer native
+configuration/lifecycle rather than new scripts. The chosen boundary is the
+owner-installed ~/.local/bin/roborev for both CLI and systemd, with native
+~/.roborev pointing to the retained managed store. Preserve review history,
+Pi/USAi routing, existing hooks, private state and loopback ports. Use native
+update --no-restart plus systemd restart; do not recreate a CLI wrapper symlink.
+Changing the selected executable path requires an idle queue and explicit
+service stop; installation must not interrupt reviews or leave a rejected
+replacement configured for the next restart.
+
+At 17:07 the owner clarifies that the intended Forge repositories are kenn-kopy,
+the_librarian, falcon-docs and aos-spud, not the four GSA application mirrors.
+The first three have no remotes; aos-spud is accessible private GSA/aos-spud.
+No remote/publication or provider-catalog mutation follows merely from that
+clarification. Local-project UI support remains distinct from registration.
+Tracking for consolidation: 9hj3.
+
 ## Forge restored as an execution service: 2026-10-26, 16:53
 
 The owner authorizes restoring Forge alongside the boot-enabled Kata, roborev
