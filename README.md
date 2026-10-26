@@ -1,4 +1,4 @@
-# Engi Platform: local engineering environment
+# Engineer: local engineering environment
 
 A persistent Linux environment for personal exploration and a human-directed
 engineering demo. It combines Forge, Pi, Superpowers, roborev, Kata and
@@ -6,9 +6,11 @@ AgentsView, with the existing Falcon Context MCP server. USAi LiteLLM is the
 required model provider. GSA GitHub/Jira integration and cloud deployment are
 later work.
 
-The selected project name is **engi-platform**, formerly Kenn Kopy. The checkout
-path, private state, scripts and `kenn-kopy-*` service identifiers have not yet
-been migrated; existing commands below still use those identifiers.
+The selected product name is **Engineer** (`engineer`), formerly Engi Platform
+and Kenn Kopy. All directory renames are deferred, including the eventual
+`~/kenn-kopy` to `~/engineer` move. The existing Kata project `engi-platform`,
+checkout/private-state paths and `kenn-kopy-*` service identifiers remain
+unchanged until a coordinated migration; commands below use the live identities.
 
 Current service evidence and blockers are in [context/status.md](context/status.md).
 The distinction between Forge controls and our proposed engineering phases is
@@ -148,7 +150,7 @@ supervisor, not overall dashboard availability; `stack: stopped` is normal
 when all four service entries are healthy. Occupied ports fail startup rather
 than replacing another process.
 
-## Kata tasks for Engi Platform
+## Kata tasks for Engineer
 
 **Kata project `engi-platform` is the source of truth for this project's open
 tasks.** `.kata.toml` binds this checkout; the private database stays under
@@ -194,6 +196,9 @@ The current `engi-platform`, shared `librarian`, and `spud` projects are
 `.kata.toml` and per-task `repo` metadata do not provide Forge mappings.
 Local-only repositories also need a supported local-workspace route, not a
 fabricated provider remote. See the [current handoff and evidence](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26).
+The [proposed intended-repository onboarding](context/engineering-workflow.md#proposed-intended-repository-onboarding-2026-10-26)
+separates local-project support, task routing and a real pilot from deferred
+directory/service migration.
 
 ### Pi and Copilot task access
 

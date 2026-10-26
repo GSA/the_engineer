@@ -1,4 +1,8 @@
-# Engi Platform installer
+# Engineer installer
+
+Engineer is the selected product name. Existing installations retain their
+current paths, `engi-platform` Kata binding and `kenn-kopy-*` service names;
+directory and runtime-identity migration is deferred.
 
 Initial target: **Ubuntu on Linux x86_64**, including Ubuntu under WSL.
 Python 3.11+ and Node.js 24.11+ are required; Ubuntu 24.04+ is the recommended
@@ -48,7 +52,7 @@ the platform, supply its **approved Git URL and full release commit SHA**:
 bash dist/install.sh \
   --source APPROVED_PLATFORM_GIT_URL \
   --revision FULL_40_CHARACTER_COMMIT_SHA \
-  --checkout "$HOME/engi-platform" \
+  --checkout "$HOME/engineer" \
   --corpus /approved/path/to/falcon-docs \
   --services manual
 ```

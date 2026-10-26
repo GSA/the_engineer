@@ -1,5 +1,23 @@
 # Upstream components
 
+## Engineer branding and Forge onboarding evidence: 2026-10-26 (w5yr)
+
+Live read-only Forge GETs confirm native daemon `local` is connected, while
+`engi-platform`, `librarian` and `spud` remain unmapped; targets are only the
+four existing GSA application mirrors. In the pinned source,
+NewWorkspaceDialog uses provider RepositoryReads/keys, and both manual and
+automatic registered-project Kata resolution skip missing PlatformIdentity.
+Thus local project registration alone cannot fix task pickup; reuse the native
+worktree/runtime APIs while extending both mapping resolution and UI.
+
+README/installer branding now uses Engineer; the new-install example uses
+`$HOME/engineer`, not an instruction to move this installation. Live task
+project/binding `engi-platform`, checkout `kenn-kopy`, private state, services
+and submodule sources are unchanged. `eb48` records deferred, history-preserving
+identity/path migration. Proposed toolkit/corpus task separation and Forge
+catalog changes require explicit approval; `jgcf` retains the real pilot.
+No experimental process was started or persistent service changed.
+
 ## Installer simplification and Kata pickup evidence: 2026-10-26 (rzsc)
 
 Source cleanup is committed as a650c44. One MANAGED_SERVICES tuple replaces

@@ -144,9 +144,12 @@ its owner-private `TODO.md` was not used as a task authority.
 
 `falcon-docs` calls itself The Librarian, while `the_librarian` is the reusable
 software. For architecture discussions, use **Librarian toolkit** and
-**FALCON knowledge instance**. Use **Engineer** for the product boundary and
-**engi-platform** for this project's current selected identity. No filesystem,
-database, package, service or SPUD rename follows.
+**FALCON knowledge instance**. The owner selected **Engineer** (`engineer`) as
+this project's product name on 2026-10-26 at 17:33, superseding `engi-platform`
+as branding. The live Kata project remains `engi-platform`; all directory
+renames, including `kenn-kopy` to `engineer`, are deferred. Coordinate runtime
+identity/service migration separately; no database, package or SPUD rename
+follows from the branding decision.
 
 ### Clean up contracts before moving directories
 

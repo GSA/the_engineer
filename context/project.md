@@ -1,5 +1,20 @@
 # Objective and decisions
 
+## Engineer naming and Forge onboarding direction: 2026-10-26, 17:33
+
+The owner selects **Engineer** (`engineer`) instead of `engi-platform`, including
+an eventual `~/kenn-kopy` to `~/engineer` move, and explicitly defers all directory
+renames. Adopt presentational branding now; retain live Kata bindings, private
+state paths and service identities until a coordinated migration (`eb48`).
+
+The owner asks for a recommendation, not implementation, for onboarding the
+four intended repositories into Forge. `engineering-workflow.md` proposes a
+bounded local-project workspace/Kata integration, an owner-agreed toolkit/corpus
+task-domain split, ordinary provider onboarding for existing private SPUD, and
+one real claim-to-review/closure pilot. No remotes, publication, mappings,
+task-domain migration, agent launches or Forge source changes are authorized by
+this recommendation. Documentation scope: `w5yr`; existing pilot: `jgcf`.
+
 ## First cleanup implemented: 2026-10-26 (rzsc)
 
 The owner resumed implementation at 17:12. The installer now uses one ordered
