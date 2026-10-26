@@ -1,5 +1,71 @@
 # Upstream components
 
+## Native roborev convergence: 2026-10-26 (Kata 9hj3)
+
+Owner's update replaced the former ~/.local/bin/roborev launcher symlink with
+native v0.73.0. Its ordinary HOME discovered a new ~/.roborev store and TUI
+started PID 38540 on 7373, while managed PID 419 still ran the pinned v0.71.0
+binary/private store on 17373. This was two binary/state identities, not a
+missing process-killing script.
+
+Waited until both had no queued/running reviews, then paused queues and took
+online snapshots. Stopped secondary with native daemon stop and old managed
+service through systemd. Preserved the complete secondary directory (one
+canceled job) at runtime/roborev-native-9hj3/secondary-profile; ~/.roborev now
+symlinks to the established managed store. No SQL merge or history deletion.
+Normal CLI discovery and idempotent native daemon start both return the same
+managed v0.73.0 PID 44494; 7373 is closed, API/UI stay at 17373/17374.
+
+The unit directly executes ~/.local/bin/roborev with the existing private
+environment, working directory and Pi/Node path. Installer --binary persists
+that choice in roborev-service.json; reruns preserve it. Compatibility hook
+entrypoints and foreground execution share the choice, including child PATH,
+so they cannot accidentally select the old source build. Removed the obsolete
+install-roborev-cli command that would recreate the updater-vulnerable wrapper
+symlink. No new dispatch/update script or upstream source change.
+
+Native v0.73 migration introduces zstd job_content. Verified exact retained
+columns for 34 repos, 66 commits, 82 jobs, 75 review documents and 5 responses,
+except 19 stale worker IDs cleared by native startup. All 118 nonempty job
+payloads match after zstd decompression. Native job-prompt precedence collapses
+different review-prompt copies for jobs 44/45/47/48/50; originals remain in
+managed-before.sqlite3. Do not claim every old column is byte-identical.
+Private integrity-result.json records counts and this distinction; raw content
+was not printed. Pi settings/models/MCP hashes are unchanged.
+
+The first generated WorkingDirectory incorrectly reused ExecStart quoting;
+systemd-analyze rejected it before reload/start. Corrected the path directive,
+then verified the actual unit and repeat installation. 139 focused environment,
+hook and installer tests initially passed with the existing pinned Pi on PATH. Existing
+review hooks remain intact and use the canonical native binary through their
+compatibility entrypoint.
+
+Runtime commit c9ae1c1 and follow-ups 3e31ddf/a650c44 received completed failing
+reviews 84/85/86: selecting another binary while active, a late-start race,
+then a rejected install leaving the replacement unit armed for next restart.
+Added helper-level stopped-state refusal, actual /proc executable identity
+verification and previous-unit rollback/reload without killing active work.
+The identity changes landed alongside concurrent rzsc changes in a650c44;
+history and those independent Kata/installer edits were preserved.
+Final rollback commit 3365355 received exact-commit job 87: completed/pass,
+no issues. All 116 focused environment/hook tests pass after that fix; the
+preceding combined environment/hook/installer suite passed 146 tests.
+Same-binary live reinstall retained PID 44494. Final native status and legacy
+compatibility status agree; no duplicate warning, queue idle/unpaused, old port
+7373 closed. Forge/Kata/AgentsView remained active at 35810/23538/417.
+
+Native update --no-restart avoids detached-daemon ownership and hook/skill
+rewrite. Pause/wait for running work, update, systemd restart, then unpause.
+This shared default prevents the old update-induced split; explicit alternate
+ROBOREV_DATA_DIR profiles can still create independent instances. An already
+open TUI targeting 7373 must be closed/reopened, not forcibly killed.
+
+Read-only Git checks: ~/kenn-kopy, ~/the_librarian and ~/falcon-docs have no
+remotes; ~/aos-spud has origin github.com/GSA/aos-spud.git with authenticated
+pull access. Forge's four visible GSA entries are application mirrors, not
+these intended engineering projects. README names the actual entries and the
+local-project UI limitation. No new provider repo was added in this task.
+
 ## Restored Forge and remote-free Git evidence: 2026-10-26 (Kata 7pq7)
 
 Restored the existing `install-forge-service`/managed-service boundary in
