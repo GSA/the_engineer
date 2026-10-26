@@ -1,5 +1,27 @@
 # Objective and decisions
 
+## Cross-project architecture direction: 2026-10-26
+
+The owner requests an architectural evaluation of this checkout, the adjacent
+Librarian toolkit, populated Falcon instance and externally owned SPUD, building
+on the moved conversation. Preserve the Librarian / SPUD / Engineer product
+boundaries while separating acquisition from knowledge ownership: reuse SPUD's
+Jira/Confluence export capability rather than assume Librarian must replace it.
+SPUD Drive support is not established; Falcon's retained originals stay intact.
+
+The requested memory emphasis is selected context-relevant engineering events,
+not all conversations or a complete action ledger. This narrows the earlier
+8cne research framing below. Engineer memory must not become Librarian business
+evidence, Kata task authority or a duplicate AgentsView archive.
+
+Drafts: `context/system-architecture.md` and `context/engineering-memory.md`
+(Kata qt7g). They inventory gaps and propose delivery/acceptance gates; no
+vendor, new service, source scope, cross-project access, task migration or
+rename is adopted. Final naming, task-domain separation, onboarding topology
+and real-memory handling/model policy require explicit decisions.
+
+## Earlier objective and decisions
+
 The owner selected `engi-platform` as this integration project's target name
 on 2026-10-12 at 12:46. README branding now reflects it. Checkout paths,
 private-state paths, stored executable references and service identifiers

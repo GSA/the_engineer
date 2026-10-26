@@ -1,5 +1,42 @@
 # Upstream components
 
+## Cross-project architecture evidence: 2026-10-26 (Kata qt7g)
+
+Detailed current evidence and proposals are in `system-architecture.md`;
+selective-memory requirements and a bounded pilot are in
+`engineering-memory.md`. These supersede the action-ledger emphasis of the
+earlier research for this request, not the provenance/handling safeguards.
+
+Inspected all four top-level READMEs, local instructions, relevant roadmap/
+decision/operating files and native Kata records. SPUD's local ingestion CLI
+calls separate Jira/Confluence exporters and then renders/packages output;
+Graphify is a separate repository pipeline. Its graph-index generator emits
+nodes, not edges. No Drive connector or code-query MCP was found in inspected
+SPUD source/docs/manifest; this is not a claim about other branches/services.
+
+Both Librarian checkouts bind to Kata project `librarian`; no binding or task
+was moved. Falcon has broader instance tooling and retained data, not version
+parity with the data-empty toolkit. Toolkit policy/store-path/index identity
+limitations remain relevant to reproduction. Engineer installer source still
+expects legacy qualified-context-mcp and invokes removed install-forge-service
+in its user-service branch; these are open p4ke/5xrm integration gaps, not
+fixed by the architecture documents.
+
+Public Hindsight/Mem0 docs fetched successfully. Hindsight's standard coding
+integration auto-ingests conversations/history and auto-updates; explicit
+selected-record retain/recall, not that default installer, fits a first pilot.
+MCP authentication is off by default; bank paths/metadata filters do not prove
+authorization. No Pi web-provider test, model pilot, product install or private
+upload occurred. Existing configured commit-review hooks remain enabled.
+Prior conversation-history search did not recover the recent
+thread; use the supplied transcript plus existing context as historical basis.
+
+Moved `../the_librarian/tmp_convo.txt` into ignored
+`.local/context-inputs/tmp_convo.txt`, mode 0600, preserving 60,317 bytes and
+SHA-256 `a6bef1456fc65a3d4c28f8197e3a05e5598e7c7513daa1f2bfe90cee68332671`.
+It is a private input, not a distributable document or new memory ingestion.
+No neighboring source/store changes beyond the requested untracked-file move.
+
 ## Centralized agent memory/event-store research: 2026-10-26 (Kata 8cne)
 
 Public HN Algolia story searches covered agent memory, MCP memory, shared
