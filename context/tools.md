@@ -1,5 +1,51 @@
 # Upstream components
 
+## Private GSA remotes and Forge onboarding: 2026-10-26 (7943)
+
+Created `GSA/the_engineer` (provider ID 1434960775) and `GSA/the_librarian`
+(1434960769) with native `gh repo create --private`. Verified private visibility,
+main as default branch, and remote main SHA equality with the local commits.
+HTTPS origins point to the exact requested repositories; no forced push,
+history rewrite, submodule change, directory move or global Git change.
+
+Audited historical path inventories and locally scanned all main history with
+checksum-verified Gitleaks 8.30.1, with fully redacted reporting. Initial scans
+covered 81 Engineer and 8 toolkit commits; pre-push scans covered 83 and 9,
+including concurrent completed catalog documentation and ignore commits.
+No findings or historically tracked corpus/runtime assets were identified.
+This is bounded scanner/path evidence, not a universal privacy certification.
+
+Engineer 67644da moves private mirror/review exclusions from machine-only
+info/exclude into tracked rules and ignores nested local state, virtual
+environments, bytecode, databases and backup archives. Toolkit b368d7e adds
+machine-local MCP/review configuration exclusions. Temporary fresh repositories
+with global excludes disabled verified 18/24 private paths ignored and seven
+portable files retained each; neither checkout tracks ignored files. Toolkit
+ROADMAP/Decision 0006 dirty content was not staged or pushed.
+
+After 3b94 completed, native Forge bulk import added both providers; all three
+configured GSA repositories completed sync without error. Set only Engineer's
+worktree base to /home/nkirrish/kenn-kopy and appended explicit daemon local /
+project UID 01M4S19R2P14V94BD856BATMWJ -> github/github.com/gsa/the_engineer.
+Hot reload briefly returned the previous mapping; subsequent diagnostics and
+saved TOML agree on manual_daemon for Engineer and unchanged SPUD. Only repos
+and kata_projects changed in parsed configuration.
+
+Do not set Librarian's worktree base yet: workspace.go's
+kataAutomaticWorkspaceRepoByTOML reads the shared librarian binding and would
+route every corpus task into the toolkit even without an explicit mapping.
+Its catalog entry is synced, but clone-path linking and mapping are deferred.
+Three open corpus tasks (939r, 51kq, 5njc) coexist with two toolkit tasks
+(7bna, 55nx); 14 total tasks include unclassified historical entries.
+Native task/domain migration needs owner agreement and classification.
+
+Ignored private rollback/evidence: .local/publication-7943/ contains the
+online integrity-checked Forge snapshot, before config, redacted scan reports,
+protected-file hashes and verified API state. Environment config and existing
+dirty toolkit files retain their hashes. Existing project registrations,
+worktrees, task history and service PIDs 35810/23538/44494/417 are preserved.
+No worker, new worktree, service restart or experimental daemon was started.
+
 ## Native Forge catalog reset: 2026-10-26 (3b94)
 
 Native APIs removed the falcon-docs project registration, four application

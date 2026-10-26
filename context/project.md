@@ -1,5 +1,25 @@
 # Objective and decisions
 
+## Private GSA publication authorized: 2026-10-26, 17:41 (7943)
+
+The owner authorizes private GitHub repositories with exact names
+`GSA/the_engineer` and `GSA/the_librarian`, origin remotes, checked history
+publication, Forge onboarding and Kata mappings. Check portable ignore rules
+and existing history before pushing. Keep checkout paths and live service/task
+identities unchanged; Falcon remains local and outside the Forge catalog.
+
+Both repositories are published privately and synced in Forge. Engineer's
+existing `engi-platform` project maps explicitly to `gsa/the_engineer`, using
+`~/kenn-kopy` for worktrees. SPUD's mapping is preserved. This provider-backed
+route supersedes local-only UI work as the immediate onboarding prerequisite.
+
+Librarian's mapping and configured clone path remain blocked on owner agreement:
+its shared Kata project contains toolkit and corpus work. Forge auto-maps
+configured clone paths through `.kata.toml`, so omitting a manual mapping alone
+would not protect corpus tasks. Propose a separate corpus task project while
+retaining `librarian` for the toolkit, with native history-preserving migration.
+No split, binding change or agent launch is authorized by this assumption.
+
 ## Three-project Forge reset authorized: 2026-10-26, 17:39
 
 The owner requests removing current Forge repository/project registrations,

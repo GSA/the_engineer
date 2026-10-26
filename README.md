@@ -121,8 +121,9 @@ terminal open; the supervisor owns only dashboards not installed as services.
 
 In this WSL installation, the Windows browser can use these same localhost
 addresses with the current NAT configuration. No public listener, tunnel or
-cloud access is configured. Forge syncs private `GSA/aos-spud`; the four earlier
-Falcon mirrors were removed from its catalog, not deleted from disk.
+cloud access is configured. Forge syncs private `GSA/the_engineer`,
+`GSA/the_librarian` and `GSA/aos-spud`; the four earlier Falcon mirrors were
+removed from its catalog, not deleted from disk.
 Profiles without configured repositories retain disabled provider sync.
 AgentsView now watches explicit Copilot and Pi session sources; it is not a
 model router. Dashboard startup alone does not establish a complete
@@ -194,15 +195,14 @@ mappings**, select the task in **New workspace**, then launch the configured
 agent. The agent records evidence and closes the task through native Kata;
 workspace creation and review completion do not do that automatically.
 
-The `spud` project is **mapped** to `GSA/aos-spud` on daemon `local`, with
-`~/aos-spud` as its worktree base. `engi-platform` and shared `librarian` remain
-**unmapped**; the four earlier application mappings have been removed.
-`.kata.toml` and per-task `repo` metadata do not provide Forge mappings.
-Local-only repositories also need a supported local-workspace route, not a
-fabricated provider remote. See the [current handoff and evidence](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26).
-The [proposed intended-repository onboarding](context/engineering-workflow.md#proposed-intended-repository-onboarding-2026-10-26)
-separates local-project support, task routing and a real pilot from deferred
-directory/service migration.
+On daemon `local`, `engi-platform` is **mapped** to `GSA/the_engineer` with
+`~/kenn-kopy` as worktree base, and `spud` to `GSA/aos-spud` with `~/aos-spud`.
+Shared `librarian` remains **unmapped** pending corpus/toolkit task separation;
+the four earlier application mappings have been removed.
+Per-task `repo` metadata does not control Forge routing. Configuring a provider
+repository's clone path can auto-map through `.kata.toml`, so Librarian's
+clone-path link is also deferred. See the [current handoff and evidence](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26)
+and [private provider onboarding](context/engineering-workflow.md#private-provider-onboarding-2026-10-26-1741-7943).
 
 ### Pi and Copilot task access
 
@@ -597,12 +597,12 @@ available for foreground diagnosis after stopping the unit; never run both.
 `status` reports `forge_service` and checks its PID, private runtime identity,
 health and dashboard.
 
-For the next browser session using the configured SPUD repository:
+For the next browser session using Engineer or SPUD:
 
 1. Open http://127.0.0.1:18091/ and choose **Workspaces**, then **New workspace**.
-2. Select **gsa/aos-spud** and a new branch, or choose the Kata source,
-   daemon **local**, and an agreed task in project **spud**. Claim the task
-   through native Kata before starting work.
+2. Select **gsa/the_engineer** or **gsa/aos-spud** and a new branch, or choose
+   the Kata source, daemon **local**, and an agreed task in **engi-platform**
+   or **spud** respectively. Claim the task through native Kata before work.
 3. Choose **Pi (USAi)** to create the worktree and launch the configured agent.
    Give it one bounded task; inspect **Files** and **Diff** before accepting work.
 4. Reopen the workspace to return to its sessions. Closing a browser pane does
@@ -611,10 +611,11 @@ For the next browser session using the configured SPUD repository:
 
 New Forge-managed clones do not automatically inherit the review hooks from
 your existing checkouts. Confirm the intended review setup before real work.
-SPUD is configured to create worktrees from its existing `~/aos-spud` checkout,
-not a new managed clone; preserve its existing hooks and uncommitted changes.
-The catalog/mapping setup is complete, but the real coding/review pilot has not
-been run.
+Engineer and SPUD create worktrees from their existing checkouts, not new
+managed clones; preserve their hooks and uncommitted changes.
+Librarian is synced in the catalog, but its clone-path link and Kata mapping
+are withheld until shared corpus/toolkit tasks are separated. Do not use it
+for a Kata-backed launch yet. The real coding/review pilot has not been run.
 For repositories without remotes, see [local-only projects](#local-projects-are-not-provider-repositories).
 The upstream [workspace guide](forge/docs/workflows/workspaces.md) explains the
 controls in more detail.
@@ -622,8 +623,9 @@ controls in more detail.
 ### GSA GitHub setup
 
 The four private GSA Falcon mirrors and working clones remain available, but
-were removed from Forge's configured catalog on 2026-10-26. Only private
-`GSA/aos-spud` is currently configured. Use **`github.com`** for Forge mirror
+were removed from Forge's configured catalog on 2026-10-26. Private
+`GSA/the_engineer`, `GSA/the_librarian` and `GSA/aos-spud` are configured.
+Use **`github.com`** for Forge mirror
 intake, not the original enterprise host `github.helix.gsa.gov`. Direct Helix
 connectivity is no longer a prerequisite for these mirrors. Local workstation
 handling approval is settled; the separate Citrix VDI export prohibition is
@@ -794,20 +796,22 @@ stores. Its own `AGENTS.md` and task guides govern work there.
 
 ### Local projects are not provider repositories
 
-As of the owner's 2026-10-26 catalog reset, the registered projects are:
+After the owner's 2026-10-26 catalog reset and approved private publication:
 
 | Checkout | Remote | Main workspace dialog |
 | --- | --- | --- |
-| Engineer: `~/kenn-kopy` | None | Registered locally; not in the provider catalog |
-| Librarian: `~/the_librarian` | None | Registered locally; not in the provider catalog |
+| Engineer: `~/kenn-kopy` | Private `GSA/the_engineer` on GitHub | Synced; `engi-platform` mapping and existing clone configured |
+| Librarian: `~/the_librarian` | Private `GSA/the_librarian` on GitHub | Synced; task mapping and clone-path link await corpus/toolkit split |
 | SPUD: `~/aos-spud` | Private `GSA/aos-spud` on GitHub | Synced; `spud` Kata mapping configured |
 
 The prior `falcon-docs` local registration, four application provider entries
 and their Kata mappings were removed. All checkouts, the Falcon corpus/MCP
 connection, and existing Kata projects/history are retained. One existing
 application PR workspace and its worktree were also preserved, not purged.
-No remote was invented or repository published. Engineer and Librarian still
-need a usable local-project UI/task route, not repeated registration.
+Engineer and Librarian were published only after owner approval and local
+ignore/history checks. Falcon remains local and outside the provider catalog.
+Ignore rules do not remove previously tracked content or sanitize history;
+check both before publishing a formerly local-only repository.
 
 **No remote is required by Git or Forge's local-project API.** A live synthetic
 repository with zero remotes successfully registered, created a new branch and
@@ -816,10 +820,10 @@ and removed the clean worktree/branch. No provider identity or publication was
 needed. Worktree creation requires a commit to branch from; `git init` alone
 leaves an unborn branch.
 
-**Current Forge UI limitation:** Engineer and Librarian are in the local
-project registry with their primary worktrees, but registration does **not**
-make them entries in the provider-backed **Repos** or main workspace picker.
-SPUD is available there because its real provider repository is also configured.
+**Current Forge UI limitation:** local project registration does **not**
+make a checkout an entry in the provider-backed **Repos** or main workspace
+picker. Engineer, Librarian and SPUD now appear there because their real
+provider repositories are configured separately.
 Registering a remote-free checkout again will not resolve this distinction.
 
 The provider onboarding wizard can be dismissed with **I'll do this later**.
@@ -828,7 +832,6 @@ http://127.0.0.1:18091/project-intake/ using **Add an existing local repository*
 it needs a local path, not provider credentials or a repository URL. This
 intake does not make the checkout available in the main workspace UI.
 
-SPUD is the sole configured provider repository for the main UI.
 Local projects use separate native `/api/v1/projects/{id}/worktrees` and
 worktree `/runtime/sessions` endpoints; the demonstrated API workflow is not
 yet a convenient browser workflow. Native project runtime targets support
