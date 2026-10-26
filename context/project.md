@@ -1,5 +1,22 @@
 # Objective and decisions
 
+## Forge restored as an execution service: 2026-10-26, 16:53
+
+The owner authorizes restoring Forge alongside the boot-enabled Kata, roborev
+and AgentsView services and wants to learn the workspace workflow. This
+supersedes the 2026-10-23 retirement and today's dormant-Forge assumptions in
+cleanup items rzsc/k79n, not unrelated installer/Kata storage-isolation work.
+Use the preserved private profile/binary and loopback binding; do not add
+remotes, publish local projects, change providers or invent repository identity.
+
+Forge owns worktree/session execution, not task decomposition or a replacement
+for Kata/review. Native local-project APIs support remote-free repositories,
+but the provider-backed main workspace UI remains a distinct catalog.
+Document both the UI path for existing mirrors and the local Git/Pi fallback;
+do not claim registration alone makes a local project usable in that UI.
+Tracking: 7pq7. Retired model-workflow tasks are not silently restored or
+declared complete; a real end-to-end coding loop remains separate.
+
 ## Cross-project architecture direction: 2026-10-26
 
 The owner requests an architectural evaluation of this checkout, the adjacent

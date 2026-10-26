@@ -81,9 +81,8 @@ is not a replacement for this Linux/WSL host.
 
 ## Start and access the environment
 
-Run commands from this repository's root. On this host, Kata, roborev and
-AgentsView start automatically with WSL as independent user-systemd services.
-Forge is retained but deliberately stopped unless explicitly requested. No
+Run commands from this repository's root. On this host, Forge, Kata, roborev
+and AgentsView start automatically with WSL as independent user-systemd services. No
 terminal or browser autostart is required. Check the saved environment:
 
 ```sh
@@ -95,7 +94,7 @@ as a local Forge project. If you intentionally stopped services, restore them:
 
 ```sh
 systemctl --user start kenn-kopy-kata.service kenn-kopy-roborev.service \
-  kenn-kopy-agentsview.service
+  kenn-kopy-agentsview.service kenn-kopy-forge.service
 ```
 
 Before installing independent services on another host,
@@ -506,22 +505,48 @@ Setup creates missing settings only. Repeating it preserves existing settings
 and rejects accidental changes to saved executable/corpus paths. Do not delete
 the state directory to change a setting.
 
-## On-demand Forge and GSA GitHub setup
+## Forge startup and first session
 
-Forge is not a persistent service and is not part of the `local_env.py run`
-supervisor. Its private database, configuration, project identity, credentials
-and four working clones remain under `.local/environment/forge/`. Start it only
-for deliberate workspace use, keeping the foreground terminal open:
+Forge is an enabled user service alongside Kata, roborev and AgentsView.
+Its private database, configuration, project identity, credentials and four
+working clones remain under `.local/environment/forge/`. To install the service
+repeatably from an already configured checkout:
 
 ```sh
-python3 scripts/local_env.py forge-run
+python3 scripts/local_env.py install-forge-service
+systemctl --user status kenn-kopy-forge.service --no-pager
 ```
 
-The command resolves Node from the current `PATH` (or accepts an explicit
-`--node-executable`), binds only **http://127.0.0.1:18091/**, and refuses an
-occupied port. Stop it with Ctrl+C. `python3 scripts/local_env.py status`
-reports an explicitly running Forge and its projects, but a stopped Forge is
-the normal state. There is no Forge user-systemd unit or boot installer.
+Installation pins the current Node executable for private Pi, preserves saved
+settings and binds only **http://127.0.0.1:18091/**. Use `systemctl --user
+restart kenn-kopy-forge.service` after deliberate configuration changes, and
+`systemctl --user stop kenn-kopy-forge.service` to stop it. An occupied port
+is an error, not permission to replace another process.
+
+Without installed units, `python3 scripts/local_env.py run` owns all four
+dashboards. It leaves independently managed services alone. `forge-run` remains
+available for foreground diagnosis after stopping the unit; never run both.
+`status` reports `forge_service` and checks its PID, private runtime identity,
+health and dashboard.
+
+For a first browser session:
+
+1. Open http://127.0.0.1:18091/ and choose **Workspaces**, then **New workspace**.
+2. Select one of the already tracked Falcon mirrors and a new branch. A linked
+   Kata task can also be used when its project has a repository mapping.
+3. Choose **Pi (USAi)** to create the worktree and launch the configured agent.
+   Give it one bounded task; inspect **Files** and **Diff** before accepting work.
+4. Reopen the workspace to return to its sessions. Closing a browser pane does
+   not stop the process; use session controls. Commit/review and push/PR creation
+   are separate steps, and publication still requires approval.
+
+New Forge-managed clones do not automatically inherit the review hooks from
+your existing checkouts. Confirm the intended review setup before real work.
+For repositories without remotes, see [local-only projects](#local-projects-are-not-provider-repositories).
+The upstream [workspace guide](forge/docs/workflows/workspaces.md) explains the
+controls in more detail.
+
+### GSA GitHub setup
 
 As of 2026-10-20, the four private GSA Falcon mirrors and working clones are
 available; normal `gh` can access them. Use **`github.com`** for Forge mirror
@@ -561,7 +586,7 @@ system keyring: its directory is `0700` and the launcher sets umask `0077`.
 This is filesystem protection, not an OS sandbox; do not copy the profile
 into Git. Follow GSA's approved authentication method if CLI OAuth is restricted.
 
-After login, restart Forge so startup identity discovery sees the account.
+After login, restart the Forge service so startup identity discovery sees the account.
 Then confirm read access to one owner-approved repository:
 
 ```sh
@@ -572,8 +597,8 @@ Then confirm read access to one owner-approved repository:
 **Repository selection opts into provider sync on the next Forge startup.**
 The launcher passes `--disable-sync` only when native Forge configuration has
 no repositories. Once read access is confirmed, add the exact approved
-repositories through Forge Settings, then stop and explicitly restart
-`python3 scripts/local_env.py forge-run`.
+repositories through Forge Settings, then run
+`systemctl --user restart kenn-kopy-forge.service`.
 This host now tracks only `GSA/supply-chain-user-interface`,
 `GSA/national-item-file-maintenance`, `GSA/standard-acquisition-interface` and
 `GSA/infrastructure`; all four completed their initial sync.
@@ -695,6 +720,13 @@ stores. Its own `AGENTS.md` and task guides govern work there.
 
 ### Local projects are not provider repositories
 
+**No remote is required by Git or Forge's local-project API.** A live synthetic
+repository with zero remotes successfully registered, created a new branch and
+worktree, ran a tmux-backed terminal in that worktree, refused dirty deletion,
+and removed the clean worktree/branch. No provider identity or publication was
+needed. Worktree creation requires a commit to branch from; `git init` alone
+leaves an unborn branch.
+
 **Current Forge UI limitation:** `falcon-docs` is registered in the local
 project registry, with its existing primary worktree. It does **not** appear
 in **Repos** or the workspace list: those screens use a separate
@@ -708,13 +740,26 @@ http://127.0.0.1:18091/project-intake/ using **Add an existing local repository*
 it needs a local path, not provider credentials or a repository URL. This
 intake does not make the checkout available in the main workspace UI.
 
-A complete Forge UI demo still needs an approved provider-backed repository.
-The owner reports GSA GitHub access is now available; local authentication and
-the specific repository are not yet configured. The owner chose this route;
-local-project/worktree UI changes remain deferred.
+The four approved Falcon mirrors are already configured for the main UI.
+Local projects use separate native `/api/v1/projects/{id}/worktrees` and
+worktree `/runtime/sessions` endpoints; the demonstrated API workflow is not
+yet a convenient browser workflow. Native project runtime targets support
+terminal agents such as the configured Pi, not workspace ACP chat.
 Do not fabricate a provider identity, add a fake remote, or publish Falcon to
-work around the distinction. Standalone Pi below remains available for local
-exploration without a cloud repository.
+work around the distinction. For local-only work now, create a separate
+worktree with native Git, enter it, and launch the private agent:
+
+```sh
+git -C /absolute/path/to/project worktree add -b task/example \
+  /absolute/path/to/project-worktrees/example HEAD
+cd /absolute/path/to/project-worktrees/example
+python3 /absolute/path/to/kenn-kopy/scripts/pi-local.py
+```
+
+That fallback keeps work local but is manually managed, not a Forge UI entry.
+Only tracked content is present in a new worktree: ignored corpora, credentials,
+virtual environments and build outputs are not copied. Do not use a new
+worktree as a replacement for an authoritative populated Librarian instance.
 
 ## Pi and Falcon Context MCP
 
@@ -847,17 +892,16 @@ python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge
 The smoke script creates fresh isolated state, supplies no credentials, checks
 startup/assets/task storage/offline skills, and shuts down its own processes.
 Do not run it alongside the persistent environment: they use the same ports.
-Stop the dashboard supervisor if running, stop any explicit foreground Forge,
-and stop the three independent units first:
+Stop the dashboard supervisor if running, stop any explicit foreground process,
+and stop the four independent units first:
 
 ```sh
 systemctl --user stop kenn-kopy-kata.service kenn-kopy-roborev.service \
-  kenn-kopy-agentsview.service
+  kenn-kopy-agentsview.service kenn-kopy-forge.service
 ```
 
 Afterward, restore them with `systemctl --user start kenn-kopy-kata.service
-kenn-kopy-roborev.service kenn-kopy-agentsview.service`. Forge stays stopped
-unless you deliberately run `python3 scripts/local_env.py forge-run`.
+kenn-kopy-roborev.service kenn-kopy-agentsview.service kenn-kopy-forge.service`.
 
 See [TODO.md](TODO.md) for open work, [context/status.md](context/status.md) for
 observed results/current process state, [context/tools.md](context/tools.md)
