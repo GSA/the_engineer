@@ -16,6 +16,13 @@ No native task guard, shared toolkit runtime, new upstream SPUD commitment,
 source access, automatic dispatch or publication is adopted. Pilot selection,
 receiver design/source cohort and later Drive/memory policies need approval.
 
+The owner also asks about Hindsight and Reverse Engineer Anything. Hindsight
+remains the first selective-memory service candidate, not an adopted winner;
+trial after the first real workflow without waiting for Drive. Recommend REA
+only as an optional Engineer investigation capability for authorized artifacts
+or runtime questions that source/SPUD cannot answer. Superpowers remains the
+working method. No new skill/MCP registration, global setup or model run.
+
 ## Private GSA publication and task separation: 2026-10-26 (7943)
 
 The owner authorizes private GitHub repositories with exact names

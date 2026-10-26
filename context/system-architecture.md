@@ -405,6 +405,66 @@ activate the next slices are the bounded pilot change, its acceptance/model
 scope, the producer/receiver design and first authorized source cohort.
 Drive access and memory handling/model policy are later separate approvals.
 
+## Skills and optional investigation: Superpowers, REA and Hindsight
+
+The owner's follow-up asks where Hindsight fits and whether Reverse Engineer
+Anything (REA) should join the agent pipeline. The evaluated project is
+[`morluto/rea`](https://github.com/morluto/rea), not similarly named forks.
+This is a capability/fit recommendation, not an installed skill or permission
+to analyze a new target.
+
+| Component | Role in Engineer | Deliberate limit |
+| --- | --- | --- |
+| Superpowers | Existing working method for design, implementation, debugging and verification | Not a code index or durable shared memory backend |
+| REA | Optional evidence-gathering capability during refinement, investigation or debugging when source alone cannot answer the question | Not a mandatory pipeline phase, ordinary repository explorer or replacement for SPUD |
+| Hindsight | Leading service candidate for selective engineering memory, available across phases and sessions | Not adopted; compare with the structured-record baseline and Mem0 under the [memory pilot](engineering-memory.md) |
+| SPUD | Revision-bound code-context production and maintained technical artifacts | Does not acquire task authority merely because an investigation produces useful code evidence |
+| Librarian | Qualified institutional/business evidence | REA observations and agent memories do not become business truth without the normal contribution/review path |
+
+REA is more than a prompt skill: it supplies an MCP/CLI analysis toolchain and
+matching workflow instructions. Its own
+[skill](https://github.com/morluto/rea/blob/779d548c4e553f01cb1aaf61d6949885c6f02806/.agents/skills/reverse-engineer-anything/SKILL.md)
+explicitly excludes ordinary architecture analysis of complete source
+repositories. The useful cases here are authorized legacy/packaged applications,
+.NET/native artifacts, JavaScript/Electron bundles and requested runtime
+behavior not established by available source. Native/deep analysis can require
+separate engines; static JavaScript and managed inspection have lighter routes.
+
+Proposed routing: task question -> ordinary source/SPUD context -> REA only
+if an artifact/runtime evidence gap remains -> evidence-linked design or
+debugging conclusion -> ordinary implementation and review. Keep target
+hash/revision, tool/profile version, evidence IDs, coverage and unknowns with
+findings. Useful technical artifacts can inform SPUD integration later;
+Hindsight should retain only selected reusable lessons and references, not
+silently ingest REA evidence bundles, source bodies or runtime captures.
+
+Before adopting it, select one authorized non-sensitive fixture or shipped
+artifact with independently known behavior. Compare ordinary tools with REA
+on the same bounded questions, using the reference behavior as the check.
+Require evidence-linked answers, explicit unresolved questions, reproducible
+target identity, successful cleanup and no unapproved target execution or
+network access. Record elapsed time, calls/context cost and manual corrections.
+Keep REA only if it answers an otherwise unmet question or reduces effort
+without weakening evidence. No demonstrated need means no mandatory dependency.
+
+REA's pinned installation docs list Pi and Copilot support; that does not
+establish compatibility with our private Forge/Pi profile. A future pilot
+should use an explicitly scoped, version-pinned stdio registration, matching
+skill, and only the relevant tool families, without global setup. Family
+selection disables out-of-scope MCP tools but is not an OS sandbox or a
+read-only guarantee. Runtime launch/attach, browser actions, instrumentation
+and capture remain separate approvals; untrusted targets need actual isolation.
+Test profile/config preservation and uninstall before adopting the integration.
+
+Hindsight's placement is earlier than the table numbering might suggest:
+trial it after the first real workflow, independently of connector scale-out.
+It is the best first service candidate from the inspected shortlist, not a
+claim of comparative superiority. Avoid default automatic conversation/history
+ingestion; begin with explicit selected-record retain/recall and measure
+correction, stale-record handling, cross-project isolation and useful handoffs.
+Superpowers supplies method, REA supplies optional investigative tools, and
+Hindsight could preserve selected experience; they solve different problems.
+
 ## Evidence map
 
 Local paths below identify inspected sources, not files shipped together.
@@ -424,6 +484,12 @@ the hard-coded provider path in `dist/install.py` and `scripts/local_env.py`.
 Neighbor capability descriptions above retain their earlier inspected
 baselines; this pass did not rerun SPUD or independently audit its latest
 exporters. It started no ingestion, workflow pilot or memory trial.
+
+The follow-up read public Hindsight README, coding-agent/MCP documentation and
+Mem0's OSS overview, plus REA README, skill, package metadata and installation/
+MCP contracts at `779d548c4e553f01cb1aaf61d6949885c6f02806` (package metadata
+6.8.0, MIT). Main-branch documentation is not verification of the currently
+published npm artifact. No REA command, model benchmark or installer was run.
 
 The session-history search did not recover the recent architecture discussion;
 the supplied conversation and existing local context are the historical basis.

@@ -4,6 +4,30 @@
 **Status:** proposed contract and pilot, not an installed service or selected
 vendor. Companion: [system architecture](system-architecture.md).
 
+## Post-onboarding placement and candidate recommendation (kamh)
+
+Hindsight remains the first **service candidate to evaluate**, not a proven
+winner or adopted dependency. Its self-hosted API/MCP, explicit retain/recall
+operations and documented Pi/Copilot integrations fit a shared endpoint used
+by different engineering agents. Mem0 remains the comparison candidate;
+structured selected records remain the lower-complexity baseline. No local
+head-to-head result establishes that any service is better for this workflow.
+
+Run the bounded pilot below after the first real Engineer workflow yields
+concrete handoff/repeated-investigation questions; it need not wait for Drive
+or all ingestion work. Recall can support refinement, investigation, coding
+and review. Capture selected corrections, attempts and handoffs, not every
+phase transition. Centralize access while enforcing project/audience scope,
+not one unrestricted memory bank for every project.
+
+Primary documentation rechecked on October 26 still says the standard
+coding-agent integration automatically ingests conversations/git history and
+auto-updates, while MCP authentication is off by default. Prefer pinned,
+explicit API/MCP contributions for our pilot, with approved extraction and
+embedding routes and exercised authorization. Do not install the default
+integration or assume self-hosting means no outbound model processing.
+Recall is advisory; no memory service becomes Kata, roborev, Librarian or SPUD.
+
 ## Purpose: remember useful context, not everything that happened
 
 An agent should resume with the decisions, corrections, failed approaches and
