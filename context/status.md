@@ -1,5 +1,25 @@
 # Status: 2026-10-26
 
+## Forge reset to Librarian, Engineer and SPUD (3b94)
+
+- Exactly three local projects are registered at the owner's existing paths:
+  Librarian ~/the_librarian, Engineer ~/kenn-kopy and SPUD ~/aos-spud.
+  Their primary worktrees are discovered and private Pi is available.
+- Sole configured/synced provider repository is private GSA/aos-spud.
+  Existing Kata project spud resolves as mapped/manual_daemon; worktree base
+  is ~/aos-spud. Saved TOML and live state agree. Former Falcon registration,
+  four application provider entries and old mappings are removed.
+- All checkouts, task projects/history, private profiles and services are
+  preserved. One old application PR workspace/worktree is retained, not purged.
+  Before-state snapshot and verification are private under
+  runtime/forge-reset-3b94; no directory rename or repository publication.
+- SPUD is available for the next agreed end-to-end pilot (jgcf), not evidence
+  that the coding/review loop already passed. Engineer/Librarian remain
+  remote-free, registered locally and unmapped in the main task/workspace UI.
+- Shutdown: hot-applied native configuration; all four service PIDs unchanged.
+  No new worker, worktree or experimental process was started.
+  Concurrent unrelated `.gitignore` edits are outside this task and preserved.
+
 ## Engineer naming recorded; Forge onboarding remains proposed (w5yr)
 
 - Product branding is now Engineer (`engineer`). The owner deferred all

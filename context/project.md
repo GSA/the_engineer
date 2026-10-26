@@ -1,5 +1,22 @@
 # Objective and decisions
 
+## Three-project Forge reset authorized: 2026-10-26, 17:39
+
+The owner requests removing current Forge repository/project registrations,
+then registering Librarian (`~/the_librarian`), Engineer (`~/kenn-kopy`) and
+SPUD (`~/aos-spud`), adding SPUD's existing private GitHub repository and mapping
+its Kata project. This supersedes the earlier four-repository onboarding
+inventory and no-catalog-change boundary. It does not authorize deleting
+checkouts/corpora, renaming paths, splitting task domains or publishing.
+
+`3b94` delivers the exact three registrations, sole provider `GSA/aos-spud`,
+explicit daemon/project-UID mapping for `spud`, and its existing checkout as
+worktree base. Remove former application mappings, not task projects/history.
+Retain the existing application PR workspace rather than purging its worktree.
+SPUD can be used for the next agreed end-to-end pilot (`jgcf`); no worker is
+launched by registration. Engineer/Librarian local-only UI integration remains
+separate work. All directory/identity migration remains deferred under `eb48`.
+
 ## Engineer naming and Forge onboarding direction: 2026-10-26, 17:33
 
 The owner selects **Engineer** (`engineer`) instead of `engi-platform`, including
