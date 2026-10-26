@@ -150,91 +150,55 @@ projects named `supply-chain-user-interface`, `national-item-file-maintenance`,
 `standard-acquisition-interface` and `infrastructure`. Select the matching
 project for application work; each is linked to its corresponding Forge
 repository. Existing platform and Librarian projects are preserved.
-From this repository root:
+From this repository root, use the native CLI:
 
 ```sh
-./scripts/kata-local.py list --agent
-./scripts/kata-local.py ready --no-label blocked --no-label deferred --agent
-./scripts/kata-local.py show 5xrm
-python3 scripts/kata_todo.py
+kata list --agent
+kata ready --no-label blocked --no-label deferred --agent
+kata show 5xrm
+kata --project supply-chain-user-interface list --agent
 ```
 
-The launcher defaults to `engi-platform`, pins this workspace and the private
-loopback daemon, and strips inherited credentials. Explicit `--project`
-selection is CLI-only and limited to the four application projects above,
-`librarian`, or `engi-platform`. Application selection requires exactly one
-`--as copilot`; Librarian requires exactly one `--as pi` or `--as copilot`.
-Repeated project/actor selectors and unsupported actors are refused. Caller
-repository `.kata.toml` files do not change the launcher default.
-For example, this reads the UI application's backlog without changing it:
+`~/.local/bin/kata` points directly to the built `kata/kata` binary. Native
+`~/.kata/config.toml` selects the existing daemon at `http://127.0.0.1:17777`.
+The service retains its database in `.local/environment/kata`; no task migration
+is required. The CLI follows `.kata.toml` in the current repository and supports
+Kata's normal selectors and attribution. In another repository, run
+`kata init --project <name> --with-agents` to bind it and add agent guidance.
+Search before creating, claim work, and close only with verified evidence.
 
-```sh
-./scripts/kata-local.py --project supply-chain-user-interface --as copilot list --agent
-./scripts/kata-local.py --project librarian --as pi list --agent
-```
-
-Daemon/workspace overrides and unrelated projects remain refused. The launcher
-does not start a missing daemon or require a USAi key. Platform commands retain
-their existing `--as <actor>` attribution behavior. Search before creating tasks,
-claim before working and close only after verified completion with a substantive
-message and typed evidence. Selecting a project does not authorize task content,
-workers or publication.
-Refresh `TODO.md` after task changes and before handoff; failed reads leave the
-existing index untouched. Detailed decisions/evidence stay in `context/`.
-
-Kata does not launch agents or independently execute close-evidence tests.
-Project-scoped MCP access is now configured for private Pi and Copilot;
-automatic attention hooks remain open under `tvbf`.
-Forge can discover/read tasks, and the four application repository mappings
-are configured. This checkout's Pi/Copilot MCP adapters remain scoped to
-`engi-platform`; the explicit application CLI selection does not reconfigure
-them or create a task-backed workspace. [Adoption details](context/kata-adoption.md)
-and the [synthetic evaluation](context/kata-evaluation.md) describe the boundaries.
+`TODO.md` retains historical completed entries, not a live duplicate task index.
+Use `kata list`, `kata ready` or the browser for current work.
 
 ### Pi and Copilot task access
 
-Repeatable setup and model-free checks, from this checkout:
+CLI access needs no MCP adapter. If using MCP, configure the native binary with
+`args: ["mcp", "serve"]` and the repository as `cwd`. For example:
 
-```sh
-python3 scripts/local_env.py install-kata-mcp
-python3 scripts/check-kata-mcp.py
-node scripts/check-kata-pi.mjs
-./scripts/pi-local.py
-copilot
+```json
+{
+  "mcpServers": {
+    "kata": {
+      "command": "/home/nkirrish/kenn-kopy/kata/kata",
+      "args": ["mcp", "serve"],
+      "cwd": "/home/nkirrish/kenn-kopy",
+      "env": { "KATA_SERVER": "http://127.0.0.1:17777" }
+    }
+  }
+}
 ```
 
-Setup adds ignored, owner-private `.pi/mcp.json` and `.github/mcp.json` using
-absolute local launcher paths. It preserves other server entries and refuses
-an existing different `kata` entry, symlinks or non-private configuration.
-Rerun after a deliberate path migration. Only this checkout is trusted in the
-private Pi profile; an explicit distrust decision is not overwritten. Global
-Pi/Copilot settings, Falcon MCP and model routes are unchanged.
+Use your installation paths. Pi reads `.pi/mcp.json`; repository Copilot reads
+`.github/mcp.json` (with its client-specific `type`/`tools` fields). Both local
+configurations now invoke Kata directly and preserve other servers. Normal
+project trust applies; no custom trust installer is needed. Restart/reconnect
+existing clients after changing configuration. Check Pi with `pi mcp list`,
+or the private profile with `./scripts/pi-local.py mcp list`.
 
-Restart existing clients to load the server. Copilot discovers it as a
-**workspace** server; the current running conversation cannot acquire new MCP
-tools merely by creating a file, so the scoped CLI remains its fallback.
-Normal client trust/permission controls still apply; setup does not enable
-unrestricted tool approvals.
-
-The stdio adapter fixes actor `pi` or `copilot` and binds `engi-platform`.
-It strips inherited model credentials, exposes no new HTTP listener and fails
-if the existing daemon is unavailable. These actors are attribution labels,
-not authenticated user identities. Scoped MCP refuses cross-project reads/
-writes and project administration, but still permits task mutations within this
-project; it is not an OS sandbox or a substitute for human authorization.
-
-Kata initially offers 16 `kata.load_*` section loaders. Load discovery,
-mutation, coordination or lifecycle as needed, then refresh/search the tool
-catalog. Use `kata.status` to inspect the actual actor/owner; search before
-create, do not force another actor's claim, and use stable idempotency keys for
-create/comment retries. Inbox reads do not acknowledge requests.
-
-A real Pi/USAi read pilot loaded discovery/coordination and retrieved `tvbf`
-with actor `pi` and owner `copilot`. For a bounded no-filesystem pilot use
-`--no-builtin-tools`; an allowlist containing only `codemode` or `tool_search`
-also suppresses the underlying MCP proxy tools, so it is not a working Kata
-allowlist. No Copilot model-driven MCP pilot or native attention hooks are
-claimed verified yet. Transport checks are not those milestones.
+Kata natively binds MCP to the selected workspace project. Section loaders
+(`kata.load_*`) expose additional tools on demand; refresh discovery after
+loading a section. No custom actor or project allowlist is installed. Configure
+`--as <actor>` or `KATA_AUTHOR` when distinct attribution is needed.
 
 Inspect, restart or read the service journal:
 
@@ -253,7 +217,7 @@ python3 scripts/local_env.py install-kata-service
 
 The installer is repeatable and preserves the existing config/database; occupied
 ports or mismatched service/database identities fail explicitly. The unit runs
-the daemon in the foreground with a sanitized, credential-free environment,
+the native binary directly in the foreground with an explicit `KATA_HOME`,
 shared loopback API/UI and no automatic token creation. It needs neither Node
 nor a USAi key. The existing user manager/lingering setup starts it with WSL;
 no dependency on Forge or the other dashboards is added.
@@ -261,9 +225,9 @@ no dependency on Forge or the other dashboards is added.
 `python3 scripts/local_env.py stop` does not stop Kata. Use
 `systemctl --user stop kenn-kopy-kata.service` for deliberate downtime,
 or `systemctl --user disable --now kenn-kopy-kata.service` to disable boot
-startup without deleting tasks. Start it again before task/index commands.
-The owner-approved workspace backup now includes an online snapshot of Kata's
-database; private persistence and the Markdown index alone are not a backup.
+startup without deleting tasks. Start it again before task commands.
+The owner-approved workspace backup includes an online snapshot of Kata's
+database; repository bindings alone are not a backup.
 See [Persistence and projects](#persistence-and-projects) for the backup command
 and the remaining application/cloud recovery boundary.
 

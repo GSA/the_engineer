@@ -1,68 +1,9 @@
-# TODO
+# TODO history
 
-Kata project **`engi-platform`** is authoritative for this project's open work.
-This file is a generated task index plus historical completed entries, not a
-second manually maintained backlog. Update tasks with `./scripts/kata-local.py`;
-refresh this index with `python3 scripts/kata_todo.py` before handoff.
-Kata starts with WSL under `kenn-kopy-kata.service`; if intentionally stopped,
-use `systemctl --user start kenn-kopy-kata.service` before task/index commands.
-
-The 2026-10-12 migration preserved all 37 open source entries in 36 issues
-(the duplicate Helix-login entries were combined) and added the reproducible
-redeployment task `engi-platform#5xrm`. The owner approved a sensitive-state
-workspace backup on 2026-10-12; the first host copy includes online database
-snapshots. Application/cloud recovery remains open. Falcon's backlog was not
-migrated.
-
-<!-- kata-open-tasks:start -->
-## Open Kata tasks
-
-### Engi Platform: next unblocked work
-
-- [ ] [`engi-platform#mpew`](http://127.0.0.1:17777/kata?issue=01M4S19R5XSJNZ73FKNHJJMPEW) Demonstrate prompt and publication gates on a synthetic task
-- [ ] [`engi-platform#5ayh`](http://127.0.0.1:17777/kata?issue=01M4S19R6FFHYAF1BACHB25AYH) Migrate project paths, services and state to engi-platform
-- [ ] [`engi-platform#p4ke`](http://127.0.0.1:17777/kata?issue=01M4S19R70YZMCDSSY5HH7P4KE) Complete pinned fresh-host setup and acceptance checks
-- [ ] [`engi-platform#0rc1`](http://127.0.0.1:17777/kata?issue=01M4S19R86PYM6JDT8FJ2M0RC1) Evaluate Spokenly for local personal dictation
-
-### Persistent local use and first demo
-
-- [ ] [`engi-platform#6bxa`](http://127.0.0.1:17777/kata?issue=01M4S19RD7EHFEYG1S8CAP6BXA) Resolve the prohibited Citrix export workflow through an approved policy change **blocked**
-- [ ] [`engi-platform#93hq`](http://127.0.0.1:17777/kata?issue=01M4S19RE7KQNZFJXYWS4C93HQ) Confirm permitted engineering and USAi tooling inside standard VDI
-- [ ] [`engi-platform#8vhd`](http://127.0.0.1:17777/kata?issue=01M4S19RFC4HRM3JBDAJCX8VHD) Verify Falcon MCP behavior after real model compaction
-- [ ] [`engi-platform#ww7g`](http://127.0.0.1:17777/kata?issue=01M4S19RFW2VSFK1MQXQG8WW7G) Pin and install Pi in the fresh-host bootstrap
-- [ ] [`engi-platform#bbm2`](http://127.0.0.1:17777/kata?issue=01M4S19RGGHKBFYZRQKV4BBBM2) Investigate an approved USAi renewal interface
-- [ ] [`engi-platform#jqwq`](http://127.0.0.1:17777/kata?issue=01M4S19RH35QH984JS1FPEJQWQ) Verify Zed terminal/thread attachment to the existing launcher
-- [ ] [`engi-platform#jgcf`](http://127.0.0.1:17777/kata?issue=01M4S19RJCE81SJDY61BQWJGCF) Complete a bounded real-project coding and review demo
-
-### Extend and integrate
-
-- [ ] [`engi-platform#3c2c`](http://127.0.0.1:17777/kata?issue=01M4S19RKZZ4SX983DTP0C3C2C) Define AgentsView retention, pricing and client coverage
-- [ ] [`engi-platform#fjyf`](http://127.0.0.1:17777/kata?issue=01M4S19RMPMH94FD2E6XBMFJYF) Account for no-session roborev review usage without fabricated metrics
-- [ ] [`engi-platform#tvbf`](http://127.0.0.1:17777/kata?issue=01M4S19RPF24GMMA2GR11VTVBF) Verify Pi Kata lifecycle, attention and resume behavior
-- [ ] [`engi-platform#99gr`](http://127.0.0.1:17777/kata?issue=01M4S19RRQ7Z4KKBRD45AQ99GR) Define manual Jira-to-Kata intake for the first ticket
-- [ ] [`engi-platform#d8v5`](http://127.0.0.1:17777/kata?issue=01M4S19RSFPSCGWE83QYCAD8V5) Demonstrate the human-reviewed Jira-to-GitHub-PR workflow
-
-### Maintenance and longer term
-
-- [ ] [`engi-platform#me8k`](http://127.0.0.1:17777/kata?issue=01M4S19RTK9Q1GK1X1EDMQME8K) Decide retention of historical local smoke and manual profiles
-- [ ] [`engi-platform#vg0b`](http://127.0.0.1:17777/kata?issue=01M4S19RV5Y24BV2BDA9BJVG0B) Complete running-application and OneDrive cloud recovery checks **deferred**
-- [ ] [`engi-platform#vkye`](http://127.0.0.1:17777/kata?issue=01M4S19RVRXCB90N49WWWDVKYE) Resolve archive access and verify the normal frozen Forge build
-- [ ] [`engi-platform#1dkw`](http://127.0.0.1:17777/kata?issue=01M4S19RWDHBV4BA0WGMNS1DKW) Retire the temporary local-Kata Forge build after normal-build verification
-- [ ] [`engi-platform#hfbz`](http://127.0.0.1:17777/kata?issue=01M4S19RX29TG4B0VKMHE4HFBZ) Investigate mirrored WSL networking only if later needed
-- [ ] [`engi-platform#jmga`](http://127.0.0.1:17777/kata?issue=01M4S19RXSWW6548PD6PEJJMGA) Plan approved private cloud hosting after AWS access is available **deferred**
-- [ ] [`engi-platform#vd8j`](http://127.0.0.1:17777/kata?issue=01M4S19RYDWFPFA9R74285VD8J) Evaluate agent sandboxing boundaries and candidates **deferred**
-- [ ] [`engi-platform#5xrm`](http://127.0.0.1:17777/kata?issue=01M4S19RZ3Z3XG344E161W5XRM) Capture the complete environment in a reproducible redeployment script **deferred**
-
-### New work
-
-- [ ] [`engi-platform#vmhy`](http://127.0.0.1:17777/kata?issue=01M5NA3CTQ88X7192WBTQVVMHY) Deliver bounded FALCON context-graph visualization pilot
-- [ ] [`engi-platform#e7zh`](http://127.0.0.1:17777/kata?issue=01M5NA44GNRXF5ZBWEB9FDE7ZH) B: Implement loopback-only context graph visual server
-- [ ] [`engi-platform#3g58`](http://127.0.0.1:17777/kata?issue=01M5NA44JN4XQWETVV0BNF3G58) C: Implement data-empty accessible context graph UI
-- [ ] [`engi-platform#ww85`](http://127.0.0.1:17777/kata?issue=01M5NA49A38XBFP9E69ZWFWW85) D: Complete graph viewer regressions and synthetic acceptance
-- [ ] [`engi-platform#73at`](http://127.0.0.1:17777/kata?issue=01M5NA49E3HRW43PKY5G6J73AT) E: Run authorized-local FALCON graph visualization pilot
-- [ ] [`engi-platform#28jz`](http://127.0.0.1:17777/kata?issue=01M5NA4CXWT8N2YRHB2TQM28JZ) F: Produce sanitized graph-pilot input for Decision 0006
-- [ ] [`engi-platform#86ey`](http://127.0.0.1:17777/kata?issue=01M5NB62JNH6DXZJV0V8PY86EY) Let agents capture screenshot or video demos of changes
-<!-- kata-open-tasks:end -->
+Kata project **`engi-platform`** is authoritative for current work. Use native
+`kata list`, `kata ready`, or http://127.0.0.1:17777/kata. The generated open-task
+index and its refresh requirement were retired during native CLI cleanup.
+Historical completed entries below are preserved; this file is not a live ledger.
 
 ## Completed before Kata adoption
 

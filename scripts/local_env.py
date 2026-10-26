@@ -37,16 +37,7 @@ AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
 KATA_UNIT = "kenn-kopy-kata.service"
-KATA_PLATFORM_PROJECT = "engi-platform"
-KATA_LIBRARIAN_PROJECT = "librarian"
-# Registered Falcon application projects the scoped launcher may also target.
-# Selecting one does not authorize ticket decomposition, workers or publication.
-KATA_APPLICATION_PROJECTS = (
-    "supply-chain-user-interface",
-    "national-item-file-maintenance",
-    "standard-acquisition-interface",
-    "infrastructure",
-)
+
 # Boot-installable user services. Forge is deliberately absent: it is no longer
 # a persistent service and is started only by an explicit `forge-run`.
 SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374),
@@ -464,68 +455,6 @@ def github_cli_launch(args):
     return [str(GH_BINARY), *args], env
 
 
-def kata_project_scope(args, *, allow_application_projects=False):
-    """Resolve project selection without broadening the default MCP scope."""
-    project, rest, index = None, [], 0
-    while index < len(args):
-        arg = args[index]
-        if arg == "--":
-            rest.extend(args[index:])
-            break
-        if any(arg == flag or arg.startswith(flag + "=")
-               for flag in ("--workspace", "--daemon")):
-            raise RuntimeError("the scoped Kata launcher pins this workspace and local daemon")
-        if arg == "--project" or arg.startswith("--project="):
-            if project is not None:
-                raise RuntimeError("--project may be specified only once")
-            if arg == "--project":
-                index += 1
-                if index >= len(args):
-                    raise RuntimeError("--project needs a registered project name")
-                value = args[index]
-            else:
-                value = arg.split("=", 1)[1]
-            allowed = (KATA_PLATFORM_PROJECT, KATA_LIBRARIAN_PROJECT, *KATA_APPLICATION_PROJECTS)
-            if value not in allowed:
-                raise RuntimeError(
-                    f"the scoped Kata launcher allows only these projects: {', '.join(allowed)}")
-            project = value
-        else:
-            rest.append(arg)
-        index += 1
-    if project is None:
-        project = KATA_PLATFORM_PROJECT
-    if project in (*KATA_APPLICATION_PROJECTS, KATA_LIBRARIAN_PROJECT):
-        librarian = project == KATA_LIBRARIAN_PROJECT
-        label = "librarian" if librarian else "application"
-        if not allow_application_projects:
-            raise RuntimeError(f"{label} project selection is CLI-only; MCP stays on engi-platform")
-        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False, exit_on_error=False)
-        parser.add_argument("--as", dest="actors", action="append")
-        allowed_actors = ("pi", "copilot") if librarian else ("copilot",)
-        actor_error = (f"{label} project selection requires exactly one explicit --as "
-                       + " or --as ".join(allowed_actors))
-        try:
-            selection, rest = parser.parse_known_args(rest)
-        except argparse.ArgumentError as error:
-            raise RuntimeError(actor_error) from error
-        if not selection.actors or len(selection.actors) != 1 or selection.actors[0] not in allowed_actors:
-            raise RuntimeError(actor_error)
-        rest = ["--as", selection.actors[0], *rest]
-    return project, rest
-
-
-def kata_launch(args, *, allow_application_projects=False):
-    settings()
-    project, rest = kata_project_scope(args, allow_application_projects=allow_application_projects)
-    binary = ROOT / "kata/kata"
-    if not binary.is_file() or not os.access(binary, os.X_OK):
-        raise RuntimeError("missing executable Kata binary; build it before using the launcher")
-    return [
-        str(binary), "--workspace", str(ROOT), "--project", project, *rest,
-    ], base_environment()
-
-
 def terminal_launch(action, name="engi-platform"):
     if action not in ("open", "list", "stop"):
         raise RuntimeError("terminal action must be open, list or stop")
@@ -566,54 +495,6 @@ def terminal_launch(action, name="engi-platform"):
     ):
         environment[variable] = os.environ.get(variable, str(default))
     return command, environment
-
-
-def kata_mcp_launch(actor):
-    if actor not in ("pi", "copilot"):
-        raise RuntimeError("Kata MCP actor must be pi or copilot")
-    return kata_launch(["--as", actor, "mcp", "serve"])
-
-
-def install_kata_mcp():
-    config = settings()
-    node = shutil.which("node")
-    if node is None:
-        raise RuntimeError("Node must be on this shell's PATH to configure private Pi trust")
-    env = node_environment(Path(node))
-    verify_pi(config, env=env)
-    kata_mcp_launch("pi")
-    launcher = str(ROOT / "scripts/kata-mcp.py")
-    plans = []
-    for directory, actor in ((".pi", "pi"), (".github", "copilot")):
-        path = ROOT / directory / "mcp.json"
-        original = private_read(path) if path.exists() or path.is_symlink() else None
-        document = json.loads(original) if original is not None else {}
-        if not isinstance(document, dict):
-            raise RuntimeError(f"expected an MCP configuration object: {path}")
-        servers = document.setdefault("mcpServers", {})
-        if not isinstance(servers, dict):
-            raise RuntimeError(f"expected an mcpServers object: {path}")
-        entry = {"command": sys.executable, "args": [launcher, actor], "cwd": str(ROOT)}
-        if actor == "pi":
-            entry.update({"exposure": "codemode", "timeout": 30})
-        else:
-            entry.update({"type": "local", "tools": ["*"], "timeout": 30000})
-        if "kata" in servers and servers["kata"] != entry:
-            raise RuntimeError(f"preserving an existing different Kata MCP configuration: {path}")
-        servers["kata"] = entry
-        plans.append((path, original, document))
-    subprocess.run(
-        [str(Path(node).resolve()), str(ROOT / "scripts/trust-kata-project.mjs")],
-        cwd=ROOT, env=env, check=True, timeout=30,
-    )
-    for path, original, document in plans:
-        private_dir(path.parent)
-        current = private_read(path) if path.exists() or path.is_symlink() else None
-        if current != original:
-            raise RuntimeError(f"MCP configuration changed during setup; rerun: {path}")
-        json_write(path, document, replace=True)
-    print("Project-scoped Kata MCP configured for private Pi and repository Copilot sessions.")
-    print("Restart existing clients to load it; no attention hook or model request was started.")
 
 
 def api(method, path, body=None):
@@ -791,7 +672,8 @@ def install_agentsview_service():
     print("AgentsView user service enabled and responsive at http://127.0.0.1:18080/")
 
 
-def install_user_service(unit_name, command, description, ports, readiness, args=()):
+def install_user_service(unit_name, command, description, ports, readiness, args=(),
+                         executable=None, environment=()):
     active = subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit_name],
                             timeout=15)
     if active.returncode == 0:
@@ -805,13 +687,14 @@ def install_user_service(unit_name, command, description, ports, readiness, args
     directory = STATE / "systemd"
     private_dir(directory)
     unit = directory / unit_name
-    executable = " ".join(systemd_quote(value) for value in (
+    executable = " ".join(systemd_quote(value) for value in (executable or (
         sys.executable, ROOT / "scripts/local_env.py", command, *args,
-    ))
+    )))
+    environment_lines = "".join(f"Environment={systemd_quote(value)}\n" for value in environment)
     text = (
         f"[Unit]\nDescription={description}\n"
         "[Service]\nType=simple\nUMask=0077\nNoNewPrivileges=true\n"
-        f"ExecStart={executable}\n"
+        f"{environment_lines}ExecStart={executable}\n"
         "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=45\n"
         "[Install]\nWantedBy=default.target\n"
     )
@@ -1008,8 +891,9 @@ def install_kata_service():
     validate_kata_config()
     kata_command()
     install_user_service(
-        KATA_UNIT, "kata-run", "Engi Platform local task ledger",
+        KATA_UNIT, None, "Engi Platform local task ledger",
         SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
+        executable=kata_command(), environment=(f"KATA_HOME={STATE / 'kata'}",),
     )
     json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
     print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
@@ -1039,15 +923,6 @@ def managed_kata(*, required=False):
     return {"unit": KATA_UNIT, "pid": pid, "version": ping["version"],
             "schema_version": health["schema_version"],
             "api_schema_version": health["api_schema_version"]}
-
-
-def kata_run():
-    settings()
-    validate_kata_config()
-    check_ports(SERVICE_PORTS["kata"])
-    command = kata_command()
-    os.chdir(STATE / "home")
-    os.execve(command[0], command, base_environment())
 
 
 def managed_services():
@@ -1231,8 +1106,6 @@ def main():
     forge_service = commands.add_parser("forge-run", help="explicitly run retained Forge in the foreground")
     forge_service.add_argument("--node-executable", type=Path)
     commands.add_parser("install-kata-service", help="enable the configured Kata user service")
-    commands.add_parser("kata-run", help="run the standalone configured Kata service")
-    commands.add_parser("install-kata-mcp", help="configure project-scoped private Pi/Copilot Kata MCP")
     catalog = commands.add_parser("list-models", help="refresh advertised USAi model IDs using the private key")
     catalog.add_argument("--base-url", required=True)
     provider = commands.add_parser("configure-provider", help="set non-secret USAi connection details")
@@ -1274,10 +1147,6 @@ def main():
             forge_run(args.node_executable)
         elif args.command == "install-kata-service":
             install_kata_service()
-        elif args.command == "kata-run":
-            kata_run()
-        elif args.command == "install-kata-mcp":
-            install_kata_mcp()
         elif args.command == "configure-provider":
             configure_provider(args.base_url, args.model, args.api)
         elif args.command == "list-models":

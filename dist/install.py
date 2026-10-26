@@ -247,7 +247,10 @@ def instructions(checkout, node):
     print("  " + shlex.join([*command, "run"]))
     print("Or run each service in a separate terminal:")
     for name in ("kata", "agentsview", "roborev", "forge"):
-        args = [*command, f"{name}-run"]
+        args = (["env", f"KATA_HOME={checkout / '.local/environment/kata'}",
+                 str(checkout / "kata/kata"), "daemon", "start", "--foreground",
+                 "--no-auto-token", "--listen", "127.0.0.1:17777"]
+                if name == "kata" else [*command, f"{name}-run"])
         if name in ("roborev", "forge"):
             args.extend(["--node-executable", str(node)])
         print("  " + shlex.join(args))

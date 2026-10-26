@@ -161,7 +161,7 @@ class InstallerTests(unittest.TestCase):
         with contextlib.redirect_stdout(output):
             installer.instructions(self.root / "installation with spaces", Path("/node with spaces/node"))
         text = output.getvalue()
-        for command in ("kata-run", "agentsview-run", "roborev-run", "forge-run", " stop"):
+        for command in ("daemon start --foreground", "agentsview-run", "roborev-run", "forge-run", " stop"):
             self.assertIn(command, text)
         self.assertIn("'installation", text.replace(str(self.root) + "/", ""))
         self.assertIn("--node-executable '/node with spaces/node'", text)
