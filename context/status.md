@@ -1,5 +1,21 @@
 # Status: 2026-10-26
 
+## Engineer naming recorded; Forge onboarding remains proposed (w5yr)
+
+- Product branding is now Engineer (`engineer`). The owner deferred all
+  directory renames, including `~/kenn-kopy` to `~/engineer`. Live
+  `engi-platform` Kata identity/binding and service/state paths are unchanged;
+  deferred migration is tracked as `eb48`.
+- `engineering-workflow.md` recommends native local-project workspace/Kata
+  support, agreed separate toolkit/corpus routing, existing private SPUD
+  provider onboarding, then one real coding/review pilot (`jgcf`).
+  Local-project registration is not enough: UI and Kata resolution still
+  require provider identity. Live mappings remain absent for the intended repos.
+- Documentation only; no Forge source/configuration, neighboring repository,
+  task binding, remote, service or directory was changed. No agent was launched,
+  experimental process started, or publication performed. Existing persistent
+  services are left running; there is no owned process to shut down.
+
 ## First source cleanup delivered (Kata rzsc)
 
 - a650c44 consolidates the installer service inventory, rejects runtime drift,

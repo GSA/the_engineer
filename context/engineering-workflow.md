@@ -5,6 +5,59 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Proposed intended-repository onboarding: 2026-10-26
+
+The owner means Engineer (`~/kenn-kopy`), the Librarian toolkit
+(`~/the_librarian`), the FALCON knowledge instance (`~/falcon-docs`) and
+SPUD (`~/aos-spud`), not the four existing Falcon application mirrors.
+Engineer is the selected product name; all directory renames are deferred.
+This is a recommendation, not an approved Forge implementation or catalog change.
+
+1. Make local projects usable through Forge's normal workspace/task flow.
+   Reuse its native project, Git worktree and runtime-session APIs rather than
+   adding another launcher. Extend the workspace picker and Kata mapping/
+   resolution path to target a stable local-project identity without a provider
+   identity. Register or reuse the three remote-free checkouts at their current
+   paths only after approval of this slice. Do not invent remotes,
+   publish repositories or equate registration with usable workspace integration.
+2. Resolve task routing before launching toolkit/corpus work. Both checkouts
+   currently use the same `librarian` Kata project; `repo` metadata is not
+   interpreted by Forge. Prefer one task project per repository (retain
+   `librarian` for the toolkit and agree a separate corpus project) over a new
+   metadata-routing layer. This requires owner agreement and a history-preserving
+   task/binding migration, not an unannounced split. Keep the existing Engineer
+   and SPUD task identities for now and map by daemon/project UID.
+3. Add existing private `GSA/aos-spud` through Forge's provider-backed route and
+   map `spud`, with explicit approval of the provider-catalog change. No new
+   remote or publication is needed. Leave existing application mirrors intact;
+   SPUD onboarding is independent of the remote-free repository support.
+4. Prove one bounded Engineer task before expanding use: native Kata claim,
+   correct isolated worktree, configured private Pi launch, repository
+   instructions and task access, implementation, roborev review, evidence and
+   explicit Kata closure. Verify workspace reopening and safe cleanup as well.
+   Then exercise each other repository's binding/instruction boundary. A running
+   agent or passing synthetic shell smoke is not this acceptance evidence.
+
+Keep task selection/launch explicit initially; automatic ready-task scheduling
+is a different feature. Do not make a full Forge rewrite, memory service,
+directory rename or new remote a prerequisite for onboarding.
+
+Current source confirms this is not only a UI omission:
+`forge/frontend/src/lib/components/terminal/NewWorkspaceDialog.svelte` uses
+`RepositoryReads` and provider repository keys;
+`forge/internal/server/kata/workspace.go::kataManualWorkspaceTarget` and
+`kataRegisteredProjectRepoMatches` exclude projects without `PlatformIdentity`.
+Live GETs still show connected daemon `local`, unmapped
+`engi-platform`/`librarian`/`spud`, and only the four application mapping targets.
+
+Documentation decision: `w5yr`. Real coding/review pilot remains `jgcf`.
+Deferred identity/path migration: `eb48`; inventory service units, executable
+and working-directory paths, native CLI/profile aliases, hooks, MCP settings,
+Forge registrations/worktrees and stored references before planned downtime.
+Preserve task/project UIDs, review/session history and rollback capability.
+No directory, runtime binding, service, provider configuration or task domain
+was changed by this recommendation.
+
 ## Kata to Forge: current pickup boundary, 2026-10-26
 
 Creating a Kata does not queue an agent. The current handoff is explicit:
