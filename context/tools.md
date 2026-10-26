@@ -1,5 +1,39 @@
 # Upstream components
 
+## Native Kata usage (2026-10-26; supersedes launcher guidance below)
+
+`~/.local/bin/kata` points directly to `/home/nkirrish/kenn-kopy/kata/kata`.
+Native `~/.kata/config.toml` selects named URL target `engi-platform` at
+`http://127.0.0.1:17777`. This is a daemon name, not a project restriction.
+CLI uses normal `.kata.toml` bindings/flags and native attribution. Shell
+startup files were unchanged. Reinstall with a direct binary symlink plus
+native active_daemon/daemon URL config; do not recreate a dispatcher.
+
+Deleted kata-local.py, kata-mcp.py, Kata-specific MCP checker/pilot/trust
+helpers, kata_todo.py and tests, and the newly added shell wrapper. Removed
+custom project/actor guards and kata-run dispatch. Local Pi/Copilot configs
+now run the binary with `mcp serve`, repository cwd and explicit loopback
+KATA_SERVER; other servers/profile settings are preserved. These configs and
+user config are private/ignored, so README documents repeatable native setup.
+Existing MCP sessions need reconnect/restart; old in-memory adapters do not
+magically reload. No custom trust installer or new attention hook.
+
+The enabled user service executes the binary directly, with explicit managed
+KATA_HOME; current PID 23538. Database remains `.local/environment/kata/kata.db`
+(schema 30, same binary). Shared installer/health checks remain in local_env.py
+so redeployment and dashboard status still work, not as runtime wrappers.
+Private online rollback snapshot: runtime/kata-native-cleanup/before.sqlite3.
+All 8 project rows and 68 tasks preserved across restart; 67 task rows exact,
+only tracking task tvbf changed by explicit Pi claim. All 58 original comments
+preserved plus cleanup progress. Native health/CLI and stdio initialize, loader,
+rediscovery/task read pass. Pi reports Kata connected (16 initial tools);
+Copilot lists native workspace config. These are connectivity, not model pilots.
+
+89 local_env tests pass; combined installer suite passes 115/116 with an
+unrelated existing isolated Pi startup check failing. Direct existing-profile
+Pi version/MCP list works. TODO generated live block is retired; completed
+history remains. No application repository initialization or publication.
+
 # Librarian Kata CLI access (recovered session)
 
 `local_env.py::kata_project_scope` now accepts explicit `--project librarian`

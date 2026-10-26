@@ -14,6 +14,14 @@ requests using parallel, human-directed agents with shared context, durable
 task tracking, continuous review, and session visibility. Prioritize roborev,
 Superpowers, Kenn Forge, task tracking, AgentsView, and Falcon Context.
 
+- On 2026-10-26 the owner authorizes removing custom Kata CLI/MCP wrappers,
+  project/actor guards and non-native task-index requirements. This supersedes
+  earlier launcher scope decisions below. Plain `kata` points to the native
+  binary; native user config routes to the existing loopback service. Retain
+  all task/state identities and use repository bindings. Service execution is
+  native; Python remains only for shared installation/health orchestration,
+  not Kata command dispatch. No unrelated integrations or hooks are changed.
+
 Current decisions, incorporating the user's 2026-10-04 clarification:
 
 - The owner authorizes a scoped Librarian CLI launcher fix and selects explicit

@@ -1,5 +1,14 @@
 # Engi Platform Kata backlog
 
+## Current operation: native Kata (2026-10-26)
+
+Owner-approved cleanup supersedes the scoped launcher/index/adapter operations
+below, retained as historical evidence. Use native `kata`, repository bindings
+and native `kata mcp serve`; see README and the current tools/status entries.
+Existing database/projects/tasks are retained. `TODO.md` now preserves completed
+history only. No custom actor/project guards or generated-index refresh remains.
+The broader lifecycle/resume task remains open; connectivity is not completion.
+
 The owner adopted Kata at 17:42 on 2026-10-12 for **this project only**.
 Project `engi-platform` owns live task state. `TODO.md` is its generated
 open-task index plus historical completed Markdown records. Keep detailed

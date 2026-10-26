@@ -6,12 +6,11 @@
 - Ask before consequential assumptions. Prefer simple code and a useful,
   maintainable result over extensive prose or fast delivery.
 - Work incrementally; verify actual behavior before claiming completion.
-- Use `scripts/kata-local.py` for this project's Kata tasks; refresh the
-  generated `TODO.md` index with `python3 scripts/kata_todo.py` before handoff.
-  Close only with verified completion/evidence; keep detailed findings in `context/`.
-- Kata MCP is project-scoped. Load the relevant `kata.load_*` section, then
-  rediscover its tools; check the actor with `kata.status`. MCP access does not
-  install attention hooks or grant permission to force claims or publish.
+- Use native `kata` commands and repository `.kata.toml` bindings for tasks.
+  Search before creating, claim before working, and close only with verified
+  completion/evidence. Keep detailed findings in `context/`.
+- Optional MCP uses native `kata mcp serve`; load the relevant `kata.load_*`
+  section and rediscover tools. Access does not authorize force claims or publication.
 - Preserve upstream history, licenses, and local changes. Read a submodule's
   instructions before editing it; do not adopt them workspace-wide.
 - Commit completed workspace work locally; keep credentials and private

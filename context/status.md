@@ -1,4 +1,27 @@
-# Status: 2026-10-24
+# Status: 2026-10-26
+
+## Native Kata cleanup (tracking task tvbf; broader lifecycle scope open)
+
+- Owner authorizes deleting custom Kata wrappers/guards/non-native usage.
+  Binary symlink installed at ~/.local/bin/kata; native ~/.kata/config.toml
+  routes to existing loopback daemon. No shell startup edits or database move.
+- Deleted CLI/MCP/index/pilot/trust helpers and Kata-specific guard tests.
+  Local Pi/Copilot MCP entries run native mcp serve; unrelated servers preserved.
+  Existing sessions must reconnect/restart to drop their in-memory old adapters.
+- Service reinstalled and restarted: native ExecStart, PID 23538, same database
+  and schema. Native health ready after startup (immediate first probe raced
+  startup and truthfully returned unavailable). All 8 project rows and 68 task
+  counts preserved; only tvbf differs after Pi claim. All prior comments intact.
+  Private online pre-change backup retained under runtime/kata-native-cleanup.
+- 89 local_env tests pass; combined suite 115/116 passes with unrelated isolated
+  Pi startup failure. Existing-profile Pi version and native MCP connectivity
+  pass; native stdio initialize/loader/rediscovery/actual tvbf read pass. Copilot
+  workspace configuration verified, not model execution. No extra daemon or
+  persistent experimental process remains.
+- AGENTS/README/dist instructions use native Kata; TODO live index requirement
+  removed and completed history retained. Shared service installer/health
+  orchestration remains, not runtime dispatch. Broader Pi lifecycle/resume work
+  stays open; no application init, hook install, model request or publication.
 
 ## Repeated snapshot failure diagnostics (Kata p2v5)
 
