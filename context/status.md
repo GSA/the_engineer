@@ -1,5 +1,33 @@
 # Status: 2026-10-26
 
+## Architecture and selective-memory design (Kata qt7g)
+
+- Saved `system-architecture.md` with ownership/acquisition/reproduction
+  diagrams, evidence from all four repositories, explicit current/proposed
+  distinctions, gap ownership and a phased delivery sequence. SPUD acquisition
+  is reused as an external dependency; no SPUD roadmap or rename is assumed.
+- Saved `engineering-memory.md`: selected decisions, corrections, attempts,
+  procedures, handoffs and context gaps; minimal record/recall contracts and
+  measurable synthetic pilot gates. Full transcripts/action ledgers are not
+  the requirement. Hindsight is a candidate, not selected or installed.
+- Preserved the supplied conversation byte-for-byte in ignored/private
+  `.local/context-inputs/tmp_convo.txt`; removed its original untracked path
+  as requested. Hash and provenance are in tools.md.
+- Live task reads exposed a shared `librarian` binding for toolkit and corpus.
+  Source inspection exposed legacy MCP coupling and removed Forge-service
+  invocation in the Engineer installer. These remain implementation work;
+  no binding, service, provider, corpus or upstream source was changed.
+- Next decisions: task-domain split, first onboarding target/export scope,
+  memory hosting/model/handling policy and later stable-name migration.
+  Existing reproduction, ingestion and workflow tasks remain open.
+- Checked persisted documents, 23 local evidence links and Markdown fences;
+  diff whitespace check passes. Private transcript hash/size match the source,
+  and Git ignores it. No runtime code changed or deployment acceptance claimed.
+- Documentation/design only. No experimental process, service restart,
+  model pilot, corpus ingestion or publication; existing dirty neighboring
+  changes were preserved. Configured post-commit review remains enabled.
+  No owned background process needs shutdown.
+
 ## Centralized agent memory/event-store research (Kata 8cne)
 
 - Owner requested public Hacker News discovery for agent-native centralized

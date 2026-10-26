@@ -5,6 +5,14 @@ Python 3.11+ and Node.js 24.11+ are required; Ubuntu 24.04+ is the recommended
 starting point. This is a source-build installer, not a container, cloud
 deployment or confidential-data bundle.
 
+**Known gaps (2026-10-26):** this recipe still requires the legacy Falcon MCP
+executable described below, not the renamed data-empty Librarian executable.
+The `--services user` branch also requests `install-forge-service`, which the
+runtime no longer provides after Forge's retirement from managed startup.
+Do not treat this as a complete fresh-host recipe until Kata `p4ke` reconciles
+these paths. See the [architecture gap inventory](../context/system-architecture.md#concrete-reproduction-gaps).
+No existing service should be changed merely to accommodate this older recipe.
+
 From the platform checkout:
 
 ```sh

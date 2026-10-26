@@ -14,6 +14,13 @@ Current service evidence and blockers are in [context/status.md](context/status.
 The distinction between Forge controls and our proposed engineering phases is
 documented in [context/engineering-workflow.md](context/engineering-workflow.md).
 
+The proposed [cross-project architecture](context/system-architecture.md)
+separates Engineer, the Librarian toolkit/program instances, and externally
+owned SPUD, including reuse of SPUD acquisition and current reproduction gaps.
+[Selective engineering memory](context/engineering-memory.md) describes
+decisions, corrections and handoffs rather than full conversation capture.
+These are design drafts, not installed integrations or completed deployment.
+
 ## Standalone agent terminals: Ghosthub replacement
 
 The lowest-friction baseline on this WSL host is **existing Zed plus tmux**.
