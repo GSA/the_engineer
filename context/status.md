@@ -1,5 +1,26 @@
 # Status: 2026-10-27
 
+## Boundary-aligned backlog cleanup: 2026-10-27 (pd40)
+
+- Retired Falcon graph workstream `vmhy` and its remaining children `e7zh`,
+  `3g58`, `ww85`, `73at`, `28jz` as `wontfix`. Completed contract/history and
+  existing assets remain; no pilot acceptance is invented.
+- Closed obsolete `5ayh` as superseded by deferred Engineer migration `eb48`.
+  Narrowed mixed hosting task `jmga` to Engineer and independently hardened
+  Librarian, excluding new Falcon hosting.
+- Closed ten reviews with explicit dispositions and audited their persisted
+  status. Six remain: toolkit 24/56/60/69/71 and real application review 14.
+  Original verdicts are preserved; no unresolved finding was claimed fixed.
+- Created `librarian#q9a9` for hardening against a different approved project
+  before Falcon migration. Its project/material and execution approval remain
+  undecided. Kept `7bna` read-only and existing producer/receiver dependencies.
+- Preserved concurrent assessment `rmgx`/`b998e54`, real application tasks,
+  provider-use acceptance, policy/access restrictions and unrelated local
+  changes. No feature implementation or pipeline was run.
+- Falcon's MCP and ingestion pipeline remain retained legacy capabilities.
+  No service/profile/global setting, authoritative store or corpus changed;
+  no new persistent process, deletion, migration or publication.
+
 ## SPUD fit assessment and expanded demo: 2026-10-27 (rmgx)
 
 - Completed source-based comparison of SPUD core/Web, the standalone

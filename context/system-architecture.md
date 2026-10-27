@@ -1,6 +1,6 @@
 # Engineer, Librarian and SPUD: ownership and reproduction
 
-**Date:** 2026-10-26. **Tracking:** engi-platform Kata `qt7g`.
+**Date:** 2026-10-27. **Tracking:** engi-platform Katas `qt7g`, `rmgx`, `pd40`.
 **Status:** architecture proposal grounded in local inspection, not an installed
 integration or authority to rename, migrate, deploy or change SPUD.
 
@@ -30,20 +30,44 @@ authorization.
 
 ## FALCON legacy-technology boundary: 2026-10-27
 
-The owner directs that `falcon-docs` technology be treated as legacy while its
-information corpus is preserved until a replacement system and migration/
-re-ingestion plan are ready. This retires further FALCON hosting,
-unattended-ingestion and compatibility-cleanup work; `falcon-docs#5njc`,
-`#51kq` and `#939r` were closed as `wontfix`, not represented as completed
-acceptance. Their native records and history remain. This is not authorization
-to remove the checkout, shut down services, alter authoritative stores,
-refresh the index, migrate/re-ingest content or change handling policy.
+The owner freezes further functional development of `falcon-docs`, not its
+useful operation or information. Preserve its existing MCP server and document
+ingestion pipeline for authorized use, along with original bytes, provenance,
+restrictions, catalog/review authority and history. Retaining those capabilities
+does not certify their present freshness or authorize a new ingestion run.
 
-Until a separately approved migration plan exists, preserve original bytes,
-provenance, restrictions, catalog/review authority and the current corpus.
-Choose a destination and define identity/version mapping, validation, recovery
-and cutover before any transfer or re-ingestion. The FALCON technology
-disposition does not make its corpus obsolete or disposable.
+Further FALCON hosting, unattended-ingestion and compatibility-cleanup work is
+retired; `falcon-docs#5njc`, `#51kq` and `#939r` remain closed as `wontfix`.
+The FALCON graph-visualization workstream `engi-platform#vmhy` and its five
+remaining children are also retired as `wontfix`, not accepted as complete.
+Preserve the completed contract and existing graph assets; do not silently
+move this feature backlog into the reusable toolkit.
+
+The eventual destination is `the_librarian`, but **first harden and validate
+the toolkit against a different owner-approved project** (`librarian#q9a9`).
+The Acquire recommendation below does not by itself select or authorize
+business-document materials for that validation. Preserve read-only legacy
+parity inventory under `librarian#7bna`; inventory is not migration approval.
+After the hardening gate, separately agree identity/version mapping, provenance
+and handling preservation, validation, recovery and cutover before transfer
+or re-ingestion. Do not remove the checkout, stop services, mutate stores,
+refresh the index or change handling policy as backlog cleanup.
+
+### Keep the remaining work with its owner
+
+| Boundary | Retain | Retire or defer |
+| --- | --- | --- |
+| Engineer | Refinement, task authority, coding/review workflow, provider-use acceptance, visibility and selective engineering memory | Retire the Falcon-only visualization workstream. Old rename target `5ayh` is superseded by deferred Engineer migration `eb48`; no rename is performed. |
+| Librarian toolkit | Independent-project hardening, qualified business context, intake/receiver design and read-only legacy parity evidence | Falcon migration follows the hardening gate and a separate approved plan. Unresolved toolkit findings are not obsolete because Falcon is legacy. |
+| SPUD | Revision-bound code context and producer/exporter evidence within its own implementation boundary | Do not move acquisition ownership into Engineer or treat an assessment as an executed pipeline. |
+| FALCON legacy instance | Existing MCP, document ingestion, corpus, provenance and history | No further functional development, hosting expansion or new graph pilot. No teardown or corpus deletion. |
+
+Review cleanup preserves original verdicts and findings. Passing reviews,
+verified corrections, duplicates with an open keeper, and intentional
+diagnostic-fixture failures can leave the actionable queue with an explicit
+disposition. Distinct unresolved defects remain open; see native cleanup
+`engi-platform#pd40` and hardening `librarian#q9a9`. Application maintenance is
+not retired by a decision about `falcon-docs`.
 
 Cross-product Jira/Confluence handoff design now has one Engineer coordinator,
 `engi-platform#dh1t`, with the producer evidence task `spud#3sv9` and receiver
@@ -244,7 +268,7 @@ flowchart TB
         intake["Private inbox + provenance + extraction"]
         curate["Curation + review + corrections"]
         retrieve["Qualified context retrieval"]
-        falcon["falcon-docs: existing populated instance"]
+        falcon["falcon-docs: retained legacy instance"]
         intake --> curate --> retrieve
         falcon --- retrieve
     end
@@ -470,11 +494,11 @@ selected or installed here.
 | Installer/service drift | `7pq7` restores `install-forge-service` and four managed services at owner request; the dormant-Forge premise is superseded | `p4ke`/`rzsc`: retain independent installer and Kata storage-isolation acceptance; restored Forge does not prove fresh-host deployment |
 | Runtime/version drift | Librarian decision 0002 still calls out missing complete reader/adapter lock; Engineer's full clean-host run is outstanding | Pin reproducible artifacts; validate a new isolated project and rerun without state loss |
 | Instance portability | Librarian decisions 0003/0004 identify toolkit-relative policy/store homes and absolute-root index identity | Use independent full-clone instances now; make store-home/policy changes under explicit compatibility work, not a shared-root shortcut |
-| Existing populated instance divergence | Falcon's old identities/layout and additional tools differ from the reusable toolkit | Inventory capability parity and rehearse any migration on a copy with recovery; never reinitialize populated stores |
+| Existing populated instance divergence | Falcon's old identities/layout and additional tools differ from the reusable toolkit | Keep `librarian#7bna` read-only; complete independent-project hardening `librarian#q9a9` before an approved migration rehearsal; never reinitialize populated stores |
 | Intake throughput | Legacy FALCON automation is retired; Acquire needs automated toolkit intake | Coordinate `engi-platform#dh1t` and owning tasks; approve a durable intake slice independently of FALCON migration |
 | Code-context access | Graphify already has bounded queries; SPUD snapshot adapter and historical companion completeness are not established | Pin and evaluate direct Graphify reuse, then supply project/revision/coverage envelopes |
 | Durable engineering lessons | Existing `8cne` research is complete, but no selective-memory service exists | Evaluate the [memory contract](engineering-memory.md), not transcript capture or a lossless ledger |
-| Names and task domains | Toolkit/corpus task separation is delivered; legacy runtime names remain | `5ayh` / `eb48`: inventory stable IDs/references before deferred directory/service migration |
+| Names and task domains | Toolkit/corpus task separation is delivered; legacy runtime names remain | `eb48` owns deferred Engineer directory/service migration; obsolete `5ayh` is superseded, not implemented |
 
 ## Delivery sequence and decision gates
 
@@ -509,8 +533,10 @@ meet. `engi-platform#f47m` is the concrete first provider boundary: explicit
 executable/reader/root/selection, preserved Falcon compatibility, visible
 configuration failures and no accidental instance-state substitution.
 `0sfx` addresses native Kata provisioning, not a replacement CLI wrapper.
-`qc96` and `librarian#7bna` cover current-guidance cleanup and safe
-toolkit/instance consolidation. FALCON-specific compatibility cleanup
+`qc96` covers current-guidance cleanup; `librarian#7bna` retains read-only
+legacy parity inventory. Independent-project hardening `librarian#q9a9`
+must precede any separately approved Falcon migration or consolidation.
+FALCON-specific compatibility cleanup
 `falcon-docs#939r` is retired as `wontfix`; preserving the corpus remains a
 separate requirement and does not imply code cleanup or migration.
 

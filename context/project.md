@@ -39,11 +39,20 @@ No code changes or fixes were authorized in this sweep.
 
 ## FALCON legacy direction and cross-project handoff: 2026-10-27
 
-The owner directs treating `falcon-docs` technology as legacy while preserving
-its information corpus until a replacement and migration/re-ingestion plan are
-ready. This retires the open FALCON cloud-hosting, unattended-ingestion and
+The owner directs treating `falcon-docs` technology as legacy with no further
+functional development, while retaining its existing usable MCP server,
+document-ingestion pipeline and information corpus. Eventual migration to
+`the_librarian` follows hardening on a different owner-approved project
+(`librarian#q9a9`), then a separately approved migration/recovery plan.
+Project/material selection for that gate remains open; Acquire code permission
+does not authorize its business documents.
+
+This retires the open FALCON cloud-hosting, unattended-ingestion and
 compatibility-cleanup tasks `5njc`, `51kq` and `939r` as `wontfix`, not as
-completed acceptance. Preserve their task histories and the corpus; no
+completed acceptance. Cleanup `pd40` also retires the Falcon-only graph pilot
+and supersedes the obsolete rename target with deferred Engineer task `eb48`.
+Toolkit integrity findings, provider-use acceptance and read-only parity
+inventory remain relevant. Preserve their task histories and the corpus; no
 checkout/service teardown, authoritative-store mutation, index refresh,
 migration or re-ingestion is authorized. The cross-product design boundary and
 documentation map are in [system-architecture.md](system-architecture.md).
