@@ -8,6 +8,15 @@ passing follow-up review 104. Added comments and closed all 24 without
 rewriting verdict history. Every exact job audit reports `closed=true`, and a
 fresh open inventory is empty.
 
+## Repo-named snapshot reviews: 2026-10-27
+
+`roborev repo list` can show multiple repositories with the display name
+`repo`; the normal current-repository list does not aggregate them. Query each
+registered path with `roborev list --repo <path> --all-branches --open` and
+assess dirty pre-commit findings against the current canonical source before
+closing. Add evidence comments before closing resolved reviews, then audit the
+original job IDs individually.
+
 ## Review corrections: 2026-10-27
 
 The Helix/GSA sync CLI now resolves PR bases from the remote-advertised HEAD,

@@ -1,5 +1,23 @@
 # Status: 2026-10-27
 
+## Repo-named roborev review sweep: 2026-10-27
+
+- Queried each tracked repository named `repo`: 31 open snapshot reviews (9
+  Pass, 22 Fail). These were temporary pre-commit snapshots, not the canonical
+  source repositories.
+- Added evidence comments and closed 28: all 9 passing reviews and 19 failures
+  whose findings are fixed in current source or benign in the owner-managed,
+  same-UID local threat model. Audits confirm each is closed.
+- Kept jobs 24, 56 and 69 open. Job 24 reproduces raising inherited soft
+  resource limits; job 56 still permits model assets to change and be restored
+  during inference; job 69 identifies operational execution records in a
+  packaged completion plan, contrary to Librarian's repository policy.
+- Librarian's installed suite passed 112 tests (7 opt-in skips); its pre-commit
+  suite passed 51. No Librarian files were changed; its pre-existing edits to
+  `ROADMAP.md` and `docs/decisions/0006-relationship-traversal.md` remain intact.
+- Kata search found no matching task; the unrelated next issue was not claimed.
+  No persistent process or external configuration was changed.
+
 ## Roborev open-review sweep: 2026-10-27
 
 - `roborev list --all-branches --open` found 24 open jobs: 22 already passed
