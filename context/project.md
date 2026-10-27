@@ -1,5 +1,13 @@
 # Objective and decisions
 
+## Repo-named roborev review sweep: 2026-10-27
+
+The review disposition sweep changed only local review records, not Librarian
+source. Most snapshot findings are already fixed in the current checkout; jobs
+24, 56 and 69 remain open for a reproducible resource-limit regression, a
+model-asset integrity race, and packaged operational-history policy conflict.
+No code changes or fixes were authorized in this sweep.
+
 ## FALCON legacy direction and cross-project handoff: 2026-10-27
 
 The owner directs treating `falcon-docs` technology as legacy while preserving
