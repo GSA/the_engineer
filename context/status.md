@@ -1,5 +1,25 @@
 # Status: 2026-10-27
 
+## SPUD fit assessment and expanded demo: 2026-10-27 (rmgx)
+
+- Completed source-based comparison of SPUD core/Web, the standalone
+  Jira/Confluence exporters and current Graphify. The recommendation and
+  all-three Acquire demo sequence are in `context/system-architecture.md`.
+- Corrected earlier omissions: Graphify already has real edges, bounded queries,
+  MCP and incremental safeguards; SPUD Web already has job orchestration.
+  Neither establishes a complete unattended Drive/Confluence intake lifecycle.
+- Offline graph checks and fake-client reproductions establish useful reuse and
+  concrete false-completion/checkpoint gaps. Exact counts and baseline
+  limitations are in `context/tools.md`; no actual Acquire/FALCON assets used.
+- Recommend hardening exporters and building Librarian's durable intake/Drive
+  adapter, not rewriting SPUD wholesale. This is a recommendation, not deployed
+  functionality or upstream modification approval.
+- `dh1t`, `spud#3sv9` and `librarian#55nx` remain open. No dependencies were
+  relaxed or new implementation tasks treated as approved.
+- Existing unrelated dirty worktrees preserved. Only Engineer documentation and
+  native assessment evidence changed; no push, global configuration, live
+  service or corpus mutation. No experimental process remains running.
+
 ## Zsh npm report not reproduced: 2026-10-27 (rrs8)
 
 - Searched native Kata, created and claimed rrs8 for the owner-requested repair.

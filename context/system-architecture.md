@@ -55,6 +55,9 @@ ingestion or corpus change.
 
 ## Post-onboarding recommendation: 2026-10-26 (kamh)
 
+**Superseded for the expanded demo by the October 27 assessment below.**
+The bounded Engineer pilot remains useful prior evidence, not the whole demo.
+
 Private GSA repositories, Forge catalog entries and explicit Kata mappings now
 exist for Engineer, Librarian toolkit and SPUD (`7943`). Toolkit/corpus task
 separation is also delivered; Falcon remains local and unmapped. This removes
@@ -86,6 +89,138 @@ The prior conversation is preserved unchanged, privately, at
 acquisition integration and repeatable project setup move earlier; a new SPUD
 query service and a full action ledger are not prerequisites.
 
+## SPUD fit and the three-part Acquire demo: 2026-10-27 (rmgx)
+
+**Recommendation, not implementation approval:** adapt and compose; do not
+rewrite SPUD wholesale or treat its current pipeline as a complete knowledge
+platform. The owner requires all three products to demonstrate value together.
+Acquire is the viable code-backed candidate because its code may be downloaded;
+FALCON code may not. Document access and permitted processing destinations still
+need their own scope. No project code or documents were acquired in this assessment.
+
+### What is reusable, and where it belongs
+
+| Component inspected | Fit | Recommendation |
+| --- | --- | --- |
+| Graphify (`graphifyy`) | Real code graph, typed relationships, source locations, incremental processing, bounded query/path operations and MCP; not just a diagram generator | Pin and call its deterministic code-only CLI directly within the SPUD code-context boundary. Add a thin project/revision/coverage contract, not another graph engine. Evaluate representative Acquire languages before committing to it. |
+| SPUD core | Agent-driven technical-documentation factory around Graphify; local/cloud export wrappers and OKF/site packaging | Keep narrative generation as an optional graph consumer. Decouple graph availability and machine intake from long agent-documentation and HTML/ZIP runs. |
+| Standalone Jira/Confluence exporters | Existing separate projects retaining raw JSON, Markdown, attachments and state | Reuse and harden upstream or through an approved maintained dependency. There is no need to extract these from SPUD first. |
+| SPUD Web | Existing job UI/API, DynamoDB locks, queues, Streams dispatch, Step Functions and terminal-event handling | Reuse for run visibility if helpful, after correcting failure semantics. Job-level orchestration is not a per-source-item completion ledger. Do not rebuild it merely because the earlier assessment missed it. |
+| Librarian intake and knowledge layer | Missing durable automated acquisition-to-retrieval lifecycle; no Acquire instance established | Build the common intake/reconciliation worker and Drive adapter here, using existing supported stores/writers. Business entities, conflicts, citations and automatic qualification policy remain Librarian responsibilities. |
+
+The choice is **reuse Graphify, harden exporters, build missing Librarian
+intake**, with SPUD/Web retained where useful. A new top-level project is not
+justified yet. Extract a small neutral connector package only if independent
+consumers need it; use existing exporter packages first. Graphify carries
+license files; no LICENSE/NOTICE files were found in the pinned exporter trees.
+Confirm upstream maintenance and reuse rights before copying or redistributing
+code; repository availability is not a substitute for that check.
+
+### Why the current ingestion is not "set and forget"
+
+These findings distinguish source inspection from synthetic reproduction:
+
+| Evidence | Consequence |
+| --- | --- |
+| Confluence `cli.py:494-700` selects from the previous `last_run_start`, advances that marker during a run and catches page failures. A fake failed page reproduced exit 0, status `error`, and a newer marker; the next incremental call does not separately retry that old failed page. | An interruption/limit/partial historical crawl can strand old unvisited or failed pages outside the next modified-since query. A clean process exit is not coverage. |
+| Jira `exporter.py:245-300` catches listing failures and saves `last_run` regardless. A fake first-page API failure reproduced normal return with `last_run` and `last_full_export` populated but zero issues. | Even unsuccessful discovery can look like a completed export and advance the incremental baseline. |
+| Confluence attachment failure reproduced parent status `done` with an attachment marked `download_error`; unchanged-page handling skips work. | Page freshness does not establish attachment completeness or guaranteed retry. |
+| SPUD cloud exporter EXIT handlers warn on failed S3 persistence without changing the original successful exit status. Web `_start_jira_execution` / `_start_confluence_execution` catch dispatch errors and construct an ARN; their caller records `RUNNING`. | Persistence/dispatch failure can have success-shaped tracking. These paths were traced, not exercised against AWS. |
+| SPUD step 1 prompts an agent to run Graphify; required-output checks are existence/nonempty checks. Graphify is installed unpinned at container startup. | Artifact existence does not prove the expected revision, coverage or graph validity; repeatability depends on a moving external runtime. |
+
+The graph situation is materially better than the earlier conversation implied.
+SPUD's flat citation index discards edges, but Graphify's underlying graph has
+them. Current Graphify also has partial-extraction safeguards, file manifests,
+deletion reconciliation and an MCP build-commit staleness signal. Reuse those
+instead of pretending they are absent. They still need a project-scoped
+publication contract, especially for dirty worktrees and extraction exclusions.
+The current upstream version inspected is not proof of the version deployed in SPUD.
+
+Neither inspected SPUD nor SPUD Web implements Drive enumeration/change
+reconciliation. Graphify's Google Workspace helper exports known shortcut files;
+it is not a connector that discovers all authorized Drive documents. Jira's
+search-payload comments also need pagination-completeness acceptance; a requested
+`comment` field alone does not prove all comments were returned.
+
+### Minimum implementation sequence and ownership
+
+1. **Prove the code-context component on authorized Acquire code.** Pin Graphify;
+   build without an LLM first; query a known dependency/call path with file/line
+   evidence. Record repository identity, commit plus dirty-content identity,
+   extractor version, included/excluded/failed files and graph artifact hashes.
+   Publish a snapshot only after validation; make partial/stale scope explicit.
+   Add language-specific extraction only if measured gaps justify it.
+2. **Build Librarian's unattended intake spine and one Confluence vertical slice.**
+   Maintain durable discovery progress and per-source/version/representation
+   work items, raw artifacts, extraction receipts and retrieval publication.
+   A worker resumes after interruption, retries bounded transient failures and
+   exposes permanent failures; an operator must not manually restart each page.
+   Harden exporter checkpoint/error handling rather than merely wrapping its
+   successful exit. Keep scheduling separate from demonstrated recovery.
+3. **Add Drive to the same lifecycle and expand to the whole approved scope.**
+   Include shared drives, folder/shortcut traversal, native export formats,
+   attachments where applicable, pagination, change tokens, identity/version
+   mapping, permission changes and deletion reconciliation. A bounded pilot
+   proves mechanics; it is not a permanent ticket-sized corpus restriction.
+   Confluence and Drive acquisition do not wait for FALCON migration.
+4. **Connect and visibly demonstrate all three.** Librarian derives a cited
+   requirement/business-rule relationship; the SPUD graph supplies its candidate
+   implementing symbols and downstream dependencies; Engineer traces both,
+   proposes and performs one approved change, and shows its review evidence.
+   Store cross-domain links as evidence-bearing assertions referencing both
+   snapshot identities. Distinguish verified links from inferred candidates;
+   name similarity must not silently become business truth. A local composed
+   view is sufficient; a new graph database or platform UI is not required.
+
+For the demo, show the path **document passage -> business rule -> code symbol
+-> affected dependency -> Engineer change/review**, not three disconnected
+screens or only a finished Markdown site. Also show a recovered interruption
+and a changed/deleted source item without duplicate evidence or false freshness.
+Hindsight remains Engineer-owned and is not a prerequisite.
+
+### Completion and automatic qualification contract
+
+"Set and forget" means convergent, observable automation, not guaranteed success
+against permanently inaccessible sources. Define completion for a bounded
+authorized scope and source watermark. Separate discovery cursors from the
+last reconciled successful watermark; never replace the latter with a run's
+start time before historical coverage is established. Persist work before
+acknowledging it, retry independently of updated-since listings, and reconcile
+deletions only after a complete listing or authoritative change event.
+
+Report `complete`, `complete_with_exclusions`, `partial` or `blocked`, with
+discovered/acquired/extracted/qualified/published counts and explicit reasons.
+Only policy-approved exclusions may count toward terminal accounted coverage;
+permission failures and unsupported formats are not silently successful.
+Acquisition completion and retrieval readiness are separate statuses.
+
+Approve an automatic extraction/qualification/selection policy once per project
+and content class, with recorded policy/model versions, provenance and confidence.
+Use manual review for exceptions/conflicts, not every document. Do not silently
+relabel machine-processed evidence as human-reviewed. Existing Librarian gates
+must be deliberately adapted; faster downloads alone cannot bypass them.
+Permissions, approved model destination, retention and budgets are activation
+inputs, not reasons to force manual per-document intake.
+
+### Evidence scope and remaining unknowns
+
+Source pins: SPUD `c80837a`, SPUD Web `8e9626d`, Confluence exporter v0.2.4
+`b310442e22b9501c2527fa344ef272185e427e50`, Jira exporter v0.3.4
+`7894cba1de887452667d1e54594df13f878e1686`, Graphify-Labs/graphify v8
+`dac063456bc1f5d92354ec3936fd9dd1513a83f3` (package 0.9.96).
+Important code: SPUD `services/steps.py`, `pipeline_runner.py`,
+`index_service.py`, `docker/entrypoint.d/01-graphify.sh`, exporter entrypoints;
+Web `services/execution_orchestrator.py:165-288,526-623`;
+Graphify `cli.py`, `serve.py`, `google_workspace.py`.
+
+Offline Python/TypeScript extraction, shared query-direction logic, incremental
+updates and edge/file deletion checks passed. Three fake-client probes reproduced
+the exporter gaps above. Exact validation limits and session-artifact locations
+are in [tools.md](tools.md). No full cloud run, MCP transport acceptance,
+Acquire language/scale benchmark, document semantic-quality/cost evaluation or
+deployment is established. Keep `dh1t`, `spud#3sv9` and `librarian#55nx` open;
+this assessment is not their producer/receiver acceptance.
+
 ## Ownership diagram (target)
 
 Boxes express product responsibility, not organizations we can assign work to
@@ -101,7 +236,7 @@ flowchart TB
     subgraph spud["SPUD - externally owned"]
         acquire["Jira / Confluence export workers"]
         code["Graphify + repository analysis + OKF documentation"]
-        query["Proposed bounded code-context interface"]
+        query["Graphify query/MCP + proposed snapshot adapter"]
         code -.-> query
     end
 
@@ -131,7 +266,7 @@ flowchart TB
     end
 
     atlassian --> acquire
-    documents -->|"approved manual intake"| intake
+    documents -->|"proposed automated scoped intake"| intake
     acquire -.->|"versioned export handoff"| intake
     acquire -.->|"ticket input, not task authority"| refine
     repos --> code
@@ -142,8 +277,8 @@ flowchart TB
 ```
 
 Retained Drive documents use the separate inbox path; SPUD Drive acquisition
-is not assumed. Engineer can deliver work using authorized local code and
-retained SPUD exports before an online SPUD query interface exists. Unavailable
+is not assumed. The expanded demo needs queryable code and business context,
+but neither a new graph engine nor a public online service. Unavailable
 context must be reported; engineering memory is never a substitute for missing
 business evidence.
 
@@ -151,9 +286,9 @@ business evidence.
 | --- | --- | --- |
 | Acquire Jira/Confluence material | Source-access operator; SPUD owns its exporter implementation | Reuse SPUD or its standalone exporters under approved scopes |
 | Admit an export, preserve source identity and handling | Librarian instance | Receiving adapter, catalog and retained private originals |
-| Drive discovery/export | Librarian intake boundary | Preserve Falcon assets; generalize its planner separately; SPUD support unconfirmed |
+| Drive discovery/export | Librarian intake boundary | Build scoped discovery/change reconciliation; preserve Falcon assets separately; inspected SPUD has no connector |
 | Business meaning, conflicts, review and qualified reads | Librarian | Reusable toolkit plus separate program instances |
-| Revision-bound structure and generated technical documentation | SPUD | Graphify and OKF artifacts; query capability requires upstream agreement or an external adapter |
+| Revision-bound structure and generated technical documentation | SPUD | Pin Graphify's existing graph/query capabilities; add snapshot/coverage adapter; optional OKF generation |
 | Ticket refinement, task execution, code changes and review | Engineer | Kata, agents, Superpowers, roborev; Forge restored as the managed worktree/session service on 2026-10-26 |
 | Engineering experience, corrections and resumable handoffs | Engineer | Proposed project-scoped memory, separate from corpus review events |
 | Transcript/usage inspection | Engineer / AgentsView | Existing visibility; not automatic memory ingestion |
@@ -166,7 +301,7 @@ must not be duplicated into competing authorities. Generated code documentation
 retained in Librarian stays attributed SPUD output, not independently verified
 business or runtime truth.
 
-## What the four checkouts actually provide
+## What the checkouts actually provide
 
 These are source/documentation observations, not a new end-to-end run or a
 comparative ingestion-throughput benchmark.
@@ -176,12 +311,14 @@ comparative ingestion-throughput benchmark.
 | `kenn-kopy` | Engineer integration; native Kata; Pi/USAi; roborev; AgentsView; source-pinned submodules; partial installer; three provider-backed Forge/Kata mappings | No selective shared memory, demonstrated full coding/review loop or clean-host acceptance. Installer is still coupled to legacy Falcon MCP. |
 | `the_librarian` | Data-empty toolkit; catalog/review stores; qualified read-only MCP; explicit selection; transcript extraction; optional Docling PDF/image lifecycle | No remote connector or durable automatic intake. Toolkit policy/store-path assumptions prevent casually sharing one install across roots. Full clones are the current instance model. |
 | `falcon-docs` | Populated institutional corpus, retained original material, broader format/cohort tools, Drive metadata planner, qualified retrieval and explicit derived relationship graph | Not the distributable toolkit and not automatically on its version. Drive mount/planner is not continuous copying. Native Google exports lack a verified revision/export mapping in the current planner. |
-| `aos-spud` | Local and cloud Jira/Confluence export orchestration; repository Graphify pipeline; node index, OKF documentation, HTML/archives; upstream epic/story records | No Drive connector or code-context MCP found in inspected `src/`, `docs/` and manifest. Export wrappers do not prove remote completeness or version guarantees. Query API is a proposal, not a discovered service. |
+| `aos-spud` | Local/cloud Jira/Confluence export orchestration; Graphify pipeline, flat node index, OKF documentation and sites (including graph HTML when available) | No native Drive connector or SPUD code-query service found. Underlying Graphify does have queries/MCP. Export wrappers do not establish complete ingestion. |
+| `aos-spud-web` | Source/job management, conditional locks, queues, dispatch, terminal events and site deployment | No Drive source or graph-query API found in inspected backend routes. Dispatch/persistence success and complete source coverage are distinct. |
 
 SPUD's `_handle_local_ingest` calls standalone `jira-to-markdown` or
 `confluence-to-markdown`, then renders/packages outputs. It does not invoke the
 repository Graphify pipeline. The latter has its own step definitions.
-`GraphIndexerService` produces a flat node lookup, **not graph edges**.
+`GraphIndexerService` produces a flat node lookup, **not graph edges**; the
+underlying Graphify graph retains edges and supports querying them.
 Do not infer that exported Jira/Confluence content was knowledge-graphed.
 Graphify here is also unrelated to Graphiti, the memory candidate.
 
@@ -234,7 +371,8 @@ our receiving adapter can be maintained without taking over its implementation.
 
 ## Acquisition handoff: the first integration to build
 
-Use SPUD as an acquisition dependency, not a subsystem to fork or rename.
+Use the standalone exporters (or corrected SPUD wrappers) as acquisition
+dependencies, not a subsystem to fork or rename.
 The receiving adapter belongs with Librarian ingestion; Engineer configures
 which instance to consult. A single adapter may accept an existing export
 without launching SPUD. Scheduling can follow once restart/retry is proven.
@@ -250,7 +388,7 @@ flowchart LR
     stage["Private staging + manifest validation"]
     original["Preserved source version + catalog receipt"]
     extract["Format-routed extraction or existing Markdown rendition"]
-    review["Curation / actual scoped review"]
+    review["Approved automatic qualification / exception review"]
     select["Explicit retrieval selection + freshness check"]
     read["Qualified reads"]
     blocked["Visible pending / blocked disposition"]
@@ -282,10 +420,10 @@ to obtain speed. Determine what exporters really preserve with a small fixture
 before promising incremental ingestion, attachment coverage or remote deletion
 handling. Standalone-exporter reuse must preserve its license and pin.
 
-For Drive, retain Falcon's current originals and origin gaps. Generalize
-metadata planning only after selecting an approved scope; native Docs/Sheets/
-Slides need an explicit revision/export identity design. There is no basis
-to re-download the corpus or declare every retained export current.
+For Drive, retain Falcon's current originals and origin gaps separately from
+new Acquire intake. Select an approved scope; native Docs/Sheets/Slides need
+an explicit revision/export identity design. There is no basis to re-download
+FALCON's corpus or declare every retained export current.
 
 ## Reproducing across projects
 
@@ -333,12 +471,16 @@ selected or installed here.
 | Runtime/version drift | Librarian decision 0002 still calls out missing complete reader/adapter lock; Engineer's full clean-host run is outstanding | Pin reproducible artifacts; validate a new isolated project and rerun without state loss |
 | Instance portability | Librarian decisions 0003/0004 identify toolkit-relative policy/store homes and absolute-root index identity | Use independent full-clone instances now; make store-home/policy changes under explicit compatibility work, not a shared-root shortcut |
 | Existing populated instance divergence | Falcon's old identities/layout and additional tools differ from the reusable toolkit | Inventory capability parity and rehearse any migration on a copy with recovery; never reinitialize populated stores |
-| Intake throughput | Legacy FALCON automation is retired; the toolkit handoff design remains open | Coordinate `engi-platform#dh1t` and its producer/receiver tasks; defer unattended ingestion to a separately approved replacement-system design |
-| Code-context access | SPUD exports exist; online bounded queries and complete historical companions are not established | Accept source-pinned artifacts now; seek upstream contract/support without making its roadmap ours |
+| Intake throughput | Legacy FALCON automation is retired; Acquire needs automated toolkit intake | Coordinate `engi-platform#dh1t` and owning tasks; approve a durable intake slice independently of FALCON migration |
+| Code-context access | Graphify already has bounded queries; SPUD snapshot adapter and historical companion completeness are not established | Pin and evaluate direct Graphify reuse, then supply project/revision/coverage envelopes |
 | Durable engineering lessons | Existing `8cne` research is complete, but no selective-memory service exists | Evaluate the [memory contract](engineering-memory.md), not transcript capture or a lossless ledger |
 | Names and task domains | Toolkit/corpus task separation is delivered; legacy runtime names remain | `5ayh` / `eb48`: inventory stable IDs/references before deferred directory/service migration |
 
 ## Delivery sequence and decision gates
+
+**Historical Engineer-pilot sequence, superseded for the expanded demo by
+the October 27 sequence above.** Retained for task rationale, not as a gate
+requiring FALCON migration or postponing Drive/code graphs until after the demo.
 
 This post-onboarding sequence supersedes the earlier requirement to finish
 fresh-host setup and trial memory before connecting a real task. It is proposed
@@ -445,11 +587,10 @@ approved scopes rather than quietly limiting the intended corpus to one ticket.
 
 ### Defer capability expansion until there is an observed need
 
-SPUD's queryable code-context direction remains valuable, but revision-bound
-local artifacts and direct repository reads can support the first workflow.
-Use that workflow to identify which symbol, dependency or source-range lookups
-need a bounded upstream query interface; do not make a new SPUD MCP service or
-knowledge graph the entry fee for integration. Upstream changes require its
+The expanded demo now explicitly requires connected graph/context builders.
+Reuse Graphify's existing query/MCP engine instead of building a new one;
+revision-bound local artifacts can still be its backing store. Do not defer
+the graph itself as an optional enhancement. Upstream SPUD changes require its
 maintainer agreement.
 
 Do not add cloud deployment, directory migration, automatic agent dispatch or

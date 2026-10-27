@@ -1,5 +1,42 @@
 # Upstream components
 
+## SPUD/Graphify assessment evidence: 2026-10-27 (rmgx)
+
+Inspected local `aos-spud` c80837a and `aos-spud-web` 8e9626d. External engine
+is PyPI `graphifyy`, currently Graphify-Labs/graphify, not the obsolete URL in
+SPUD documentation. Pinned exporter/engine revisions and code paths are in
+[system-architecture.md](system-architecture.md).
+
+Read-only clones, isolated Python environment and `test_spud_fit_probes.py`
+are retained under session `f07938da-d100-4037-b957-229966277b85/files/`,
+with `spud-assessment-{confluence,jira,graphify,venv}` directories. These are
+tool-source/synthetic evidence, not downloaded project assets. Failed ensurepip
+bootstrap was recovered using `pip --python <venv>/bin/python3`; nothing was
+installed globally. Graph checks used backend `none`, disabled query logging
+and an isolated HOME/environment; no model route or real API was invoked.
+
+Validation:
+- SPUD `test_indexing.py`, `test_ingest.py`, `test_step_functions_ingest.py`,
+  `test_manifest.py`: 31 passed after supplying an explicit synthetic AWS region;
+  native ZIP packaging case excluded because the host lacks `zip`. Initial
+  failures were four missing-region errors plus missing `zip`, not a clean suite.
+- Graphify: 11 selected cases passed across `test_query_mcp_direction.py`,
+  `test_extract_code_only_cli.py`, `test_incremental.py` and
+  `test_incremental_unscanned_placeholders.py`. Actual offline Python/TypeScript
+  extraction, unchanged/changed updates, shared query-direction logic and
+  removed edge/deleted-file behavior were exercised, not cloud/MCP transport.
+- Confluence baseline: 18 passed, one failed at its expected log-message capture
+  assertion in `test_export_rerender.py`; subsequent assertions in that test
+  were not reached. No claim that its whole suite passes on this environment.
+- Three independent fake-client probes passed, reproducing Confluence
+  successful exit with failed-page watermark advancement, Jira normal return
+  with failed discovery marked in run timestamps, and attachment errors under
+  a parent marked done. They characterize defects, not repaired behavior.
+
+No exporter/Graphify/product code was changed. Web invented-ARN and exporter
+S3 error paths are source-traced findings, not live-cloud reproduction.
+No real ingestion, deployment, service, credentials or FALCON corpus changes.
+
 ## Shell-resolution evidence: 2026-10-27 (rrs8)
 
 Clean `env -i` interactive Bash, interactive Zsh and login-interactive Zsh all

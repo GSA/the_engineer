@@ -1,5 +1,25 @@
 # Objective and decisions
 
+## Three-part demo and SPUD fit assessment: 2026-10-27 (rmgx)
+
+The owner requires Librarian context building, SPUD code graphs and Engineer
+to work visibly together, not an Engineer-only demonstration. Acquire is the
+code-authorized candidate; FALCON code is not authorized. Document scope and
+processing destinations remain separate approvals.
+
+The recommendation in [system-architecture.md](system-architecture.md) is to
+pin/reuse Graphify directly for code context, harden the already separate
+Jira/Confluence exporters, and build durable intake plus Drive discovery in
+Librarian. Retain SPUD documentation generation and Web job management where
+useful; do not rewrite everything or create another top-level product yet.
+Automatic qualification should be policy-driven, with exception review rather
+than a mandatory human action for every document. FALCON migration and Hindsight
+are not Acquire demo prerequisites.
+
+This is an assessment/proposed delivery sequence, not activation, new source
+access or authority to fork/publish upstream code. Existing handoff tasks remain
+open; assessment evidence does not satisfy their implementation acceptance.
+
 ## Zsh npm diagnosis paused: 2026-10-27 (rrs8)
 
 The owner authorizes comparing and repairing home shell startup files. Both
