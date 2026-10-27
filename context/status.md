@@ -1,5 +1,16 @@
 # Status: 2026-10-27
 
+## Roborev open-review sweep: 2026-10-27
+
+- `roborev list --all-branches --open` found 24 open jobs: 22 already passed
+  and two older failures (101/102) had recorded fix dispositions on
+  `dae66cd`; follow-up job 104 passed with no findings.
+- Closed all 24. Added resolution comments to 101/102 referencing the
+  correction commit and passing follow-up. Original verdicts remain unchanged
+  in history.
+- Re-audited each job with `roborev show`; every one reports `closed=true`.
+  A fresh all-branches open query reports zero remaining reviews.
+
 ## FALCON legacy boundary and cross-project coordination: 2026-10-27
 
 - Owner direction: treat `falcon-docs` technology as legacy, while preserving
