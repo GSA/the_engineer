@@ -1,5 +1,14 @@
 # Upstream components
 
+## Shell-resolution evidence: 2026-10-27 (rrs8)
+
+Clean `env -i` interactive Bash, interactive Zsh and login-interactive Zsh all
+load NVM and resolve Node v26.11.1/npm 11.20.0. Both rc files load `nvm.sh` and
+NVM completion; the default NVM alias is `node`. Bash deduplicates `.local/bin`
+while Zsh prepends it unconditionally; neither difference explains missing npm.
+The files also share the system-CA Node option and screenshot-helper startup.
+The helper reports not running after the probes; no experimental process remains.
+
 ## Roborev queue sweep: 2026-10-27
 
 The all-branches open inventory contained 24 jobs. Twenty-two had Pass verdicts;

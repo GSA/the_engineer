@@ -1,5 +1,14 @@
 # Objective and decisions
 
+## Zsh npm diagnosis paused: 2026-10-27 (rrs8)
+
+The owner authorizes comparing and repairing home shell startup files. Both
+`.bashrc` and `.zshrc` already load the same NVM initialization; no missing npm
+setup was found. Fresh interactive shells resolve npm without inherited Node
+paths. Do not copy Bash-only startup code into Zsh or claim a repair without
+reproducing the failing session. The diagnostic-output request was cancelled;
+rrs8 remains open and no home startup file was changed.
+
 ## Repo-named roborev review sweep: 2026-10-27
 
 The review disposition sweep changed only local review records, not Librarian

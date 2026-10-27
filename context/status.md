@@ -1,5 +1,15 @@
 # Status: 2026-10-27
 
+## Zsh npm report not reproduced: 2026-10-27 (rrs8)
+
+- Searched native Kata, created and claimed rrs8 for the owner-requested repair.
+- Both home rc files already initialize NVM; fresh Bash/Zsh resolve npm even
+  with Node paths removed from the inherited environment.
+- Requested command-resolution output from the actual failing Zsh terminal;
+  that request was cancelled. Diagnosis is incomplete and rrs8 remains open.
+- No startup files, packages, services or global settings changed. No
+  persistent experimental process remains; no publication is authorized.
+
 ## Repo-named roborev review sweep: 2026-10-27
 
 - Queried each tracked repository named `repo`: 31 open snapshot reviews (9
