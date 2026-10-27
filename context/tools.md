@@ -1,5 +1,13 @@
 # Upstream components
 
+## Roborev queue sweep: 2026-10-27
+
+The all-branches open inventory contained 24 jobs. Twenty-two had Pass verdicts;
+the other two (101/102) were superseded by documented fixes on `dae66cd` and a
+passing follow-up review 104. Added comments and closed all 24 without
+rewriting verdict history. Every exact job audit reports `closed=true`, and a
+fresh open inventory is empty.
+
 ## Review corrections: 2026-10-27
 
 The Helix/GSA sync CLI now resolves PR bases from the remote-advertised HEAD,

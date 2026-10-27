@@ -80,6 +80,11 @@ tests). Review 73 was commented and closed; `0sfx` was closed against commit
 `9c4a83a`. No real home config, daemon, service, or persistent process changed.
 Full-host reproduction and recovery remain under `p4ke`/`5xrm`.
 
+The subsequent all-branches roborev sweep found 24 open jobs: 22 passing and
+two older failures whose fixes were recorded on `dae66cd` and confirmed by
+passing follow-up 104. All 24 are now closed with their original verdicts
+preserved; the open inventory is empty.
+
 ## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
 
 The owner asks what follows cleanup now that the three private repositories
