@@ -1,5 +1,28 @@
 # Status: 2026-10-27
 
+## Deduplicated capability/Kata audit: 2026-10-27 (e5dd)
+
+- Completed three read-only source audits and reconciled native open/closed
+  tasks. Existing delivered components and worked acceptance/design efforts
+  are excluded from the proposed implementation-only shortlist.
+- Engineer priorities: operational selected-event memory, actionable
+  conversation-policy/filter visibility, and task-scoped business/code context.
+  Memory research/preparation and explicit Librarian provider code already exist.
+- AgentsView is intentionally usage-only; message bodies are absent by policy,
+  and some sessions are hidden by filters. No capture setting changed.
+- Librarian retains its delivered Docling and authority-store foundations.
+  Proposed runtime gaps include Docling-qualified reads, durable intake/DLQ,
+  receipt import/reconciliation, ordinary text, policy orchestration and
+  acknowledged contributions. Existing graph design/hardening is not new work.
+- Recommend external composition plus targeted SPUD fixes, not a wholesale
+  SPUD redesign or replacement engines. Existing job/event DLQs are not an
+  item-completeness solution.
+- Detailed proposal/evidence is in architecture/tools. No new implementation
+  Katas filed, no existing task retired/closed, no product source, corpus,
+  transcript policy, live service or global configuration changed.
+- Existing worktrees preserved; no experimental process remains. Documentation
+  and audit evidence are local only; nothing pushed.
+
 ## Librarian review reassociation: 2026-10-27 (byrk)
 
 - Moved still-relevant reviews 24, 56 and 69 into canonical `the_librarian`
