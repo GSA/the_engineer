@@ -1,5 +1,17 @@
 # Status: 2026-10-27
 
+## Text-first ingestion and consumer changes: 2026-10-27
+
+- Clarified that SPUD internals remain its maintainer's decision; prefer
+  compatible outputs/contracts over requiring the proposed rearrangement.
+- Recorded text/structured-rendition intake, stage-aware retries/DLQ,
+  large-document handling and the distinction between extraction and knowledge.
+- Separated substantial Librarian intake/qualification work from narrower
+  Engineer provider/evidence/disposition integration. Existing toolkit
+  capabilities and proposal-only gaps are explicitly distinguished.
+- Documentation-only follow-up; no product code, corpus, provider profile,
+  service, permissions or task lifecycle changed. No experiment was started.
+
 ## Engineer backlog focused on architecture: 2026-10-27 (wvd2)
 
 - Owner explicitly chose retirement of `0rc1`, `jqwq`, `hfbz`, `bbm2`, `rrs8`.

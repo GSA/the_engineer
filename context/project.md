@@ -1,5 +1,19 @@
 # Objective and decisions
 
+## Text-first intake and SPUD maintainer boundary: 2026-10-27
+
+The owner flags that SPUD restructuring may not fit its original engineer's
+direction. Prefer external artifact/provider contracts; the previous adaptation
+recommendation is not an agreed redesign. Independently using Graphify must
+not be represented as a working SPUD integration.
+
+Text-first normalization plus a durable DLQ is a proposal for Librarian:
+preserve originals/structure, retry by source/version/stage, and keep failed
+items visible rather than treating them as complete. Engineer needs provider
+composition and evidence/disposition handling, not another ingestion engine.
+Details are in `context/system-architecture.md`. No implementation or new
+processing permission follows from this discussion.
+
 ## Engineer architecture focus: 2026-10-27 (wvd2)
 
 Use the connected three-product milestone `pyzt`, not the full historical host
