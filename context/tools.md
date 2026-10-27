@@ -1,5 +1,17 @@
 # Upstream components
 
+## Text-first intake follow-up evidence: 2026-10-27
+
+Re-read toolkit `ROADMAP.md`, `tools/extraction/{extract.py,README.md,
+docling_adapter.py,docling_bridge.py,docling_worker.py}`, MCP operating guide
+and role/contribution contracts. Existing Docling PDF/PNG/JPEG prepare/verify/
+register and provenance checks are reusable; they are not automatic review,
+retrieval publication or an intake scheduler. Its 100-page/64-MiB PDF bounds
+require explicit treatment for larger inputs. The roadmap already plans
+standing-policy automation and serialized authority writes. Decision 0006
+still defers relationship traversal; semantic business links are additional
+work, not an automatic result of text conversion. No toolkit code was changed.
+
 ## Focused native Engineer queue: 2026-10-27 (wvd2)
 
 Use `kata list --label architecture-now` for the six-item Engineer portfolio,

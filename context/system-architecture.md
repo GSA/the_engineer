@@ -156,6 +156,14 @@ query service and a full action ledger are not prerequisites.
 
 ## SPUD fit and the three-part Acquire demo: 2026-10-27 (rmgx)
 
+**Maintainer boundary clarification:** the owner notes that rearranging SPUD
+may conflict with its original engineer's direction. The recommendation below
+is not an agreed SPUD redesign. Prefer a producer/consumer contract over
+changes to its internals: consume its existing graph/artifact outputs through
+a small adapter where sufficient, and discuss additional capabilities under
+`spud#vky6`. Independently using Graphify would be a separate technical
+provider, not evidence that SPUD itself participated in the demo.
+
 **Recommendation, not implementation approval:** adapt and compose; do not
 rewrite SPUD wholesale or treat its current pipeline as a complete knowledge
 platform. The owner requires all three products to demonstrate value together.
@@ -285,6 +293,61 @@ are in [tools.md](tools.md). No full cloud run, MCP transport acceptance,
 Acquire language/scale benchmark, document semantic-quality/cost evaluation or
 deployment is established. Keep `dh1t`, `spud#3sv9` and `librarian#55nx` open;
 this assessment is not their producer/receiver acceptance.
+
+## Text-first ingestion and a DLQ: October 27 follow-up proposal
+
+The owner's "unstaple" proposal is a normalized, searchable rendition for each
+authorized document, not destructive replacement of originals or conversion
+of everything to a single unstructured text blob. Keep original bytes and
+native structure alongside text/Markdown and structured locator metadata.
+Prefer existing native text/HTML/Markdown; use PDF layout/OCR where needed.
+Preserve tables, heading hierarchy, page/slide/sheet locations and image-only
+scope. Empty or implausible extraction is a quality failure, not a complete
+document; text alone cannot preserve every diagram or spreadsheet meaning.
+
+Proposed flow: discover -> acquire/register original -> format-routed extraction
+-> fidelity checks -> attributed knowledge processing -> qualified retrieval
+publication. Every stage has durable work identity and retry state. Retry
+transient errors with backoff; put exhausted/permanent item failures in a
+dead-letter queue with source/version, stage, attempts, error and replay pointer.
+Keep document bodies out of diagnostic messages. One bad item must not stop
+unrelated work. Connector-wide credential/access failures should pause that
+connector, not create an endless stream of failed-item jobs.
+
+A DLQ is an operational disposition, not deletion, successful ingestion or
+approved exclusion. Replays re-check authorization and current source identity,
+preserve failure history and reuse exact committed requests where appropriate.
+Human policy/ambiguity decisions belong in a separate exception-review state.
+A private durable jobs table can supply the initial DLQ; a broker is optional,
+and neither replaces the catalog/review authorities.
+
+Current toolkit evidence: its roadmap already proposes standing-policy
+automation and a durable operational journal; these are not implemented.
+Its delivered Docling lifecycle handles PDF/PNG/JPEG with prepare/verify/
+register, page provenance and bounded offline workers, but deliberately does
+not advance intake, review, select or index. Current PDF bounds are 100 pages
+and 64 MiB. Whole-corpus intake therefore needs explicit large-document support
+or an honest blocked disposition, not silent truncation or removed safeguards.
+Office-format/general text adapters are still gaps in the reusable toolkit.
+
+Required Librarian work: remote acquisition adapters; the durable worker/DLQ;
+broader format normalization and large-document recovery; standing-policy
+substantive review/qualification; automatic versioned retrieval publication;
+and evidence-backed business entities/relationships for the selected demo query.
+The last item is not produced merely by OCR and is not shipped by the toolkit:
+its decision 0006 still defers graph work. Agree the evidence/claim contract
+and revise that design deliberately before implementing a derived navigation
+view. Do not revive retired FALCON graph tasks or require a graph database.
+Parallel parsing must still respect existing serialized authority writes.
+
+Required Engineer work is narrower: configure both providers per project;
+carry document versions/locators and code snapshot identities in task-scoped
+evidence; expose pending/partial/blocked coverage; recheck relevant freshness
+before acting; and return evidence-linked findings through an acknowledged
+Librarian contribution/disposition path. Existing contribution text is a
+contract, not an implemented transport. Keep extraction, retries, DLQ ownership
+and corpus writes out of Engineer and out of the read-only retrieval MCP.
+The existing coding/task/review loop is reused; Hindsight is independent.
 
 ## Ownership diagram (target)
 
