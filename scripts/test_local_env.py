@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import runpy
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1126,10 +1127,12 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(config.read_bytes(), before)
         self.assertEqual(database.read_bytes(), b"persistent-task-fixture")
         self.assertEqual((self.state / "systemd" / local_env.KATA_UNIT).read_bytes(), first)
-        self.assertIn(f'ExecStart="{local_env.ROOT / "kata/kata"}" "daemon" "start"', first.decode())
-        self.assertIn(f'Environment="KATA_HOME={self.state / "kata"}"', first.decode())
-        self.assertIn(f'Environment="KATA_DSN={database}"', first.decode())
-        self.assertIn('Environment="KATA_DB="', first.decode())
+        self.assertIn('ExecStart="/usr/bin/env" "-i"', first.decode())
+        self.assertIn(f'"KATA_HOME={self.state / "kata"}"', first.decode())
+        self.assertIn(f'"KATA_DSN={database}"', first.decode())
+        self.assertIn('"KATA_DB="', first.decode())
+        self.assertIn(f'"{local_env.ROOT / "kata/kata"}" "daemon" "start"', first.decode())
+        self.assertNotIn("Environment=", first.decode())
         self.assertNotIn("local_env.py", first.decode())
         self.assertIn("WantedBy=default.target", first.decode())
         self.assertNotIn("USAI_API_KEY", first.decode())
@@ -1167,6 +1170,32 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("KATA_DB", local_env.base_environment())
         process.terminate.assert_called_once()
         process.wait.assert_called_once_with(timeout=15)
+
+    def test_kata_service_command_does_not_inherit_kata_overrides(self):
+        probe = self.root / "environment_probe.py"
+        probe.write_text("import json, os\nprint(json.dumps(dict(os.environ)))\n")
+        with patch.object(local_env, "kata_command", return_value=[sys.executable, str(probe)]), \
+                patch.dict(os.environ, {
+                    "KATA_AUTH_TOKEN": "synthetic-token",
+                    "KATA_AUTH_TOKEN_FILE": "/synthetic/token",
+                    "KATA_DSN": "/other/database",
+                    "KATA_DB": "/other/legacy.db",
+                    "KATA_SERVER": "https://daemon.example",
+                    "KATA_TRUST_PRIVATE_NETWORK": "1",
+                }):
+            command = local_env.kata_service_command()
+            result = subprocess.run(
+                command, check=True, capture_output=True, text=True, env=os.environ.copy(),
+            )
+
+        service_environment = json.loads(result.stdout)
+        self.assertEqual(service_environment["KATA_HOME"], str(self.state / "kata"))
+        self.assertEqual(service_environment["KATA_DSN"], str(self.state / "kata/kata.db"))
+        self.assertEqual(service_environment["KATA_DB"], "")
+        self.assertNotIn("KATA_AUTH_TOKEN", service_environment)
+        self.assertNotIn("KATA_AUTH_TOKEN_FILE", service_environment)
+        self.assertNotIn("KATA_SERVER", service_environment)
+        self.assertNotIn("KATA_TRUST_PRIVATE_NETWORK", service_environment)
 
     def test_kata_rejects_nonlocal_or_separate_web_bindings_and_missing_binary(self):
         for content in ('listen = "0.0.0.0:17777"\n',

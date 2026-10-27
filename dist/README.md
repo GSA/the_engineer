@@ -9,11 +9,11 @@ Python 3.11+ and Node.js 24.11+ are required; Ubuntu 24.04+ is the recommended
 starting point. This is a source-build installer, not a container, cloud
 deployment or confidential-data bundle.
 
-**Known gaps (2026-10-26):** this recipe still requires the legacy Falcon MCP
+**Known gaps (2026-10-27):** this recipe still requires the legacy Falcon MCP
 executable described below, not the renamed data-empty Librarian executable.
-Native Kata CLI/client provisioning also remains open reproduction work.
-Do not treat this as a complete fresh-host recipe until
-Kata `p4ke` reconciles these gaps. See the
+The installer now provisions the native Kata CLI and client target; full-host
+reproduction remains part of Kata `p4ke`. Do not treat this as a complete
+fresh-host recipe until that task reconciles the remaining gap. See the
 [architecture gap inventory](../context/system-architecture.md#concrete-reproduction-gaps).
 Forge's `install-forge-service` command is restored; keep all four services.
 Forge is required for agent execution, not an optional packaging branch.
@@ -104,13 +104,18 @@ After checks, the installer:
 
 1. Initializes pinned repositories and workspace-local Go/Bun/GitHub CLI.
 2. Builds all four applications using existing build helpers.
-3. Creates missing private configuration under `.local/environment/`, with
+3. Creates the native `~/.local/bin/kata` symlink and selects the loopback
+   daemon in `~/.kata/config.toml`. Exact existing targets are reused;
+   conflicting binaries or daemon selections stop installation. Unrelated
+   settings and credentials are preserved, and shell startup files are not
+   changed.
+4. Creates missing private configuration under `.local/environment/`, with
    Superpowers and Librarian access in private Pi.
-4. Configures **fresh** AgentsView for private Pi **usage metadata only** and
+5. Configures **fresh** AgentsView for private Pi **usage metadata only** and
    installs the pinned Pi structured-review extension. Existing configured
    tracking/settings are preserved; incompatible unconfigured settings fail.
-5. Reports Pi MCP discovery and prints manual startup/stop instructions.
-6. Registers and starts user services only when explicitly selected.
+6. Reports Pi MCP discovery and prints manual startup/stop instructions.
+7. Registers and starts user services only when explicitly selected.
 
 The normal Forge build is the default. If its known dependency-download path
 is blocked, `--forge-build local-kata` explicitly selects the existing temporary
@@ -140,6 +145,9 @@ and clears inherited `KATA_DB`, without rewriting retained configuration.
 Generated Kata units and the foreground supervisor use the same private-store
 boundary. Existing running units are not changed by updating these source files;
 deliberate reinstallation/restart is a separate operator action.
+The installed CLI at `~/.local/bin/kata` selects the loopback client target in
+`~/.kata/config.toml`. The installer does not edit shell startup files; invoke
+that path directly or add `~/.local/bin` to `PATH` yourself if needed.
 Dashboards listen on **loopback only**:
 
 | Service | URL |
