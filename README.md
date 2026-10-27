@@ -179,11 +179,16 @@ kata show 5xrm
 kata --project supply-chain-user-interface list --agent
 ```
 
-`~/.local/bin/kata` points directly to the built `kata/kata` binary. Native
-`~/.kata/config.toml` selects the existing daemon at `http://127.0.0.1:17777`.
-The service retains its database in `.local/environment/kata`; no task migration
-is required. The CLI follows `.kata.toml` in the current repository and supports
-Kata's normal selectors and attribution. In another repository, run
+The installer creates `~/.local/bin/kata` as a direct symlink to the built
+binary and selects the loopback daemon at `http://127.0.0.1:17777` in native
+`~/.kata/config.toml`. Existing matching targets are reused; conflicting
+binaries or daemon selections are left untouched and reported. Other settings
+and credentials are preserved, and shell startup files are not changed. If
+`~/.local/bin` is not on `PATH`, invoke the symlink directly or add it to your
+shell environment. The service retains its database in
+`.local/environment/kata`; no task migration is required. The CLI follows
+`.kata.toml` in the current repository and supports Kata's normal selectors and
+attribution. In another repository, run
 `kata init --project <name> --with-agents` to bind it and add agent guidance.
 Search before creating, claim work, and close only with verified evidence.
 
@@ -706,7 +711,7 @@ global home configuration and disposable smoke runs.
 Application Settings and the appropriate private configuration files are the
 places to make changes. Restart affected services after startup-setting edits.
 State survives normal stop/start and WSL restarts, but **ignored state is not
-a backup**. Backup/recovery remains tracked in [TODO.md](TODO.md).
+a backup**. Backup/recovery remains tracked in native Kata.
 
 On 2026-10-12 the owner approved the CGI Federal OneDrive destination and
 sensitive local assets. A versioned workspace archive now lives under
@@ -996,8 +1001,8 @@ systemctl --user stop kenn-kopy-kata.service kenn-kopy-roborev.service \
 Afterward, restore them with `systemctl --user start kenn-kopy-kata.service
 kenn-kopy-roborev.service kenn-kopy-agentsview.service kenn-kopy-forge.service`.
 
-See [TODO.md](TODO.md) for open work, [context/status.md](context/status.md) for
-observed results/current process state, [context/tools.md](context/tools.md)
-for build and integration details, and [context/project.md](context/project.md)
-for objectives and decisions. Upstream histories and licenses remain in their
-pinned submodules.
+Use native Kata for open work; [TODO.md](TODO.md) retains historical completed
+entries. See [context/status.md](context/status.md) for observed results/current
+process state, [context/tools.md](context/tools.md) for build and integration
+details, and [context/project.md](context/project.md) for objectives and
+decisions. Upstream histories and licenses remain in their pinned submodules.

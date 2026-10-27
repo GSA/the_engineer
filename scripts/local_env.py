@@ -954,8 +954,23 @@ def kata_command():
 
 
 def kata_environment():
-    return {"KATA_HOME": str(STATE / "kata"),
-            "KATA_DSN": str(STATE / "kata/kata.db"), "KATA_DB": ""}
+    return {
+        "HOME": str(Path.home()),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "KATA_HOME": str(STATE / "kata"),
+        "KATA_DSN": str(STATE / "kata/kata.db"),
+        "KATA_DB": "",
+        "KATA_TELEMETRY_ENABLED": "0",
+    }
+
+
+def kata_service_command():
+    env = Path("/usr/bin/env")
+    if not env.is_file() or not os.access(env, os.X_OK):
+        raise RuntimeError("missing /usr/bin/env required to isolate the Kata service environment")
+    environment = [f"{key}={value}" for key, value in kata_environment().items()]
+    return [str(env), "-i", *environment, *kata_command()]
 
 
 def install_kata_service():
@@ -964,8 +979,7 @@ def install_kata_service():
     install_user_service(
         KATA_UNIT, None, "Engi Platform local task ledger",
         SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
-        executable=kata_command(),
-        environment=tuple(f"{key}={value}" for key, value in kata_environment().items()),
+        executable=kata_service_command(),
     )
     json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
     print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
