@@ -1,5 +1,22 @@
 # Upstream components
 
+## Review corrections: 2026-10-27
+
+The Helix/GSA sync CLI now resolves PR bases from the remote-advertised HEAD,
+errors instead of assuming `master`, and writes JSON only to stdout in JSON
+mode. Hook migration recognizes standalone generated post-rewrite hooks only;
+the existing roborev template embeds its remap before preserved shell-hook
+commands, so mixed hooks remain refused to protect stdin.
+
+Managed Kata startup explicitly pins its private database and clears the legacy
+override. Native fresh-host CLI/client provisioning remains under `0sfx`; no
+real user-home configuration was changed because design approval is still
+required. All 172 script tests and 37 distribution tests passed, including
+focused sync, hook-staging and managed-environment regressions. Twenty-two
+reviews were closed after fixes or current-state verification; the installer
+provisioning finding remains open until its user-home configuration boundary is
+approved.
+
 ## Restored acceptance and implementation dispatch: 2026-10-26 (txt3)
 
 Native restore recovered k03a, j54x, 6hce and avvp with their original UIDs and
@@ -1254,8 +1271,9 @@ workflow semantics and draft prompt responsibilities, see
 `engineering-workflow.md`. Repository-free Kata runtime findings and remaining
 integration boundaries are in `kata-evaluation.md`; current project-scoped
 backlog adoption and CLI/index operations are in `kata-adoption.md`.
-The project display name is now Engi Platform;
-paths and installed service names remain `kenn-kopy` pending migration.
+The earlier Engi Platform display name has since been replaced by Engineer.
+`engi-platform` remains the live Kata project identity, and paths and installed
+service names remain `kenn-kopy` pending migration.
 
 Exact source revisions are the parent repository's gitlinks:
 `git submodule status`. Do not duplicate version pins in this document.
