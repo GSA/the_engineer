@@ -1,5 +1,48 @@
 # Upstream components
 
+## Knowitall bootstrap and resumed AgentsView repair: 2026-10-27 (c6by)
+
+After disconnection, the first AgentsView agent was cancelled but had already
+persisted its configuration repair. The resumed worker inspected saved state
+and verified it instead of repeating destructive work. Application config and
+workspace tracking agree on `archive_content=transcripts`, previously `usage`.
+Known before/after archive counts: 17,728 -> 19,037 message rows; 0 -> 18,807
+nonempty message bodies across 204 sessions. Verification emitted aggregates,
+not conversation text. Service is enabled, healthy and loopback-only; latest
+sync succeeded. Existing source scope/filters and configured pricing rates
+remain; the model catalog gained two models/one band before resumption.
+Transcripts mode intentionally omits tool payloads. One-shot/automated filters
+still apply and are not an importer failure.
+The running conversation endpoint also returned HTTP200 with one requested
+message and a nonempty body, reported only as counts/boolean. This verifies
+actual serving rather than relying solely on database counts; no text or
+session identity was emitted. Runtime/process/archive binding was checked.
+
+Private rollback and exact verification:
+`.local/environment/agentsview-rollback-20261027-conversations/`,
+including `resume-verification.json`. Directory0700/files0600. No user archive
+was deleted/reinitialized, no source transcript edited and no remote/model
+request made. This repair does not adopt AgentsView Recall as Engineer memory.
+
+Native task filing used idempotency keys and verified current records:
+Engineer `pbqn/k4mp`; Knowitall `7gv8/r9gz/8jvw/regc/axsf`; Librarian
+`zqdh/1md4/rst9/bj17/5bc5/3sx1/9hqs/8a5h/0nj8/rjr5/pwhw/xzkj`.
+Provider design moved `spud#vky6 -> knowitall#vky6` with UID/history/links;
+project `knowitall` binds locally through `.kata.toml`. Existing receiving
+design `55nx` owns useful OKF conventions; no duplicate record.
+Local generated outcomes are retained in this session's
+`files/knowitall-engineer-created.json` and
+`files/librarian-approved-backlog-results.json`.
+
+The new repo contains only README/working agreements/ignore rules/native
+binding, committed as `eb4f947`; it has no remote or initialized data.
+All 19 new task records and exact prerequisite sets were independently read
+back through native Kata; the moved provider contract retains its original UID.
+Librarian's prior roadmap/ADR
+edits and SPUD's prior instruction/binding changes remain untouched. No Forge
+source, submodule commit, provider registration or service configuration was
+changed by repository/task bootstrap.
+
 ## Current capability audit evidence: 2026-10-27 (e5dd)
 
 Three independent read-only source audits plus parent native-history inventory:

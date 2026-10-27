@@ -1,5 +1,26 @@
 # Status: 2026-10-27
 
+## Knowitall bootstrap and resumed request: 2026-10-27 (c6by)
+
+- Recovered persisted state after disconnect rather than recreating tasks or
+  resetting AgentsView. Conversation capture now uses transcripts mode;
+  verification found 18,807 nonempty message bodies across 204 sessions.
+  Existing managed loopback service is healthy; no transcript text exposed.
+- Initialized `the_knowitall` locally with Git and native project binding.
+  README captures SPUD component reuse, code/business/Engineer ownership,
+  repository snapshots/queries and useful business-entity modeling intentions;
+  committed as `eb4f947`, with no remote.
+- Created 19 unowned planned Katas: Engineer2, Knowitall5, Librarian12.
+  Existing provider design moved intact to Knowitall; existing OKF/receiver
+  and memory-evaluation work reused. Entity design and implementation are
+  separately tracked as `librarian#pwhw -> #xzkj`; Drive/manual upload included.
+- Updated current cross-product milestone/diagram to Knowitall as code-context
+  owner. New functionality remains planned, not implemented or ingested.
+- `3c2c` has exact repair evidence and is unassigned/open for its remaining
+  broader scope; no unrelated task was closed. Source corpus/stores and
+  pre-existing dirty worktrees are preserved. No new persistent helper,
+  remote repository, cloud deployment, push or publication.
+
 ## Deduplicated capability/Kata audit: 2026-10-27 (e5dd)
 
 - Completed three read-only source audits and reconciled native open/closed

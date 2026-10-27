@@ -1,6 +1,6 @@
 # Engineer, Librarian and SPUD: ownership and reproduction
 
-**Date:** 2026-10-27. **Tracking:** engi-platform Katas `qt7g`, `rmgx`, `pd40`.
+**Date:** 2026-10-27. **Tracking:** engi-platform Katas `qt7g`, `rmgx`, `pd40`, `c6by`.
 **Status:** architecture proposal grounded in local inspection, not an installed
 integration or authority to rename, migrate, deploy or change SPUD.
 
@@ -18,6 +18,7 @@ unresolved decisions. The focused documents and task authorities are:
 | --- | --- |
 | Engineer coding/review workflow | [engineering-workflow.md](engineering-workflow.md) |
 | Selective engineering memory and Hindsight evaluation | [engineering-memory.md](engineering-memory.md) |
+| Code-context product, repository intake and graph reuse | `the_knowitall/README.md`; owning native project `knowitall` |
 | Producer/receiver protocol details | Producer-owned SPUD evidence and Librarian toolkit receiver design, linked from native Kata |
 | FALCON source corpus, provenance, handling and qualified retrieval | FALCON's own canonical corpus records and stores; do not copy them into Engineer |
 | Current execution, owners, dependencies and completion evidence | Native Kata issues in the owning projects; this architecture links to them but is not a second task ledger |
@@ -28,7 +29,50 @@ it rather than maintaining competing copies. Use dated decision entries for
 changes in direction, and do not turn a proposed sequence into task status or
 authorization.
 
+## Approved product split and filed backlog: 2026-10-27 (c6by)
+
+The owner now establishes **The Knowitall as the code-context repository/graph**,
+**The Librarian as the business-context repository/corpus**, and **The Engineer
+as task/agent/review/visibility/memory orchestration and consumer of both**.
+This explicitly supersedes the earlier recommendation not to create another
+top-level project and the assumption that SPUD remains our code-context owner.
+SPUD remains independently maintained reuse/source evidence, not a required
+universal pipeline or fourth product in the target demonstration.
+
+Initialized local `the_knowitall` with Git and native project `knowitall`.
+Its README captures source findings, component reuse rather than blind code
+copying, immutable repository intake, graph provenance/query/publication,
+business-entity intentions and cross-product links. No remote, source corpus,
+graph runtime or code assets were created by the bootstrap.
+
+The prior shortlist is now native planned work, not an unfiled proposal:
+
+| Owning project | Created / reused native work |
+| --- | --- |
+| Engineer | `pbqn` selected agent-event memory; `k4mp` Librarian/Knowitall evidence composition. Reuse `zbww` evaluation (now P1), completed `svg1` preparation and `f47m` provider code. |
+| Knowitall | `7gv8` repository intake; `r9gz` pinned Graphify; `8jvw` code queries; `regc` resumable updates/publication; `axsf` optional SPUD artifact import. Existing provider contract moved intact from `spud#vky6` to `knowitall#vky6`. |
+| Librarian | `zqdh` Docling reads; `1md4` durable jobs/DLQ; `rst9` export import; `bj17` Confluence; `5bc5` Jira; `3sx1` Drive; `9hqs` manual upload; `8a5h` ordinary text; `0nj8` policy publication; `rjr5` contribution transport. |
+| Librarian entity model | `pwhw` engineering-oriented business entities/claims/relationships; `xzkj` first source-backed implementation slice, genuinely blocked by that design. |
+| Existing receiving/reuse design | `spud#3sv9 -> librarian#55nx` remains; useful OKF acceptance was added to `55nx`, not duplicated as another design or mandatory HTML pipeline. |
+
+Nineteen new tasks are unowned/planned with explicit acceptance and real
+prerequisites. Existing hardening/parity tasks remain. No implementation
+worker, real repo/document ingestion, inference or source migration follows
+from task creation. Empty Librarian corpus is an opportunity to design useful
+business context cleanly, not permission to reset populated authority stores.
+Source passages, stable entity identity, aliases, evidence-backed assertions,
+conflicts/corrections and temporal applicability precede derived traversal;
+code symbols remain external Knowitall snapshot references.
+
+The AgentsView repair is separate live configuration work authorized by this
+request. Existing `3c2c` records the repaired conversation slice; its broader
+pricing/retention/client acceptance remains open. See status/tools for exact
+body-free verification and private rollback evidence.
+
 ## Implementation-only backlog audit: 2026-10-27 (e5dd)
+
+Historical audit snapshot: its proposal-only status and SPUD ownership wording
+are superseded by the approved split and filed native tasks above.
 
 The owner requests only work not already implemented or underway, with
 operational agentic memory a priority and missing AgentsView conversations
@@ -201,8 +245,9 @@ The immediate Engineer portfolio has six P1 items under `architecture-now`:
 | Preserve task ownership and truthful attention through interruption/resume | `tvbf` |
 | Coordinate SPUD export evidence and Librarian receiving contracts | `dh1t`, retaining `spud#3sv9 -> librarian#55nx` |
 
-SPUD owns the missing code-context provider-contract design `spud#vky6`, a
-child of the connected milestone. Librarian retains independent-project
+Knowitall now owns the code-context provider-contract design `knowitall#vky6`,
+moved with identity/history intact as a child of the connected milestone.
+Librarian retains independent-project
 hardening `librarian#q9a9` and its own admission/qualification/intake work.
 Do not turn Engineer coordination into ownership of either provider's engine.
 The provider design and receiver contract do not themselves implement the
@@ -466,16 +511,18 @@ flowchart TB
     documents["Retained Drive files and human documents"]
     repos["Authorized repositories at known revisions"]
 
-    subgraph spud["SPUD - externally owned"]
-        acquire["Jira / Confluence export workers"]
-        code["Graphify + repository analysis + OKF documentation"]
+    spud["SPUD - optional artifact producer"]
+
+    subgraph knowitall["Knowitall - code context and graphs"]
+        code["Immutable repository snapshots + pinned Graphify"]
         query["Graphify query/MCP + proposed snapshot adapter"]
         code -.-> query
     end
 
     subgraph librarian["Librarian - business and institutional context"]
+        acquire["Reusable Jira / Confluence export adapters"]
         intake["Private inbox + provenance + extraction"]
-        curate["Curation + review + corrections"]
+        curate["Entities / assertions + review + corrections"]
         retrieve["Qualified context retrieval"]
         falcon["falcon-docs: retained legacy instance"]
         intake --> curate --> retrieve
@@ -489,7 +536,7 @@ flowchart TB
         review["Tests + roborev"]
         land["Human-authorized publication / merge"]
         memory["Proposed selective engineering memory"]
-        visibility["AgentsView: session / usage visibility"]
+        visibility["AgentsView: local transcripts / usage visibility"]
         refine --> tasks --> bots --> review --> land
         review --> bots
         memory -.-> refine
@@ -503,6 +550,7 @@ flowchart TB
     acquire -.->|"versioned export handoff"| intake
     acquire -.->|"ticket input, not task authority"| refine
     repos --> code
+    spud -.->|"attributed technical-artifact admission"| code
     retrieve -->|"business evidence at every stage"| engineer
     code -.->|"retained artifacts now; query API later"| engineer
     query -.-> engineer
@@ -517,11 +565,11 @@ business evidence.
 
 | Responsibility | Accountable product boundary | Implementation/reuse |
 | --- | --- | --- |
-| Acquire Jira/Confluence material | Source-access operator; SPUD owns its exporter implementation | Reuse SPUD or its standalone exporters under approved scopes |
+| Acquire Jira/Confluence material | Librarian intake boundary and source-access operator | Integrate standalone exporters under approved scopes; upstream implementations retain independent ownership |
 | Admit an export, preserve source identity and handling | Librarian instance | Receiving adapter, catalog and retained private originals |
 | Drive discovery/export | Librarian intake boundary | Build scoped discovery/change reconciliation; preserve Falcon assets separately; inspected SPUD has no connector |
 | Business meaning, conflicts, review and qualified reads | Librarian | Reusable toolkit plus separate program instances |
-| Revision-bound structure and generated technical documentation | SPUD | Pin Graphify's existing graph/query capabilities; add snapshot/coverage adapter; optional OKF generation |
+| Revision-bound code structure and graph queries | Knowitall | Pin Graphify's existing capabilities; own snapshot/coverage/publication contract; optional SPUD technical-artifact intake |
 | Ticket refinement, task execution, code changes and review | Engineer | Kata, agents, Superpowers, roborev; Forge restored as the managed worktree/session service on 2026-10-26 |
 | Engineering experience, corrections and resumable handoffs | Engineer | Proposed project-scoped memory, separate from corpus review events |
 | Transcript/usage inspection | Engineer / AgentsView | Existing visibility; not automatic memory ingestion |
