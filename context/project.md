@@ -1,5 +1,26 @@
 # Objective and decisions
 
+## Knowitall product split and backlog approved: 2026-10-27 (c6by)
+
+The owner explicitly requests a new local `the_knowitall` Git repository and
+context document, plus native implementation Katas. Knowitall owns code
+context/graph; Librarian owns business context/corpus; Engineer owns execution,
+review, visibility, selected-event memory and consumption of both.
+This supersedes earlier recommendations against a separate product.
+
+SPUD is now an upstream reuse/artifact source, not a boundary we must reshape.
+Prefer independent Graphify/exporter packages and existing Docling; preserve
+license and provenance obligations. The new README captures repository intake,
+snapshot/query/publication and the business-entity/cross-product design direction.
+Created 19 planned tasks (Engineer2, Knowitall5, Librarian12); moved existing
+provider design intact to `knowitall#vky6`. Reused `55nx` for useful OKF and
+`zbww` for memory evaluation; `pwhw -> xzkj` owns the missing business slice.
+
+The owner also authorizes restoring AgentsView conversation visibility for
+already configured local sources. Transcripts mode is now verified, without
+remote upload, new client scope or automatic memory import. Existing `3c2c`
+remains open for its broader unfinished policy/client/pricing acceptance.
+
 ## Unworked implementation shortlist: 2026-10-27 (e5dd)
 
 The owner requests current-source and native-history reconciliation, not
