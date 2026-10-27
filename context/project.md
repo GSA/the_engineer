@@ -1,5 +1,19 @@
 # Objective and decisions
 
+## Engineer architecture focus: 2026-10-27 (wvd2)
+
+Use the connected three-product milestone `pyzt`, not the full historical host
+backlog, to direct current Engineer work. Native label `architecture-now`
+selects six immediate coordination/acceptance items; 21 useful later items
+remain open under `architecture-later`. The owner explicitly retired the five
+named personal/optional support items as `wontfix`, not verified completion.
+The focus map is in [system-architecture.md](system-architecture.md).
+
+SPUD's missing technical-provider contract is now `spud#vky6`; Engineer owns
+consumption and coordination, not graph production. Prioritization does not
+activate the demo or select Librarian's independent project/material. Existing
+owners, access/recovery controls and actual prerequisites remain intact.
+
 ## Three-part demo and SPUD fit assessment: 2026-10-27 (rmgx)
 
 The owner requires Librarian context building, SPUD code graphs and Engineer
@@ -20,14 +34,15 @@ This is an assessment/proposed delivery sequence, not activation, new source
 access or authority to fork/publish upstream code. Existing handoff tasks remain
 open; assessment evidence does not satisfy their implementation acceptance.
 
-## Zsh npm diagnosis paused: 2026-10-27 (rrs8)
+## Zsh npm report retired after unreproduced diagnosis: 2026-10-27 (rrs8)
 
 The owner authorizes comparing and repairing home shell startup files. Both
 `.bashrc` and `.zshrc` already load the same NVM initialization; no missing npm
 setup was found. Fresh interactive shells resolve npm without inherited Node
 paths. Do not copy Bash-only startup code into Zsh or claim a repair without
-reproducing the failing session. The diagnostic-output request was cancelled;
-rrs8 remains open and no home startup file was changed.
+reproducing the failing session. The diagnostic-output request was cancelled.
+The owner later retired this support report as `wontfix` during `wvd2`;
+the cause remains unconfirmed and no home startup file was changed.
 
 ## Repo-named roborev review sweep: 2026-10-27
 
