@@ -88,11 +88,11 @@ provider repository and completed sync. An explicit mapping binds daemon
 `/home/nkirrish/aos-spud`. Native task reference `spud#3sv9` resolves through
 Forge, but that task was not claimed or launched as an unapproved demo.
 
-SPUD is the available main-UI route for the next agreed end-to-end pilot.
-Engineer and Librarian remain local-only and unmapped; registration does not
-implement the missing provider-free picker/resolver path. The shared Librarian
-task domain, deferred names/paths and all Kata task history are unchanged.
-No automatic dispatch or coding/review pilot was performed.
+SPUD was the available main-UI route for the next agreed end-to-end pilot at
+the 17:33 proposal snapshot. The 17:39 catalog reset and later provider
+onboarding above supersede its statement that Engineer and Librarian were
+local-only and unmapped. No automatic dispatch or coding/review pilot was
+performed at that snapshot.
 
 One pre-existing application PR workspace (`96ca6f1e3b862ad7`) remains with
 its worktree and tmux state; catalog removal is not worktree deletion.

@@ -56,6 +56,7 @@ FORWARDABLE = (NEW_ON_HELIX, GSA_BEHIND)
 NEEDS_HUMAN = (DIVERGED,)
 
 PUSH_BATCH = 50
+JSON_MODE = False
 
 # A blocked VPN route makes git hang rather than fail, which would wedge an
 # unattended run forever. The reachability probe is always bounded.
@@ -67,7 +68,7 @@ HELIX_TAG_NS = "refs/helix-tags"
 
 
 def log(message):
-    print(message, flush=True)
+    print(message, file=sys.stderr if JSON_MODE else sys.stdout, flush=True)
 
 
 def die(message, code=2):
@@ -534,7 +535,9 @@ def report(repo, rows, tag_rows, verbose):
 def open_pull_request(repo, branch, base, title, body, dry_run):
     """Open a PR on the Helix host with gh, pinned to that host."""
     if not base:
-        base = repo.default_branch("helix") or "master"
+        base, error = remote_default_branch(repo, "helix")
+        if error:
+            return f"cannot determine Helix default branch; pass --base explicitly ({error})"
     command = [
         "gh",
         "pr",
@@ -567,6 +570,25 @@ def open_pull_request(repo, branch, base, title, body, dry_run):
         return f"gh pr create failed: {out}"
     log(f"    {out}")
     return None
+
+
+def remote_default_branch(repo, remote):
+    code, out = git(
+        ["ls-remote", "--symref", remote, "HEAD"],
+        cwd=repo.path,
+        check=False,
+        timeout=PREFLIGHT_TIMEOUT,
+    )
+    if code != 0:
+        return None, out or f"git ls-remote exited {code}"
+    for line in out.splitlines():
+        target, separator, ref = line.partition("\t")
+        prefix = "ref: refs/heads/"
+        if separator and ref == "HEAD" and target.startswith(prefix):
+            branch = target[len(prefix):]
+            if branch:
+                return branch, None
+    return None, "remote HEAD does not advertise a branch"
 
 
 def preflight_helix(repo, timeout=PREFLIGHT_TIMEOUT):
@@ -731,29 +753,42 @@ def run_push(args, config, repos):
     if len(repos) != 1:
         die("push works on one repository: use --repo NAME")
     repo = repos[0]
+    record = {"repo": repo.dest_name, "branch": args.branch, "problems": []}
+
+    def finish(code):
+        if args.json:
+            print(json.dumps([record], indent=2))
+        return code
+
     log(f"=== {repo.path}")
     problems = repo.ensure(dry_run=args.dry_run)
     if problems:
         for problem in problems:
             log(f"    SKIP: {problem}")
-        return 1
+        record["problems"].extend(problems)
+        return finish(1)
     if not args.no_fetch:
         error = repo.fetch("helix")
         if error:
             log(f"    {error}")
-            return 1
+            record["problems"].append(error)
+            return finish(1)
     error = repo.push_branch(args.branch, "helix", dry_run=args.dry_run)
     if error:
         log(f"    {error}")
-        return 1
+        record["problems"].append(error)
+        return finish(1)
+    record["pushed" if not args.dry_run else "would_push"] = [args.branch]
     if args.pr:
         error = open_pull_request(
             repo, args.branch, args.base, args.title, args.body, args.dry_run
         )
         if error:
             log(f"    {error}")
-            return 1
-    return 0
+            record["problems"].append(error)
+            return finish(1)
+        record["pull_request"] = "would-create" if args.dry_run else "created"
+    return finish(0)
 
 
 def add_common_arguments(parser):
@@ -785,6 +820,7 @@ def add_common_arguments(parser):
 
 
 def main(argv=None):
+    global JSON_MODE
     parser = argparse.ArgumentParser(
         description=__doc__.splitlines()[0],
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -806,6 +842,7 @@ def main(argv=None):
     push.add_argument("--body", default="")
 
     args = parser.parse_args(argv)
+    JSON_MODE = args.json
     config = Config(args)
     try:
         repos = build_repos(args, config)

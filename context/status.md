@@ -1,5 +1,25 @@
 # Status: 2026-10-26
 
+## Review corrections and deferred installer boundary: 2026-10-27
+
+- Corrected the CCSMFSSM-1290 handoff to distinguish the commented sample AAC
+  list from the active lookup response, and to name the form's `valid` getter
+  as the submit gate.
+- The dual-remote sync command now discovers Helix's advertised default branch
+  for PRs, fails clearly when it cannot, and keeps machine-readable output on
+  stdout only. Roborev hook staging accepts standalone generated rewrite hooks
+  and refuses mixed hooks that could consume stdin.
+- Confirmed managed Kata startup pins the private `KATA_DSN` and clears
+  `KATA_DB`; the remaining fresh-host CLI/client provisioning is tracked by
+  `0sfx` and requires design approval before user-home configuration changes.
+- Focused sync tests (39), hook-staging tests (17), and managed-environment
+  regression tests (4) passed. Full script and distribution suites also passed
+  (172 and 37 tests). No live user configuration, managed service or running
+  process was changed.
+- Twenty-two discovered reviews were resolved and closed; native Kata
+  user-home CLI/client provisioning remains open pending the design approval
+  tracked by `0sfx`.
+
 ## Reconciled pilot delivered; full integration still gated (txt3)
 
 - Restored k03a/j54x/6hce/avvp under original identities/history and reconciled
@@ -616,8 +636,8 @@ routed through the newer default CLI was canceled; it is not acceptance evidence
 - The change checks the substitute NSN's `d403_acq_ad` through the existing
   `NIFService.getNSNServiceData`, warning on `V`/`Y` with the ticket's exact
   wording. No backend change; `functions/get-nsn-service-details` already
-  returns the field. `substituteNSNWarning` is a standalone field that
-  `isFormValid()` never reads, so saving is not blocked. Empty or already
+  returns the field. `substituteNSNWarning` is a standalone field that the
+  form's `valid` getter never reads, so saving is not blocked. Empty or already
   hard-invalid values are not looked up, repeated blurs do not re-request, a
   late response cannot overwrite a newer value, and a failed lookup stays
   silent.
@@ -696,9 +716,12 @@ Librarian-generated documentation.
 **The requirement is now locatable.** `nif-addedit.component.ts` and
 `nif-addedit.component.html` under
 `supply-chain-user-interface/angular/fss-ui/src/app/nif-workspace/` own the NIF
-add/edit form. `nif-metadata.ts` confirms the ticket's codes: `V - Terminal
-Item in stock` and `Y - Terminal Item (no stock available)`, matching
-"terminal or obsolete".
+add/edit form. The AAC examples in `nif-metadata.ts` are commented out and do
+not confirm runtime behavior. The active substitute lookup reads
+`d403_acq_ad` from `NIFService.getNSNServiceData(substituteNSN)`, with
+`V - Terminal Item in
+stock` and `Y - Terminal Item (no stock available)` as the ticket's target
+codes.
 
 **The central design gap is answerable but unanswered.** `substituteNSN` is a
 plain masked text input, validated only for length, format and difference from
@@ -716,9 +739,10 @@ flag is still unresolved and is the one question worth asking the team.
 MOP `01` (`acquisitionAdviceCodeChange`); phrase code becomes required when AAC
 is `Y`; substitute NSN becomes required when phrase code is in
 `["A","C","D","F","Y","Z"]`; substitute NSN must be >= 13 chars and differ from
-the NSN. `isFormValid()` is the single submit gate, so a *soft* warning must not
-be added to it. The file already distinguishes blocking `usa-error-message`
-from advisory `usa-hint`, and the app uses `usa-alert--warning` in eight places.
+the NSN. The `valid` getter is the submit gate (`[disabled]="!valid"`), so a
+*soft* warning must not be added to it. The file already distinguishes blocking
+`usa-error-message` from advisory `usa-hint`, and the app uses
+`usa-alert--warning` in eight places.
 
 **Verification is the real blocker, and both repos are red before any change.**
 

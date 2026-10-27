@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).resolve().parent / "sync-helix-gsa.py"
@@ -441,7 +442,7 @@ class CommandLineTests(unittest.TestCase):
     def git_in(self, path, args):
         return run(["git", *args], cwd=path)
 
-    def invoke(self, *extra):
+    def invoke_streams(self, *extra):
         args = [
             extra[0],
             "--into",
@@ -457,10 +458,15 @@ class CommandLineTests(unittest.TestCase):
             "app",
             *extra[1:],
         ]
-        buffer = io.StringIO()
-        with contextlib.redirect_stdout(buffer):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = sync.main(args)
-        return code, buffer.getvalue()
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def invoke(self, *extra):
+        code, stdout, stderr = self.invoke_streams(*extra)
+        return code, stdout + stderr
 
     def helix_tip(self, branch="master"):
         return run(["git", f"--git-dir={self.helix}", "rev-parse", branch]).strip()
@@ -546,12 +552,85 @@ class CommandLineTests(unittest.TestCase):
         )
         self.assertIn("refs/heads/feat/x", refs)
 
+    def test_pull_request_uses_advertised_main_branch(self):
+        run(["git", "branch", "-M", "main"], cwd=self.seed)
+        run(["git", "push", "-q", str(self.helix), "main"], cwd=self.seed)
+        run(["git", f"--git-dir={self.helix}", "symbolic-ref", "HEAD", "refs/heads/main"])
+        path = self.root / "pr-worktree"
+        path.mkdir()
+        run(["git", "init", "-q"], cwd=path)
+        run(["git", "remote", "add", "helix", str(self.helix)], cwd=path)
+        class StubConfig:
+            protocol = "https"
+            source_host = "helix.invalid"
+            source_org = "ORG"
+            dest_host = "github.invalid"
+            dest_org = "GSA"
+            dest_prefix = ""
+            into = self.into
+
+        repo = sync.Repo(path, "ORG", "app", "app", StubConfig())
+        messages = []
+        with patch.object(sync, "log", side_effect=messages.append):
+            error = sync.open_pull_request(repo, "feat/example", "", "", "", True)
+        self.assertIsNone(error)
+        self.assertTrue(any("feat/example -> main" in message for message in messages))
+
+    def test_pull_request_requires_an_advertised_default_branch(self):
+        class StubConfig:
+            protocol = "https"
+            source_host = "helix.invalid"
+            source_org = "ORG"
+            dest_host = "github.invalid"
+            dest_org = "GSA"
+            dest_prefix = ""
+            into = self.into
+
+        repo = sync.Repo(self.root, "ORG", "app", "app", StubConfig())
+        with patch.object(sync, "git", return_value=(0, "abc123\\tHEAD")):
+            error = sync.open_pull_request(repo, "feat/example", "", "", "", True)
+        self.assertIn("cannot determine Helix default branch", error)
+        self.assertIn("pass --base explicitly", error)
+
     def test_json_output_is_parseable(self):
-        code, output = self.invoke("status", "--json")
-        self.assertEqual(code, 0, output)
-        payload = json.loads(output[output.index("[") :])
+        code, stdout, stderr = self.invoke_streams("status", "--json")
+        self.assertEqual(code, 0, stderr)
+        payload = json.loads(stdout)
         self.assertEqual(payload[0]["repo"], "app")
         self.assertEqual(payload[0]["problems"], [])
+        self.assertIn("Summary", stderr)
+
+    def test_json_output_remains_parseable_on_divergence(self):
+        self.invoke("status")
+        path = self.into / "app"
+        self.git_in(path, ["config", "user.email", "t@example.invalid"])
+        self.git_in(path, ["config", "user.name", "Test"])
+        self.commit_upstream("helix side")
+        (path / "gsa-only").write_text("g\\n", encoding="utf-8")
+        self.git_in(path, ["add", "."])
+        self.git_in(path, ["commit", "-qm", "gsa side"])
+        self.git_in(path, ["push", "-q", "origin", "master"])
+
+        code, stdout, stderr = self.invoke_streams("pull", "--json")
+        self.assertEqual(code, 1)
+        payload = json.loads(stdout)
+        self.assertTrue(payload[0]["needs_attention"])
+        self.assertIn("diverged and were left untouched", stderr)
+
+    def test_push_json_output_is_standalone(self):
+        self.invoke("status")
+        path = self.into / "app"
+        self.git_in(path, ["config", "user.email", "t@example.invalid"])
+        self.git_in(path, ["config", "user.name", "Test"])
+        self.git_in(path, ["checkout", "-q", "-b", "feat/json"])
+        (path / "new").write_text("content\\n", encoding="utf-8")
+        self.git_in(path, ["add", "."])
+        self.git_in(path, ["commit", "-qm", "feature"])
+
+        code, stdout, stderr = self.invoke_streams("push", "--branch", "feat/json", "--json")
+        self.assertEqual(code, 0, stderr)
+        payload = json.loads(stdout)
+        self.assertEqual(payload[0]["pushed"], ["feat/json"])
 
     def test_unfetched_helix_is_a_failure_not_a_clean_run(self):
         # A clone whose Helix side was never fetched must never be reported as

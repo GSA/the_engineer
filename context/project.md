@@ -36,6 +36,10 @@ remains on its clean Forge branch, unmerged. Native acceptance k03a/6hce/avvp
 stays open; the no-amend propagation gap is corrected in concise guidance
 without claiming full behavioral acceptance. Completed experimental workers
 are stopped, while the worktree and four managed services are preserved.
+Fresh-host native Kata CLI/client provisioning remains separately tracked by
+0sfx and needs design approval before changing user-home configuration.
+The review-driven sync and hook corrections preserve that boundary and did not
+change any live user configuration or service.
 
 ## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
 
@@ -274,10 +278,12 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   quiet mode, exact-snapshot evidence, explicit stored passing verdict and
   original source/index checks. Diagnostic evidence never authorizes a commit.
 
-- On 2026-10-23 the owner retired Forge as a persistent service and from the
+- Historical state before the 2026-10-26 backlog reconciliation: on 2026-10-23
+  the owner retired Forge as a persistent service and from the
   foreground multi-dashboard supervisor. Preserve its private state and explicit
   `forge-run` capability, but do not reinstall boot startup or implicitly launch
-  it. Forge-dependent backlog decisions remain separate and pending.
+  it. Forge-dependent backlog decisions remained separate and pending at that
+  point; the later disposition is recorded above.
 
 - On 2026-10-20 at 17:10 the owner requests addressing the application-Kata
   authoring blocker. The refusal is an intentional shared CLI scope guard;
