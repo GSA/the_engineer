@@ -16,7 +16,7 @@
 - Changes in this task are limited to Engineer design/status documentation and
   native Kata records. Existing unrelated dirty worktrees were preserved.
 
-## Review corrections and deferred installer boundary: 2026-10-27
+## Review corrections and native installer delivery: 2026-10-27
 
 - Corrected the CCSMFSSM-1290 handoff to distinguish the commented sample AAC
   list from the active lookup response, and to name the form's `valid` getter
@@ -25,16 +25,21 @@
   for PRs, fails clearly when it cannot, and keeps machine-readable output on
   stdout only. Roborev hook staging accepts standalone generated rewrite hooks
   and refuses mixed hooks that could consume stdin.
-- Confirmed managed Kata startup pins the private `KATA_DSN` and clears
-  `KATA_DB`; the remaining fresh-host CLI/client provisioning is tracked by
-  `0sfx` and requires design approval before user-home configuration changes.
-- Focused sync tests (39), hook-staging tests (17), and managed-environment
-  regression tests (4) passed. Full script and distribution suites also passed
-  (172 and 37 tests). No live user configuration, managed service or running
-  process was changed.
-- Twenty-two discovered reviews were resolved and closed; native Kata
-  user-home CLI/client provisioning remains open pending the design approval
-  tracked by `0sfx`.
+- The managed Kata service and manual startup now run with an explicit clean
+  environment, retaining only HOME/PATH/locale and the private Kata data
+  location. Inherited auth, endpoint, storage and trust overrides cannot alter
+  the daemon.
+- With owner approval, `0sfx` delivered the direct native CLI symlink and
+  conflict-safe active loopback client config. Synthetic HOME/PATH execution
+  confirmed the built CLI selects that endpoint and preserves `.kata.toml`
+  bindings; reruns preserve unrelated settings and credentials.
+- Review 73's managed-environment, fresh-host provisioning and stale README
+  findings are fixed or resolved with evidence; the review was commented and
+  closed. `0sfx` was closed against local commit `9c4a83a`. All 23 original
+  reviews are resolved.
+- Final script and distribution suites passed (173 and 44 tests). No real user
+  home, managed service, live daemon or persistent process was changed. Full
+  host/recovery acceptance remains separate under `p4ke`/`5xrm`.
 
 ## Reconciled pilot delivered; full integration still gated (txt3)
 

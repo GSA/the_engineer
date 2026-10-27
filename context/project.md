@@ -53,10 +53,32 @@ remains on its clean Forge branch, unmerged. Native acceptance k03a/6hce/avvp
 stays open; the no-amend propagation gap is corrected in concise guidance
 without claiming full behavioral acceptance. Completed experimental workers
 are stopped, while the worktree and four managed services are preserved.
-Fresh-host native Kata CLI/client provisioning remains separately tracked by
-0sfx and needs design approval before changing user-home configuration.
+Fresh-host native Kata CLI/client provisioning was tracked by `0sfx`. The owner
+approved implementation on 2026-10-27; it is now delivered and verified
+without changing the real user home or running services.
 The review-driven sync and hook corrections preserve that boundary and did not
 change any live user configuration or service.
+
+## Native Kata client provisioning delivered: 2026-10-27
+
+The owner approved native user-local CLI/client provisioning for `0sfx`.
+`dist/install.py` now creates a direct `~/.local/bin/kata` symlink and adds or
+reuses the active loopback daemon in `~/.kata/config.toml`. Existing config
+settings and credentials are preserved; conflicting binaries, daemon targets,
+and symlinked configs fail explicitly. The installer does not edit shell
+startup files or touch an existing daemon.
+
+The managed service and printed manual startup command now use `/usr/bin/env
+-i` with an explicit HOME/PATH/locale and private Kata data location. This
+prevents inherited auth, endpoint, storage, and trust overrides from changing
+the managed daemon.
+
+Evidence: the built native CLI ran through a synthetic HOME/PATH, selected the
+configured loopback endpoint, and retained a synthetic repository's
+`.kata.toml` binding. The script and distribution suites passed (173 and 44
+tests). Review 73 was commented and closed; `0sfx` was closed against commit
+`9c4a83a`. No real home config, daemon, service, or persistent process changed.
+Full-host reproduction and recovery remain under `p4ke`/`5xrm`.
 
 ## Post-onboarding sequencing recommendation: 2026-10-26 (kamh)
 
@@ -214,8 +236,8 @@ runtime, SPUD ownership, task rebinding, service migration or memory selection
 is implied. Toolkit/corpus tasks remain distinguished by repo metadata inside
 their existing shared `librarian` project.
 The first slice also covers inherited Kata storage overrides for managed
-startup; native CLI/client provisioning is separate (`0sfx`), with explicit
-approval before changing any real user-home configuration.
+startup; native CLI/client provisioning is delivered under `0sfx` after
+explicit owner approval, without changing the real user home.
 
 ## Cross-project architecture direction: 2026-10-26
 
