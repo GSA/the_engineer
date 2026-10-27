@@ -8,6 +8,51 @@ integration or authority to rename, migrate, deploy or change SPUD.
 the first bounded Engineer implementation/pilot and Hindsight configuration
 preparation. Other proposed integrations remain gated; REA is deferred.
 
+## Design-document map and planning boundaries
+
+Keep this as the single cross-product architecture: product ownership,
+observed-versus-proposed capability, integration boundaries, sequencing and
+unresolved decisions. The focused documents and task authorities are:
+
+| Concern | Canonical home |
+| --- | --- |
+| Engineer coding/review workflow | [engineering-workflow.md](engineering-workflow.md) |
+| Selective engineering memory and Hindsight evaluation | [engineering-memory.md](engineering-memory.md) |
+| Producer/receiver protocol details | Producer-owned SPUD evidence and Librarian toolkit receiver design, linked from native Kata |
+| FALCON source corpus, provenance, handling and qualified retrieval | FALCON's own canonical corpus records and stores; do not copy them into Engineer |
+| Current execution, owners, dependencies and completion evidence | Native Kata issues in the owning projects; this architecture links to them but is not a second task ledger |
+
+Keep proposals and unknowns explicit here until a decision is made; put an
+accepted component contract in that component's own documentation and link to
+it rather than maintaining competing copies. Use dated decision entries for
+changes in direction, and do not turn a proposed sequence into task status or
+authorization.
+
+## FALCON legacy-technology boundary: 2026-10-27
+
+The owner directs that `falcon-docs` technology be treated as legacy while its
+information corpus is preserved until a replacement system and migration/
+re-ingestion plan are ready. This retires further FALCON hosting,
+unattended-ingestion and compatibility-cleanup work; `falcon-docs#5njc`,
+`#51kq` and `#939r` were closed as `wontfix`, not represented as completed
+acceptance. Their native records and history remain. This is not authorization
+to remove the checkout, shut down services, alter authoritative stores,
+refresh the index, migrate/re-ingest content or change handling policy.
+
+Until a separately approved migration plan exists, preserve original bytes,
+provenance, restrictions, catalog/review authority and the current corpus.
+Choose a destination and define identity/version mapping, validation, recovery
+and cutover before any transfer or re-ingestion. The FALCON technology
+disposition does not make its corpus obsolete or disposable.
+
+Cross-product Jira/Confluence handoff design now has one Engineer coordinator,
+`engi-platform#dh1t`, with the producer evidence task `spud#3sv9` and receiver
+contract task `librarian#55nx` as children. The existing producer-before-
+receiver dependency remains. Engineer coordinates only; SPUD owns exporter
+behavior and Librarian owns receiving, provenance and qualification. This
+work remains design/local-evidence only, not a source-pipeline run, unattended
+ingestion or corpus change.
+
 ## Post-onboarding recommendation: 2026-10-26 (kamh)
 
 Private GSA repositories, Forge catalog entries and explicit Kata mappings now
@@ -288,7 +333,7 @@ selected or installed here.
 | Runtime/version drift | Librarian decision 0002 still calls out missing complete reader/adapter lock; Engineer's full clean-host run is outstanding | Pin reproducible artifacts; validate a new isolated project and rerun without state loss |
 | Instance portability | Librarian decisions 0003/0004 identify toolkit-relative policy/store homes and absolute-root index identity | Use independent full-clone instances now; make store-home/policy changes under explicit compatibility work, not a shared-root shortcut |
 | Existing populated instance divergence | Falcon's old identities/layout and additional tools differ from the reusable toolkit | Inventory capability parity and rehearse any migration on a copy with recovery; never reinitialize populated stores |
-| Intake throughput | Librarian roadmap and `falcon-docs#51kq` describe automation, not installed orchestration | Reuse SPUD exports and native writers; prove resumable handoff before adding watchers |
+| Intake throughput | Legacy FALCON automation is retired; the toolkit handoff design remains open | Coordinate `engi-platform#dh1t` and its producer/receiver tasks; defer unattended ingestion to a separately approved replacement-system design |
 | Code-context access | SPUD exports exist; online bounded queries and complete historical companions are not established | Accept source-pinned artifacts now; seek upstream contract/support without making its roadmap ours |
 | Durable engineering lessons | Existing `8cne` research is complete, but no selective-memory service exists | Evaluate the [memory contract](engineering-memory.md), not transcript capture or a lossless ledger |
 | Names and task domains | Toolkit/corpus task separation is delivered; legacy runtime names remain | `5ayh` / `eb48`: inventory stable IDs/references before deferred directory/service migration |
@@ -304,8 +349,8 @@ fully refactored" is not a useful readiness gate.
 | Stage | Deliverable and completion evidence | Existing work / scope |
 | --- | --- | --- |
 | 1. Boundaries exercised through a real workflow | One approved task goes from clarification and Kata claim through a correctly mapped Forge worktree, private Pi/Superpowers, relevant qualified context, implementation, focused checks, roborev disposition, available AgentsView visibility and evidence-linked Kata closure. Reopen/resume the workspace without duplicate work or false completion. | `engi-platform#jgcf`, with `tvbf`, `mpew` and `8vhd` retaining their separate lifecycle, synthetic-gate and compaction acceptance. An approved remaining cleanup slice can be the useful change, not a throwaway demo. |
-| 2. SPUD export to Librarian evidence | Document actual producer fields/layouts; approve the receiver design; then implement and exercise one supplied export in a disposable instance, followed by one explicitly authorized source cohort. Trace an origin/version through retained bytes, receipt, extraction, actual review/selection and a qualified cited read. | Existing prerequisite `spud#3sv9 -> librarian#55nx`. Both are initially contract/design work, not permission for real intake. Reusable implementation belongs in the toolkit; deployment policy and rollout remain with the instance. |
-| 3. Reliable unattended ingestion | Persist per-item progress and recovery; reconcile approved scopes; exercise retries, interruption, partial exports, changes and operator pause/replay before enabling a schedule. Report acquired, registered, extracted, awaiting review and retrieval-ready separately. | Refine approved toolkit implementation children and deliberately activate the instance roadmap `falcon-docs#51kq`. It is still parked; a scheduler alone does not complete it. |
+| 2. SPUD export to Librarian evidence | Document actual producer fields/layouts and receiver contract; any synthetic or real handoff requires its own gate. Trace an origin/version through retained bytes, receipt, extraction, actual review/selection and a qualified cited read only when separately authorized. | `engi-platform#dh1t` coordinates `spud#3sv9 -> librarian#55nx`. Current tasks are contract/design work; no real intake is authorized. Reusable implementation belongs in the toolkit; deployment policy and rollout belong to the receiving instance. |
+| 3. Reliable unattended ingestion | Revisit resumable, scoped automation only as part of the selected replacement system and an approved migration/re-ingestion plan; distinguish acquired, registered, extracted, awaiting review and retrieval-ready. | FALCON's `#51kq` is retired as `wontfix`; no unattended ingestion is planned on the legacy FALCON technology. |
 | 4. Drive as another acquisition adapter | Feed the same handoff through one approved Drive scope. Preserve source permissions/handling, stable IDs, upstream versions where available, export representation and change/deletion semantics. | A separate design slice after the common receiver/recovery contract is proven. Reuse Falcon's planner evidence; do not assume SPUD already has Drive support or replace retained originals. |
 | 5. Selective engineering memory | After the first real workflow, compare explicit bounded handoffs/lessons against the structured-record baseline using the existing synthetic pilot gates. Adopt a service only if it reduces repeated investigation without losing correction, provenance or scope. | [Memory proposal](engineering-memory.md); prior research is complete, implementation is not. Can proceed independently of Drive and wider connector rollout once its own handling/model decisions are approved. |
 | 6. Reproduction and expansion | Install an empty independent project, rerun without data loss, and restore it from an exercised backup. Verify task/provider/store separation across two synthetic projects before promoting multi-project deployment. | `engi-platform#f47m`, `0sfx`, `p4ke`, `5xrm`. Fix relevant portability gaps throughout stages 1-3; the full fresh-host/restore gate is required before distribution claims, not before using the current host. |
@@ -322,8 +367,10 @@ meet. `engi-platform#f47m` is the concrete first provider boundary: explicit
 executable/reader/root/selection, preserved Falcon compatibility, visible
 configuration failures and no accidental instance-state substitution.
 `0sfx` addresses native Kata provisioning, not a replacement CLI wrapper.
-`qc96`, `librarian#7bna` and `falcon-docs#939r` already cover current-guidance
-cleanup and safe toolkit/instance consolidation.
+`qc96` and `librarian#7bna` cover current-guidance cleanup and safe
+toolkit/instance consolidation. FALCON-specific compatibility cleanup
+`falcon-docs#939r` is retired as `wontfix`; preserving the corpus remains a
+separate requirement and does not imply code cleanup or migration.
 
 For each supplied context packet, preserve origin/revision, inspected scope,
 qualification and freshness; distinguish unavailable, partial and stale data

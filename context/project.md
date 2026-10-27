@@ -1,5 +1,22 @@
 # Objective and decisions
 
+## FALCON legacy direction and cross-project handoff: 2026-10-27
+
+The owner directs treating `falcon-docs` technology as legacy while preserving
+its information corpus until a replacement and migration/re-ingestion plan are
+ready. This retires the open FALCON cloud-hosting, unattended-ingestion and
+compatibility-cleanup tasks `5njc`, `51kq` and `939r` as `wontfix`, not as
+completed acceptance. Preserve their task histories and the corpus; no
+checkout/service teardown, authoritative-store mutation, index refresh,
+migration or re-ingestion is authorized. The cross-product design boundary and
+documentation map are in [system-architecture.md](system-architecture.md).
+
+Coordinate the SPUD Jira/Confluence producer and Librarian receiver through
+`engi-platform#dh1t`, with `spud#3sv9` and `librarian#55nx` as owning-project
+children and the producer task still blocking the receiver. Engineer owns
+coordination only; this design work does not run source pipelines, activate
+automation or change the FALCON corpus.
+
 ## Reconciliation and first implementation authorized: 2026-10-26, 18:28
 
 The owner authorizes immediate reconciliation of retired Forge prerequisites,

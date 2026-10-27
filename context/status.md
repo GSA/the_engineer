@@ -1,4 +1,20 @@
-# Status: 2026-10-26
+# Status: 2026-10-27
+
+## FALCON legacy boundary and cross-project coordination: 2026-10-27
+
+- Owner direction: treat `falcon-docs` technology as legacy, while preserving
+  its information corpus pending a separately approved replacement and
+  migration/re-ingestion plan. No corpus/store/index changes or teardown.
+- Closed `falcon-docs#5njc`, `#51kq` and `#939r` as `wontfix` per that direction,
+  not as completed acceptance; records/history remain.
+- Created `engi-platform#dh1t` to coordinate existing producer/receiver design:
+  `spud#3sv9` remains a prerequisite of `librarian#55nx`; both are children of
+  the Engineer coordinator. No source pipeline or real intake was run.
+- Falcon qualified-context status/search rejected the stale index after
+  detecting changed source files. No refresh/build was run; no qualified
+  corpus claims were made from those search results.
+- Changes in this task are limited to Engineer design/status documentation and
+  native Kata records. Existing unrelated dirty worktrees were preserved.
 
 ## Review corrections and deferred installer boundary: 2026-10-27
 
