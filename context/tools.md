@@ -1,5 +1,66 @@
 # Upstream components
 
+## Current capability audit evidence: 2026-10-27 (e5dd)
+
+Three independent read-only source audits plus parent native-history inventory:
+Engineer root `b795c91`; Librarian `b368d7ebcf9fc6bc24c6a103e4a0738802bfe75e`;
+SPUD `c80837a`; SPUD Web `8e9626d`. Pinned exporter/Graphify sources remain the
+previous rmgx revisions. Preserve Librarian's existing roadmap/decision-0006
+edits and SPUD's instructions/binding changes; neither supplies missing runtime
+functionality. Native inventory snapshots are retained in this session's
+`files/kata-audit-{engineer,librarian,spud}.json`.
+
+Important narrower evidence:
+- Librarian `tools/context-index/renditions.py:10-27,78-105` admits legacy
+  Gemini TXT/ODT rendition contracts, not registered Docling outputs.
+  `docling_adapter.py:373-504` already provides the delivered lifecycle.
+- Catalog `catalog_store.py:618-689`, review `event_store.py:333-396`, and
+  index `context_index.py:486-604` already provide state checks/idempotence
+  and explicit atomic publication/freshness. A new stage runner must reuse them.
+- `extract.py:410-417` is Gemini TXT/ODT, not general plain-text/Office support.
+  `agents/contributions.md:3-6,29-55` explicitly describes a contract, not
+  installed contribution transport. Catalog relations are provenance-oriented
+  (`catalog_store.py:158-167`), not typed business claims.
+- Engineer memory contract `context/engineering-memory.md:325-348` remains
+  design; `dist/hindsight.compose.yaml:5-16,25-45` is disabled preparation.
+  Private Hindsight compose env was absent and port 18888 not listening.
+- AgentsView `internal/db/archive_content.go:314-349` strips text in usage
+  mode; `internal/server/huma_routes_sessions.go:87-89,259-261` exposes filters.
+  Read-only config/tracking and aggregate counts confirm that mode and empty
+  message bodies. No source transcripts were read. Service/build and readable
+  source-file metadata support the finding; individual browser selections
+  and every allegedly missing session were not audited.
+- Experimental AgentsView Recall (`docs/recall.md:11-17,25-33,127-152`) is
+  transcript-derived research functionality, not Engineer selected-record
+  memory. Usage archives reject it (`archive_content.go:67-78`).
+- Completed `f47m` is preserved on `dae66cd` with review 104, not merged into
+  main. Completed `djfr` is the contribution contract; missing transport is
+  distinct. Existing `zbww`, `3c2c`, `fjyf`, `55nx`, `3sv9`, `vky6`, `q9a9`
+  and `pyzt` must not be duplicated.
+- SPUD Web's DLQ (`infra/terraform/modules/lambda/main.tf:423-436`,
+  `dlq_handler.py:185-229`) recovers terminal execution/deployment events.
+  Core citation messages are article paths and acknowledged before processing
+  (`citation_worker.py:181-194,350-386`), not a reliable general intake queue.
+- Web starter fallback/dispatcher (`execution_orchestrator.py:208-220,
+  272-284,563-582`), exporter checkpoints and wrapper persistence gaps remain.
+  Clone provenance/upload handling is in `artifact_service.py:20-25,274-325`;
+  worker sync suppresses failure (`05-sync-inputs.sh:12-15`), while SPUD's
+  manifest permits unknown Git provenance (`manifest_service.py:21-69`).
+- SPUD citation-review completion can retain incomplete warnings
+  (`pipeline_runner.py:450-498`), but any truthy reviewed block can promote
+  lifecycle to stable (`:685-695`). Produced-artifact completeness is not
+  established by nonempty-output checks (`:806-825`).
+- Graphify already stamps analyzed HEAD and atomically writes version metadata
+  (`cli.py:5161-5171`, `export.py:479-488`); it also has partial-source
+  safeguards. SPUD startup installs it unpinned; do not infer deployed versions
+  or complete coverage from the inspected upstream checkout.
+
+Librarian/Engineer tests were inspected, not rerun in this audit. SPUD's audit
+ran four mocked/in-memory characterizations of current failure paths; no live
+API/cloud/model calls or product writes. Source-level absence and local
+configuration findings do not establish remote deployment or corpus quality.
+Prior rmgx checks remain separate evidence, not newly rerun acceptance.
+
 ## Native review repository reassociation: 2026-10-27 (byrk)
 
 Use `roborev repo merge --yes <source-path> <target-path>` to consolidate

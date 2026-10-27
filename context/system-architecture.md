@@ -28,6 +28,111 @@ it rather than maintaining competing copies. Use dated decision entries for
 changes in direction, and do not turn a proposed sequence into task status or
 authorization.
 
+## Implementation-only backlog audit: 2026-10-27 (e5dd)
+
+The owner requests only work not already implemented or underway, with
+operational agentic memory a priority and missing AgentsView conversations
+investigated. Three independent read-only audits covered Librarian, Engineer,
+and SPUD/core Web/dependencies. Native history was reconciled separately:
+before this audit, Engineer had 27 open/49 closed tasks, Librarian 3 open/8
+closed, and SPUD 2 open. An open task is not evidence that its implementation
+is missing; a roadmap entry or closed design task is not a shipped runtime.
+
+### Do not propose these delivered capabilities again
+
+| Delivered or already worked | Existing evidence / limit |
+| --- | --- |
+| Kata, Forge agents/workspaces, roborev and AgentsView ingestion | Existing services and completed bounded coding/review pilot `jgcf`; retain separate unresolved acceptance tasks, not replacement components |
+| Explicit Librarian executable/reader/root/selection setup | Completed `f47m`, preserved commit `dae66cd` and review 104; intentionally unmerged, not an absent implementation to redo |
+| Memory research and disabled Hindsight preparation | `8cne` and `svg1` complete; reuse unexecuted evaluation `zbww`, not another research/configuration task |
+| Catalog/review authority, idempotent writers, explicit selection and atomic index build | Existing Librarian implementations; automation should call them rather than create parallel authorities |
+| PDF/image Docling prepare/verify/register | Completed `k6pr` and its worker/lifecycle/clean-copy children; native-text PDF is included, not a missing PDF adapter |
+| Contribution/disposition and producer/receiver design | `djfr` contract complete; `spud#3sv9 -> librarian#55nx` and `spud#vky6` already own design work |
+| Librarian hardening and graph/edge design | `q9a9` owns existing findings; `7bna` owns parity; decision 0006 has current design edits. Do not duplicate these as untouched work. |
+
+### Unworked implementation shortlist, not newly filed records
+
+Labels below are proposal keys, not native issue IDs, except where an existing
+task is explicitly reused. Each is an unimplemented runtime slice or unresolved
+operational scope. Existing design/acceptance tasks retain their identities.
+This audit does not activate implementation, source acquisition, transcript
+retention or model processing.
+
+| Owning project / proposal | Bounded outcome and acceptance | Reuse / dependency |
+| --- | --- | --- |
+| Engineer E-MEM: selected-event memory runtime | Admit authorized compact agent events/lessons/handoffs, acknowledge durable records, recall across sessions, deduplicate exact retries, link corrections and reject cross-project access. Report unavailable/pending states; no implicit full-transcript capture or duplicate task ledger. | Existing memory contract and `svg1`; use `zbww` to qualify the backend. Memory is now a requested priority, not a reason to block unrelated intake work. |
+| Engineer: reuse `3c2c` for conversation visibility | Add the concrete current policy/filter mismatch to its existing retention/client-coverage scope. Restore intended visibility using supported configuration under approved retention/backfill scope; distinguish unavailable history from import failure. Add diagnostics only if needed. | Existing AgentsView integration and `3c2c`, not another importer or duplicate retention task; preserve `fjyf` no-session accounting scope |
+| Engineer E-CTX: task-scoped business/code evidence composition | Consume both providers, retain exact document locators/version and code snapshot identity, expose partial/stale/missing evidence, and bind the returned evidence to the task. Reuse acknowledged contribution delivery rather than writing corpus state. | `f47m` implementation, `spud#vky6` provider contract, `pyzt`; `6hce` remains actual qualified-read acceptance |
+| Librarian L-READ: selected Docling rendition retrieval | Extend rendition admission/read support to registered Docling outputs, preserving page/table provenance, limitations, source/policy freshness and exact qualified packets. Do not redo conversion or auto-select every rendition. | Existing Docling lifecycle, selection and reader; agree eligible rendition policy |
+| Librarian L-JOBS: durable intake stages and DLQ | Persist stage work and saved requests, resume interrupted operations, retry transient failures, inspect/replay dead letters, and keep failed scope visible. Verify ambiguous commits without duplicate authority writes. | Existing catalog/review idempotence and Docling retry artifacts; no new authority store |
+| Librarian L-EXPORT: retained-export importer | Validate the approved supplied-export layout, retain originals, map metadata and submit exact receipts; refuse changed/conflicting/incomplete retry inputs. | Implement after existing `55nx` design and `spud#3sv9` evidence; no crawler in this slice |
+| Librarian L-CONF: Confluence reconciliation adapter | Use the standalone exporter with complete initial-sweep accounting, independent failed-page/attachment retries, safe committed watermarks and explicit changed/deleted/revoked outcomes. | L-JOBS/L-EXPORT and corrected exporter behavior; do not rebuild its renderer/API client |
+| Librarian L-DRIVE: Drive reconciliation adapter | Discover the approved scope, retain native exports/binaries with stable identity/version, resume pagination/change processing, and account for shortcuts, shared drives, removals and permission loss. | Common receipt/recovery contract; Graphify shortcut export is not this connector |
+| Librarian L-TEXT: ordinary UTF-8 text extraction | Add exact line-located generic text through the existing lifecycle; refuse unsupported encoding rather than misclassifying all text as Gemini transcripts. | Existing extraction/registration contracts; no new PDF/OCR task |
+| Librarian L-PUBLISH: standing-policy processing/publication runner | Orchestrate actual authorized review and explainable eligibility decisions, then existing explicit selection/atomic index publication. Preserve uncertainty, exceptions and failed-publication state; parsing is not review. | Existing writers/builds and agreed project policy; L-READ for Docling content, L-JOBS for recovery |
+| Librarian L-CONTRIB: durable contribution/disposition transport | Preserve submitted bytes/correlation, return actual receipt and disposition, reject conflicting retries, and recover interrupted returns. Supply a thin Engineer submit/status route, not another write-capable retrieval MCP. | Completed `djfr`/`agents/contributions.md` contract, catalog writer and L-JOBS |
+
+Office formats and larger-than-limit inputs are genuine remaining gaps, but
+should become separate DOCX/XLSX/PPTX or bounded-large-document implementation
+Katas after prioritizing the actual cohort and checking `7bna` reuse evidence.
+Do not roll them into "add Docling" or claim all DOC/PDF formats are covered.
+Likewise, typed business entities/claims and a derived relationship runtime
+are absent, but their admission/authority design is already being worked on.
+Implement the selected real-query slice after that decision rather than
+creating another graph-design task or a speculative graph database project.
+
+### Current visibility and memory findings
+
+AgentsView's saved configuration and tracking metadata both select `usage`
+archive content. Read-only aggregates found 17,665 message rows with zero
+nonempty bodies; source code deliberately strips bodies in this mode. Default
+filters also exclude some one-shot/automated sessions. Configured Copilot/Pi
+source files are readable and service/build identity matches. This supports a
+policy/filter explanation, not a missing integration or wholesale importer
+failure. No conversation bodies were read, and no capture policy was changed.
+
+AgentsView also contains experimental transcript-derived Recall; that is not
+the selective-record Engineer memory runtime and is refused in usage-only mode.
+Hindsight remains prepared, not running/configured for use. Reuse existing
+contracts and evaluation rather than mistaking either product's presence for
+durable selected-memory admission and retrieval.
+
+### Final SPUD choice from the current source
+
+Prefer **external composition plus bounded upstream fixes**, not a SPUD
+rewrite or a new extraction platform. The standalone Atlassian exporters,
+Graphify and Docling already exist independently; there is normally no SPUD
+code to extract merely to use them. Keep SPUD's documentation generation and
+code artifacts where valuable, and consume them through an acceptance adapter.
+If SPUD does not produce the technical evidence, label that alternative
+honestly rather than calling Graphify-only execution a three-product demo.
+
+SPUD already provides repository analysis, graph artifacts, raw/Markdown
+exporters, job queues and terminal-event DLQ handling. That DLQ recovers
+execution/deployment events, not missing document pages/attachments; its
+citation-review queue has another scope again. Graphify already stamps commit
+provenance and supports typed edges, source locations, queries/MCP and
+incremental processing. Do not spec these as missing engines.
+
+Bounded maintainer-facing fixes include dispatch-error propagation, required
+persistence failures, incomplete-run watermark/item retry semantics, version
+pinning and preventing incomplete review from becoming `stable`. Building
+Drive discovery, a durable per-item lifecycle/DLQ and controlled qualification/
+publication inside SPUD would change its product remit, not merely steer a
+small implementation. Those missing capabilities belong in Librarian.
+
+Existing provenance must also be connected, not reinvented: Web captures clone
+SHA and skipped-upload information, but source uploads omit `.git`, tolerate
+some missing files, and may lose their manifest; SPUD independently permits
+unknown Git provenance. An acceptance adapter needs persisted artifacts plus
+bound coverage/revision evidence. A wrapper cannot infer complete source
+coverage from successful files alone; exporter reconciliation/fixes are still
+required. Existing upstream completed stories are not untouched specs.
+
+Pins, file/line evidence, validation limits and maintained native references
+are recorded in `context/tools.md`. No product implementation or existing
+acceptance task was represented as completed by this audit.
+
 ## FALCON legacy-technology boundary: 2026-10-27
 
 The owner freezes further functional development of `falcon-docs`, not its

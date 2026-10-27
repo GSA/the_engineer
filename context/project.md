@@ -1,5 +1,26 @@
 # Objective and decisions
 
+## Unworked implementation shortlist: 2026-10-27 (e5dd)
+
+The owner requests current-source and native-history reconciliation, not
+another broad feature wish list. The proposal table in
+`context/system-architecture.md` excludes completed integrations, Docling
+conversion, provider setup, memory research/preparation and existing design/
+hardening work. Proposal keys are not newly created native implementation
+tasks; the existing backlog and owners remain unchanged.
+
+Operational selected-event memory is now a priority: reuse `zbww` evaluation
+and completed Hindsight preparation before implementing admission/recall.
+AgentsView missing text is explained by current usage-only archive policy,
+with filters hiding some sessions; this does not authorize changing retention.
+Newly identified Librarian gap: Docling registration is delivered but its
+renditions are not admitted by the current qualified reader.
+
+Recommend external composition of existing exporters/Graphify/Docling and
+small agreed SPUD reliability fixes. The new durable document lifecycle stays
+with Librarian; do not impose a SPUD product redesign or rewrite existing
+engines. This is planning evidence, not source/model/capture/deployment approval.
+
 ## Librarian review ownership: 2026-10-27 (byrk)
 
 The owner requested moving still-relevant roborev reviews 24, 56 and 69 from
