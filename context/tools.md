@@ -9,13 +9,21 @@ the existing roborev template embeds its remap before preserved shell-hook
 commands, so mixed hooks remain refused to protect stdin.
 
 Managed Kata startup explicitly pins its private database and clears the legacy
-override. Native fresh-host CLI/client provisioning remains under `0sfx`; no
-real user-home configuration was changed because design approval is still
-required. All 172 script tests and 37 distribution tests passed, including
-focused sync, hook-staging and managed-environment regressions. Twenty-two
-reviews were closed after fixes or current-state verification; the installer
-provisioning finding remains open until its user-home configuration boundary is
-approved.
+override. The generated systemd unit and manual Kata command now run through
+`/usr/bin/env -i`, preventing inherited Kata credentials, endpoints, storage
+and trust settings from reaching the daemon.
+
+After explicit owner approval, `0sfx` delivered the direct native CLI symlink
+and conflict-safe active loopback client config. Synthetic HOME/PATH checks ran
+the built CLI, verified endpoint selection and preserved repository bindings;
+reruns preserve unrelated settings and credentials. Existing different
+binaries, active targets and symlinked configs are refused without overwrite.
+The installer does not edit shell startup files or modify a live daemon.
+
+The final script and distribution suites passed (173 and 44 tests), including
+behavioral environment-isolation checks. Review 73 was commented and closed;
+all 23 original reviews are resolved. Commit `9c4a83a` is local and unpushed.
+No real user-home configuration, managed service or persistent process changed.
 
 ## Restored acceptance and implementation dispatch: 2026-10-26 (txt3)
 

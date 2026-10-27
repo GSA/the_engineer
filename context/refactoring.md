@@ -94,7 +94,7 @@ dated navigation aid; live task bodies/status/dependencies remain in Kata.
 | kenn-kopy | `engi-platform#f47m` | Explicit Librarian executable/reader/root/selection binding shared by preflight and setup |
 | kenn-kopy | `engi-platform#k79n` | Closed `wontfix`: optional/dormant-Forge packaging is unnecessary; Forge is required |
 | kenn-kopy | `engi-platform#qc96` | Current operating guidance separated from preserved dated history; proposed mandatory-entrypoint budget <=16 KiB each |
-| kenn-kopy | `engi-platform#0sfx` | Design opt-in native Kata CLI/client provisioning, with fresh synthetic-home discovery, daemon selection and collision handling |
+| Engineer | `0sfx` | Delivered conflict-safe native Kata CLI/client provisioning and synthetic-home daemon-selection acceptance; full-host reproduction remains separate |
 | the_librarian | `librarian#7bna` | Generic-module/instance-divergence matrix and safe consolidation candidates, without adopting shared runtime |
 | the_librarian | `librarian#55nx` | Receiving contract for supplied SPUD exports using existing inbox/catalog/extraction/selection boundaries |
 | falcon-docs | `falcon-docs#939r` | Compatibility map protecting legacy verification, current preparation and intentional coverage loading |
