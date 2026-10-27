@@ -77,6 +77,47 @@ behavior and Librarian owns receiving, provenance and qualification. This
 work remains design/local-evidence only, not a source-pipeline run, unattended
 ingestion or corpus change.
 
+## Engineer current milestone and queue: 2026-10-27 (wvd2)
+
+Focus current Engineer work on **one connected three-product demonstration**,
+coordinated by `engi-platform#pyzt`. The original 31-item backlog mixed that
+goal with personal tooling, optional host experiments and later distribution
+work. The owner explicitly retired dictation, additional Zed attachment,
+mirrored networking, renewal-interface research and the unreproduced shell
+report as `wontfix`. Existing tools and historical evidence are preserved.
+
+The immediate Engineer portfolio has six P1 items under `architecture-now`:
+
+| Work | Existing authority |
+| --- | --- |
+| Coordinate document evidence -> business rule -> code/dependency -> approved change/review | `pyzt` |
+| Verify loaded operating policy, then failing/successful behavioral and publication gates | `k03a -> mpew` |
+| Demonstrate an actual model-selected qualified read, not only tool discovery | `6hce` |
+| Preserve task ownership and truthful attention through interruption/resume | `tvbf` |
+| Coordinate SPUD export evidence and Librarian receiving contracts | `dh1t`, retaining `spud#3sv9 -> librarian#55nx` |
+
+SPUD owns the missing code-context provider-contract design `spud#vky6`, a
+child of the connected milestone. Librarian retains independent-project
+hardening `librarian#q9a9` and its own admission/qualification/intake work.
+Do not turn Engineer coordination into ownership of either provider's engine.
+The provider design and receiver contract do not themselves implement the
+unattended Confluence/Drive lifecycle; agree bounded owning-project work
+before implementation.
+
+Twenty-one Engineer items remain open under `architecture-later`: six P2
+supporting workflow/documentation checks and fifteen P3 expansion/operations
+items. Hindsight, bespoke review UI, media capture, cloud hosting, renaming
+and complete fresh-host distribution are not prerequisites for this milestone.
+Later priority never waives applicable access, recovery or sandboxing rules.
+Current native task records own the detailed list and completion evidence.
+
+Use `kata list --label architecture-now` or
+`kata next --label architecture-now` through the repository binding. A ready
+Kata means no unmet task prerequisite, not authorized source/model execution.
+Agree the independent project/material and processing scope before running
+the connected demo; Acquire code permission does not authorize business
+documents. Existing policy and producer-before-receiver prerequisites remain.
+
 ## Post-onboarding recommendation: 2026-10-26 (kamh)
 
 **Superseded for the expanded demo by the October 27 assessment below.**

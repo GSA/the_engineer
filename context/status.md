@@ -1,5 +1,21 @@
 # Status: 2026-10-27
 
+## Engineer backlog focused on architecture: 2026-10-27 (wvd2)
+
+- Owner explicitly chose retirement of `0rc1`, `jqwq`, `hfbz`, `bbm2`, `rrs8`.
+  All five are `wontfix`, with original evidence/uncertainty preserved.
+- The ongoing Engineer portfolio is 27 open items: six `architecture-now`
+  and 21 `architecture-later`, rather than 31 undifferentiated commitments.
+  Later work remains recorded, not represented as done.
+- Added milestone `pyzt` and SPUD provider-contract design `spud#vky6`.
+  Existing `dh1t`, producer/receiver tasks and Librarian hardening gate retain
+  their own scopes; no pipeline or new implementation was activated.
+- Verified focused labels/priorities, closure reasons, preserved owners and
+  real prerequisites. Independent project/material approval remains open.
+  Current directions and queue commands are in the architecture/tools docs.
+- No services, global settings, provider profiles, source/corpus stores or
+  neighboring source files changed. No experimental process or publication.
+
 ## Boundary-aligned backlog cleanup: 2026-10-27 (pd40)
 
 - Retired Falcon graph workstream `vmhy` and its remaining children `e7zh`,
@@ -47,7 +63,8 @@
 - Both home rc files already initialize NVM; fresh Bash/Zsh resolve npm even
   with Node paths removed from the inherited environment.
 - Requested command-resolution output from the actual failing Zsh terminal;
-  that request was cancelled. Diagnosis is incomplete and rrs8 remains open.
+  that request was cancelled. Diagnosis remained incomplete; the owner later
+  retired `rrs8` as `wontfix` during architecture-focus cleanup `wvd2`.
 - No startup files, packages, services or global settings changed. No
   persistent experimental process remains; no publication is authorized.
 

@@ -1,5 +1,21 @@
 # Upstream components
 
+## Focused native Engineer queue: 2026-10-27 (wvd2)
+
+Use `kata list --label architecture-now` for the six-item Engineer portfolio,
+`kata ready --label architecture-now` for unmet-task-prerequisite filtering,
+and `kata next --label architecture-now` for the next scoped item. Native
+readiness does not establish source access, freshness or execution permission;
+the milestone's project/material selection remains a separate gate.
+
+Audited all 31 original issues: five owner-selected retirements are
+`closed/wontfix`; every other original issue remains open with its owner
+unchanged. Six current Engineer items are P1, six later supporting items P2,
+and fifteen later expansion/operations items P3. The new milestone and its
+SPUD-owned provider-design child are scoped planning, not implementation.
+Verified `k03a -> mpew` and `spud#3sv9 -> librarian#55nx` still exist. No
+runtime, provider, source, credential or persistent process was changed.
+
 ## Boundary-aligned review and task cleanup: 2026-10-27 (pd40)
 
 Native `roborev list` from a non-Git parent directory uses a workspace-prefix
