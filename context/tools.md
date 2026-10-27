@@ -1,5 +1,30 @@
 # Upstream components
 
+## Boundary-aligned review and task cleanup: 2026-10-27 (pd40)
+
+Native `roborev list` from a non-Git parent directory uses a workspace-prefix
+filter, so one all-branches query includes canonical repos and private snapshot/
+smoke repositories. The initial inventory had 16 open reviews. Closed ten with
+explicit comments: five passing reviews; graph review 39 corrected by ancestor
+`0adcad5` and passing follow-ups 43/44; duplicate toolkit reviews 54/68 with
+71 retained; and intentional diagnostic fixtures 1/36, whose expected failures
+were already documented here. No verdict was rewritten or source defect
+represented as fixed by retirement.
+
+Current toolkit source still supports retaining review 71's three concerns,
+60's failed-publication cleanup, 24's inherited soft limit, 56's model-asset
+binding and 69's packaged operational history. Review 56's old publication
+alarm issue is already corrected, but its asset finding remains open.
+Native `librarian#q9a9` owns the independent-project hardening gate; the five
+reviews remain open alongside application review 14.
+
+Audited native task status/reason for all seven obsolete closures: six graph
+items are `wontfix`; the stale rename task is `superseded` by `eb48`. Native
+`wontfix` accepts a substantive disposition message, not typed evidence flags.
+The preserved conversation is `.local/context-inputs/tmp_convo.txt`; the
+concurrent rmgx assessment finished in `b998e54` and was preserved, not repeated.
+No live service, provider profile, source corpus or persistent process changed.
+
 ## SPUD/Graphify assessment evidence: 2026-10-27 (rmgx)
 
 Inspected local `aos-spud` c80837a and `aos-spud-web` 8e9626d. External engine
