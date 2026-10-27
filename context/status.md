@@ -1,5 +1,21 @@
 # Status: 2026-10-27
 
+## Librarian review reassociation: 2026-10-27 (byrk)
+
+- Moved still-relevant reviews 24, 56 and 69 into canonical `the_librarian`
+  using native repository merges; each source held only its requested job.
+- Verified original review identities, evidence, verdicts and comments remain
+  unchanged, with explicit original-snapshot provenance comments added.
+  Original checkouts and all six previous target jobs are preserved.
+- The target has nine total jobs and five open reviews: 24/56/60/69/71.
+  No open `repo`-named reviews remain. Use `--all-branches` because the moved
+  jobs retain their original `master`/`dirty` snapshot metadata.
+- Findings remain unresolved under `librarian#q9a9`; this is not a code fix
+  or a new main-branch review. Independent project/material approval stays open.
+- Preserved unrelated documentation edits and the concurrent text-first intake
+  follow-up. No toolkit code, global settings, live service or corpus changed;
+  no snapshot files deleted, process started, push or publication.
+
 ## Text-first ingestion and consumer changes: 2026-10-27
 
 - Clarified that SPUD internals remain its maintainer's decision; prefer

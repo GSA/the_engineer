@@ -1,5 +1,14 @@
 # Objective and decisions
 
+## Librarian review ownership: 2026-10-27 (byrk)
+
+The owner requested moving still-relevant roborev reviews 24, 56 and 69 from
+temporary `repo` registrations into canonical `the_librarian`. Native metadata
+merges preserve their original findings, identities, comments and snapshot
+provenance. Toolkit reviews 24/56/60/69/71 remain open under `librarian#q9a9`;
+this reassociation is not a fix, current-HEAD approval or permission to begin
+independent-project hardening or Falcon migration.
+
 ## Text-first intake and SPUD maintainer boundary: 2026-10-27
 
 The owner flags that SPUD restructuring may not fit its original engineer's

@@ -1,5 +1,30 @@
 # Upstream components
 
+## Native review repository reassociation: 2026-10-27 (byrk)
+
+Use `roborev repo merge --yes <source-path> <target-path>` to consolidate
+registrations, not `repo move` or direct database edits. Merge moves all source
+jobs/commits and deletes only the source registration, not its checkout.
+Use exact paths when display names collide. Each source for reviews 24, 56
+and 69 had exactly one completed/open failed review; no unrelated history
+needed to move into `/home/nkirrish/the_librarian`.
+
+Compared complete before/after review JSON and rendered comments: only the
+three repository-association fields and one added provenance comment changed
+per review. Original IDs/UUIDs, commit IDs, verdicts, open status, stored
+prompt/output/findings, timestamps and existing comments are unchanged.
+Original snapshot checkouts remain. All six previous target jobs are unchanged;
+the target now has nine jobs and five open reviews: 24/56/60/69/71. The
+workspace-prefix inventory has no remaining open `repo`-named reviews.
+
+The moved jobs retain their historical `master` branch and `dirty` ref, not
+canonical main-branch approval. Include them with
+`roborev list --repo /home/nkirrish/the_librarian --all-branches --open`.
+Original paths/registration IDs are recorded in native review comments.
+Before/after artifacts and `reassociate-verification.json` are retained in
+session `e238bd23-e93c-4ca9-8793-9eda408ffb69/files/`. Hardening remains open
+under `librarian#q9a9`; no toolkit source or service was changed.
+
 ## Text-first intake follow-up evidence: 2026-10-27
 
 Re-read toolkit `ROADMAP.md`, `tools/extraction/{extract.py,README.md,
