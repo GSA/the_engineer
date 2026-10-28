@@ -379,7 +379,7 @@ stop `kenn-kopy-roborev.service` before passing a different `--binary`.
 The installer refuses active binary switches without restarting reviews.
 If another start races installation, executable-identity checks reject it and
 restore the previous unit and selection rather than leave a future switch armed.
-The installer verifies Pi 1.0.3, preserves
+The installer verifies Pi 1.4.0, preserves
 configuration and refuses occupied ports instead of replacing another daemon.
 Installation is repeatable. If deliberately moving to another compatible
 Node installation, rerun the installer and restart the service.
@@ -566,7 +566,7 @@ missing host tools rather than installing system packages or changing global
 agent profiles. Clean-host acceptance is still outstanding.
 
 The current host has built application binaries, Python 3.11+, Node, Git, tmux
-and user-installed Pi **1.0.3**. Falcon's existing MCP installation/index must
+and user-installed Pi **1.4.0**. Falcon's existing MCP installation/index must
 be present under `~/falcon-docs`. Setup validates Pi's exact version but does
 not install it or modify global Pi configuration.
 
