@@ -5,6 +5,24 @@
 `svg1`; no installed service or adopted vendor.
 Companion: [system architecture](system-architecture.md).
 
+## Value gate before implementation: 2026-10-27, 23:00
+
+The owner explicitly permits skipping memory if it does not add useful value.
+Existing `zbww` compares no added memory, simple structured records and at most
+one suitable approved drop-in; it does not require building our own runtime
+or deploying multiple backends. Agree the rubric and effort/model budget first.
+Measure held-out second-session task quality, repeated investigation avoided,
+false/stale recall, corrections, latency and total integration/operating cost,
+under comparable conditions. Retrieving a planted string is not task benefit.
+
+A positive decision may justify only a thin adapter. A negative/inconclusive
+result does not release `pbqn` merely because evaluation is closed: that task
+is conditional P2 and must be narrowed, deferred or retired accordingly.
+The three-product demo `hk33` works without memory; add a lesson-use/correction
+scene only if useful. Existing privacy/scope/recovery requirements still apply
+to any selected candidate. No backend has been adopted or launched by this
+decision; research and disabled preparation below remain historical evidence.
+
 ## Disabled Hindsight preparation: 2026-10-26 (svg1)
 
 The owner's 18:28 approval covers preparation, not a launch, model call or

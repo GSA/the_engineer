@@ -1,5 +1,22 @@
 # Objective and decisions
 
+## Demo priority and value gates approved: 2026-10-27, 23:00
+
+The owner wants the repeatable synthetic scenario to serve as the system demo.
+Created P1 fixture/contracts `ca6n`, Librarian link lifecycle `923h` and demo
+harness `hk33`; refined existing provider/milestone acceptance. Memory must
+earn its implementation cost: `zbww` can select none/simple records/a drop-in,
+and `pbqn` is conditional P2, never a core-demo prerequisite.
+
+Created P2 `zmzh` for opposite-family review: Forge Claude coding pairs with
+OpenAI roborev review and vice versa, only through a simple supported config
+or toggle. No live model/agent settings or routes are changed by planning.
+
+The owner authorizes public `GSA/the_knowitall` publication and Forge mapping;
+both are established. Use public visibility for newly authorized GSA repos,
+not retroactive visibility changes to Engineer/Librarian/SPUD. No permission
+to publish source corpora or upstream private assets follows from this.
+
 ## Demo gap check before parallel refinement: 2026-10-27
 
 The current feature backlog is covered at component level. The remaining

@@ -9,6 +9,22 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Knowitall onboarding and paired review plan: 2026-10-27, 23:00
+
+The owner approved public `GSA/the_knowitall`; main is published at `ffd28b7`.
+Forge now syncs that exact provider and uses the existing local checkout as
+worktree base. An explicit `local` / `01M5ZGZT3ZS6VVECFTEYB0AHH5` mapping
+resolves native project `knowitall` to `gsa/the_knowitall`. Existing repository
+visibility, projects, mappings and model-launch profiles are unchanged.
+This is onboarding evidence, not a launched agent/workspace or graph service.
+
+Planned `zmzh` selects opposite effective model families for Forge coding and
+roborev review, only if a simple supported paired config/toggle works. It must
+not infer family from a generic launcher name, change approved data routes,
+silently use same-family fallback or flip global defaults beneath mixed jobs.
+No live pairing was changed. Demo tasks `ca6n`/`hk33` coordinate shared contract
+examples and actual provider/evidence walkthrough acceptance.
+
 ## First implementation pilot activated: 2026-10-26, 18:28 (txt3)
 
 The owner authorizes immediate reconciliation and bounded implementation

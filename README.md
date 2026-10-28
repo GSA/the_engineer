@@ -3,8 +3,8 @@
 A persistent Linux environment for personal exploration and a human-directed
 engineering demo. It combines Forge, Pi, Superpowers, roborev, Kata and
 AgentsView, with the existing Falcon Context MCP server. USAi LiteLLM is the
-required model provider. GSA GitHub/Jira integration and cloud deployment are
-later work.
+required model provider. GSA GitHub repository integration is available;
+broader Jira workflow integration and cloud deployment remain later work.
 
 The selected product name is **Engineer** (`engineer`), formerly Engi Platform
 and Kenn Kopy. All directory renames are deferred, including the eventual
@@ -16,14 +16,17 @@ Current service evidence and blockers are in [context/status.md](context/status.
 The distinction between Forge controls and our proposed engineering phases is
 documented in [context/engineering-workflow.md](context/engineering-workflow.md).
 
-The proposed [cross-project architecture](context/system-architecture.md)
-separates Engineer, the Librarian toolkit/program instances, and externally
-owned SPUD, including reuse of SPUD acquisition and current reproduction gaps.
+The [cross-project architecture](context/system-architecture.md) separates
+Engineer execution, Librarian business context/corpus and Knowitall code
+context/graphs. Externally owned SPUD is a reuse source, not a required fourth
+product. The connected synthetic system demo and shared contracts are tracked
+by `engi-platform#hk33` and `engi-platform#ca6n`; implementation remains planned.
 [Selective engineering memory](context/engineering-memory.md) describes
 decisions, corrections and handoffs rather than full conversation capture.
 These are design drafts, not installed integrations or completed deployment.
 The [cleanup refinement](context/refactoring.md) maps the next small,
-complexity-reducing slices to native Katas; memory trials follow that cleanup.
+complexity-reducing slices to native Katas. Memory must demonstrate incremental
+value over no memory and simple records before optional runtime work proceeds.
 
 ## Standalone agent terminals: Ghosthub replacement
 
@@ -100,7 +103,8 @@ background use; do not start or restart a second lifecycle for this managed
 profile. Use `systemctl --user` here.
 
 Configuration/databases are retained. Forge's registered projects are Librarian
-(`~/the_librarian`), Engineer (`~/kenn-kopy`) and SPUD (`~/aos-spud`).
+(`~/the_librarian`), Knowitall (`~/the_knowitall`), Engineer (`~/kenn-kopy`)
+and SPUD (`~/aos-spud`).
 If you intentionally stopped services, restore them:
 
 ```sh
@@ -122,8 +126,10 @@ terminal open; the supervisor owns only dashboards not installed as services.
 In this WSL installation, the Windows browser can use these same localhost
 addresses with the current NAT configuration. No public listener, tunnel or
 cloud access is configured. Forge syncs private `GSA/the_engineer`,
-`GSA/the_librarian` and `GSA/aos-spud`; the four earlier Falcon mirrors were
-removed from its catalog, not deleted from disk.
+`GSA/the_librarian` and `GSA/aos-spud`, plus public `GSA/the_knowitall`.
+The four earlier Falcon mirrors were removed from its catalog, not deleted
+from disk. Newly authorized GSA repositories default to public; existing
+private repository visibility is unchanged.
 Profiles without configured repositories retain disabled provider sync.
 AgentsView now watches explicit Copilot and Pi session sources; it is not a
 model router. Dashboard startup alone does not establish a complete

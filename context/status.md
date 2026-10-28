@@ -1,5 +1,19 @@
 # Status: 2026-10-27
 
+## Demo backlog and public Knowitall delivered: 2026-10-27, 23:00
+
+- Created four planned Katas: P1 `ca6n` shared fixture/contracts, P1 Librarian
+  `923h` business-code link lifecycle, P1 `hk33` system demo/harness, and P2
+  `zmzh` simple opposite-family coding/review configuration.
+- Refined milestone/provider acceptance and made memory a value-gated option:
+  no memory may win; `pbqn` is conditional P2 after `zbww`, not a demo blocker.
+- Published `GSA/the_knowitall` publicly at `ffd28b7` and verified its explicit
+  Forge mapping, existing-checkout base and successful sync. Existing private
+  repos and unrelated mappings/settings remain unchanged.
+- New functionality remains planned. No implementation agents, source/model
+  processing, live reviewer change or new persistent helper was started.
+  Librarian's prior roadmap/ADR edits remain untouched.
+
 ## Demo readiness gaps identified: 2026-10-27
 
 - Compared current code state with native component and milestone acceptance.
