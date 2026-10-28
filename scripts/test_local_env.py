@@ -203,27 +203,51 @@ class LocalEnvironmentTests(unittest.TestCase):
         path = self.state / "pi/settings.json"
         config = json.loads(path.read_text())
         config["theme"] = "retained"
+        config.pop("subagents", None)
         local_env.json_write(path, config, replace=True)
         before = config.copy()
 
         def install(command, **kwargs):
-            self.assertEqual(command, ["/usr/bin/pi", "install", local_env.PI_REVIEW_EXTENSION])
+            self.assertEqual(command[:2], ["/usr/bin/pi", "install"])
+            self.assertIn(command[2], local_env.PI_EXTENSIONS)
             self.assertEqual(kwargs["cwd"], self.state / "home")
             self.assertEqual(kwargs["env"]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
             self.assertNotIn("USAI_API_KEY", kwargs["env"])
             self.assertTrue(kwargs["check"])
-            config["packages"] = list(dict.fromkeys([*config["packages"], local_env.PI_REVIEW_EXTENSION]))
-            local_env.json_write(path, config, replace=True)
+            current = json.loads(path.read_text())
+            current["packages"] = list(dict.fromkeys([*current["packages"], command[2]]))
+            local_env.json_write(path, current, replace=True)
 
         with patch.object(local_env.subprocess, "run", side_effect=install) as run:
             with contextlib.redirect_stdout(io.StringIO()):
+                local_env.install_pi_extensions()
                 local_env.install_pi_review_extension()
-                local_env.install_pi_review_extension()
-        self.assertEqual(run.call_count, 2)
-        self.assertEqual(config["theme"], before["theme"])
-        self.assertIn(str(local_env.ROOT / "superpowers"), config["packages"])
-        self.assertEqual(config["packages"].count(local_env.PI_REVIEW_EXTENSION), 1)
+        saved = json.loads(path.read_text())
+        self.assertEqual(run.call_count, 2 * len(local_env.PI_EXTENSIONS))
+        self.assertEqual(saved["theme"], before["theme"])
+        self.assertIn(str(local_env.ROOT / "superpowers"), saved["packages"])
+        for extension in local_env.PI_EXTENSIONS:
+            self.assertEqual(saved["packages"].count(extension), 1)
+        self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
+        self.assertEqual(saved["subagents"]["defaultModel"], "inherit")
+        self.assertEqual(saved["subagents"]["modelScope"]["allow"], ["inherit", "usai/*"])
+        for name in ("delegate", "oracle", "reviewer", "scout", "worker"):
+            self.assertEqual(saved["subagents"]["agentOverrides"][name]["model"], "inherit")
+            self.assertTrue(saved["subagents"]["agentOverrides"][name]["advertise"])
         self.assertEqual(list(self.global_pi.iterdir()), [])
+
+    def test_configure_provider_populates_usai_subagent_settings(self):
+        path = self.state / "pi/settings.json"
+        local_env.json_write(path, {"defaultThinkingLevel": "off"}, replace=True)
+        self.provider()
+        saved = json.loads(path.read_text())
+        self.assertEqual(saved["defaultProvider"], "usai")
+        self.assertEqual(saved["defaultModel"], "demo-model")
+        self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
+        self.assertEqual(saved["subagents"]["defaultModel"], "inherit")
+        self.assertEqual(saved["subagents"]["modelScope"]["allow"], ["inherit", "usai/*"])
+        for name in ("delegate", "oracle", "reviewer", "scout", "worker"):
+            self.assertEqual(saved["subagents"]["agentOverrides"][name]["model"], "inherit")
 
     def test_review_extension_installation_reports_failure_and_wrong_profile(self):
         with patch.object(local_env.subprocess, "run", side_effect=local_env.subprocess.CalledProcessError(

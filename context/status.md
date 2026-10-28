@@ -1,5 +1,23 @@
 # Status: 2026-10-28
 
+## Pi subagent USAi model resolution enabled: 2026-10-28
+
+- Root-caused `Unknown subagent model 'openai-codex/gpt-5.3-codex:medium'` in
+  isolated Forge Pi session `01a18388-b12d-7170-9436-c5401185ec80`: upstream
+  `subagent-driven-development` requires an explicit `model` argument on
+  `subagent` calls, and without `subagents` settings in
+  `.local/environment/pi/settings.json`, the parent model guessed an external
+  `openai-codex/*` model absent from `.local/environment/pi/models.json`.
+- Configured `.local/environment/pi/settings.json` and `scripts/local_env.py`
+  (`setup`, `configure-provider`, `install-pi-extensions`) with
+  `PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"`,
+  `subagents.defaultProvider = "usai"`, `subagents.defaultModel = "inherit"`,
+  strict `modelScope` (`["inherit", "usai/*"]`), and advertised USAi
+  `agentOverrides` (`model: "inherit"`) for all builtin subagents.
+- Updated `AGENTS.md` and `context/tools.md` so parent agents omit `model` or
+  pass `model: "inherit"` (or a configured `usai/*` model) when dispatching
+  Pi subagents.
+
 ## Delivery documentation and Forge/Pi audit: 2026-10-28 (9aw1)
 
 - Added the owner's no-plan-artifacts-in-PR rule to active root instructions:

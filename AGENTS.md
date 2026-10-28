@@ -21,6 +21,9 @@
   Before delivery, document shipped user-facing usage in `README.md` and
   reusable agent-facing usage in `context/`, then remove task-generated working
   specs/plans. Do not retain them as renamed context documents or ADRs.
+- For Pi `subagent` dispatches in the isolated USAi profile, omit `model` or
+  pass `model: "inherit"` (or an active `usai/*` model from `pi/models.json`);
+  never request external `openai-codex/*` or `anthropic/*` models.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Do not change global settings, publish, or expose services publicly without

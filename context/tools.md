@@ -1,5 +1,24 @@
 # Upstream components
 
+## Pi subagents USAi model inheritance: 2026-10-28
+
+When `subagent-driven-development` runs in the isolated Forge Pi profile
+(`.local/environment/pi`), the upstream skill instructs the parent agent to
+pass an explicit `model` on `subagent` calls while `pi-subagents` defers exact
+model IDs to `settings.json`. Without `subagents` settings, the parent agent
+guessed `openai-codex/gpt-5.3-codex:medium`, which fails `pi-subagents`
+registry validation because `.local/environment/pi/models.json` defines only
+`usai/*` models (`usai/gpt-5.6-sol-latest-guardrails-defaultv2`).
+
+`.local/environment/pi/settings.json` and `scripts/local_env.py` now pin
+`npm:pi-subagents@0.83.0` and configure `subagents.defaultProvider = "usai"`,
+`subagents.defaultModel = "inherit"`, strict `modelScope` (`["inherit", "usai/*"]`),
+and `agentOverrides` (`model: "inherit"`, `advertise: true` with USAi model
+guidance) for builtin `delegate`, `oracle`, `reviewer`, `scout` and `worker`
+agents. Using `"inherit"` resolves to the active session's `usai/*` model and
+avoids the `pi-subagents@0.83.0` `handleModels` argument-order bug triggered by
+non-`"inherit"` explicit default models.
+
 ## Forge/Pi policy surfaces audited: 2026-10-28 (9aw1)
 
 See `context/engineering-workflow.md` for verified instruction discovery,

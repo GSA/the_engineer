@@ -29,6 +29,30 @@ STATE = ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
 PI_VERSION = "1.4.0"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
+PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
+PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
+PI_SUBAGENT_DESCRIPTIONS = {
+    "delegate": (
+        'Project-context-inheriting delegation subagent (USAi: omit model or pass model:"inherit" '
+        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+    ),
+    "oracle": (
+        'Deep read-only architectural and debugging analysis subagent (USAi: omit model or pass model:"inherit" '
+        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+    ),
+    "reviewer": (
+        'Independent read-only code and spec review subagent (USAi: omit model or pass model:"inherit" '
+        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+    ),
+    "scout": (
+        'Fast read-only codebase reconnaissance subagent (USAi: omit model or pass model:"inherit" '
+        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+    ),
+    "worker": (
+        'General implementation and code-editing subagent (USAi: omit model or pass model:"inherit" '
+        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+    ),
+}
 GH_VERSION = "2.102.0"
 GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
 PORTS = (17373, 17374, 17777, 18080, 18091)
@@ -129,6 +153,49 @@ def verify_pi(config, *, env=None):
     return executable
 
 
+def default_pi_subagents_settings():
+    return {
+        "defaultProvider": "usai",
+        "defaultModel": "inherit",
+        "modelScope": {
+            "enforce": True,
+            "strict": True,
+            "allow": ["inherit", "usai/*"],
+        },
+        "agentOverrides": {
+            name: {
+                "advertise": True,
+                "description": description,
+                "model": "inherit",
+            }
+            for name, description in PI_SUBAGENT_DESCRIPTIONS.items()
+        },
+    }
+
+
+def merge_pi_subagents_settings(existing):
+    defaults = default_pi_subagents_settings()
+    if not isinstance(existing, dict):
+        return defaults
+    merged = {**defaults, **existing}
+    scope = existing.get("modelScope")
+    merged["modelScope"] = {**defaults["modelScope"], **(scope if isinstance(scope, dict) else {})}
+    overrides = existing.get("agentOverrides")
+    merged_overrides = {
+        name: {
+            **default_override,
+            **(overrides.get(name) if isinstance(overrides, dict) and isinstance(overrides.get(name), dict) else {}),
+        }
+        for name, default_override in defaults["agentOverrides"].items()
+    }
+    if isinstance(overrides, dict):
+        for name, value in overrides.items():
+            if name not in merged_overrides and isinstance(value, dict):
+                merged_overrides[name] = dict(value)
+    merged["agentOverrides"] = merged_overrides
+    return merged
+
+
 def setup(corpus, forge_binary):
     corpus = corpus.expanduser().resolve()
     forge_binary = forge_binary.resolve()
@@ -173,8 +240,15 @@ def setup(corpus, forge_binary):
         'listen = "127.0.0.1:17777"\nactive_daemon = "local"\n'
         '[[daemon]]\nname = "local"\nurl = "http://127.0.0.1:17777"\n',
     )
-    json_write(STATE / "pi/settings.json",
-               {"defaultThinkingLevel": "off", "packages": [str(ROOT / "superpowers")]})
+    json_write(
+        STATE / "pi/settings.json",
+        {
+            "defaultThinkingLevel": "off",
+            "packages": [str(ROOT / "superpowers")],
+            "lastChangelogVersion": PI_VERSION,
+            "subagents": default_pi_subagents_settings(),
+        },
+    )
     json_write(STATE / "pi/mcp.json", {"mcpServers": {"falcon-context": {
         "command": str(server), "args": ["--root", str(corpus), "--reader", str(reader)],
         "exposure": "codemode", "timeout": 60,
@@ -328,6 +402,11 @@ def configure_provider(base_url, model, api):
     if not any(entry.get("id") == model for entry in entries):
         entries.append({"id": model})
     json_write(path, models, replace=True)
+    settings_path = STATE / "pi/settings.json"
+    pi_settings = json.loads(private_read(settings_path)) if settings_path.exists() else {}
+    pi_settings.update({"defaultProvider": "usai", "defaultModel": model})
+    pi_settings["subagents"] = merge_pi_subagents_settings(pi_settings.get("subagents"))
+    json_write(settings_path, pi_settings, replace=True)
     json_write(STATE / "usai.json", {"model": model}, replace=True)
     print("USAi provider configured without storing a key in model settings. No model call was made.")
 
@@ -358,18 +437,26 @@ def pi_launch(args):
     return [executable, "--provider", "usai", "--model", model, *args], env
 
 
-def install_pi_review_extension():
+def install_pi_extensions():
     executable = verify_pi(settings())
     path = STATE / "pi/settings.json"
     private_read(path)
-    subprocess.run(
-        [executable, "install", PI_REVIEW_EXTENSION],
-        cwd=STATE / "home", env=base_environment(), check=True, timeout=180,
-    )
+    for extension in PI_EXTENSIONS:
+        subprocess.run(
+            [executable, "install", extension],
+            cwd=STATE / "home", env=base_environment(), check=True, timeout=180,
+        )
+        config = json.loads(private_read(path))
+        if extension not in config.get("packages", []):
+            raise RuntimeError(f"Pi did not save {extension} in the isolated profile")
     config = json.loads(private_read(path))
-    if PI_REVIEW_EXTENSION not in config.get("packages", []):
-        raise RuntimeError("Pi did not save the pinned review extension in the isolated profile")
-    print(f"Installed {PI_REVIEW_EXTENSION} in the isolated Pi profile; no model request was made.")
+    config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
+    json_write(path, config, replace=True)
+    print(f"Installed {', '.join(PI_EXTENSIONS)} in the isolated Pi profile; no model request was made.")
+
+
+def install_pi_review_extension():
+    install_pi_extensions()
 
 
 def roborev_warnings(*, proc_root=Path("/proc")):
@@ -1194,7 +1281,8 @@ def main():
     review_install = commands.add_parser("install-roborev-service",
                                         help="enable the configured native roborev user service")
     review_install.add_argument("--binary", type=Path, help="select an existing native roborev executable")
-    commands.add_parser("install-pi-review-extension", help="install the pinned extension in private Pi only")
+    commands.add_parser("install-pi-extensions", help="install pinned extensions in private Pi only")
+    commands.add_parser("install-pi-review-extension", help="compatibility alias for install-pi-extensions")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
     commands.add_parser("install-forge-service", help="enable the configured Forge user service")
@@ -1232,8 +1320,8 @@ def main():
             agentsview_run()
         elif args.command == "install-roborev-service":
             install_roborev_service(args.binary)
-        elif args.command == "install-pi-review-extension":
-            install_pi_review_extension()
+        elif args.command in ("install-pi-extensions", "install-pi-review-extension"):
+            install_pi_extensions()
         elif args.command == "roborev-run":
             roborev_run(args.node_executable)
         elif args.command == "forge-run":
