@@ -29,6 +29,8 @@ STATE = ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
 PI_VERSION = "1.0.3"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
+PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
+PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
 GH_VERSION = "2.102.0"
 GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
 PORTS = (17373, 17374, 17777, 18080, 18091)
@@ -358,18 +360,24 @@ def pi_launch(args):
     return [executable, "--provider", "usai", "--model", model, *args], env
 
 
-def install_pi_review_extension():
+def install_pi_extensions():
     executable = verify_pi(settings())
     path = STATE / "pi/settings.json"
     private_read(path)
-    subprocess.run(
-        [executable, "install", PI_REVIEW_EXTENSION],
-        cwd=STATE / "home", env=base_environment(), check=True, timeout=180,
-    )
-    config = json.loads(private_read(path))
-    if PI_REVIEW_EXTENSION not in config.get("packages", []):
-        raise RuntimeError("Pi did not save the pinned review extension in the isolated profile")
-    print(f"Installed {PI_REVIEW_EXTENSION} in the isolated Pi profile; no model request was made.")
+    for extension in PI_EXTENSIONS:
+        subprocess.run(
+            [executable, "install", extension],
+            cwd=STATE / "home", env=base_environment(), check=True, timeout=180,
+        )
+        config = json.loads(private_read(path))
+        if extension not in config.get("packages", []):
+            raise RuntimeError(f"Pi did not save {extension} in the isolated profile")
+        print(f"Installed {extension} in the isolated Pi profile; no model request was made.")
+
+
+def install_pi_review_extension():
+    """Compatibility entrypoint: install all Pi extensions required by Forge agents."""
+    install_pi_extensions()
 
 
 def roborev_warnings(*, proc_root=Path("/proc")):
@@ -1180,7 +1188,8 @@ def main():
     review_install = commands.add_parser("install-roborev-service",
                                         help="enable the configured native roborev user service")
     review_install.add_argument("--binary", type=Path, help="select an existing native roborev executable")
-    commands.add_parser("install-pi-review-extension", help="install the pinned extension in private Pi only")
+    commands.add_parser("install-pi-extensions", help="install pinned extensions in private Pi only")
+    commands.add_parser("install-pi-review-extension", help="compatibility alias for install-pi-extensions")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
     commands.add_parser("install-forge-service", help="enable the configured Forge user service")
@@ -1218,8 +1227,8 @@ def main():
             agentsview_run()
         elif args.command == "install-roborev-service":
             install_roborev_service(args.binary)
-        elif args.command == "install-pi-review-extension":
-            install_pi_review_extension()
+        elif args.command in ("install-pi-extensions", "install-pi-review-extension"):
+            install_pi_extensions()
         elif args.command == "roborev-run":
             roborev_run(args.node_executable)
         elif args.command == "forge-run":

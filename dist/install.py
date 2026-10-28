@@ -70,6 +70,16 @@ def check_c_toolchain():
                  "-pthread", "-ldl", "-lm"])
 
 
+def check_python_venv():
+    with tempfile.TemporaryDirectory(prefix="engi-python-venv-preflight-") as directory:
+        environment = Path(directory) / "venv"
+        capture([sys.executable, "-m", "venv", str(environment)], timeout=60)
+        pip = environment / "bin/pip"
+        if not pip.is_file() or not os.access(pip, os.X_OK):
+            raise RuntimeError("virtual environment did not contain an executable pip")
+        capture([str(pip), "--version"])
+
+
 def prerequisites(corpus):
     errors = []
     if platform.system() != "Linux" or platform.machine() != "x86_64":
@@ -78,6 +88,11 @@ def prerequisites(corpus):
     errors.extend(f"Missing {tool}; install: {TOOLS[tool]}" for tool in TOOLS if tool in missing)
     if sys.version_info < (3, 11):
         errors.append("Python 3.11+ is required; use Ubuntu 24.04+ or an approved newer Python.")
+    else:
+        try:
+            check_python_venv()
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
+            errors.append(f"Python cannot create a pip-enabled venv; install python3-venv: {error}")
     if "node" not in missing:
         try:
             version = capture(["node", "--version"])
@@ -235,7 +250,7 @@ def install(checkout, corpus, forge_build, choice):
     print("\nCreating missing private configuration; existing settings are preserved...")
     run([*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)], cwd=checkout)
     run([*command, "configure-private-pi-tracking"], cwd=checkout)
-    run([*command, "install-pi-review-extension"], cwd=checkout)
+    run([*command, "install-pi-extensions"], cwd=checkout)
     run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
     node = Path(shutil.which("node")).resolve()
     instructions(checkout, node)
