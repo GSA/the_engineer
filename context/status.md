@@ -79,6 +79,9 @@
   broader scope; no unrelated task was closed. Source corpus/stores and
   pre-existing dirty worktrees are preserved. No new persistent helper,
   remote repository, cloud deployment, push or publication.
+- Subsequent read-only cost diagnosis confirms guarded GPT aliases are unpriced
+  despite recorded tokens; some views display $0.00. Native `3c2c` holds the
+  evidence. No rates, profiles, retention, archive or service changes requested.
 
 ## Deduplicated capability/Kata audit: 2026-10-27 (e5dd)
 
