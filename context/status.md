@@ -1,4 +1,14 @@
-# Status: 2026-10-26
+# Status: 2026-10-28
+
+## Forge Pi dependency provisioning
+
+- Claimed Kata `engi-platform#h28d`. Diagnosed session `01a1835d-0e9f-72de-9526-1c96560fdbf4`: pip/Python resolve correctly in Forge under sh/Bash/zsh; the actual failure is Ubuntu Python lacking `ensurepip` because `python3-venv` is absent. The session created ignored `.superpowers/.../python-deps` via `pip --target` as a workaround.
+- Removed only that generated `python-deps` directory (the failed venv had already disappeared) from `the_knowitall`; retained task progress and implementation artifacts.
+- Provisioned pinned `npm:pi-subagents@0.83.0` in Forge's isolated Pi profile. Exact-profile `pi list` now reports Superpowers, JSON schema, and subagents. New code installs both pinned extensions repeatably and clean install invokes the combined command.
+- Added clean-host preflight that creates a real pip-enabled venv and reports `install python3-venv` when unavailable. Installer tests: 31 passed, 3 skipped; focused local environment tests: 2 passed; `git diff --check` passed.
+- **Blocker:** approved `sudo apt-get install -y python3-venv` cannot run in this agent because kernel `no_new_privs` blocks sudo. A fresh real venv probe still fails. Owner must install it from an unrestricted shell, then launch a new Forge Pi process to verify tool exposure.
+- Full `scripts/` discovery is not green in this partial Forge worktree: 19 errors and 2 failures from absent submodule binaries and overlong Unix socket paths, unrelated to this change. Diagnostic report: `~/.superpowers/diagnosing-superpowers/01a1835d-0e9f-72de-9526-1c96560fdbf4/report.md`.
+
 
 ## Private remotes and separated task routing delivered (7943)
 

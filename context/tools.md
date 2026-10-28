@@ -1,5 +1,12 @@
 # Upstream components
 
+## Forge Pi dependency provisioning: 2026-10-28
+
+- Forge Pi uses `PI_CODING_AGENT_DIR=/home/nkirrish/kenn-kopy/.local/environment/pi`; packages in `~/.pi/agent` do not carry into Forge. Run `python3 scripts/local_env.py install-pi-extensions` from the configured platform checkout to install pinned JSON schema and `pi-subagents` packages into the isolated profile. Extensions require a newly launched Pi process.
+- Ubuntu's `/usr/bin/pip` being present does not imply `python3 -m venv` can bootstrap pip. The required host package is `python3-venv` (currently matching `python3.14-venv`). Agent sessions run with `no_new_privs`, so install this from an unrestricted owner shell.
+- Diagnostic evidence is under `~/.superpowers/diagnosing-superpowers/01a1835d-0e9f-72de-9526-1c96560fdbf4/`.
+
+
 ## Private GSA remotes and Forge onboarding: 2026-10-26 (7943)
 
 Created `GSA/the_engineer` (provider ID 1434960775) and `GSA/the_librarian`

@@ -67,6 +67,15 @@ class InstallerTests(unittest.TestCase):
                 patch.object(installer.platform, "machine", return_value="aarch64"):
             self.assertTrue(any("x86_64" in error for error in installer.prerequisites(self.corpus)))
 
+    def test_python_without_pip_enabled_venv_is_reported(self):
+        with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
+                patch.object(installer, "capture", side_effect=lambda command, **kw:
+                             "v26.9.0" if command[0] == "node" else "1.0.3"), \
+                patch.object(installer, "check_c_toolchain"), \
+                patch.object(installer, "check_python_venv", side_effect=RuntimeError("ensurepip missing")):
+            errors = installer.prerequisites(self.corpus)
+        self.assertTrue(any("python3-venv" in error and "ensurepip missing" in error for error in errors))
+
     def test_node_and_pi_versions_are_checked(self):
         with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
                 patch.object(installer, "capture", side_effect=lambda command, **kw:
@@ -316,7 +325,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(commands[1], ["bash", "scripts/bootstrap-toolchains.sh"])
         self.assertEqual(commands[2][-4:], ["roborev", "kata", "agentsview", "forge"])
         self.assertTrue(any("configure-private-pi-tracking" in command for command in commands))
-        self.assertTrue(any("install-pi-review-extension" in command for command in commands))
+        self.assertTrue(any("install-pi-extensions" in command for command in commands))
         self.assertFalse(any(any(arg.endswith("-service") for arg in command) for command in commands))
 
     def test_user_install_explicitly_enables_all_four_services(self):
