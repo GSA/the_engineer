@@ -202,13 +202,14 @@ def setup(corpus, forge_binary):
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
         '[web]\nlisten = "127.0.0.1:17374"\n',
     )
+    managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
     launcher_migrations = (
         (STATE / "forge/config.toml",
          re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi"\n.*?^command = )'
-                    r'\["[^"\n]*/scripts/pi-local\.py"\]$'),
+                    rf'\["{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"\]$'),
          lambda match: match.group(1) + f'[{json.dumps(str(wrapper))}]'),
         (STATE / "roborev/config.toml",
-         re.compile(r'(?m)^pi_cmd = "[^"\n]*/scripts/pi-local\.py"$'),
+         re.compile(rf'(?m)^pi_cmd = "{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"$'),
          lambda _match: f'pi_cmd = {json.dumps(str(wrapper))}'),
     )
     for path, pattern, replacement in launcher_migrations:

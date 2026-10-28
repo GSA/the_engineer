@@ -109,7 +109,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             self.assertNotIn(source_wrapper, (self.state / "roborev/config.toml").read_text())
 
     def test_setup_migrates_managed_launcher_from_a_deleted_other_worktree(self):
-        stale = "/deleted/other-worktree/scripts/pi-local.py"
+        stale = str(local_env.RUNTIME_ROOT / ".local/environment/forge/worktrees/host/repo/deleted/scripts/pi-local.py")
         canonical = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
         paths = (self.state / "forge/config.toml", self.state / "roborev/config.toml")
         for path in paths:
@@ -131,18 +131,18 @@ class LocalEnvironmentTests(unittest.TestCase):
         roborev = self.state / "roborev/config.toml"
         forge_content = forge.read_text().replace(
             f'command = [{json.dumps(str(local_env.RUNTIME_ROOT / "scripts/pi-local.py"))}]',
-            'command = ["/opt/custom-pi", "--required-flag"]',
+            'command = ["/opt/company-agent/scripts/pi-local.py"]',
         )
         roborev_content = roborev.read_text().replace(
             f'pi_cmd = {json.dumps(str(local_env.RUNTIME_ROOT / "scripts/pi-local.py"))}',
-            'pi_cmd = "/opt/custom-roborev-pi"',
+            'pi_cmd = "/opt/review-agent/scripts/pi-local.py"',
         )
         local_env.private_write(forge, forge_content, replace=True)
         local_env.private_write(roborev, roborev_content, replace=True)
         with contextlib.redirect_stdout(io.StringIO()):
             local_env.setup(self.corpus, self.binary)
-        self.assertIn('command = ["/opt/custom-pi", "--required-flag"]', forge.read_text())
-        self.assertIn('pi_cmd = "/opt/custom-roborev-pi"', roborev.read_text())
+        self.assertIn('command = ["/opt/company-agent/scripts/pi-local.py"]', forge.read_text())
+        self.assertIn('pi_cmd = "/opt/review-agent/scripts/pi-local.py"', roborev.read_text())
 
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"
