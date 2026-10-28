@@ -11,13 +11,34 @@ Do not change global settings, credentials or services. Offline startup/MCP/
 structured-output compatibility is verified; the owner will retry Forge's GUI.
 Broader fresh-host Pi provisioning remains open under `ww7g`.
 
+## Real-ticket internal demo supersedes reusable fixture: 2026-10-28
+
+The owner withdrew the reusable synthetic fixture and closed `ca6n` as
+superseded. Do not prepare or commit a generic cross-product scenario merely
+for reuse. Build and verify the individual Librarian, Knowitall and Engineer
+boundaries locally first; component-owned public tests may remain generic but
+do not establish system-demo acceptance.
+
+`hk33` now owns a deferred internal demonstration for cleared viewers: one
+approved real AOS Jira ticket through qualified business context,
+revision-bound code evidence, Engineer implementation/checks/review and PR.
+Engineer, Librarian and Knowitall repositories are public and must contain no
+AOS/Falcon-identifying tickets, source passages, fixture data, prompts, outputs
+or run receipts. Keep approved scenario material in authorized private/local
+state and confirm source, model/data route and publication destination before
+execution. Falcon Context may inform that later scenario without copying
+restricted content into Git.
+
+The existing component contracts and implementations proceed independently;
+`ca6n` no longer blocks `k4mp` or Librarian `923h`. Memory must earn its
+implementation cost: `zbww` can select none/simple records/a drop-in, and
+`pbqn` is conditional P2, never a core-demo prerequisite.
+
 ## Demo priority and value gates approved: 2026-10-27, 23:00
 
-The owner wants the repeatable synthetic scenario to serve as the system demo.
-Created P1 fixture/contracts `ca6n`, Librarian link lifecycle `923h` and demo
-harness `hk33`; refined existing provider/milestone acceptance. Memory must
-earn its implementation cost: `zbww` can select none/simple records/a drop-in,
-and `pbqn` is conditional P2, never a core-demo prerequisite.
+Historical decision, superseded for fixture/demo shape by the 2026-10-28 entry
+above. The synthetic fixture was filed as `ca6n`, Librarian link lifecycle as
+`923h`, and demo harness as `hk33`; memory remained optional.
 
 Created P2 `zmzh` for opposite-family review: Forge Claude coding pairs with
 OpenAI roborev review and vice versa, only through a simple supported config

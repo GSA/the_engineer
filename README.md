@@ -19,8 +19,12 @@ documented in [context/engineering-workflow.md](context/engineering-workflow.md)
 The [cross-project architecture](context/system-architecture.md) separates
 Engineer execution, Librarian business context/corpus and Knowitall code
 context/graphs. Externally owned SPUD is a reuse source, not a required fourth
-product. The connected synthetic system demo and shared contracts are tracked
-by `engi-platform#hk33` and `engi-platform#ca6n`; implementation remains planned.
+product. The deferred internal system demonstration is tracked by `engi-platform#hk33`:
+one approved real AOS Jira ticket through qualified context, implementation,
+review and PR after the three component boundaries work locally. Superseded
+`ca6n` will not create a reusable fixture. These public repositories must stay
+free of AOS/Falcon-identifying material; private scenario evidence stays in
+authorized local state.
 [Selective engineering memory](context/engineering-memory.md) describes
 decisions, corrections and handoffs rather than full conversation capture.
 These are design drafts, not installed integrations or completed deployment.

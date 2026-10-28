@@ -22,8 +22,10 @@ Planned `zmzh` selects opposite effective model families for Forge coding and
 roborev review, only if a simple supported paired config/toggle works. It must
 not infer family from a generic launcher name, change approved data routes,
 silently use same-family fallback or flip global defaults beneath mixed jobs.
-No live pairing was changed. Demo tasks `ca6n`/`hk33` coordinate shared contract
-examples and actual provider/evidence walkthrough acceptance.
+No live pairing was changed. The owner later closed `ca6n` as superseded and
+declined a reusable fixture. `hk33` now owns only the deferred internal run of
+one approved real AOS Jira ticket through provider evidence, implementation,
+review and PR; identifying scenario material stays out of all public repos.
 
 ## First implementation pilot activated: 2026-10-26, 18:28 (txt3)
 

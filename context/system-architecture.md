@@ -29,27 +29,39 @@ it rather than maintaining competing copies. Use dated decision entries for
 changes in direction, and do not turn a proposed sequence into task status or
 authorization.
 
-## Approved system demo and integration work: 2026-10-27, 23:00
+## Internal real-ticket system demo: revised 2026-10-28
 
-The repeatable synthetic cross-product scenario is the intended system demo,
-not throwaway test scaffolding. It must exercise real component boundaries
-and show passage -> business assertion -> code/dependency -> change/review.
-Mocks support fast conformance checks, not the claim that all three products
-worked. Real-project adaptation and production acceptance remain separate.
+The owner withdrew the reusable synthetic cross-product scenario and declined
+a generic replacement. `ca6n` is closed as superseded: do not prepare a shared
+fixture merely for reuse and do not make it a compatibility target. Build and
+verify the individual Librarian, Knowitall and Engineer boundaries locally
+first. Their public component tests may use non-identifying unit fixtures, but
+those tests do not prove the connected system demonstration.
+
+`hk33` remains the P1 vertical slice, deferred until those boundaries work. It
+will use one separately approved real AOS Jira ticket for an internal cleared
+audience and exercise ticket/document intake -> qualified business assertion ->
+revision-bound code evidence -> Engineer change/checks/review -> PR. Existing
+CLI/UI/static-report surfaces are enough; no demo dashboard is required.
+
+Engineer, Librarian and Knowitall repositories are public. Never commit
+AOS/Falcon-identifying tickets, source passages, scenario data, prompts, model
+outputs or run receipts. Keep the selected scenario and bounded evidence in
+authorized private/local runtime state. Before execution, record the approved
+source/document, code repository and base revision, processing destination,
+model/data route, audience and PR/publication destination. Falcon Context can
+inform selection later without moving retrieved content into public Git.
 
 | Native Kata | Priority | Scope |
 | --- | --- | --- |
-| `engi-platform#ca6n` | P1 | Agree shared fixture and versioned contract examples after `pwhw`/`vky6` |
-| `librarian#923h` | P1 | Evidence-backed business-to-code assertion lifecycle, after fixture, business slice and code queries |
-| `engi-platform#hk33` | P1 | Runnable system demo/conformance harness and visible evidence walkthrough |
+| `engi-platform#ca6n` | closed/superseded | No reusable cross-product fixture; produced no implementation or fixture |
+| `librarian#923h` | P1 | Generic evidence-backed business-to-code assertion lifecycle, independent of `ca6n` |
+| `engi-platform#hk33` | P1 | Deferred private/local real-ticket Jira-to-PR run and internal evidence walkthrough |
 | `engi-platform#zmzh` | P2 | Simple paired Forge coding/roborev review configuration using opposite model families |
 
-These are unowned planned tasks, not new implementation. The fixture agreement
-selects the concrete intake/format/qualification route and adds its actual
-prerequisites to the harness before execution; do not gate the first synthetic
-demo on every remote connector. Keep test state isolated, never seeded into
-product initialization. Existing `k4mp`/`6hce` now clarify actual provider use
-versus transport or mock-packet acceptance.
+`k4mp` and `923h` no longer depend on `ca6n`; their owning provider contracts
+and generic tests define compatibility. Contract mocks are useful component
+evidence but cannot substitute for the later real-provider run.
 
 Memory is explicitly optional. `zbww` first compares no added memory, simple
 structured records and at most one suitable approved drop-in, using held-out
@@ -84,15 +96,11 @@ three cross-product concerns before parallel implementation:
    implementation slice or deliberate expansion of `xzkj`, not an Engineer
    shadow graph. Candidate matches, ambiguous links and confirmed assertions
    need different states; names alone cannot establish implementation.
-2. **No shared known-answer contract fixture / integrated demo harness is
-   explicitly owned.** Provider contracts and component tests are planned,
-   but their combination needs one versioned scenario and expected answers.
-   Exercise real adapters/providers, source-to-symbol evidence, a changed source,
-   interrupted intake/replay, and explicit missing evidence. Include
-   counterexamples such as same-name entities and an unsupported/contradictory
-   claim. Keep synthetic fixtures temporary and business data out of reusable
-   product initialization; real-data demonstration remains a separate approved
-   acceptance. This can be an Engineer child of `pyzt`.
+2. **Historical fixture recommendation, explicitly declined 2026-10-28.**
+   Do not build the proposed shared known-answer fixture or a generic substitute.
+   Component contracts and non-identifying tests proceed independently. The
+   only connected demonstration is the later approved real AOS ticket under
+   `hk33`, retained in private/local state and presented internally.
 3. **Knowitall development onboarding is conditional work.** Git and native
    Kata binding exist; no remote/provider registration or Forge mapping was
    created. If Forge runs this repo's implementation agents, select and prove

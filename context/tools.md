@@ -1,5 +1,28 @@
 # Upstream components
 
+## Demo fixture retirement and task reconciliation: 2026-10-28 (ca6n/hk33)
+
+Fast-forwarded the clean Forge worktree from 6821263 to local main 345778c
+before changing task state. Native Kata claimed `ca6n`, then owner direction
+superseded its reusable synthetic-fixture premise. Closed it with reason
+`superseded` and typed evidence `superseded-by:hk33`; no fixture, source intake,
+model call, implementation or public artifact existed to preserve.
+
+Rewrote `hk33` as the deferred internal real AOS Jira-to-PR demonstration after
+local component readiness. Removed `ca6n` blocking links from `hk33`, `k4mp` and
+Librarian `923h`; preserved all historical task records and other dependencies.
+Reconciled the `k4mp`, `923h` and parent `pyzt` bodies: generic public component
+contracts/tests remain useful, but the identifying real scenario and bounded
+receipts stay in authorized private/local state. The three product repositories
+are public; source/model/data/PR destination approval remains an execution gate.
+
+The first close attempt was rejected because `--reason superseded` duplicated
+the `--superseded-by` sugar; the second was rejected because `no-change-audit`
+evidence is not allowed for reason `superseded`. The successful invocation used
+only `--superseded-by hk33` and included the no-change facts in its substantive
+message. These validation failures made no closure mutation. No Falcon Context
+retrieval was needed because the decision intentionally defers scenario choice.
+
 ## Pi 1.4.0 launcher and compatibility evidence: 2026-10-28 (gamy)
 
 The exact pin belongs to `scripts/local_env.py` and `dist/install.py`, not

@@ -1,5 +1,24 @@
 # Status: 2026-10-28
 
+## Reusable fixture retired; internal real-ticket demo deferred (ca6n/hk33)
+
+- Owner declined both a reusable AOS-derived fixture and a generic substitute.
+  Closed `ca6n` as superseded by `hk33`; no fixture, source intake, model call,
+  implementation or public artifact was produced.
+- `hk33` now requires one later approved real AOS Jira ticket through qualified
+  Librarian evidence, revision-bound Knowitall evidence, Engineer coding/checks,
+  review and PR. It starts only after the component boundaries work locally.
+- All three product repositories are public. AOS/Falcon-identifying tickets,
+  passages, fixtures, prompts, outputs and receipts stay out of Git and in
+  authorized private/local state for cleared internal presentation. Source,
+  model/data route and PR/publication destination remain explicit execution gates.
+- Removed `ca6n` as a blocking prerequisite for `k4mp`, `923h` and `hk33` while
+  preserving task history and other component prerequisites. Generic component
+  tests do not claim the real system demo passed.
+- Workspace branch was cleanly fast-forwarded from 6821263 to local main
+  345778c before reconciliation. No source implementation, service change,
+  external process, push or publication occurred.
+
 ## Managed Pi launch restored for 1.4.0: 2026-10-28 (gamy)
 
 - Owner approved the managed pin migration after the old saved executable
