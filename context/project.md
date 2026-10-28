@@ -21,6 +21,10 @@ and exact custom overrides are preserved. Rates are estimates, not USAi bills.
 Transcript policy, source scope, private configuration and archive remain intact.
 This pricing slice does not close broader unknown-cost presentation, retention
 duration or client-coverage acceptance in `3c2c`.
+The subsequent push request is blocked: the AgentsView upstream is read-only
+and Engineer main has divergent, unrelated local history. A writable fork and
+publication scope were requested; no fork, merge, force push or publication
+was assumed while the owner was unavailable.
 
 ## Managed Pi 1.4.0 approved: 2026-10-28 (gamy)
 
@@ -172,6 +176,17 @@ paths. Do not copy Bash-only startup code into Zsh or claim a repair without
 reproducing the failing session. The diagnostic-output request was cancelled.
 The owner later retired this support report as `wontfix` during `wvd2`;
 the cause remains unconfirmed and no home startup file was changed.
+
+## Evidence-based stale review cleanup: 2026-10-28 (c7j5)
+
+The owner authorizes archiving stale review queue entries, not deleting
+findings or treating age/non-HEAD status as resolution. Closed 146 reviews:
+71 completed Pass and 75 corrected or explicitly superseded/consolidated.
+Exact review identity, verdict and output were verified unchanged after closure.
+Thirteen unresolved failures remain through cutoff job 298, including active
+Engineer, Librarian, Knowitall and legacy application findings. New producer
+work is not certified by this cleanup; unmerged corrections remain unmerged.
+Detailed dispositions and private audit locations are recorded in tools.
 
 ## Repo-named roborev review sweep: 2026-10-27
 

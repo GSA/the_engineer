@@ -265,6 +265,37 @@ SPUD-owned provider-design child are scoped planning, not implementation.
 Verified `k03a -> mpew` and `spud#3sv9 -> librarian#55nx` still exist. No
 runtime, provider, source, credential or persistent process was changed.
 
+## Stale review disposition: 2026-10-28 (c7j5)
+
+Use the native all-branches inventory from the non-Git workspace parent to
+include canonical and temporary snapshot registrations; the current-repo
+default is not a workspace inventory. Close completed Pass reviews with an
+evidence comment. For failed reviews, inspect every finding and its current
+source/successor commit; age, dirty status or a newer unrelated Pass is not proof.
+Keep one current review for duplicated concerns, with explicit cross-links.
+Never delete records or rewrite verdicts to make the queue empty.
+
+This sweep closed 146 through cutoff job 298: 71 Pass and 75 corrected or
+superseded. Each exact job was audited for `closed=true`, unchanged identity,
+unchanged verdict and byte-identical original output. Corrections in active
+branches/dirty worktrees are qualified as such, not presented as deployed fixes.
+Review 298's completed full-branch Pass corroborates the final Librarian
+simplification/MCP state, including the late dependency fix `3d0277c`.
+
+The 13 retained failures are Engineer 130/190/195/237/294, Librarian
+24/56/60/71/132, Knowitall 228/256 and legacy application 14. They still cover
+unresolved migration, managed-policy, working-plan, Python-minimum, ontology,
+resource/publication/model-binding, coverage and native-loader concerns.
+Librarian review 71 is only partially corrected; do not close it merely because
+its replacement-ref finding is fixed. Ontology duplicates 127/134 point to
+132; runtime 246 points to 256. Their original findings remain available.
+
+Private inventory, source-hash checkpoints and original review-output evidence
+are the `stale-review-*-20261028.json` files in this Copilot session's `files/`;
+prompts were excluded. The final audit timestamps the snapshot; newly created
+reviews after the cutoff remain producer work. No product code, authoritative
+store, service, model profile or global setting changed.
+
 ## Boundary-aligned review and task cleanup: 2026-10-27 (pd40)
 
 Native `roborev list` from a non-Git parent directory uses a workspace-prefix
