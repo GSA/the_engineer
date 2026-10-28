@@ -70,6 +70,8 @@ The owner also authorizes restoring AgentsView conversation visibility for
 already configured local sources. Transcripts mode is now verified, without
 remote upload, new client scope or automatic memory import. Existing `3c2c`
 remains open for its broader unfinished policy/client/pricing acceptance.
+The current guarded GPT cost zeros are confirmed unpriced estimates, not
+missing token ingestion or free usage; operational interpretation is in tools.
 
 ## Unworked implementation shortlist: 2026-10-27 (e5dd)
 

@@ -2874,8 +2874,20 @@ had native per-request store usage at verification; other histories include
 shutdown-derived usage. The current Copilot UUID had no native usage-store
 rows yet, despite its event/activity updates. Do not infer zero consumption.
 Copilot shutdown may finalize metrics, and complete ACP/subagent coverage is
-not established. USAi aliases are explicitly unpriced, not authoritative
-zero-cost usage.
+not established. The 2026-10-28 read-only check confirms both guarded USAi GPT
+aliases have nonzero tokens but no matching price. A recent session API response
+has `has_token_data=true`, `has_cost=false` and the alias in `unpriced_models`.
+Usage summaries/tables can still render the zero-valued cost as $0.00.
+Claude Opus Pi usage in the same report resolves catalog pricing and has a
+nonzero estimate, so this is not a general Pi importer failure.
+
+Recent private Pi logs also contain zero `usage.cost.total` values, and the
+selected custom model has no declared cost metadata. AgentsView's Pi parser
+imports token/model fields and independently catalog-prices them; changing
+Pi-only rates would not fix AgentsView's estimates. Do not equate public
+catalog estimates with verified USAi billing or invent an alias mapping.
+Detailed evidence and unresolved pricing/presentation acceptance remain in
+native `3c2c`; no pricing/profile change, resync or archive mutation was requested.
 
 The real health endpoint is `/api/ping`; other API calls use `/api/v1/...`.
 Per-step usage rows require `?breakdown=true` on

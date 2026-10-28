@@ -293,8 +293,10 @@ neither client needs a proxy, extra API key or per-turn import hook.
 Copilot's `session-store.db` supplies per-request metrics where available.
 Some active/older sessions have no recorded token data; missing metrics are
 not evidence of zero consumption.
-USAi aliases currently have no verified cost rates, so unpriced usage is
-**not free usage** or an authoritative bill.
+Cost displays are estimates, not an authoritative USAi bill. The guarded GPT
+aliases currently have no matching price; some views show **$0.00** for this
+unpriced usage. Use **Tokens** mode to inspect recorded consumption. A zero
+cost display is not evidence that inference was free.
 
 The initial policy is **usage-only**: session/activity metadata and token
 records are archived, but transcript text, thinking, tool payloads and titles
