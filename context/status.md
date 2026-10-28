@@ -1,4 +1,22 @@
-# Status: 2026-10-26
+# Status: 2026-10-28
+
+## Offline Forge Pi search tools restored (489f)
+
+- Root cause: host lacked ripgrep and fd; Forge correctly sets `PI_OFFLINE=1`,
+  so Pi skipped helper downloads. Offline mode and `NoNewPrivileges` remain.
+- Installed Ubuntu ripgrep 15.1.0 and fd-find 10.3.0 executables in
+  `/home/nkirrish/.local/bin`, with `fd -> fdfind`. Running Forge PID 426
+  already inherits that path; both version commands pass under its exact
+  environment with `PI_OFFLINE=1`. No restart is required.
+- Installer now requires `rg` and `fd`, reports Ubuntu package/link guidance,
+  and documents why they must be preinstalled. The regression test was observed
+  failing before implementation. Combined focused suite: 130 tests pass, one
+  expected skip; Python compile and diff checks pass.
+- Forge sandbox blocked sudo as intended, so this host used unprivileged apt
+  package download/extraction rather than weakening service security. No
+  experimental process remains; mistaken private-HOME copies were removed.
+
+# Previous status: 2026-10-26
 
 ## Private remotes and separated task routing delivered (7943)
 
