@@ -1,5 +1,15 @@
 # Status: 2026-10-27
 
+## Demo readiness gaps identified: 2026-10-27
+
+- Compared current code state with native component and milestone acceptance.
+  Recommended explicit business-to-code link lifecycle ownership, a shared
+  contract/known-answer demo harness, and conditional Knowitall Forge onboarding.
+- Recommended refining existing evidence-presentation, live-provider and memory
+  acceptance rather than building another UI or duplicating completed work.
+- Findings recorded on `pyzt` and in the architecture; no new feature Katas,
+  dependency changes, implementation agents, corpus or runtime changes.
+
 ## Knowitall bootstrap and resumed request: 2026-10-27 (c6by)
 
 - Recovered persisted state after disconnect rather than recreating tasks or

@@ -1,5 +1,15 @@
 # Objective and decisions
 
+## Demo gap check before parallel refinement: 2026-10-27
+
+The current feature backlog is covered at component level. The remaining
+recommendations concern cross-product link lifecycle ownership, a shared
+known-answer contract/demo harness, and conditional Forge onboarding for the
+new Knowitall development repository. Evidence presentation, real provider
+binding and cross-session memory usefulness should refine existing acceptance.
+The analysis is recorded under `pyzt` and in the architecture document; it
+does not create new work records, start agents or approve real source/model use.
+
 ## Knowitall product split and backlog approved: 2026-10-27 (c6by)
 
 The owner explicitly requests a new local `the_knowitall` Git repository and
