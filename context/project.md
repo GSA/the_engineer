@@ -10,7 +10,11 @@ root and independently requires its complete symlink-free runtime dependency
 graph; the release manifest remains an explicit allowlist rather than a trust
 substitute. Temporary task plans/specifications were removed. Generic instance
 and first-corpus extension work remains deferred to Katas `w5aj` and `df1a`.
-PR: https://github.com/GSA/the_librarian/pull/2.
+PR: https://github.com/GSA/the_librarian/pull/2. After PR 1 merged, PR 2's
+branch merged `origin/main` rather than rebasing, preserving both histories.
+The resolution retains strict text/Docling retrieval and the simplification
+changes, rejects ambiguous free-text claims of whole-rendition review, and
+bounds/linearly locates Docling records. Merge commit `a210d3c` is pushed.
 
 
 ## Knowitall revision-bound code-context contract: 2026-10-28 (vky6)
