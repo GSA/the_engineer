@@ -64,6 +64,21 @@
 - No shared profile, route, upstream skill, hook, service or active worktree
   was changed. No model/corpus calls or experimental process remains.
 
+## Stale review queue archived: 2026-10-28 (c7j5)
+
+- Inventoried 101 registered repositories and 148 initially open jobs across
+  canonical and snapshot repos; reconciled incoming work through job 298.
+- Closed 146 with evidence comments: 71 Pass and 75 corrected or superseded.
+  Every closure preserves the original review identity, verdict and output;
+  no review was deleted or failure rewritten as Pass.
+- Retained 13 actual unresolved failures: Engineer 130/190/195/237/294,
+  Librarian 24/56/60/71/132, Knowitall 228/256 and legacy application 14.
+  Corrected intermediate MCP reviews are superseded by `3d0277c` and passing
+  full-branch review 298, not claimed integrated into canonical main.
+- No source fix, corpus, profile, service or publication change was made.
+  Other agents' workspace changes remain intact; no experimental process remains.
+  Earlier pricing push remains blocked on a writable fork and publication scope.
+
 ## AgentsView guarded GPT pricing deployed: 2026-10-28 (3c2c)
 
 - Local AgentsView branch `fix/usai-alias-pricing`, commit `f7cbb4c1`, maps the
