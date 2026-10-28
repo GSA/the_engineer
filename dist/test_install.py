@@ -76,12 +76,12 @@ class InstallerTests(unittest.TestCase):
                 patch.object(installer, "check_c_toolchain"):
             errors = installer.prerequisites(self.corpus)
         self.assertTrue(any("24.11" in error for error in errors))
-        self.assertTrue(any("1.0.3" in error for error in errors))
+        self.assertTrue(any("1.4.0" in error for error in errors))
 
     def test_missing_c_headers_and_linker_are_reported(self):
         with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
                 patch.object(installer, "capture", side_effect=lambda command, **kw:
-                             "v26.9.0" if command[0] == "node" else "1.0.3"), \
+                             "v26.9.0" if command[0] == "node" else "1.4.0"), \
                 patch.object(installer, "check_c_toolchain", side_effect=RuntimeError("missing header")):
             errors = installer.prerequisites(self.corpus)
         self.assertTrue(any("libc6-dev" in error for error in errors))

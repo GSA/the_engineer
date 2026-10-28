@@ -14,6 +14,22 @@ import urllib.error
 import local_env
 
 
+class PiVersionTests(unittest.TestCase):
+    def test_approved_runtime_is_accepted(self):
+        config = {"pi_executable": "/test/pi"}
+        with patch.object(local_env.subprocess, "run",
+                          return_value=MagicMock(stdout="1.4.0\n")):
+            self.assertEqual(local_env.verify_pi(config, env={}), "/test/pi")
+
+    def test_other_versions_are_rejected(self):
+        for version in ("1.0.3", "1.4.1", ""):
+            with self.subTest(version=version), \
+                    patch.object(local_env.subprocess, "run",
+                                 return_value=MagicMock(stdout=version)), \
+                    self.assertRaisesRegex(RuntimeError, r"expected Pi 1\.4\.0"):
+                local_env.verify_pi({"pi_executable": "/test/pi"}, env={})
+
+
 class LocalEnvironmentTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="local-env-test-", dir=local_env.ROOT / ".local")

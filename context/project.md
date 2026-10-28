@@ -1,5 +1,16 @@
 # Objective and decisions
 
+## Managed Pi 1.4.0 approved: 2026-10-28 (gamy)
+
+The owner chose upgrading the managed runtime pin to Pi 1.4.0 rather than
+restoring 1.0.3. The old saved executable had been upgraded in place, while
+repository launcher/installer guards still required 1.0.3. Update both pins,
+current installation guidance and private saved version metadata consistently;
+retain exact-version checking, executable paths and approved USAi routing.
+Do not change global settings, credentials or services. Offline startup/MCP/
+structured-output compatibility is verified; the owner will retry Forge's GUI.
+Broader fresh-host Pi provisioning remains open under `ww7g`.
+
 ## Demo priority and value gates approved: 2026-10-27, 23:00
 
 The owner wants the repeatable synthetic scenario to serve as the system demo.

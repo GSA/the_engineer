@@ -1,5 +1,32 @@
 # Upstream components
 
+## Pi 1.4.0 launcher and compatibility evidence: 2026-10-28 (gamy)
+
+The exact pin belongs to `scripts/local_env.py` and `dist/install.py`, not
+`roborev-local.py`. The saved executable and user PATH both reported 1.4.0;
+`pi-local.py --version` reproduced the 1.0.3 guard failure before Pi started.
+This explains a possible immediate terminal exit, not a separately observed
+GUI crash. Both pins/current installation instructions now require 1.4.0.
+Only `pi_version` changed in private `environment.json`; permissions remain
+0600. Integrity checks preserve Pi settings/models/MCP, selected USAi model
+and Forge/roborev configuration. No package install or global change.
+
+Verification: 140 launcher/installer tests passed, including approved-version
+acceptance and rejection of older/future/empty version output. Actual managed
+`--version`, `--help` and `mcp list` succeed. Pi's existing SDK MCP entry points
+remain available. The installed structured-review extension 0.1.1 loaded in
+an isolated Pi 1.4 SDK session and its real `json_output` tool validated/wrote
+synthetic output. Actual private-profile RPC `get_state`/`get_commands` succeeded,
+preserved the approved selected model and kept Pi running until explicit
+cleanup. `get_all_tools` is not a supported Pi 1.4 RPC command; an initial
+probe using it was corrected, not treated as an agent regression.
+
+No model request, review job or corpus-tool invocation occurred. Probe processes
+were stopped and temporary fixtures removed. Before-state metadata, profile
+integrity baseline and RPC/schema reports are retained as `files/pi-140-*`
+in session `e238bd23-e93c-4ca9-8793-9eda408ffb69`. Forge GUI retry remains
+owner-observed; no service restart or live review acceptance is claimed.
+
 ## Public Knowitall onboarding and demo task verification: 2026-10-27, 23:00
 
 Published only the four inspected bootstrap/design files and their two-commit

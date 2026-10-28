@@ -1,4 +1,21 @@
-# Status: 2026-10-27
+# Status: 2026-10-28
+
+## Managed Pi launch restored for 1.4.0: 2026-10-28 (gamy)
+
+- Owner approved the managed pin migration after the old saved executable
+  reported 1.4.0 and the launcher rejected it as not 1.0.3. Updated shared
+  launcher/installer pins, current installation guidance, regression cases
+  and only the private saved version field; exact-version protection remains.
+- All 140 launcher/installer cases pass. Actual managed version/help/MCP-list
+  commands succeed; the installed review extension wrote validated synthetic
+  schema output in an isolated Pi 1.4 SDK session. Actual private-profile RPC
+  remained running with the same approved model until cleanup.
+- The owner will retry launching Pi from Forge; this does not claim their GUI
+  symptom or live model-backed coding/review acceptance has been verified.
+  `ww7g` fresh-host provisioning and other lifecycle/provider tasks remain open.
+- Global installation/settings, credentials, model routes, MCP/Forge/roborev
+  configuration and live services were preserved. No model/review/corpus calls,
+  service restart, push or publication; no experimental process remains.
 
 ## Demo backlog and public Knowitall delivered: 2026-10-27, 23:00
 

@@ -27,7 +27,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parent.parent
 STATE = ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
-PI_VERSION = "1.0.3"
+PI_VERSION = "1.4.0"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 GH_VERSION = "2.102.0"
 GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
