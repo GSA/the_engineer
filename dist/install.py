@@ -4,6 +4,7 @@
 import argparse
 import fcntl
 import importlib.util
+import json
 import os
 from pathlib import Path
 import platform
@@ -15,13 +16,16 @@ import stat
 import subprocess
 import sys
 import tempfile
+import tomllib
 from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PI_VERSION = "1.0.3"
+PI_VERSION = "1.4.0"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
 MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
+KATA_DAEMON_NAME = "local"
+KATA_DAEMON_URL = "http://127.0.0.1:17777"
 REQUIRED_FILES = (
     ".gitmodules", "scripts/bootstrap-sources.sh", "scripts/bootstrap-toolchains.sh",
     "scripts/build.sh", "scripts/local_env.py",
@@ -185,6 +189,167 @@ def check_submodules(checkout):
             raise RuntimeError(f"{project} has local changes; preserve them before installing/updating.")
 
 
+def _check_native_kata_directory(path):
+    if path.is_symlink():
+        raise RuntimeError(f"Native Kata path is a symlink; resolve it explicitly: {path}")
+    if path.exists() and not path.is_dir():
+        raise RuntimeError(f"Native Kata path is not a directory: {path}")
+
+
+def _loopback_daemon_identity(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = urlsplit(value.strip())
+        port = parsed.port
+    except ValueError:
+        return None
+    if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or port is None
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or parsed.path not in ("", "/")):
+        return None
+    return parsed.scheme, parsed.hostname, port
+
+
+def _write_native_kata_config(path, contents, mode):
+    fd, temporary = tempfile.mkstemp(prefix=".config.toml.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            os.fchmod(stream.fileno(), mode)
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if path.is_symlink():
+            raise RuntimeError(f"Native Kata config became a symlink; refusing to replace it: {path}")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def provision_native_kata_client(checkout, home=None):
+    checkout = Path(checkout).resolve()
+    home = Path(home or Path.home()).expanduser().resolve()
+    binary = checkout / "kata/kata"
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise RuntimeError(f"Build did not produce an executable Kata binary: {binary}")
+    binary = binary.resolve(strict=True)
+
+    local_dir = home / ".local"
+    bin_dir = local_dir / "bin"
+    kata_dir = home / ".kata"
+    link = bin_dir / "kata"
+    config_path = kata_dir / "config.toml"
+    for directory in (home, local_dir, bin_dir, kata_dir):
+        _check_native_kata_directory(directory)
+
+    if link.is_symlink():
+        try:
+            if link.resolve(strict=True) != binary:
+                raise RuntimeError(f"A different Kata binary already owns {link}; resolve it explicitly.")
+        except FileNotFoundError as error:
+            raise RuntimeError(f"A broken Kata symlink already exists at {link}; resolve it explicitly.") from error
+    elif link.exists():
+        raise RuntimeError(f"A different Kata binary already exists at {link}; resolve it explicitly.")
+
+    config_exists = config_path.exists() or config_path.is_symlink()
+    if config_path.is_symlink():
+        raise RuntimeError(f"Native Kata config is a symlink; resolve it explicitly: {config_path}")
+    if config_exists and not config_path.is_file():
+        raise RuntimeError(f"Native Kata config is not a regular file: {config_path}")
+    if config_exists:
+        try:
+            config_text = config_path.read_text(encoding="utf-8")
+            config = tomllib.loads(config_text)
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+            raise RuntimeError(f"Cannot safely read native Kata config {config_path}: {error}") from error
+    else:
+        config_text = ""
+        config = {}
+    original_config_text = config_text
+
+    entries = config.get("daemon", [])
+    if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
+        raise RuntimeError(f"Native Kata config has an invalid daemon catalog: {config_path}")
+    expected_identity = _loopback_daemon_identity(KATA_DAEMON_URL)
+    if expected_identity is None:
+        raise RuntimeError(f"Installer Kata endpoint must be a loopback URL: {KATA_DAEMON_URL}")
+
+    active_present = "active_daemon" in config
+    active_name = config.get("active_daemon")
+    if active_present and not isinstance(active_name, str):
+        raise RuntimeError(f"Native Kata config has an invalid active_daemon: {config_path}")
+    already_configured = False
+    if active_name and active_name.strip():
+        selected = [entry for entry in entries if entry.get("name") == active_name]
+        if (len(selected) == 1 and not selected[0].get("local", False)
+                and _loopback_daemon_identity(selected[0].get("url")) == expected_identity):
+            selected_name = active_name
+            add_entry = False
+            already_configured = True
+        else:
+            raise RuntimeError(
+                f"Native Kata config selects a different or ambiguous active Kata daemon "
+                f"({active_name!r}); resolve it explicitly: {config_path}"
+            )
+
+    if not already_configured:
+        matching = [
+            entry for entry in entries
+            if _loopback_daemon_identity(entry.get("url")) == expected_identity
+        ]
+        if len(matching) > 1 or any(entry.get("local", False) for entry in matching):
+            raise RuntimeError(f"Native Kata config has conflicting loopback daemon identities: {config_path}")
+        if matching:
+            selected_name = matching[0].get("name")
+            if not isinstance(selected_name, str) or not selected_name.strip():
+                raise RuntimeError(f"Native Kata config has an unnamed loopback daemon: {config_path}")
+            add_entry = False
+        else:
+            if any(entry.get("name") == KATA_DAEMON_NAME for entry in entries):
+                raise RuntimeError(
+                    f"Native Kata daemon name {KATA_DAEMON_NAME!r} is already in use: {config_path}"
+                )
+            selected_name = KATA_DAEMON_NAME
+            add_entry = True
+
+        if active_present:
+            empty_active = re.compile(
+                r"""(?m)^([ \t]*active_daemon[ \t]*=[ \t]*)(?:""|'')([ \t]*(?:#.*)?)$"""
+            )
+            config_text, replaced = empty_active.subn(
+                lambda match: f"{match.group(1)}{json.dumps(selected_name)}{match.group(2)}",
+                config_text,
+                count=1,
+            )
+            if not replaced:
+                raise RuntimeError(
+                    f"Cannot safely select a daemon from empty active_daemon in {config_path}; "
+                    "resolve it explicitly."
+                )
+        else:
+            config_text = f"active_daemon = {json.dumps(selected_name)}\n\n{config_text}"
+        if add_entry:
+            separator = "" if not config_text else ("" if config_text.endswith("\n\n") else "\n")
+            config_text += (
+                f"{separator}[[daemon]]\n"
+                f"name = {json.dumps(selected_name)}\n"
+                f"url = {json.dumps(KATA_DAEMON_URL)}\n"
+            )
+
+    home.mkdir(mode=0o700, parents=True, exist_ok=True)
+    local_dir.mkdir(mode=0o755, exist_ok=True)
+    bin_dir.mkdir(mode=0o755, exist_ok=True)
+    kata_dir.mkdir(mode=0o700, exist_ok=True)
+    if not link.is_symlink() and not link.exists():
+        link.symlink_to(binary)
+    if not already_configured and config_text != original_config_text:
+        mode = stat.S_IMODE(config_path.stat().st_mode) if config_exists else 0o600
+        _write_native_kata_config(config_path, config_text, mode)
+    print(f"Native Kata CLI: {link}")
+    print(f"Native Kata client config: {config_path}")
+
+
 def service_choice(choice):
     if choice != "ask":
         return choice
@@ -246,6 +411,7 @@ def install(checkout, corpus, forge_build, choice):
                    checkout / "kata/kata", checkout / "agentsview/agentsview"):
         if not binary.is_file() or not os.access(binary, os.X_OK):
             raise RuntimeError(f"Build did not produce an executable: {binary}")
+    provision_native_kata_client(checkout)
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print("\nCreating missing private configuration; existing settings are preserved...")
     run([*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)], cwd=checkout)
@@ -264,17 +430,37 @@ def install(checkout, corpus, forge_build, choice):
         print("\nInstallation configured for manual startup; no services were started or registered.")
 
 
+def manual_kata_command(checkout):
+    env = Path("/usr/bin/env")
+    if not env.is_file() or not os.access(env, os.X_OK):
+        raise RuntimeError("Missing /usr/bin/env required to isolate the Kata process environment.")
+    environment = {
+        "HOME": str(Path.home()),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "KATA_HOME": str(checkout / ".local/environment/kata"),
+        "KATA_DSN": str(checkout / ".local/environment/kata/kata.db"),
+        "KATA_DB": "",
+        "KATA_TELEMETRY_ENABLED": "0",
+    }
+    return [
+        str(env), "-i",
+        *(f"{key}={value}" for key, value in environment.items()),
+        str(checkout / "kata/kata"), "daemon", "start", "--foreground",
+        "--no-auto-token", "--listen", "127.0.0.1:17777",
+    ]
+
+
 def instructions(checkout, node):
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
+    print(f"\nNative Kata CLI: {Path.home() / '.local/bin/kata'}")
+    print("  The installer does not edit shell startup files; add ~/.local/bin to PATH if needed.")
     print("\nManual startup (all dashboards in the foreground; Ctrl+C stops owned processes):")
     print("  " + shlex.join([*command, "run"]))
     print("Or run each service in a separate terminal:")
     for name in MANAGED_SERVICES:
-        args = (["env", "-u", "KATA_DB", f"KATA_HOME={checkout / '.local/environment/kata'}",
-                 f"KATA_DSN={checkout / '.local/environment/kata/kata.db'}",
-                 str(checkout / "kata/kata"), "daemon", "start", "--foreground",
-                 "--no-auto-token", "--listen", "127.0.0.1:17777"]
-                if name == "kata" else [*command, f"{name}-run"])
+        args = (manual_kata_command(checkout) if name == "kata"
+                else [*command, f"{name}-run"])
         if name in ("roborev", "forge"):
             args.extend(["--node-executable", str(node)])
         print("  " + shlex.join(args))
@@ -283,6 +469,7 @@ def instructions(checkout, node):
     print("Independent user services are NOT stopped by that command. For each installed unit:")
     for name in MANAGED_SERVICES:
         print(f"  systemctl --user stop kenn-kopy-{name}.service")
+    print(f"\nNative Kata client selects {KATA_DAEMON_URL} by default.")
     print("\nDashboards: Forge http://127.0.0.1:18091/ | Kata http://127.0.0.1:17777/kata")
     print("roborev http://127.0.0.1:17374/reviews | AgentsView http://127.0.0.1:18080/")
     print("\nAgents are not model-ready until you configure your approved USAi endpoint/model and key.")

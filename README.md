@@ -3,8 +3,8 @@
 A persistent Linux environment for personal exploration and a human-directed
 engineering demo. It combines Forge, Pi, Superpowers, roborev, Kata and
 AgentsView, with the existing Falcon Context MCP server. USAi LiteLLM is the
-required model provider. GSA GitHub/Jira integration and cloud deployment are
-later work.
+required model provider. GSA GitHub repository integration is available;
+broader Jira workflow integration and cloud deployment remain later work.
 
 The selected product name is **Engineer** (`engineer`), formerly Engi Platform
 and Kenn Kopy. All directory renames are deferred, including the eventual
@@ -16,14 +16,19 @@ Current service evidence and blockers are in [context/status.md](context/status.
 The distinction between Forge controls and our proposed engineering phases is
 documented in [context/engineering-workflow.md](context/engineering-workflow.md).
 
-The proposed [cross-project architecture](context/system-architecture.md)
-separates Engineer, the Librarian toolkit/program instances, and externally
-owned SPUD, including reuse of SPUD acquisition and current reproduction gaps.
+The [cross-project architecture](context/system-architecture.md) separates
+Engineer execution, Librarian business context/corpus and Knowitall code
+context/graphs. Externally owned SPUD is a reuse source, not a required fourth
+product. The deferred internal system demonstration is tracked by `engi-platform#hk33`:
+one approved real AOS Jira ticket through qualified context, implementation,
+review and PR after the three component boundaries work locally. Superseded
+`ca6n` will not create a reusable fixture. These public repositories must stay
+free of AOS/Falcon-identifying material; private scenario evidence stays in
+authorized local state.
 [Selective engineering memory](context/engineering-memory.md) describes
 decisions, corrections and handoffs rather than full conversation capture.
-These are design drafts, not installed integrations or completed deployment.
-The [cleanup refinement](context/refactoring.md) maps the next small,
-complexity-reducing slices to native Katas; memory trials follow that cleanup.
+Memory must demonstrate incremental value over no memory and simple records
+before optional runtime work proceeds.
 
 ## Standalone agent terminals: Ghosthub replacement
 
@@ -50,7 +55,11 @@ inference is not USAi**, so sensitive model work stays in Pi.
 Press **Ctrl+B, then D** to detach; repeat the same `open` command to reattach,
 without launching a second agent. **Ctrl+B, then S** selects sessions,
 **Ctrl+B, then C** creates a shell window, and **Ctrl+B, then %** splits a pane.
-All these shells start in this checkout. Use separate worktrees before having
+All these shells start in this checkout. Forge-linked worktrees inherit
+`KENN_KOPY_RUNTIME_ROOT` and resolve managed Kata, roborev, Forge, AgentsView
+and private runtime state from this canonical host checkout; they do not need
+copied binaries or initialized submodules. An explicit override must be an
+existing absolute directory. Use separate worktrees before having
 agents edit overlapping files concurrently; terminals do not provide worktree
 isolation or task ownership.
 
@@ -100,7 +109,8 @@ background use; do not start or restart a second lifecycle for this managed
 profile. Use `systemctl --user` here.
 
 Configuration/databases are retained. Forge's registered projects are Librarian
-(`~/the_librarian`), Engineer (`~/kenn-kopy`) and SPUD (`~/aos-spud`).
+(`~/the_librarian`), Knowitall (`~/the_knowitall`), Engineer (`~/kenn-kopy`)
+and SPUD (`~/aos-spud`).
 If you intentionally stopped services, restore them:
 
 ```sh
@@ -122,8 +132,10 @@ terminal open; the supervisor owns only dashboards not installed as services.
 In this WSL installation, the Windows browser can use these same localhost
 addresses with the current NAT configuration. No public listener, tunnel or
 cloud access is configured. Forge syncs private `GSA/the_engineer`,
-`GSA/the_librarian` and `GSA/aos-spud`; the four earlier Falcon mirrors were
-removed from its catalog, not deleted from disk.
+`GSA/the_librarian` and `GSA/aos-spud`, plus public `GSA/the_knowitall`.
+The four earlier Falcon mirrors were removed from its catalog, not deleted
+from disk. Newly authorized GSA repositories default to public; existing
+private repository visibility is unchanged.
 Profiles without configured repositories retain disabled provider sync.
 AgentsView now watches explicit Copilot and Pi session sources; it is not a
 model router. Dashboard startup alone does not establish a complete
@@ -179,11 +191,16 @@ kata show 5xrm
 kata --project supply-chain-user-interface list --agent
 ```
 
-`~/.local/bin/kata` points directly to the built `kata/kata` binary. Native
-`~/.kata/config.toml` selects the existing daemon at `http://127.0.0.1:17777`.
-The service retains its database in `.local/environment/kata`; no task migration
-is required. The CLI follows `.kata.toml` in the current repository and supports
-Kata's normal selectors and attribution. In another repository, run
+The installer creates `~/.local/bin/kata` as a direct symlink to the built
+binary and selects the loopback daemon at `http://127.0.0.1:17777` in native
+`~/.kata/config.toml`. Existing matching targets are reused; conflicting
+binaries or daemon selections are left untouched and reported. Other settings
+and credentials are preserved, and shell startup files are not changed. If
+`~/.local/bin` is not on `PATH`, invoke the symlink directly or add it to your
+shell environment. The service retains its database in
+`.local/environment/kata`; no task migration is required. The CLI follows
+`.kata.toml` in the current repository and supports Kata's normal selectors and
+attribution. In another repository, run
 `kata init --project <name> --with-agents` to bind it and add agent guidance.
 Search before creating, claim work, and close only with verified evidence.
 
@@ -368,7 +385,7 @@ stop `kenn-kopy-roborev.service` before passing a different `--binary`.
 The installer refuses active binary switches without restarting reviews.
 If another start races installation, executable-identity checks reject it and
 restore the previous unit and selection rather than leave a future switch armed.
-The installer verifies Pi 1.0.3, preserves
+The installer verifies Pi 1.4.0, preserves
 configuration and refuses occupied ports instead of replacing another daemon.
 Installation is repeatable. If deliberately moving to another compatible
 Node installation, rerun the installer and restart the service.
@@ -557,7 +574,8 @@ agent profiles. Clean-host acceptance is still outstanding.
 
 The current host requires built application binaries, Python 3.11+ with the
 Ubuntu **`python3-venv`** package (so repository-local environments include
-pip), Node, Git, tmux and user-installed Pi **1.0.3**. Falcon's existing MCP installation/index must
+pip), Node, Git, tmux and user-installed Pi **1.4.0**. Falcon's existing MCP
+installation/index must
 be present under `~/falcon-docs`. Setup validates Pi's exact version but does
 not install it or modify global Pi configuration.
 
@@ -679,9 +697,9 @@ The launcher passes `--disable-sync` only when native Forge configuration has
 no repositories. Once read access is confirmed, add the exact approved
 repositories through Forge Settings, then run
 `systemctl --user restart kenn-kopy-forge.service`.
-This host now tracks only `GSA/supply-chain-user-interface`,
-`GSA/national-item-file-maintenance`, `GSA/standard-acquisition-interface` and
-`GSA/infrastructure`; all four completed their initial sync.
+This host tracks `GSA/the_engineer`, `GSA/the_librarian` and `GSA/aos-spud`;
+all three completed sync. The four former Falcon application entries were
+removed from Forge's configured catalog on 2026-10-26; their checkouts remain.
 Forge's built-in notification sync lists the signed-in user's threads and
 filters them to tracked repositories; it has no notification-off setting.
 Do not select all GSA repositories, add remotes to this integration
@@ -708,7 +726,7 @@ global home configuration and disposable smoke runs.
 Application Settings and the appropriate private configuration files are the
 places to make changes. Restart affected services after startup-setting edits.
 State survives normal stop/start and WSL restarts, but **ignored state is not
-a backup**. Backup/recovery remains tracked in [TODO.md](TODO.md).
+a backup**. Backup/recovery remains tracked in native Kata.
 
 On 2026-10-12 the owner approved the CGI Federal OneDrive destination and
 sensitive local assets. A versioned workspace archive now lives under
@@ -998,8 +1016,8 @@ systemctl --user stop kenn-kopy-kata.service kenn-kopy-roborev.service \
 Afterward, restore them with `systemctl --user start kenn-kopy-kata.service
 kenn-kopy-roborev.service kenn-kopy-agentsview.service kenn-kopy-forge.service`.
 
-See [TODO.md](TODO.md) for open work, [context/status.md](context/status.md) for
-observed results/current process state, [context/tools.md](context/tools.md)
-for build and integration details, and [context/project.md](context/project.md)
-for objectives and decisions. Upstream histories and licenses remain in their
-pinned submodules.
+Use native Kata for open work; [TODO.md](TODO.md) retains historical completed
+entries. See [context/status.md](context/status.md) for observed results/current
+process state, [context/tools.md](context/tools.md) for build and integration
+details, and [context/project.md](context/project.md) for objectives and
+decisions. Upstream histories and licenses remain in their pinned submodules.

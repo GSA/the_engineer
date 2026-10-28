@@ -1,5 +1,390 @@
 # Status: 2026-10-28
 
+## Obsolete planning/spec cleanup (Kata ba0d)
+
+- Owner approved deleting implementation-era planning/spec artifacts after
+  preserving durable guidance in README and canonical context files.
+- Removed the dated Kata adoption/evaluation documents, cleanup refinement and
+  inactive Jira refinement prompt example. Native Kata remains authoritative
+  for live work; README owns current human operations, while project, workflow,
+  tools and status context retain current agent boundaries and material evidence.
+- Removed every repository reference to the deleted files. A focused Markdown
+  link scan found only pre-existing links into uninitialized submodules or
+  neighboring checkouts; `git diff --check` passes. Dirty review 176 identified
+  residual prose describing the deleted prompt as saved; those statements were
+  rewritten as direct policy boundaries, and follow-up review 177 passed with
+  no findings. No runtime, service, credential, private evidence or source
+  behavior changed.
+
+## PR 3 reconciled with current main (c287)
+
+- Merged current `origin/main` after PRs 1 and 2 made PR 3 conflicting.
+  Preserved main's offline rg/fd, Python venv and Pi subagent provisioning while
+  retaining Pi 1.4.0, deferred-demo handling and canonical runtime-root work.
+- Follow-up review exposed persisted launchers from disposable worktrees. Fresh
+  setup now records canonical Pi/USAi helpers; setup narrowly migrates managed
+  Forge-worktree Pi launcher fields and preserves custom launchers, including
+  custom scripts with the same basename. Ubuntu guidance includes python3-venv.
+- Final combined verification: 110 script tests pass; 45 installer tests pass
+  with 4 expected skips; whitespace checks pass. Roborev job 162 passed with no
+  findings. No service restart, binary copy or global configuration change.
+
+## Forge worktrees resolve host-managed tools (mhbt)
+
+- Root cause: Forge agents had working `kata`/`roborev` commands through PATH,
+  but `scripts/local_env.py` derived private state and fallback binaries from
+  each linked worktree. Those worktrees intentionally lack initialized
+  submodules and `.local/environment`, breaking helpers and four tests.
+- Added canonical runtime-root resolution: explicit existing absolute
+  `KENN_KOPY_RUNTIME_ROOT`, otherwise Git's common checkout for linked
+  worktrees, otherwise the active normal checkout. Forge environments export
+  the resolved root; Kata, roborev, AgentsView, Superpowers and private state
+  use it while source imports remain on the branch under test.
+- No submodule initialization, binary copy, global setting, credential, service
+  restart or model call. Actual linked-worktree `kata whoami` and `roborev
+  status` reached the managed host tools. All 107 script tests and 44 installer
+  tests pass (4 installer skips); whitespace checks pass.
+
+## Reusable fixture retired; internal real-ticket demo deferred (ca6n/hk33)
+
+- Post-commit roborev job 137 reviewed all six changed files. Its sole finding
+  claimed Engineer and Librarian were private; live GitHub metadata verified
+  Engineer, Librarian and Knowitall are all public, matching owner direction.
+  Recorded that evidence and closed the rejected finding without weakening the
+  stricter prohibition on AOS/Falcon-identifying repository content.
+- PR publication is blocked by the required full-suite gate. The `dist` suite
+  passed 44 tests (4 skipped), but `scripts/test_local_env.py` had 4 errors
+  because this partial Forge worktree lacks built `kata/kata` and
+  `roborev/bin/roborev` submodule artifacts. The documentation-only branch does
+  not change those runtime files; do not describe the full suite as green.
+- Owner declined both a reusable AOS-derived fixture and a generic substitute.
+  Closed `ca6n` as superseded by `hk33`; no fixture, source intake, model call,
+  implementation or public artifact was produced.
+- `hk33` now requires one later approved real AOS Jira ticket through qualified
+  Librarian evidence, revision-bound Knowitall evidence, Engineer coding/checks,
+  review and PR. It starts only after the component boundaries work locally.
+- All three product repositories are public. AOS/Falcon-identifying tickets,
+  passages, fixtures, prompts, outputs and receipts stay out of Git and in
+  authorized private/local state for cleared internal presentation. Source,
+  model/data route and PR/publication destination remain explicit execution gates.
+- Removed `ca6n` as a blocking prerequisite for `k4mp`, `923h` and `hk33` while
+  preserving task history and other component prerequisites. Generic component
+  tests do not claim the real system demo passed.
+- Workspace branch was cleanly fast-forwarded from 6821263 to local main
+  345778c before reconciliation. No source implementation, service change,
+  external process, push or publication occurred.
+
+## Managed Pi launch restored for 1.4.0: 2026-10-28 (gamy)
+
+- Owner approved the managed pin migration after the old saved executable
+  reported 1.4.0 and the launcher rejected it as not 1.0.3. Updated shared
+  launcher/installer pins, current installation guidance, regression cases
+  and only the private saved version field; exact-version protection remains.
+- All 140 launcher/installer cases pass. Actual managed version/help/MCP-list
+  commands succeed; the installed review extension wrote validated synthetic
+  schema output in an isolated Pi 1.4 SDK session. Actual private-profile RPC
+  remained running with the same approved model until cleanup.
+- The owner will retry launching Pi from Forge; this does not claim their GUI
+  symptom or live model-backed coding/review acceptance has been verified.
+  `ww7g` fresh-host provisioning and other lifecycle/provider tasks remain open.
+- Global installation/settings, credentials, model routes, MCP/Forge/roborev
+  configuration and live services were preserved. No model/review/corpus calls,
+  service restart, push or publication; no experimental process remains.
+
+## Demo backlog and public Knowitall delivered: 2026-10-27, 23:00
+
+- Created four planned Katas: P1 `ca6n` shared fixture/contracts, P1 Librarian
+  `923h` business-code link lifecycle, P1 `hk33` system demo/harness, and P2
+  `zmzh` simple opposite-family coding/review configuration.
+- Refined milestone/provider acceptance and made memory a value-gated option:
+  no memory may win; `pbqn` is conditional P2 after `zbww`, not a demo blocker.
+- Published `GSA/the_knowitall` publicly at `ffd28b7` and verified its explicit
+  Forge mapping, existing-checkout base and successful sync. Existing private
+  repos and unrelated mappings/settings remain unchanged.
+- New functionality remains planned. No implementation agents, source/model
+  processing, live reviewer change or new persistent helper was started.
+  Librarian's prior roadmap/ADR edits remain untouched.
+
+## Demo readiness gaps identified: 2026-10-27
+
+- Compared current code state with native component and milestone acceptance.
+  Recommended explicit business-to-code link lifecycle ownership, a shared
+  contract/known-answer demo harness, and conditional Knowitall Forge onboarding.
+- Recommended refining existing evidence-presentation, live-provider and memory
+  acceptance rather than building another UI or duplicating completed work.
+- Findings recorded on `pyzt` and in the architecture; no new feature Katas,
+  dependency changes, implementation agents, corpus or runtime changes.
+
+## Knowitall bootstrap and resumed request: 2026-10-27 (c6by)
+
+- Recovered persisted state after disconnect rather than recreating tasks or
+  resetting AgentsView. Conversation capture now uses transcripts mode;
+  verification found 18,807 nonempty message bodies across 204 sessions.
+  Existing managed loopback service is healthy; no transcript text exposed.
+- Initialized `the_knowitall` locally with Git and native project binding.
+  README captures SPUD component reuse, code/business/Engineer ownership,
+  repository snapshots/queries and useful business-entity modeling intentions;
+  committed as `eb4f947`, with no remote.
+- Created 19 unowned planned Katas: Engineer2, Knowitall5, Librarian12.
+  Existing provider design moved intact to Knowitall; existing OKF/receiver
+  and memory-evaluation work reused. Entity design and implementation are
+  separately tracked as `librarian#pwhw -> #xzkj`; Drive/manual upload included.
+- Updated current cross-product milestone/diagram to Knowitall as code-context
+  owner. New functionality remains planned, not implemented or ingested.
+- `3c2c` has exact repair evidence and is unassigned/open for its remaining
+  broader scope; no unrelated task was closed. Source corpus/stores and
+  pre-existing dirty worktrees are preserved. No new persistent helper,
+  remote repository, cloud deployment, push or publication.
+
+## Deduplicated capability/Kata audit: 2026-10-27 (e5dd)
+
+- Completed three read-only source audits and reconciled native open/closed
+  tasks. Existing delivered components and worked acceptance/design efforts
+  are excluded from the proposed implementation-only shortlist.
+- Engineer priorities: operational selected-event memory, actionable
+  conversation-policy/filter visibility, and task-scoped business/code context.
+  Memory research/preparation and explicit Librarian provider code already exist.
+- AgentsView is intentionally usage-only; message bodies are absent by policy,
+  and some sessions are hidden by filters. No capture setting changed.
+- Librarian retains its delivered Docling and authority-store foundations.
+  Proposed runtime gaps include Docling-qualified reads, durable intake/DLQ,
+  receipt import/reconciliation, ordinary text, policy orchestration and
+  acknowledged contributions. Existing graph design/hardening is not new work.
+- Recommend external composition plus targeted SPUD fixes, not a wholesale
+  SPUD redesign or replacement engines. Existing job/event DLQs are not an
+  item-completeness solution.
+- Detailed proposal/evidence is in architecture/tools. No new implementation
+  Katas filed, no existing task retired/closed, no product source, corpus,
+  transcript policy, live service or global configuration changed.
+- Existing worktrees preserved; no experimental process remains. Documentation
+  and audit evidence are local only; nothing pushed.
+
+## Librarian review reassociation: 2026-10-27 (byrk)
+
+- Moved still-relevant reviews 24, 56 and 69 into canonical `the_librarian`
+  using native repository merges; each source held only its requested job.
+- Verified original review identities, evidence, verdicts and comments remain
+  unchanged, with explicit original-snapshot provenance comments added.
+  Original checkouts and all six previous target jobs are preserved.
+- The target has nine total jobs and five open reviews: 24/56/60/69/71.
+  No open `repo`-named reviews remain. Use `--all-branches` because the moved
+  jobs retain their original `master`/`dirty` snapshot metadata.
+- Findings remain unresolved under `librarian#q9a9`; this is not a code fix
+  or a new main-branch review. Independent project/material approval stays open.
+- Preserved unrelated documentation edits and the concurrent text-first intake
+  follow-up. No toolkit code, global settings, live service or corpus changed;
+  no snapshot files deleted, process started, push or publication.
+
+## Text-first ingestion and consumer changes: 2026-10-27
+
+- Clarified that SPUD internals remain its maintainer's decision; prefer
+  compatible outputs/contracts over requiring the proposed rearrangement.
+- Recorded text/structured-rendition intake, stage-aware retries/DLQ,
+  large-document handling and the distinction between extraction and knowledge.
+- Separated substantial Librarian intake/qualification work from narrower
+  Engineer provider/evidence/disposition integration. Existing toolkit
+  capabilities and proposal-only gaps are explicitly distinguished.
+- Documentation-only follow-up; no product code, corpus, provider profile,
+  service, permissions or task lifecycle changed. No experiment was started.
+
+## Engineer backlog focused on architecture: 2026-10-27 (wvd2)
+
+- Owner explicitly chose retirement of `0rc1`, `jqwq`, `hfbz`, `bbm2`, `rrs8`.
+  All five are `wontfix`, with original evidence/uncertainty preserved.
+- The ongoing Engineer portfolio is 27 open items: six `architecture-now`
+  and 21 `architecture-later`, rather than 31 undifferentiated commitments.
+  Later work remains recorded, not represented as done.
+- Added milestone `pyzt` and SPUD provider-contract design `spud#vky6`.
+  Existing `dh1t`, producer/receiver tasks and Librarian hardening gate retain
+  their own scopes; no pipeline or new implementation was activated.
+- Verified focused labels/priorities, closure reasons, preserved owners and
+  real prerequisites. Independent project/material approval remains open.
+  Current directions and queue commands are in the architecture/tools docs.
+- No services, global settings, provider profiles, source/corpus stores or
+  neighboring source files changed. No experimental process or publication.
+
+## Boundary-aligned backlog cleanup: 2026-10-27 (pd40)
+
+- Retired Falcon graph workstream `vmhy` and its remaining children `e7zh`,
+  `3g58`, `ww85`, `73at`, `28jz` as `wontfix`. Completed contract/history and
+  existing assets remain; no pilot acceptance is invented.
+- Closed obsolete `5ayh` as superseded by deferred Engineer migration `eb48`.
+  Narrowed mixed hosting task `jmga` to Engineer and independently hardened
+  Librarian, excluding new Falcon hosting.
+- Closed ten reviews with explicit dispositions and audited their persisted
+  status. Six remain: toolkit 24/56/60/69/71 and real application review 14.
+  Original verdicts are preserved; no unresolved finding was claimed fixed.
+- Created `librarian#q9a9` for hardening against a different approved project
+  before Falcon migration. Its project/material and execution approval remain
+  undecided. Kept `7bna` read-only and existing producer/receiver dependencies.
+- Preserved concurrent assessment `rmgx`/`b998e54`, real application tasks,
+  provider-use acceptance, policy/access restrictions and unrelated local
+  changes. No feature implementation or pipeline was run.
+- Falcon's MCP and ingestion pipeline remain retained legacy capabilities.
+  No service/profile/global setting, authoritative store or corpus changed;
+  no new persistent process, deletion, migration or publication.
+
+## SPUD fit assessment and expanded demo: 2026-10-27 (rmgx)
+
+- Completed source-based comparison of SPUD core/Web, the standalone
+  Jira/Confluence exporters and current Graphify. The recommendation and
+  all-three Acquire demo sequence are in `context/system-architecture.md`.
+- Corrected earlier omissions: Graphify already has real edges, bounded queries,
+  MCP and incremental safeguards; SPUD Web already has job orchestration.
+  Neither establishes a complete unattended Drive/Confluence intake lifecycle.
+- Offline graph checks and fake-client reproductions establish useful reuse and
+  concrete false-completion/checkpoint gaps. Exact counts and baseline
+  limitations are in `context/tools.md`; no actual Acquire/FALCON assets used.
+- Recommend hardening exporters and building Librarian's durable intake/Drive
+  adapter, not rewriting SPUD wholesale. This is a recommendation, not deployed
+  functionality or upstream modification approval.
+- `dh1t`, `spud#3sv9` and `librarian#55nx` remain open. No dependencies were
+  relaxed or new implementation tasks treated as approved.
+- Existing unrelated dirty worktrees preserved. Only Engineer documentation and
+  native assessment evidence changed; no push, global configuration, live
+  service or corpus mutation. No experimental process remains running.
+
+## Zsh npm report not reproduced: 2026-10-27 (rrs8)
+
+- Searched native Kata, created and claimed rrs8 for the owner-requested repair.
+- Both home rc files already initialize NVM; fresh Bash/Zsh resolve npm even
+  with Node paths removed from the inherited environment.
+- Requested command-resolution output from the actual failing Zsh terminal;
+  that request was cancelled. Diagnosis remained incomplete; the owner later
+  retired `rrs8` as `wontfix` during architecture-focus cleanup `wvd2`.
+- No startup files, packages, services or global settings changed. No
+  persistent experimental process remains; no publication is authorized.
+
+## Repo-named roborev review sweep: 2026-10-27
+
+- Queried each tracked repository named `repo`: 31 open snapshot reviews (9
+  Pass, 22 Fail). These were temporary pre-commit snapshots, not the canonical
+  source repositories.
+- Added evidence comments and closed 28: all 9 passing reviews and 19 failures
+  whose findings are fixed in current source or benign in the owner-managed,
+  same-UID local threat model. Audits confirm each is closed.
+- Kept jobs 24, 56 and 69 open. Job 24 reproduces raising inherited soft
+  resource limits; job 56 still permits model assets to change and be restored
+  during inference; job 69 identifies operational execution records in a
+  packaged completion plan, contrary to Librarian's repository policy.
+- Librarian's installed suite passed 112 tests (7 opt-in skips); its pre-commit
+  suite passed 51. No Librarian files were changed; its pre-existing edits to
+  `ROADMAP.md` and `docs/decisions/0006-relationship-traversal.md` remain intact.
+- Kata search found no matching task; the unrelated next issue was not claimed.
+  No persistent process or external configuration was changed.
+
+## Roborev open-review sweep: 2026-10-27
+
+- `roborev list --all-branches --open` found 24 open jobs: 22 already passed
+  and two older failures (101/102) had recorded fix dispositions on
+  `dae66cd`; follow-up job 104 passed with no findings.
+- Closed all 24. Added resolution comments to 101/102 referencing the
+  correction commit and passing follow-up. Original verdicts remain unchanged
+  in history.
+- Re-audited each job with `roborev show`; every one reports `closed=true`.
+  A fresh all-branches open query reports zero remaining reviews.
+
+## FALCON legacy boundary and cross-project coordination: 2026-10-27
+
+- Owner direction: treat `falcon-docs` technology as legacy, while preserving
+  its information corpus pending a separately approved replacement and
+  migration/re-ingestion plan. No corpus/store/index changes or teardown.
+- Closed `falcon-docs#5njc`, `#51kq` and `#939r` as `wontfix` per that direction,
+  not as completed acceptance; records/history remain.
+- Created `engi-platform#dh1t` to coordinate existing producer/receiver design:
+  `spud#3sv9` remains a prerequisite of `librarian#55nx`; both are children of
+  the Engineer coordinator. No source pipeline or real intake was run.
+- Falcon qualified-context status/search rejected the stale index after
+  detecting changed source files. No refresh/build was run; no qualified
+  corpus claims were made from those search results.
+- Changes in this task are limited to Engineer design/status documentation and
+  native Kata records. Existing unrelated dirty worktrees were preserved.
+
+## Review corrections and native installer delivery: 2026-10-27
+
+- Corrected the CCSMFSSM-1290 handoff to distinguish the commented sample AAC
+  list from the active lookup response, and to name the form's `valid` getter
+  as the submit gate.
+- The dual-remote sync command now discovers Helix's advertised default branch
+  for PRs, fails clearly when it cannot, and keeps machine-readable output on
+  stdout only. Roborev hook staging accepts standalone generated rewrite hooks
+  and refuses mixed hooks that could consume stdin.
+- The managed Kata service and manual startup now run with an explicit clean
+  environment, retaining only HOME/PATH/locale and the private Kata data
+  location. Inherited auth, endpoint, storage and trust overrides cannot alter
+  the daemon.
+- With owner approval, `0sfx` delivered the direct native CLI symlink and
+  conflict-safe active loopback client config. Synthetic HOME/PATH execution
+  confirmed the built CLI selects that endpoint and preserves `.kata.toml`
+  bindings; reruns preserve unrelated settings and credentials.
+- Review 73's managed-environment, fresh-host provisioning and stale README
+  findings are fixed or resolved with evidence; the review was commented and
+  closed. `0sfx` was closed against local commit `9c4a83a`. All 23 original
+  reviews are resolved.
+- Final script and distribution suites passed (173 and 44 tests). No real user
+  home, managed service, live daemon or persistent process was changed. Full
+  host/recovery acceptance remains separate under `p4ke`/`5xrm`.
+
+## Reconciled pilot delivered; full integration still gated (txt3)
+
+- Restored k03a/j54x/6hce/avvp under original identities/history and reconciled
+  their actual scopes. j54x passed native create/reopen/launch acceptance;
+  k03a/6hce/avvp remain open on the concrete gaps below.
+- f47m and bounded coding-demo jgcf are complete: real Forge/private Pi,
+  explicit provider binding, compatibility checks, two review findings fixed
+  and exact final review 104 Pass. Parent reran 36 installer cases (three
+  expected local-binary skips) and eight focused setup cases successfully.
+  Commit dae66cd remains on its clean Forge branch/worktree, not merged or
+  published. Main contains Hindsight preparation f2ffd9e, review 103 Pass.
+- Repaired the worktree MCP executable mismatch only in the owned private
+  profile, preserving its authorized scope/audit settings. Actual
+  model-selected status/search then failed closed on a stale source index.
+  No locator/get or corpus/index write: successful qualified retrieval 6hce
+  still needs a separately approved refresh of that selection.
+- Live isolated browsers verify canonical Forge task details/Pi tabs and
+  the standalone roborev exact-commit finding/Pass views. Forge restricts its
+  Reviews tab to PR workspaces; avvp remains open for Kata-workspace linkage.
+  AgentsView records actual usage metadata; cost remains unavailable.
+- The external dispatch omitted the parent no-amend rule. Reviewed original
+  and intermediate commits are preserved by local refs; AGENTS.md and workflow
+  guidance now state additive fixes explicitly. k03a remains open for distinct
+  policy-loading/behavior acceptance, not falsely closed by instruction reads.
+- Hindsight preparation svg1 is closed with a disabled, pinned 1.1.0 API
+  profile, required private/model selectors and explicit auth/isolation gates.
+  Seven offline checks pass; optional Docker absence skips explicitly.
+  zbww still needs approved launch/model/auth/storage decisions. No image,
+  service, memory request, automatic capture or REA installation.
+- Shutdown: both owned model sessions and the pilot's idle base shell are
+  stopped; browsers/temporary checks exited. The worktree, four running
+  managed services and unrelated application workspace remain intact.
+  No push, merge, source acquisition or global-setting change.
+
+## Post-cleanup next steps refined (kamh)
+
+Historical planning snapshot; current acceptance is in the txt3 section above.
+
+- Updated the existing architecture, not a second roadmap: bounded cleanup
+  and explicit boundaries through one real Engineer task; existing SPUD
+  producer/receiver contract; durable ingestion; then Drive, with selective
+  memory after the first workflow and reproduction before distribution.
+- Forge/provider/task onboarding is delivered; real model-backed coding,
+  failure/resume, qualified intake and fresh-host acceptance are not implied.
+  Existing Katas remain open. No connector/automation backlog was activated.
+- Subsequent txt3 completed bounded demo jgcf; remaining integration
+  acceptance belongs to open k03a/6hce/avvp. spud#3sv9 remains an independent
+  next track after scope approval and still blocks librarian#55nx.
+  k03a/j54x were restored and reconciled; do not repeat reconciliation.
+- Follow-up places Hindsight as the first selective-memory service candidate
+  after the first workflow, not after Drive. REA is an optional artifact/runtime
+  investigation tool, not a replacement for Superpowers or routine SPUD/source
+  analysis. Primary docs inspected; neither product installed or benchmarked.
+- Initial planning commit 3f7d920 received review 97's stale README catalog
+  finding; follow-up corrects that paragraph. Native kamh retains exact final
+  commit/review evidence; no implementation milestone is closed by this plan.
+- Recommendation only: no runtime/configuration or neighboring code changes,
+  source acquisition, corpus writes, agent launch, publication or rename.
+  Shutdown: no experimental process was started; persistent services were
+  left unchanged. Planning closure/commit evidence belongs to native kamh.
 ## Forge Pi dependency provisioning
 
 - Claimed Kata `engi-platform#h28d`. Diagnosed session `01a1835d-0e9f-72de-9526-1c96560fdbf4`: pip/Python resolve correctly in Forge under sh/Bash/zsh; the actual failure is Ubuntu Python lacking `ensurepip` because `python3-venv` is absent. The session created ignored `.superpowers/.../python-deps` via `pip --target` as a workaround.
@@ -28,7 +413,6 @@
   `kenn-forge/work-0de2ae9c` and opened GitHub PR 1 against `main`:
   https://github.com/GSA/the_engineer/pull/1
 
-# Previous status: 2026-10-26
 
 ## Private remotes and separated task routing delivered (7943)
 
@@ -182,9 +566,8 @@ routed through the newer default CLI was canceled; it is not acceptance evidence
   Engineer rzsc/f47m/k79n/qc96/0sfx; toolkit 7bna/55nx; FALCON 939r; SPUD 3sv9.
   Both Librarian repos retain their existing project binding, distinguished by
   repo metadata. Producer contract 3sv9 blocks receiver design 55nx.
-- Saved `refactoring.md` with concrete simplifications, the first bounded
-  installer design and risk-based review/verification. Memory trials follow
-  cleanup. No runtime implementation or unseen-plan approval is claimed.
+- Recorded concrete simplifications and rejected abstractions in native Kata.
+  Memory trials follow cleanup. No unseen-plan approval is implied.
 - Two read-only scouts completed. Rejected style-driven changes to legacy XLSX
   helpers and direct-source coverage loading after examining compatibility and
   freshness costs. No cross-checkout shared runtime is adopted.
@@ -585,8 +968,8 @@ routed through the newer default CLI was canceled; it is not acceptance evidence
 - The change checks the substitute NSN's `d403_acq_ad` through the existing
   `NIFService.getNSNServiceData`, warning on `V`/`Y` with the ticket's exact
   wording. No backend change; `functions/get-nsn-service-details` already
-  returns the field. `substituteNSNWarning` is a standalone field that
-  `isFormValid()` never reads, so saving is not blocked. Empty or already
+  returns the field. `substituteNSNWarning` is a standalone field that the
+  form's `valid` getter never reads, so saving is not blocked. Empty or already
   hard-invalid values are not looked up, repeated blurs do not re-request, a
   late response cannot overwrite a newer value, and a failed lookup stays
   silent.
@@ -665,9 +1048,12 @@ Librarian-generated documentation.
 **The requirement is now locatable.** `nif-addedit.component.ts` and
 `nif-addedit.component.html` under
 `supply-chain-user-interface/angular/fss-ui/src/app/nif-workspace/` own the NIF
-add/edit form. `nif-metadata.ts` confirms the ticket's codes: `V - Terminal
-Item in stock` and `Y - Terminal Item (no stock available)`, matching
-"terminal or obsolete".
+add/edit form. The AAC examples in `nif-metadata.ts` are commented out and do
+not confirm runtime behavior. The active substitute lookup reads
+`d403_acq_ad` from `NIFService.getNSNServiceData(substituteNSN)`, with
+`V - Terminal Item in
+stock` and `Y - Terminal Item (no stock available)` as the ticket's target
+codes.
 
 **The central design gap is answerable but unanswered.** `substituteNSN` is a
 plain masked text input, validated only for length, format and difference from
@@ -685,9 +1071,10 @@ flag is still unresolved and is the one question worth asking the team.
 MOP `01` (`acquisitionAdviceCodeChange`); phrase code becomes required when AAC
 is `Y`; substitute NSN becomes required when phrase code is in
 `["A","C","D","F","Y","Z"]`; substitute NSN must be >= 13 chars and differ from
-the NSN. `isFormValid()` is the single submit gate, so a *soft* warning must not
-be added to it. The file already distinguishes blocking `usa-error-message`
-from advisory `usa-hint`, and the app uses `usa-alert--warning` in eight places.
+the NSN. The `valid` getter is the submit gate (`[disabled]="!valid"`), so a
+*soft* warning must not be added to it. The file already distinguishes blocking
+`usa-error-message` from advisory `usa-hint`, and the app uses
+`usa-alert--warning` in eight places.
 
 **Verification is the real blocker, and both repos are red before any change.**
 
@@ -1210,7 +1597,7 @@ block; and which verification gate a kata may legitimately require.
 
 - Read all 32 open task scopes and selected histories/links. No open task's
   remaining implementation is established complete by the recent prompt work.
-  The saved refinement example is an artifact, not an installed intake agent.
+  The agreed refinement boundary does not install an intake agent.
 - Recommended consolidation: supersede `v3sd` into `k03a`, retaining its
   original workflow/Constitution scope and provenance in the surviving task.
   This would be supersession, not a claim that active integration is done.
@@ -1231,20 +1618,13 @@ block; and which verification gate a kata may legitimately require.
   model/corpus/provider operation or experiment process. Context committed
   locally and the generated TODO refreshed without changing the 32-task index.
 
-## Inactive Jira refinement example saved: 11:36 request
+## Jira refinement boundary: 11:36 request
 
-- Saved `context/prompt-drafts/jira-refinement.example.md` with the canonical
-  Constitution v2026.08.11 unchanged, retaining attribution/license, followed
-  by the owner's exact overlay. The file is an inactive reference, not a live
-  `AGENTS.md`, skill or installed agent profile.
-- Draft authority is now agreed: propose tasks for human approval, without
-  modifying/adding requirements, editing source, writing task records,
+- Draft authority is agreed: propose tasks for human approval, without
+  modifying or adding requirements, editing source, writing task records,
   launching workers or publishing. Active prompt/platform integration remains
-  open; saving this example does not complete `k03a` or Jira intake `99gr`.
-- Updated project/tool/workflow context and existing task handoffs; committed
-  the completed document changes locally. No profile/config/service/upstream
-  changes, model requests, corpus access, Jira/Helix requests or publication.
-  No experiment process was started; previous context work was already committed.
+  open; this boundary does not complete `k03a` or Jira intake `99gr`.
+- No coordinator, profile, skill or automated intake was installed.
 
 ## Manual Jira intake and future coordinator discussion: 11:29 request
 
@@ -1383,8 +1763,8 @@ block; and which verification gate a kata may legitimately require.
   unavailable results despite exit zero; failed JSONL evidence is retained.
 - All 109 focused Python tests pass, including seven new integration
   regressions; actual repeated setup and read-only transport/SDK checks pass.
-  README/root task guidance and `kata-adoption.md` describe scope, client
-  restart, progressive loaders and limits. Private evidence is
+  README/root task guidance describes scope, client restart, progressive
+  loaders and limits. Private evidence is
   `runtime/kata-agent-integration-verification.json` plus three model-pilot
   JSONL files; saved private Pi sessions remain available to AgentsView.
   A pre-existing schema-extension peer-dependency warning is not hidden or
@@ -1556,7 +1936,8 @@ block; and which verification gate a kata may legitimately require.
   pass. Native workspace resolution, repeated full import without duplicates,
   exact source coverage/body preservation, identical repeat index refresh,
   actual stopped-daemon failure preservation and restart persistence passed.
-  No close events were introduced. Detailed evidence is in `kata-adoption.md`.
+  No close events were introduced. Private migration evidence remains under
+  `.local/environment/runtime/`.
 - Kata restarted from PID 21281 to 23500, then both test-owned supervisors
   exited. Final Kata port 17777 is absent; data persists. AgentsView PID 395,
   Forge PID 396 and roborev PID 397 are healthy/unchanged. No experimental
@@ -1581,10 +1962,10 @@ block; and which verification gate a kata may legitimately require.
   `meta set --json-value`, not the string-valued create metadata flag; HTML SPA
   readiness needs `Accept: text/html`. Initial browser failure is retained in
   the pre-restart evidence, with a separate successful browser correction.
-- Detailed findings/recommendation are in `kata-evaluation.md`; README has
-  restart/private-CLI inspection commands, TODO distinguishes verified backend
-  reads from pending task/worktree/client/hook/Jira integration. Recommendation
-  is a bounded engineering-task pilot, not final adoption or TODO migration.
+- README has restart and inspection commands; TODO distinguishes verified
+  backend reads from pending task/worktree/client/hook/Jira integration. The
+  recommendation was a bounded engineering-task pilot, not final adoption or
+  TODO migration.
 - Both test-owned supervisors and MCP processes exited. Kata is stopped with
   no 17777 listener; synthetic data/evidence are retained privately.
   AgentsView PID 395, Forge PID 396 and roborev PID 397 remained healthy and

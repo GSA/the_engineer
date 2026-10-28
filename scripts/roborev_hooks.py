@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -118,12 +119,32 @@ def validate_policy():
 
 
 def native_roborev_hook(path, name):
-    """Report whether path carries roborev's generated marker for this hook."""
+    """Return whether path is a standalone roborev-generated hook."""
     if path.is_symlink() or not path.is_file():
         return False
     try:
         lines = path.read_text().splitlines()
-        return len(lines) > 1 and lines[1].startswith(MARKER_PREFIXES[name])
+        if name != "post-rewrite" or len(lines) < 2:
+            return False
+        if lines == [
+            "#!/bin/sh",
+            "# roborev post-rewrite hook v1",
+            "exit 0",
+        ]:
+            return True
+        return (
+            len(lines) == 8
+            and lines[0] == "#!/bin/sh"
+            and lines[1] == "# roborev post-rewrite hook v2 - remaps reviews after rebase/amend"
+            and re.fullmatch(r'ROBOREV="(?:\\.|[^"\\])*"', lines[2]) is not None
+            and lines[3:] == [
+                'if [ ! -x "$ROBOREV" ]; then',
+                "    ROBOREV=$(command -v roborev 2>/dev/null)",
+                '    [ -z "$ROBOREV" ] || [ ! -x "$ROBOREV" ] && exit 0',
+                "fi",
+                '"$ROBOREV" remap --quiet 2>/dev/null',
+            ]
+        )
     except (OSError, UnicodeDecodeError):
         return False
 

@@ -15,6 +15,7 @@
   instructions before editing it; do not adopt them workspace-wide.
 - Commit completed workspace work locally; keep credentials and private
   assets out of Git. Committing does not authorize pushing or publication.
+  Use new commits for fixes; amend commits only with explicit owner approval.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Do not change global settings, publish, or expose services publicly without
