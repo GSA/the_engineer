@@ -1,5 +1,35 @@
 # Objective and decisions
 
+## Librarian repository simplification delivered: 2026-10-28 (djrb)
+
+The isolated Forge branch `kenn-forge/work-22874a66` simplifies package,
+command, test, documentation and packaging structure while preserving the
+store, policy, freshness, attribution, budget, transaction, backup, privacy and
+Docling-isolation boundaries. MCP now accepts an explicit validated full-clone
+root and independently requires its complete symlink-free runtime dependency
+graph; the release manifest remains an explicit allowlist rather than a trust
+substitute. Temporary task plans/specifications were removed. Generic instance
+and first-corpus extension work remains deferred to Katas `w5aj` and `df1a`.
+PR: https://github.com/GSA/the_librarian/pull/2.
+
+
+## Librarian text and qualified Docling retrieval: 2026-10-28 (8a5h/zqdh)
+
+The owner approved and the isolated Forge branch implements strict ordinary
+UTF-8 extraction/retrieval plus explicit strictly reviewed Docling text/table
+retrieval. Text accepts only UTF-8 (optional BOM), preserves physical
+CRLF/LF/CR lines and exact source byte offsets, and never implies review.
+Docling admission requires active exact-rendition file-wide review events whose
+collective scope covers text and any tables without unresolved uncertainty.
+Retained Docling JSON is authoritative; citations use exact byte ranges, JSON
+pointers and page/bounding-box provenance with null public line fields.
+
+Explicit selection remains authoritative. Conversion, registration and review
+do not auto-select or publish. Unsupported Docling content collections and
+malformed structures fail closed; current review history is re-read before
+atomic index replacement. No real corpus, model, service, authority-store
+migration or automatic intake was used. Commits: 1d48de6, 82cf2e4, fb7fa5a.
+
 ## Delivery documentation policy: 2026-10-28 (9aw1)
 
 The owner requires working plans to stay out of PRs. Root `AGENTS.md` now
