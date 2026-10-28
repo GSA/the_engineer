@@ -34,23 +34,23 @@ PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
 PI_SUBAGENT_DESCRIPTIONS = {
     "delegate": (
         'Project-context-inheriting delegation subagent (USAi: omit model or pass model:"inherit" '
-        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+        'to use the active usai/* session model; omit model on action:"resume").'
     ),
     "oracle": (
         'Deep read-only architectural and debugging analysis subagent (USAi: omit model or pass model:"inherit" '
-        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+        'to use the active usai/* session model; omit model on action:"resume").'
     ),
     "reviewer": (
-        'Independent read-only code and spec review subagent (USAi: omit model or pass model:"inherit" '
-        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+        'Independent read-only spec and code review subagent for Superpowers tasks (USAi: omit model or pass '
+        'model:"inherit"; omit model on action:"resume"; use native roborev CLI for commit/branch roborev reviews).'
     ),
     "scout": (
         'Fast read-only codebase reconnaissance subagent (USAi: omit model or pass model:"inherit" '
-        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+        'to use the active usai/* session model; omit model on action:"resume").'
     ),
     "worker": (
         'General implementation and code-editing subagent (USAi: omit model or pass model:"inherit" '
-        "to use the active usai/* session model; never pass openai-codex/* or anthropic/*)."
+        'to use the active usai/* session model; omit model on action:"resume").'
     ),
 }
 GH_VERSION = "2.102.0"
@@ -491,25 +491,6 @@ def roborev_warnings(*, proc_root=Path("/proc")):
         except (OSError, ValueError):
             continue
     return warnings
-
-
-def roborev_launch(args):
-    settings()
-    validate_roborev_config()
-    for arg in args:
-        if arg == "--":
-            break
-        if arg == "--server" or arg.startswith("--server="):
-            raise RuntimeError("the scoped roborev launcher pins the private server at 127.0.0.1:17373")
-    command_args = [arg for arg in args if not arg.startswith("-")]
-    if command_args and command_args[0] in ("daemon", "update"):
-        raise RuntimeError(
-            "manage roborev with systemctl --user start|stop|restart kenn-kopy-roborev.service; "
-            "native daemon/update commands are disabled by the managed launcher"
-        )
-    binary = roborev_command()[0]
-    # An explicit server makes native CLI calls fail rather than auto-start another daemon.
-    return [str(binary), "--server", "127.0.0.1:17373", *args], base_environment()
 
 
 def github_cli_launch(args):

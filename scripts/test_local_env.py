@@ -258,42 +258,6 @@ class LocalEnvironmentTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "isolated profile"):
                 local_env.install_pi_review_extension()
 
-    def test_scoped_roborev_pins_profile_endpoint_and_preserves_arguments(self):
-        binary = local_env.ROOT / "roborev/bin/roborev"
-        with patch.object(local_env.os, "access", return_value=True):
-            with patch.object(Path, "is_file", return_value=True):
-                with patch.dict(os.environ, {
-                    "ROBOREV_DATA_DIR": "/wrong-profile", "USAI_API_KEY": "not-inherited",
-                    "OPENAI_API_KEY": "not-inherited",
-                }):
-                    for args in (["status"], ["post-commit", "--quiet"],
-                                 ["remap", "amend"], ["review", "--repo", "/path with spaces", "HEAD"]):
-                        command, env = local_env.roborev_launch(args)
-                        self.assertEqual(command, [str(binary), "--server", "127.0.0.1:17373", *args])
-                        self.assertEqual(env["ROBOREV_DATA_DIR"], str(self.state / "roborev"))
-                        self.assertNotIn("USAI_API_KEY", env)
-                        self.assertNotIn("OPENAI_API_KEY", env)
-
-    def test_scoped_roborev_rejects_server_overrides_and_missing_binary(self):
-        for args in (["--server", "remote", "status"], ["status", "--server=remote"]):
-            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins the private server"):
-                local_env.roborev_launch(args)
-        with patch.object(Path, "is_file", return_value=False):
-            with self.assertRaisesRegex(RuntimeError, "missing executable"):
-                local_env.roborev_launch(["status"])
-
-    def test_managed_roborev_refuses_native_lifecycle_and_update(self):
-        for args in (["daemon", "start"], ["daemon", "run"], ["daemon", "restart"],
-                     ["--verbose", "daemon", "stop"], ["update"],
-                     ["--from-skill", "daemon", "run"],
-                     ["--verbose=true", "daemon", "run"]):
-            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "systemctl"):
-                local_env.roborev_launch(args)
-        with patch.object(Path, "is_file", return_value=True), \
-                patch.object(local_env.os, "access", return_value=True):
-            command, _ = local_env.roborev_launch(["review", "--repo", "daemon"])
-        self.assertEqual(command[-1], "daemon")
-
     def test_roborev_selected_native_binary_is_shared_by_commands_and_child_path(self):
         binary = self.root / "native/bin/roborev"
         binary.parent.mkdir(parents=True)
@@ -302,8 +266,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         local_env.json_write(self.state / "roborev-service.json",
                              {"unit": local_env.ROBOREV_UNIT, "binary": str(binary)})
         self.assertEqual(local_env.roborev_command()[0], str(binary))
-        command, env = local_env.roborev_launch(["status"])
-        self.assertEqual(command[0], str(binary))
+        env = local_env.base_environment()
         self.assertEqual(env["PATH"].split(os.pathsep)[1], str(binary.parent))
         binary.unlink()
         with self.assertRaisesRegex(RuntimeError, "missing executable"):
@@ -341,27 +304,6 @@ class LocalEnvironmentTests(unittest.TestCase):
                 patch.object(local_env.socket, "socket") as socket:
             socket.return_value.__enter__.return_value.connect_ex.return_value = 1
             self.assertEqual(len(local_env.roborev_warnings(proc_root=proc)), 1)
-
-    def test_scoped_roborev_entrypoint_executes_without_changing_directory(self):
-        command = ["/native/roborev", "--server", "127.0.0.1:17373", "status"]
-        env = {"ROBOREV_DATA_DIR": "/private"}
-        with patch.object(local_env, "roborev_launch", return_value=(command, env)) as launch, \
-                patch.object(local_env, "roborev_warnings", return_value=[]):
-            with patch.object(os, "execve") as execute, patch.object(os, "chdir") as chdir:
-                with patch.object(os, "umask"), patch.object(local_env.sys, "argv", ["launcher", "status"]):
-                    runpy.run_path(str(local_env.ROOT / "scripts/roborev-local.py"))
-        launch.assert_called_once_with(["status"])
-        execute.assert_called_once_with(command[0], command, env)
-        chdir.assert_not_called()
-
-    def test_scoped_roborev_entrypoint_reports_errors(self):
-        output = io.StringIO()
-        with patch.object(local_env, "roborev_launch", side_effect=RuntimeError("not configured")):
-            with patch.object(os, "umask"), contextlib.redirect_stderr(output):
-                with self.assertRaises(SystemExit) as error:
-                    runpy.run_path(str(local_env.ROOT / "scripts/roborev-local.py"))
-        self.assertEqual(error.exception.code, 1)
-        self.assertIn("ERROR: not configured", output.getvalue())
 
     def test_permissive_key_is_rejected(self):
         self.provider()
