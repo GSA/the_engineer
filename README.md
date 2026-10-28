@@ -57,7 +57,11 @@ inference is not USAi**, so sensitive model work stays in Pi.
 Press **Ctrl+B, then D** to detach; repeat the same `open` command to reattach,
 without launching a second agent. **Ctrl+B, then S** selects sessions,
 **Ctrl+B, then C** creates a shell window, and **Ctrl+B, then %** splits a pane.
-All these shells start in this checkout. Use separate worktrees before having
+All these shells start in this checkout. Forge-linked worktrees inherit
+`KENN_KOPY_RUNTIME_ROOT` and resolve managed Kata, roborev, Forge, AgentsView
+and private runtime state from this canonical host checkout; they do not need
+copied binaries or initialized submodules. An explicit override must be an
+existing absolute directory. Use separate worktrees before having
 agents edit overlapping files concurrently; terminals do not provide worktree
 isolation or task ownership.
 

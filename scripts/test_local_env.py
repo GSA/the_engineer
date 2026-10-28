@@ -14,6 +14,37 @@ import urllib.error
 import local_env
 
 
+class RuntimeRootTests(unittest.TestCase):
+    def test_normal_checkout_uses_source_root(self):
+        source = Path("/checkout")
+        with patch.object(local_env.subprocess, "run", return_value=MagicMock(
+                returncode=0, stdout=".git\n")):
+            self.assertEqual(local_env.resolve_runtime_root(source, {}), source)
+
+    def test_linked_worktree_uses_git_common_checkout(self):
+        source = Path("/checkout/.local/environment/forge/worktrees/repo/task")
+        common = Path("/checkout/.git")
+        with patch.object(local_env.subprocess, "run", return_value=MagicMock(
+                returncode=0, stdout=str(common) + "\n")):
+            self.assertEqual(local_env.resolve_runtime_root(source, {}), Path("/checkout"))
+
+    def test_explicit_runtime_root_must_be_absolute_and_existing(self):
+        with self.assertRaisesRegex(RuntimeError, "absolute"):
+            local_env.resolve_runtime_root(Path("/checkout"),
+                                           {"KENN_KOPY_RUNTIME_ROOT": "relative"})
+        with self.assertRaisesRegex(RuntimeError, "existing directory"):
+            local_env.resolve_runtime_root(
+                Path("/checkout"), {"KENN_KOPY_RUNTIME_ROOT": "/missing/runtime/root"})
+
+    def test_explicit_runtime_root_wins_without_git_lookup(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(local_env.subprocess, "run") as run:
+            root = Path(directory)
+            self.assertEqual(local_env.resolve_runtime_root(
+                Path("/worktree"), {"KENN_KOPY_RUNTIME_ROOT": str(root)}), root)
+        run.assert_not_called()
+
+
 class PiVersionTests(unittest.TestCase):
     def test_approved_runtime_is_accepted(self):
         config = {"pi_executable": "/test/pi"}
@@ -221,7 +252,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.install_pi_review_extension()
         self.assertEqual(run.call_count, 2)
         self.assertEqual(config["theme"], before["theme"])
-        self.assertIn(str(local_env.ROOT / "superpowers"), config["packages"])
+        self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), config["packages"])
         self.assertEqual(config["packages"].count(local_env.PI_REVIEW_EXTENSION), 1)
         self.assertEqual(list(self.global_pi.iterdir()), [])
 
@@ -235,7 +266,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.install_pi_review_extension()
 
     def test_scoped_roborev_pins_profile_endpoint_and_preserves_arguments(self):
-        binary = local_env.ROOT / "roborev/bin/roborev"
+        binary = local_env.RUNTIME_ROOT / "roborev/bin/roborev"
         with patch.object(local_env.os, "access", return_value=True):
             with patch.object(Path, "is_file", return_value=True):
                 with patch.dict(os.environ, {
@@ -281,6 +312,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         command, env = local_env.roborev_launch(["status"])
         self.assertEqual(command[0], str(binary))
         self.assertEqual(env["PATH"].split(os.pathsep)[1], str(binary.parent))
+        self.assertEqual(env["KENN_KOPY_RUNTIME_ROOT"], str(local_env.RUNTIME_ROOT))
         binary.unlink()
         with self.assertRaisesRegex(RuntimeError, "missing executable"):
             local_env.roborev_command()
@@ -1147,7 +1179,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIn(f'"KATA_HOME={self.state / "kata"}"', first.decode())
         self.assertIn(f'"KATA_DSN={database}"', first.decode())
         self.assertIn('"KATA_DB="', first.decode())
-        self.assertIn(f'"{local_env.ROOT / "kata/kata"}" "daemon" "start"', first.decode())
+        self.assertIn(f'"{local_env.RUNTIME_ROOT / "kata/kata"}" "daemon" "start"', first.decode())
         self.assertNotIn("Environment=", first.decode())
         self.assertNotIn("local_env.py", first.decode())
         self.assertIn("WantedBy=default.target", first.decode())

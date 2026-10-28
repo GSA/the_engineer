@@ -1,5 +1,30 @@
 # Upstream components
 
+## Forge-linked worktree host tool resolution: 2026-10-28 (mhbt)
+
+Forge's launch environment already included `~/.local/bin`; native `kata` and
+`roborev` commands worked. The failure was inside Engineer helpers: `ROOT` was
+the active linked worktree, so `STATE`, Kata, roborev and AgentsView fallback
+paths pointed into an intentionally partial checkout. All submodules showed
+uninitialized there. Host managed state and roborev remained under the main
+checkout, and Kata's native client symlink remained functional.
+
+`scripts/local_env.py` now separates source `ROOT` from `RUNTIME_ROOT`. Resolution
+prefers an explicit existing absolute `KENN_KOPY_RUNTIME_ROOT`; otherwise it
+uses `git rev-parse --path-format=absolute --git-common-dir` to select the main
+checkout for linked worktrees and retains source root for a normal checkout or
+non-Git install context. `STATE`, managed component binaries, private
+Superpowers package and tool PATH use runtime root. `base_environment()` exports
+the same value so Forge-launched descendants do not depend on cwd heuristics.
+
+Focused tests proved normal, linked, explicit and invalid override behavior with
+red/green evidence. The full script suite passes 107 tests; the installer suite
+passes 44 with 4 expected skips. Actual linked-worktree readbacks resolve
+runtime root `/home/nkirrish/kenn-kopy`, Kata binary in that host checkout and
+saved native roborev at `~/.local/bin/roborev`; `kata whoami` and `roborev
+status` both succeed against existing managed services. No service restart,
+submodule initialization, binary copy, global shell/config change or model call.
+
 ## Demo fixture retirement and task reconciliation: 2026-10-28 (ca6n/hk33)
 
 Fast-forwarded the clean Forge worktree from 6821263 to local main 345778c

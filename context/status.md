@@ -1,5 +1,21 @@
 # Status: 2026-10-28
 
+## Forge worktrees resolve host-managed tools (mhbt)
+
+- Root cause: Forge agents had working `kata`/`roborev` commands through PATH,
+  but `scripts/local_env.py` derived private state and fallback binaries from
+  each linked worktree. Those worktrees intentionally lack initialized
+  submodules and `.local/environment`, breaking helpers and four tests.
+- Added canonical runtime-root resolution: explicit existing absolute
+  `KENN_KOPY_RUNTIME_ROOT`, otherwise Git's common checkout for linked
+  worktrees, otherwise the active normal checkout. Forge environments export
+  the resolved root; Kata, roborev, AgentsView, Superpowers and private state
+  use it while source imports remain on the branch under test.
+- No submodule initialization, binary copy, global setting, credential, service
+  restart or model call. Actual linked-worktree `kata whoami` and `roborev
+  status` reached the managed host tools. All 107 script tests and 44 installer
+  tests pass (4 installer skips); whitespace checks pass.
+
 ## Reusable fixture retired; internal real-ticket demo deferred (ca6n/hk33)
 
 - Post-commit roborev job 137 reviewed all six changed files. Its sole finding
