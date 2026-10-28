@@ -16,10 +16,11 @@
 - Commit completed workspace work locally; keep credentials and private
   assets out of Git. Committing does not authorize pushing or publication.
   Use new commits for fixes; amend commits only with explicit owner approval.
-- Keep temporary plans, including planning-skill output, in ignored `.local/plans/`
-  or Kata, not PRs; override skill defaults that commit those artifacts.
+- For coding work, keep temporary specs/plans, including planning-skill output,
+  in ignored `.local/plans/` or Kata; override skill defaults that commit them.
   Before delivery, document shipped user-facing usage in `README.md` and
-  reusable agent-facing usage in `context/`, not the original work plan.
+  reusable agent-facing usage in `context/`, then remove task-generated working
+  specs/plans. Do not retain them as renamed context documents or ADRs.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Do not change global settings, publish, or expose services publicly without

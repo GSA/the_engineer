@@ -9,6 +9,10 @@
   template's limited purpose, shared reviewer-profile boundary and missing Pi
   review-feedback integration. Detailed evidence is in engineering-workflow;
   recommendations are recorded on existing `k03a`, whose owner is unchanged.
+- Clarified coder-only delivery duties and roborev-only opposite-family review
+  under existing `k03a`/`zmzh`. Working specs/plans must be removed after usage
+  documentation is distilled, not renamed into durable docs. A mechanical
+  delivery check and separate model routes are proposals, not installed behavior.
 - No shared profile, route, upstream skill, hook, service or active worktree
   was changed. No model/corpus calls or experimental process remains.
 
