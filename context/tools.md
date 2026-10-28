@@ -1,5 +1,31 @@
 # Upstream components
 
+## Public Knowitall onboarding and demo task verification: 2026-10-27, 23:00
+
+Published only the four inspected bootstrap/design files and their two-commit
+history to public `GSA/the_knowitall` using native `gh`. Local and remote main
+match `ffd28b79d1f889bcd9102167388fcb0ad031ad07`; default branch is main.
+GitHub repository ID is `1436538501`. No upstream source, corpus, graph or
+runtime assets were present in that history; this is bounded content/path
+inspection, not a universal privacy certification.
+
+Native Forge APIs added the exact provider, set `/home/nkirrish/the_knowitall`
+as worktree base, registered its local project and appended daemon `local` /
+project UID `01M5ZGZT3ZS6VVECFTEYB0AHH5` -> `github/github.com/gsa/the_knowitall`.
+Live mapping resolves `mapped` / `manual_daemon`; catalog sync completed with
+no error. Only `repos` and `kata_projects` settings changed. Prior repository
+settings, local projects and task mappings are preserved. Private before/after
+and verification evidence: `.local/environment/runtime/knowitall-publication-20261027/`
+(directory0700/files0600). No workspace/agent/model was launched.
+
+Native readback verifies new `ca6n/923h/hk33/zmzh` titles, bodies, priorities,
+unowned/planned status and exact dependencies. Existing `pyzt/k4mp/6hce/zbww/pbqn`
+retain identities, statuses and prior prerequisite links; the pre-existing
+`6hce` owner is unchanged. `k4mp` additionally depends on shared fixture
+agreement; `pbqn` is P2 and still blocked by `zbww`, plus the explicit positive
+value/approval condition. Session files `demo-approved-backlog.json`,
+`demo-approved-created.json` and `demo-backlog-{before,after}.json` retain details.
+
 ## Demo acceptance gap evidence: 2026-10-27
 
 Current code baseline remains Engineer `2feac4b`, Knowitall `eb4f947`
