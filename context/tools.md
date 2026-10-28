@@ -23,6 +23,23 @@ only `--superseded-by hk33` and included the no-change facts in its substantive
 message. These validation failures made no closure mutation. No Falcon Context
 retrieval was needed because the decision intentionally defers scenario choice.
 
+Post-commit roborev job 137 covered all six changed files and raised one medium
+visibility finding. Verified current GitHub metadata through `gh repo view`:
+`GSA/the_engineer`, `GSA/the_librarian` and `GSA/the_knowitall` each report
+`PUBLIC`. This matches the owner's explicit premise; older README references to
+private onboarding are stale historical evidence. Commented with the live
+verification and closed job 137 as rejected. The identifying-material ban is
+independent of visibility and remains unchanged. Base review 130 concerns the
+pre-existing Pi metadata migration tracked by `gamy`, not this branch delta.
+
+PR preflight ran the two documented suites. `python3 -m unittest discover -s
+dist -p 'test_*.py'` passed 44 tests with 4 skips. `python3 -m unittest
+discover -s scripts -p test_local_env.py` ran 103 tests but ended with 4 errors:
+one Kata service test could not find `kata/bin/kata`, and three supervisor tests
+could not find `roborev/bin/roborev`. `git submodule status` confirms all
+submodules are uninitialized in this Forge worktree; the branch changes only
+Markdown. Publication remains blocked rather than claiming a green full suite.
+
 ## Pi 1.4.0 launcher and compatibility evidence: 2026-10-28 (gamy)
 
 The exact pin belongs to `scripts/local_env.py` and `dist/install.py`, not

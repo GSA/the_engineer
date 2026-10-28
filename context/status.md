@@ -2,6 +2,16 @@
 
 ## Reusable fixture retired; internal real-ticket demo deferred (ca6n/hk33)
 
+- Post-commit roborev job 137 reviewed all six changed files. Its sole finding
+  claimed Engineer and Librarian were private; live GitHub metadata verified
+  Engineer, Librarian and Knowitall are all public, matching owner direction.
+  Recorded that evidence and closed the rejected finding without weakening the
+  stricter prohibition on AOS/Falcon-identifying repository content.
+- PR publication is blocked by the required full-suite gate. The `dist` suite
+  passed 44 tests (4 skipped), but `scripts/test_local_env.py` had 4 errors
+  because this partial Forge worktree lacks built `kata/bin/kata` and
+  `roborev/bin/roborev` submodule artifacts. The documentation-only branch does
+  not change those runtime files; do not describe the full suite as green.
 - Owner declined both a reusable AOS-derived fixture and a generic substitute.
   Closed `ca6n` as superseded by `hk33`; no fixture, source intake, model call,
   implementation or public artifact was produced.
