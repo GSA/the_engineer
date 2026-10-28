@@ -1,5 +1,18 @@
 # Status: 2026-10-28
 
+## PR 3 reconciled with current main (c287)
+
+- Merged current `origin/main` after PRs 1 and 2 made PR 3 conflicting.
+  Preserved main's offline rg/fd, Python venv and Pi subagent provisioning while
+  retaining Pi 1.4.0, deferred-demo handling and canonical runtime-root work.
+- Follow-up review exposed persisted launchers from disposable worktrees. Fresh
+  setup now records canonical Pi/USAi helpers; setup narrowly migrates managed
+  Forge-worktree Pi launcher fields and preserves custom launchers, including
+  custom scripts with the same basename. Ubuntu guidance includes python3-venv.
+- Final combined verification: 110 script tests pass; 45 installer tests pass
+  with 4 expected skips; whitespace checks pass. Roborev job 162 passed with no
+  findings. No service restart, binary copy or global configuration change.
+
 ## Forge worktrees resolve host-managed tools (mhbt)
 
 - Root cause: Forge agents had working `kata`/`roborev` commands through PATH,

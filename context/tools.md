@@ -1,5 +1,24 @@
 # Upstream components
 
+## PR 3 conflict resolution: 2026-10-28 (c287)
+
+Fetched `origin/main` at 1602654 and reproduced GitHub's CONFLICTING/DIRTY
+state. The branch's merge base was 6821263; PRs 1 and 2 had independently
+changed README/context, installer prerequisites, Pi extension setup and local
+environment tests. Merged main instead of rebasing or discarding either side.
+Semantic choices retain main's rg/fd, python3-venv and pi-subagents work and PR
+3's Pi 1.4.0 and canonical runtime root.
+
+Roborev iterations 154/156/157/159/161 identified persistent-path upgrade and
+custom-launcher edge cases. The final migration only rewrites managed Forge
+worktree paths rooted below `<runtime>/.local/environment/forge/worktrees` in
+the Forge Pi agent command and roborev `pi_cmd`; similarly named custom paths
+remain unchanged. Fresh setup and USAi key links use canonical runtime scripts,
+persistent services already use the canonical checkout, and Ubuntu prerequisites
+now include python3-venv. Job 162 passed. Final suites: 110 script tests and 45
+installer tests with 4 expected skips; `git diff --check` passes. No runtime
+service, global configuration, binary or submodule was changed.
+
 ## Forge-linked worktree host tool resolution: 2026-10-28 (mhbt)
 
 Forge's launch environment already included `~/.local/bin`; native `kata` and
