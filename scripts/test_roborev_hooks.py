@@ -179,6 +179,26 @@ class RoborevHookTests(unittest.TestCase):
         self.assertIn("post-rewrite hook v2", (hooks / "post-rewrite").read_text())
         self.assertIn("post-rewrite hook v1", original.read_text())
 
+    def test_embedded_native_rewrite_hook_is_not_staged_as_standalone(self):
+        original = self.repo / ".githooks"
+        original.mkdir()
+        self.git("config", "--local", "core.hooksPath", ".githooks")
+        rewrite = original / "post-rewrite"
+        rewrite.write_text("#!/bin/sh\ncat > " + str(self.input_log) + "\n")
+        rewrite.chmod(0o755)
+        subprocess.run(
+            [str(self.native), "install-hook", "--binary", str(self.native)],
+            cwd=self.repo, check=True, capture_output=True, text=True,
+        )
+        embedded = rewrite.read_text()
+        self.assertIn("# roborev post-rewrite hook v2", embedded)
+        self.assertIn("cat > " + str(self.input_log), embedded)
+        before = rewrite.read_bytes()
+
+        with self.assertRaisesRegex(RuntimeError, "stdin-preserving migration"):
+            roborev_hooks.install(self.repo, "platform")
+        self.assertEqual(rewrite.read_bytes(), before)
+
     def test_manifest_mismatch_requires_explicit_restage(self):
         managed = self.install()
         external = self.repo / ".githooks"

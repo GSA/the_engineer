@@ -1,9 +1,68 @@
 # Engineering workflow and prompts
 
+Reviewed changes keep additive correction commits. Do not amend a commit
+without explicit owner approval; carry that rule into external-agent dispatch,
+not only the coordinating agent's private instructions.
+
 Investigated 2026-10-12 for Engi Platform. Source facts below describe the pinned
 Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
+
+## Knowitall onboarding and paired review plan: 2026-10-27, 23:00
+
+The owner approved public `GSA/the_knowitall`; main is published at `ffd28b7`.
+Forge now syncs that exact provider and uses the existing local checkout as
+worktree base. An explicit `local` / `01M5ZGZT3ZS6VVECFTEYB0AHH5` mapping
+resolves native project `knowitall` to `gsa/the_knowitall`. Existing repository
+visibility, projects, mappings and model-launch profiles are unchanged.
+This is onboarding evidence, not a launched agent/workspace or graph service.
+
+Planned `zmzh` selects opposite effective model families for Forge coding and
+roborev review, only if a simple supported paired config/toggle works. It must
+not infer family from a generic launcher name, change approved data routes,
+silently use same-family fallback or flip global defaults beneath mixed jobs.
+No live pairing was changed. The owner later closed `ca6n` as superseded and
+declined a reusable fixture. `hk33` now owns only the deferred internal run of
+one approved real AOS Jira ticket through provider evidence, implementation,
+review and PR; identifying scenario material stays out of all public repos.
+
+## First implementation pilot activated: 2026-10-26, 18:28 (txt3)
+
+The owner authorizes immediate reconciliation and bounded implementation
+agents. Original k03a/j54x/6hce/avvp identities/history are restored with
+current acceptance, not falsely completed. Existing prerequisite links remain.
+Engineer f47m is the useful provider-boundary change for jgcf; no unrelated
+application remapping, publication or automatic ready-task scheduling.
+
+Native Kata workspace creation selected gsa/the_engineer for f47m and produced
+workspace 803ec1b7ee18ca6d. Forge initially based it on published 6821263;
+before launch, a clean fast-forward to local 5555225 supplied current guidance
+without pushing. Repeating the same canonical task creation returns the same
+workspace/path/branch and exactly one matching roster entry.
+
+Native agent-handoff launched configured private Pi in runtime session
+803ec1b7ee18ca6d_3d55e11afef62133 and reports initial message delivered.
+Terminal output shows actual model activity and task/instruction inspection;
+that is startup evidence, not completed implementation, review or qualified
+retrieval. Capture each further milestone in its native task. Private API
+evidence is under .local/engineer-pilot-txt3/; do not copy source bodies here.
+
+Subsequent outcome: f47m and the bounded jgcf coding demo are complete on the
+clean preserved Forge branch at dae66cd, with exact review 104 Pass. Parent
+reran 36 installer cases (three expected local-binary skips) and eight focused
+setup cases. No merge or publication. Native Forge task rendering and separate
+roborev review rendering are verified, as is AgentsView usage visibility.
+This is not full platform acceptance: 6hce's actual model-selected requests
+fail closed on a stale source selection, avvp lacks a Reviews tab for Kata
+workspaces, and k03a retains distinct policy-loading/behavior acceptance.
+
+The original external-worker dispatch omitted the explicit no-amend rule.
+Its reviewed local amendments are preserved through named refs for reviews
+101/102; the concise rule is now in AGENTS.md and was delivered to the worker.
+Do not misdescribe this propagation gap as disobedience of a loaded rule.
+Completed model sessions and the owned idle base shell are stopped; the
+worktree, four managed services and unrelated application workspace remain.
 
 ## Private provider onboarding: 2026-10-26, 17:41 (7943)
 
@@ -47,11 +106,11 @@ provider repository and completed sync. An explicit mapping binds daemon
 `/home/nkirrish/aos-spud`. Native task reference `spud#3sv9` resolves through
 Forge, but that task was not claimed or launched as an unapproved demo.
 
-SPUD is the available main-UI route for the next agreed end-to-end pilot.
-Engineer and Librarian remain local-only and unmapped; registration does not
-implement the missing provider-free picker/resolver path. The shared Librarian
-task domain, deferred names/paths and all Kata task history are unchanged.
-No automatic dispatch or coding/review pilot was performed.
+SPUD was the available main-UI route for the next agreed end-to-end pilot at
+the 17:33 proposal snapshot. The 17:39 catalog reset and later provider
+onboarding above supersede its statement that Engineer and Librarian were
+local-only and unmapped. No automatic dispatch or coding/review pilot was
+performed at that snapshot.
 
 One pre-existing application PR workspace (`96ca6f1e3b862ad7`) remains with
 its worktree and tmux state; catalog removal is not worktree deletion.
@@ -207,8 +266,8 @@ refinement or worker dispatch a prerequisite for the first demo.
 1. Manual intake: retain ticket identity, original acceptance criteria and
    source provenance; agree refinements and create bounded/dependent Kata tasks.
 2. Optional on-demand refinement Pi: use Falcon context and Superpowers to
-   propose the same task contract for human review. The saved draft explicitly
-   forbids task writes and worker launches; it is not an installed agent.
+   propose the same task contract for human review. The retained boundary
+   forbids task writes and worker launches; no such agent is installed.
 3. Later service: automate approved Jira reads, reconciliation/retry handling
    and reviewed conversion into Kata tasks after the manual contract is proven.
    Worker scheduling is separate from ingestion/refinement.
@@ -219,22 +278,18 @@ retrieve only relevant qualified evidence and cite actual returned locators.
 Do not turn server discovery into a claim of model-backed Forge-worker use.
 
 The canonical Constitution v2026.08.11 is compact baseline behavior, not an
-intake/orchestrator protocol. At 11:36 the owner approved an inactive reference:
-[`prompt-drafts/jira-refinement.example.md`](prompt-drafts/jira-refinement.example.md).
-It reproduces the Constitution unchanged with its attribution/license/version,
-then appends the owner's exact concise overlay. The adaptation is labeled, and
-the file remains outside live instruction, skill and profile discovery.
-It proposes task outcomes, acceptance criteria and dependencies for human
-approval; it forbids modifying/adding requirements, source edits, task writes,
-worker launches and publication. No live coordinator or automated intake is
-installed.
+intake/orchestrator protocol. Any future refinement agent must propose task
+outcomes, acceptance criteria and dependencies for human approval; it must not
+modify or add requirements, edit source, write task records, launch workers or
+publish. No live coordinator or automated intake is installed.
 
 At 11:46 the owner approved backlog consolidation: `k03a` now explicitly owns
 the active Forge/private-Pi/Superpowers/Librarian guidance and the former
 workflow/Constitution scope of superseded `v3sd`. The four-role draft remains
 optional historical design, not required acceptance. `99gr` now explicitly
 tracks manual first-ticket intake; synthetic behavior remains a separate open
-demo task. Saving the inactive example does not complete either integration.
+demo task. Recording the refinement boundary does not complete either
+integration.
 
 ## What Forge actually owns
 

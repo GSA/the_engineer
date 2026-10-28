@@ -1,5 +1,567 @@
 # Upstream components
 
+## PR 3 conflict resolution: 2026-10-28 (c287)
+
+Fetched `origin/main` at 1602654 and reproduced GitHub's CONFLICTING/DIRTY
+state. The branch's merge base was 6821263; PRs 1 and 2 had independently
+changed README/context, installer prerequisites, Pi extension setup and local
+environment tests. Merged main instead of rebasing or discarding either side.
+Semantic choices retain main's rg/fd, python3-venv and pi-subagents work and PR
+3's Pi 1.4.0 and canonical runtime root.
+
+Roborev iterations 154/156/157/159/161 identified persistent-path upgrade and
+custom-launcher edge cases. The final migration only rewrites managed Forge
+worktree paths rooted below `<runtime>/.local/environment/forge/worktrees` in
+the Forge Pi agent command and roborev `pi_cmd`; similarly named custom paths
+remain unchanged. Fresh setup and USAi key links use canonical runtime scripts,
+persistent services already use the canonical checkout, and Ubuntu prerequisites
+now include python3-venv. Job 162 passed. Final suites: 110 script tests and 45
+installer tests with 4 expected skips; `git diff --check` passes. No runtime
+service, global configuration, binary or submodule was changed.
+
+## Forge-linked worktree host tool resolution: 2026-10-28 (mhbt)
+
+Forge's launch environment already included `~/.local/bin`; native `kata` and
+`roborev` commands worked. The failure was inside Engineer helpers: `ROOT` was
+the active linked worktree, so `STATE`, Kata, roborev and AgentsView fallback
+paths pointed into an intentionally partial checkout. All submodules showed
+uninitialized there. Host managed state and roborev remained under the main
+checkout, and Kata's native client symlink remained functional.
+
+`scripts/local_env.py` now separates source `ROOT` from `RUNTIME_ROOT`. Resolution
+prefers an explicit existing absolute `KENN_KOPY_RUNTIME_ROOT`; otherwise it
+uses `git rev-parse --path-format=absolute --git-common-dir` to select the main
+checkout for linked worktrees and retains source root for a normal checkout or
+non-Git install context. `STATE`, managed component binaries, private
+Superpowers package and tool PATH use runtime root. `base_environment()` exports
+the same value so Forge-launched descendants do not depend on cwd heuristics.
+
+Focused tests proved normal, linked, explicit and invalid override behavior with
+red/green evidence. The full script suite passes 107 tests; the installer suite
+passes 44 with 4 expected skips. Actual linked-worktree readbacks resolve
+runtime root `/home/nkirrish/kenn-kopy`, Kata binary in that host checkout and
+saved native roborev at `~/.local/bin/roborev`; `kata whoami` and `roborev
+status` both succeed against existing managed services. No service restart,
+submodule initialization, binary copy, global shell/config change or model call.
+
+## Demo fixture retirement and task reconciliation: 2026-10-28 (ca6n/hk33)
+
+Fast-forwarded the clean Forge worktree from 6821263 to local main 345778c
+before changing task state. Native Kata claimed `ca6n`, then owner direction
+superseded its reusable synthetic-fixture premise. Closed it with reason
+`superseded` and typed evidence `superseded-by:hk33`; no fixture, source intake,
+model call, implementation or public artifact existed to preserve.
+
+Rewrote `hk33` as the deferred internal real AOS Jira-to-PR demonstration after
+local component readiness. Removed `ca6n` blocking links from `hk33`, `k4mp` and
+Librarian `923h`; preserved all historical task records and other dependencies.
+Reconciled the `k4mp`, `923h` and parent `pyzt` bodies: generic public component
+contracts/tests remain useful, but the identifying real scenario and bounded
+receipts stay in authorized private/local state. The three product repositories
+are public; source/model/data/PR destination approval remains an execution gate.
+
+The first close attempt was rejected because `--reason superseded` duplicated
+the `--superseded-by` sugar; the second was rejected because `no-change-audit`
+evidence is not allowed for reason `superseded`. The successful invocation used
+only `--superseded-by hk33` and included the no-change facts in its substantive
+message. These validation failures made no closure mutation. No Falcon Context
+retrieval was needed because the decision intentionally defers scenario choice.
+
+Post-commit roborev job 137 covered all six changed files and raised one medium
+visibility finding. Verified current GitHub metadata through `gh repo view`:
+`GSA/the_engineer`, `GSA/the_librarian` and `GSA/the_knowitall` each report
+`PUBLIC`. This matches the owner's explicit premise; older README references to
+private onboarding are stale historical evidence. Commented with the live
+verification and closed job 137 as rejected. The identifying-material ban is
+independent of visibility and remains unchanged. Base review 130 concerns the
+pre-existing Pi metadata migration tracked by `gamy`, not this branch delta.
+
+PR preflight ran the two documented suites. `python3 -m unittest discover -s
+dist -p 'test_*.py'` passed 44 tests with 4 skips. `python3 -m unittest
+discover -s scripts -p test_local_env.py` ran 103 tests but ended with 4 errors:
+one Kata service test could not find `kata/kata`, and three supervisor tests
+could not find `roborev/bin/roborev`. `git submodule status` confirms all
+submodules are uninitialized in this Forge worktree; the branch changes only
+Markdown. Publication remains blocked rather than claiming a green full suite.
+
+## Pi 1.4.0 launcher and compatibility evidence: 2026-10-28 (gamy)
+
+The exact pin belongs to `scripts/local_env.py` and `dist/install.py`, not
+`roborev-local.py`. The saved executable and user PATH both reported 1.4.0;
+`pi-local.py --version` reproduced the 1.0.3 guard failure before Pi started.
+This explains a possible immediate terminal exit, not a separately observed
+GUI crash. Both pins/current installation instructions now require 1.4.0.
+Only `pi_version` changed in private `environment.json`; permissions remain
+0600. Integrity checks preserve Pi settings/models/MCP, selected USAi model
+and Forge/roborev configuration. No package install or global change.
+
+Verification: 140 launcher/installer tests passed, including approved-version
+acceptance and rejection of older/future/empty version output. Actual managed
+`--version`, `--help` and `mcp list` succeed. Pi's existing SDK MCP entry points
+remain available. The installed structured-review extension 0.1.1 loaded in
+an isolated Pi 1.4 SDK session and its real `json_output` tool validated/wrote
+synthetic output. Actual private-profile RPC `get_state`/`get_commands` succeeded,
+preserved the approved selected model and kept Pi running until explicit
+cleanup. `get_all_tools` is not a supported Pi 1.4 RPC command; an initial
+probe using it was corrected, not treated as an agent regression.
+
+No model request, review job or corpus-tool invocation occurred. Probe processes
+were stopped and temporary fixtures removed. Before-state metadata, profile
+integrity baseline and RPC/schema reports are retained as `files/pi-140-*`
+in session `e238bd23-e93c-4ca9-8793-9eda408ffb69`. Forge GUI retry remains
+owner-observed; no service restart or live review acceptance is claimed.
+
+## Public Knowitall onboarding and demo task verification: 2026-10-27, 23:00
+
+Published only the four inspected bootstrap/design files and their two-commit
+history to public `GSA/the_knowitall` using native `gh`. Local and remote main
+match `ffd28b79d1f889bcd9102167388fcb0ad031ad07`; default branch is main.
+GitHub repository ID is `1436538501`. No upstream source, corpus, graph or
+runtime assets were present in that history; this is bounded content/path
+inspection, not a universal privacy certification.
+
+Native Forge APIs added the exact provider, set `/home/nkirrish/the_knowitall`
+as worktree base, registered its local project and appended daemon `local` /
+project UID `01M5ZGZT3ZS6VVECFTEYB0AHH5` -> `github/github.com/gsa/the_knowitall`.
+Live mapping resolves `mapped` / `manual_daemon`; catalog sync completed with
+no error. Only `repos` and `kata_projects` settings changed. Prior repository
+settings, local projects and task mappings are preserved. Private before/after
+and verification evidence: `.local/environment/runtime/knowitall-publication-20261027/`
+(directory0700/files0600). No workspace/agent/model was launched.
+
+Native readback verifies new `ca6n/923h/hk33/zmzh` titles, bodies, priorities,
+unowned/planned status and exact dependencies. Existing `pyzt/k4mp/6hce/zbww/pbqn`
+retain identities, statuses and prior prerequisite links; the pre-existing
+`6hce` owner is unchanged. `k4mp` additionally depends on shared fixture
+agreement; `pbqn` is P2 and still blocked by `zbww`, plus the explicit positive
+value/approval condition. Session files `demo-approved-backlog.json`,
+`demo-approved-created.json` and `demo-backlog-{before,after}.json` retain details.
+
+## Demo acceptance gap evidence: 2026-10-27
+
+Current code baseline remains Engineer `2feac4b`, Knowitall `eb4f947`
+(bootstrap only), Librarian `b368d7e` with the same prior roadmap/ADR edits.
+Compared native `pyzt/k4mp/pbqn/6hce`, Librarian `pwhw/xzkj/0nj8` and Knowitall
+`vky6`; searched existing task history for conformance/demo fixtures, linking
+and Knowitall onboarding. Local history corroborates the prior implementation
+and retirement dispositions; no new delivered runtime appeared.
+
+The link lifecycle is a partially covered ownership/acceptance gap, not proof
+that existing contracts omit references: they explicitly include them. Shared
+provider conformance/demo fixtures are not a delivered cross-product harness.
+Knowitall bootstrap deliberately made no remote or Forge registration; its
+Git/Kata binding must not be presented as Forge onboarding. No code, tests,
+source inputs, services or profiles were changed in this question-only audit.
+
+## Knowitall bootstrap and resumed AgentsView repair: 2026-10-27 (c6by)
+
+After disconnection, the first AgentsView agent was cancelled but had already
+persisted its configuration repair. The resumed worker inspected saved state
+and verified it instead of repeating destructive work. Application config and
+workspace tracking agree on `archive_content=transcripts`, previously `usage`.
+Known before/after archive counts: 17,728 -> 19,037 message rows; 0 -> 18,807
+nonempty message bodies across 204 sessions. Verification emitted aggregates,
+not conversation text. Service is enabled, healthy and loopback-only; latest
+sync succeeded. Existing source scope/filters and configured pricing rates
+remain; the model catalog gained two models/one band before resumption.
+Transcripts mode intentionally omits tool payloads. One-shot/automated filters
+still apply and are not an importer failure.
+The running conversation endpoint also returned HTTP200 with one requested
+message and a nonempty body, reported only as counts/boolean. This verifies
+actual serving rather than relying solely on database counts; no text or
+session identity was emitted. Runtime/process/archive binding was checked.
+
+Private rollback and exact verification:
+`.local/environment/agentsview-rollback-20261027-conversations/`,
+including `resume-verification.json`. Directory0700/files0600. No user archive
+was deleted/reinitialized, no source transcript edited and no remote/model
+request made. This repair does not adopt AgentsView Recall as Engineer memory.
+
+Native task filing used idempotency keys and verified current records:
+Engineer `pbqn/k4mp`; Knowitall `7gv8/r9gz/8jvw/regc/axsf`; Librarian
+`zqdh/1md4/rst9/bj17/5bc5/3sx1/9hqs/8a5h/0nj8/rjr5/pwhw/xzkj`.
+Provider design moved `spud#vky6 -> knowitall#vky6` with UID/history/links;
+project `knowitall` binds locally through `.kata.toml`. Existing receiving
+design `55nx` owns useful OKF conventions; no duplicate record.
+Local generated outcomes are retained in this session's
+`files/knowitall-engineer-created.json` and
+`files/librarian-approved-backlog-results.json`.
+
+The new repo contains only README/working agreements/ignore rules/native
+binding, committed as `eb4f947`; it has no remote or initialized data.
+All 19 new task records and exact prerequisite sets were independently read
+back through native Kata; the moved provider contract retains its original UID.
+Librarian's prior roadmap/ADR
+edits and SPUD's prior instruction/binding changes remain untouched. No Forge
+source, submodule commit, provider registration or service configuration was
+changed by repository/task bootstrap.
+
+## Current capability audit evidence: 2026-10-27 (e5dd)
+
+Three independent read-only source audits plus parent native-history inventory:
+Engineer root `b795c91`; Librarian `b368d7ebcf9fc6bc24c6a103e4a0738802bfe75e`;
+SPUD `c80837a`; SPUD Web `8e9626d`. Pinned exporter/Graphify sources remain the
+previous rmgx revisions. Preserve Librarian's existing roadmap/decision-0006
+edits and SPUD's instructions/binding changes; neither supplies missing runtime
+functionality. Native inventory snapshots are retained in this session's
+`files/kata-audit-{engineer,librarian,spud}.json`.
+
+Important narrower evidence:
+- Librarian `tools/context-index/renditions.py:10-27,78-105` admits legacy
+  Gemini TXT/ODT rendition contracts, not registered Docling outputs.
+  `docling_adapter.py:373-504` already provides the delivered lifecycle.
+- Catalog `catalog_store.py:618-689`, review `event_store.py:333-396`, and
+  index `context_index.py:486-604` already provide state checks/idempotence
+  and explicit atomic publication/freshness. A new stage runner must reuse them.
+- `extract.py:410-417` is Gemini TXT/ODT, not general plain-text/Office support.
+  `agents/contributions.md:3-6,29-55` explicitly describes a contract, not
+  installed contribution transport. Catalog relations are provenance-oriented
+  (`catalog_store.py:158-167`), not typed business claims.
+- Engineer memory contract `context/engineering-memory.md:325-348` remains
+  design; `dist/hindsight.compose.yaml:5-16,25-45` is disabled preparation.
+  Private Hindsight compose env was absent and port 18888 not listening.
+- AgentsView `internal/db/archive_content.go:314-349` strips text in usage
+  mode; `internal/server/huma_routes_sessions.go:87-89,259-261` exposes filters.
+  Read-only config/tracking and aggregate counts confirm that mode and empty
+  message bodies. No source transcripts were read. Service/build and readable
+  source-file metadata support the finding; individual browser selections
+  and every allegedly missing session were not audited.
+- Experimental AgentsView Recall (`docs/recall.md:11-17,25-33,127-152`) is
+  transcript-derived research functionality, not Engineer selected-record
+  memory. Usage archives reject it (`archive_content.go:67-78`).
+- Completed `f47m` is preserved on `dae66cd` with review 104, not merged into
+  main. Completed `djfr` is the contribution contract; missing transport is
+  distinct. Existing `zbww`, `3c2c`, `fjyf`, `55nx`, `3sv9`, `vky6`, `q9a9`
+  and `pyzt` must not be duplicated.
+- SPUD Web's DLQ (`infra/terraform/modules/lambda/main.tf:423-436`,
+  `dlq_handler.py:185-229`) recovers terminal execution/deployment events.
+  Core citation messages are article paths and acknowledged before processing
+  (`citation_worker.py:181-194,350-386`), not a reliable general intake queue.
+- Web starter fallback/dispatcher (`execution_orchestrator.py:208-220,
+  272-284,563-582`), exporter checkpoints and wrapper persistence gaps remain.
+  Clone provenance/upload handling is in `artifact_service.py:20-25,274-325`;
+  worker sync suppresses failure (`05-sync-inputs.sh:12-15`), while SPUD's
+  manifest permits unknown Git provenance (`manifest_service.py:21-69`).
+- SPUD citation-review completion can retain incomplete warnings
+  (`pipeline_runner.py:450-498`), but any truthy reviewed block can promote
+  lifecycle to stable (`:685-695`). Produced-artifact completeness is not
+  established by nonempty-output checks (`:806-825`).
+- Graphify already stamps analyzed HEAD and atomically writes version metadata
+  (`cli.py:5161-5171`, `export.py:479-488`); it also has partial-source
+  safeguards. SPUD startup installs it unpinned; do not infer deployed versions
+  or complete coverage from the inspected upstream checkout.
+
+Librarian/Engineer tests were inspected, not rerun in this audit. SPUD's audit
+ran four mocked/in-memory characterizations of current failure paths; no live
+API/cloud/model calls or product writes. Source-level absence and local
+configuration findings do not establish remote deployment or corpus quality.
+Prior rmgx checks remain separate evidence, not newly rerun acceptance.
+
+## Native review repository reassociation: 2026-10-27 (byrk)
+
+Use `roborev repo merge --yes <source-path> <target-path>` to consolidate
+registrations, not `repo move` or direct database edits. Merge moves all source
+jobs/commits and deletes only the source registration, not its checkout.
+Use exact paths when display names collide. Each source for reviews 24, 56
+and 69 had exactly one completed/open failed review; no unrelated history
+needed to move into `/home/nkirrish/the_librarian`.
+
+Compared complete before/after review JSON and rendered comments: only the
+three repository-association fields and one added provenance comment changed
+per review. Original IDs/UUIDs, commit IDs, verdicts, open status, stored
+prompt/output/findings, timestamps and existing comments are unchanged.
+Original snapshot checkouts remain. All six previous target jobs are unchanged;
+the target now has nine jobs and five open reviews: 24/56/60/69/71. The
+workspace-prefix inventory has no remaining open `repo`-named reviews.
+
+The moved jobs retain their historical `master` branch and `dirty` ref, not
+canonical main-branch approval. Include them with
+`roborev list --repo /home/nkirrish/the_librarian --all-branches --open`.
+Original paths/registration IDs are recorded in native review comments.
+Before/after artifacts and `reassociate-verification.json` are retained in
+session `e238bd23-e93c-4ca9-8793-9eda408ffb69/files/`. Hardening remains open
+under `librarian#q9a9`; no toolkit source or service was changed.
+
+## Text-first intake follow-up evidence: 2026-10-27
+
+Re-read toolkit `ROADMAP.md`, `tools/extraction/{extract.py,README.md,
+docling_adapter.py,docling_bridge.py,docling_worker.py}`, MCP operating guide
+and role/contribution contracts. Existing Docling PDF/PNG/JPEG prepare/verify/
+register and provenance checks are reusable; they are not automatic review,
+retrieval publication or an intake scheduler. Its 100-page/64-MiB PDF bounds
+require explicit treatment for larger inputs. The roadmap already plans
+standing-policy automation and serialized authority writes. Decision 0006
+still defers relationship traversal; semantic business links are additional
+work, not an automatic result of text conversion. No toolkit code was changed.
+
+## Focused native Engineer queue: 2026-10-27 (wvd2)
+
+Use `kata list --label architecture-now` for the six-item Engineer portfolio,
+`kata ready --label architecture-now` for unmet-task-prerequisite filtering,
+and `kata next --label architecture-now` for the next scoped item. Native
+readiness does not establish source access, freshness or execution permission;
+the milestone's project/material selection remains a separate gate.
+
+Audited all 31 original issues: five owner-selected retirements are
+`closed/wontfix`; every other original issue remains open with its owner
+unchanged. Six current Engineer items are P1, six later supporting items P2,
+and fifteen later expansion/operations items P3. The new milestone and its
+SPUD-owned provider-design child are scoped planning, not implementation.
+Verified `k03a -> mpew` and `spud#3sv9 -> librarian#55nx` still exist. No
+runtime, provider, source, credential or persistent process was changed.
+
+## Boundary-aligned review and task cleanup: 2026-10-27 (pd40)
+
+Native `roborev list` from a non-Git parent directory uses a workspace-prefix
+filter, so one all-branches query includes canonical repos and private snapshot/
+smoke repositories. The initial inventory had 16 open reviews. Closed ten with
+explicit comments: five passing reviews; graph review 39 corrected by ancestor
+`0adcad5` and passing follow-ups 43/44; duplicate toolkit reviews 54/68 with
+71 retained; and intentional diagnostic fixtures 1/36, whose expected failures
+were already documented here. No verdict was rewritten or source defect
+represented as fixed by retirement.
+
+Current toolkit source still supports retaining review 71's three concerns,
+60's failed-publication cleanup, 24's inherited soft limit, 56's model-asset
+binding and 69's packaged operational history. Review 56's old publication
+alarm issue is already corrected, but its asset finding remains open.
+Native `librarian#q9a9` owns the independent-project hardening gate; the five
+reviews remain open alongside application review 14.
+
+Audited native task status/reason for all seven obsolete closures: six graph
+items are `wontfix`; the stale rename task is `superseded` by `eb48`. Native
+`wontfix` accepts a substantive disposition message, not typed evidence flags.
+The preserved conversation is `.local/context-inputs/tmp_convo.txt`; the
+concurrent rmgx assessment finished in `b998e54` and was preserved, not repeated.
+No live service, provider profile, source corpus or persistent process changed.
+
+## SPUD/Graphify assessment evidence: 2026-10-27 (rmgx)
+
+Inspected local `aos-spud` c80837a and `aos-spud-web` 8e9626d. External engine
+is PyPI `graphifyy`, currently Graphify-Labs/graphify, not the obsolete URL in
+SPUD documentation. Pinned exporter/engine revisions and code paths are in
+[system-architecture.md](system-architecture.md).
+
+Read-only clones, isolated Python environment and `test_spud_fit_probes.py`
+are retained under session `f07938da-d100-4037-b957-229966277b85/files/`,
+with `spud-assessment-{confluence,jira,graphify,venv}` directories. These are
+tool-source/synthetic evidence, not downloaded project assets. Failed ensurepip
+bootstrap was recovered using `pip --python <venv>/bin/python3`; nothing was
+installed globally. Graph checks used backend `none`, disabled query logging
+and an isolated HOME/environment; no model route or real API was invoked.
+
+Validation:
+- SPUD `test_indexing.py`, `test_ingest.py`, `test_step_functions_ingest.py`,
+  `test_manifest.py`: 31 passed after supplying an explicit synthetic AWS region;
+  native ZIP packaging case excluded because the host lacks `zip`. Initial
+  failures were four missing-region errors plus missing `zip`, not a clean suite.
+- Graphify: 11 selected cases passed across `test_query_mcp_direction.py`,
+  `test_extract_code_only_cli.py`, `test_incremental.py` and
+  `test_incremental_unscanned_placeholders.py`. Actual offline Python/TypeScript
+  extraction, unchanged/changed updates, shared query-direction logic and
+  removed edge/deleted-file behavior were exercised, not cloud/MCP transport.
+- Confluence baseline: 18 passed, one failed at its expected log-message capture
+  assertion in `test_export_rerender.py`; subsequent assertions in that test
+  were not reached. No claim that its whole suite passes on this environment.
+- Three independent fake-client probes passed, reproducing Confluence
+  successful exit with failed-page watermark advancement, Jira normal return
+  with failed discovery marked in run timestamps, and attachment errors under
+  a parent marked done. They characterize defects, not repaired behavior.
+
+No exporter/Graphify/product code was changed. Web invented-ARN and exporter
+S3 error paths are source-traced findings, not live-cloud reproduction.
+No real ingestion, deployment, service, credentials or FALCON corpus changes.
+
+## Shell-resolution evidence: 2026-10-27 (rrs8)
+
+Clean `env -i` interactive Bash, interactive Zsh and login-interactive Zsh all
+load NVM and resolve Node v26.11.1/npm 11.20.0. Both rc files load `nvm.sh` and
+NVM completion; the default NVM alias is `node`. Bash deduplicates `.local/bin`
+while Zsh prepends it unconditionally; neither difference explains missing npm.
+The files also share the system-CA Node option and screenshot-helper startup.
+The helper reports not running after the probes; no experimental process remains.
+
+## Roborev queue sweep: 2026-10-27
+
+The all-branches open inventory contained 24 jobs. Twenty-two had Pass verdicts;
+the other two (101/102) were superseded by documented fixes on `dae66cd` and a
+passing follow-up review 104. Added comments and closed all 24 without
+rewriting verdict history. Every exact job audit reports `closed=true`, and a
+fresh open inventory is empty.
+
+## Repo-named snapshot reviews: 2026-10-27
+
+`roborev repo list` can show multiple repositories with the display name
+`repo`; the normal current-repository list does not aggregate them. Query each
+registered path with `roborev list --repo <path> --all-branches --open` and
+assess dirty pre-commit findings against the current canonical source before
+closing. Add evidence comments before closing resolved reviews, then audit the
+original job IDs individually.
+
+## Review corrections: 2026-10-27
+
+The Helix/GSA sync CLI now resolves PR bases from the remote-advertised HEAD,
+errors instead of assuming `master`, and writes JSON only to stdout in JSON
+mode. Hook migration recognizes standalone generated post-rewrite hooks only;
+the existing roborev template embeds its remap before preserved shell-hook
+commands, so mixed hooks remain refused to protect stdin.
+
+Managed Kata startup explicitly pins its private database and clears the legacy
+override. The generated systemd unit and manual Kata command now run through
+`/usr/bin/env -i`, preventing inherited Kata credentials, endpoints, storage
+and trust settings from reaching the daemon.
+
+After explicit owner approval, `0sfx` delivered the direct native CLI symlink
+and conflict-safe active loopback client config. Synthetic HOME/PATH checks ran
+the built CLI, verified endpoint selection and preserved repository bindings;
+reruns preserve unrelated settings and credentials. Existing different
+binaries, active targets and symlinked configs are refused without overwrite.
+The installer does not edit shell startup files or modify a live daemon.
+
+The final script and distribution suites passed (173 and 44 tests), including
+behavioral environment-isolation checks. Review 73 was commented and closed;
+all 23 original reviews are resolved. Commit `9c4a83a` is local and unpushed.
+No real user-home configuration, managed service or persistent process changed.
+
+## Restored acceptance and implementation dispatch: 2026-10-26 (txt3)
+
+Native restore recovered k03a, j54x, 6hce and avvp with their original UIDs and
+history. Current scope is prepended above preserved earlier scope. Existing
+k03a -> mpew, j54x -> d8v5 and j54x -> 6hce prerequisites remain; the latter
+edit returned unchanged because the edge already existed. No restoration
+counts as completed execution acceptance.
+
+Live Forge daemon `local` is connected; Engineer/Librarian/SPUD mappings remain
+explicit manual_daemon and Falcon remains unmapped. Existing application
+workspace 96ca6f1e3b862ad7 is preserved. Native POST /kata/workspaces created
+f47m workspace 803ec1b7ee18ca6d under the_engineer; creation and model-backed
+execution are distinct checkpoints. Private evidence: .local/engineer-pilot-txt3/.
+Hindsight preparation svg1 is delegated independently; zbww records the gated
+synthetic pilot. REA is excluded from active work.
+
+Forge's repeat-create response omits the false `created` field; checking for a
+required false boolean was an incorrect probe. Verified reuse instead through
+stable ID/path/branch/task metadata and exactly one matching workspace. The
+worktree shares the canonical Git common directory and has byte-identical
+AGENTS.md. Clean fast-forward from published 6821263 to local 5555225 preceded
+Pi launch; no remote update. Agent-handoff returned running session
+803ec1b7ee18ca6d_3d55e11afef62133 with a delivered initial message, and its own
+tmux pane shows model-backed task/instruction inspection.
+
+Reconciliation commit 5555225 review found a stale architecture paragraph
+still directing reconciliation; it is corrected to the actual restored/open
+task state. Exact follow-up review evidence belongs to txt3.
+
+The first model worker discovered a real private-profile mismatch: main
+checkout native `pi-local.py mcp list` uses project .pi/mcp.json and connects,
+whereas the Forge worktree inherited .local/environment/pi/mcp.json with a
+missing qualified-context-mcp executable. Backed up its exact 0600 bytes to
+.local/engineer-pilot-txt3/pi-mcp-before.json, then changed only falcon-context
+to the existing working librarian-mcp executable/reader/event-reader/root/
+pilot selection/bounds. Original forge-pi audit mode/path/label and 0600 mode
+are preserved. Native discovery from the actual worktree now connects seven
+tools. Pi calls this its global scope, but it is the workspace-owned private
+profile, not ~/.pi or any user-global setting. Existing sessions need a new
+connection; discovery alone does not close 6hce.
+
+AgentsView session pi:01a17a57-1947-7208-bf55-f0adcbba507f matches the exact
+Forge worktree and has real token usage. Default session discovery excludes
+one-shot sessions; explicitly include them for the initial single-prompt run.
+Existing archive_content=usage is unchanged. has_cost=false/unpriced model
+means cost unavailable, not a measured zero. No transcript-policy expansion.
+
+The dedicated read-only Forge worker (session 803ec1b7ee18ca6d_023337179f7e28a2)
+selected actual mcp__falcon_context status/search, not a CLI discovery proxy.
+Both returned stale-index failure for five changed selected source records.
+Parent status confirms it. No locator was available; no get, fabricated
+qualification, index refresh or corpus write followed. Native comment
+01M5X5S6VM65D50J6Y0VV7YYQF records body-free evidence. Stopped that completed
+session through its exact runtime DELETE endpoint; 6hce stays open.
+
+Existing Playwright from forge/frontend/node_modules and the ignored pinned
+browser cache render the live workspace, both Pi tabs and canonical f47m
+task detail. The initial import from forge/node_modules was the wrong path;
+no package installation followed. Browser contexts/processes are closed,
+with no screenshots or user profile. The native Reviews tab is absent for
+Kata workspaces by explicit WorkspaceTerminalView.svelte conditions: both
+tab validity and button visibility require item_type=pull_request. Forge's
+roborev proxy itself responds. Do not invent a PR or manipulate browser state
+to claim a supported task-workspace review UI. avvp retains the gap.
+
+Actual f47m commit 6fd6014 queued post-commit review 101, resolving canonical
+repo plus worktree/branch and the distinct read-only private-Pi invocation.
+Review 101 found missing manifest confinement; review 102 of 694ced2 found
+missing root search-permission validation. Final dae66cd fixes both and exact
+review 104 passes. Parent reran 36 installer cases (three expected local-binary
+skips) and eight focused setup cases. The worker also resumed after native
+automatic compaction; this is observed continuation, not a restart/recovery
+or synthetic-gate certification.
+
+The external dispatch and AGENTS.md did not explicitly propagate the parent's
+no-amend rule. Preserve reviewed 6fd6014 and 694ced2 through local refs
+kenn-forge/pilot-f47m-review-101 and kenn-forge/pilot-f47m-review-102.
+No published history changed. Parent delivered the rule to the worker and
+added it to concise tracked guidance; k03a retains policy-loading acceptance.
+The clean final implementation remains in the Forge branch, unmerged.
+
+Standalone roborev browser rendering verifies actual review 101 findings and
+review 104's exact commit, Pass and no findings. Network-idle navigation
+timed out because of ongoing traffic; DOM/content readiness succeeds.
+Body-free final evidence: .local/engineer-pilot-txt3/rendered-review-104.json.
+Hindsight preparation f2ffd9e passed exact review 103; seven offline checks
+and explicit missing-optional-Docker skip are verified. svg1 and bounded
+coding-demo jgcf are closed; full integration gates remain open.
+
+Shutdown: exact native runtime DELETE stopped both completed model workers,
+and runtime now reports no sessions. The owned idle base shell PID 77723
+ignored HUP; after confirming its worktree cwd, targeted termination removed
+it. Only unrelated forge-96ca6f1e3b862ad7 remains in that tmux socket. All four
+kenn-kopy user services remain active; no experimental browser/model process,
+Hindsight container or temporary test fixture remains.
+
+## Post-onboarding planning evidence: 2026-10-26 (kamh)
+
+Reread the private original request/conclusion and current architecture,
+refactoring, workflow and memory proposals; native Kata list/show/search
+confirmed the existing open cleanup/integration slices. The actual dependency
+remains spud#3sv9 -> librarian#55nx. Both initially cover contract/design, not
+permission to import real sources. falcon-docs#51kq stays parked for unattended
+intake. Source inspection reconfirms the legacy executable assumption in
+dist/install.py::prerequisites and scripts/local_env.py::setup (f47m).
+
+Existing jgcf is the real coding/review pilot; tvbf, mpew, 8vhd, 99gr and d8v5
+retain distinct acceptance. Historical k03a/j54x prerequisite references are
+not proof of completion: native search with include-deleted confirms their
+October 23 deletion timestamps, as well as deleted 6hce/avvp workflow scopes.
+Reconcile relevant acceptance explicitly before relying on the older dependency
+graph; no restoration here.
+
+The revised delivery sequence is in system-architecture.md. This pass did not
+inspect new neighboring source revisions, test exporter throughput, access
+remote documents, run an agent pilot or prove application security boundaries.
+No new dependency was installed.
+
+Follow-up primary-source reads retain Hindsight as the leading service
+candidate, not a measured winner. Its coding-agent integration still documents
+automatic history/conversation capture and auto-update; MCP is unauthenticated
+by default. Use the existing explicit-capture pilot rather than that installer.
+Sources: [integration](https://hindsight.vectorize.io/sdks/integrations/coding-agents),
+[MCP](https://hindsight.vectorize.io/developer/mcp-server),
+[README](https://github.com/vectorize-io/hindsight),
+[Mem0 OSS](https://docs.mem0.ai/open-source/overview).
+
+REA source baseline: morluto/rea `779d548c4e553f01cb1aaf61d6949885c6f02806`,
+package metadata 6.8.0, MIT. Read README, the bundled reverse-engineer-anything
+skill, installation docs and MCP contracts. The skill explicitly excludes
+ordinary complete-source repository architecture work. Docs list Pi/Copilot
+setup, scoped tool families and stdio; no local integration is established.
+Findings/placement and a bounded optional pilot are in system-architecture.md.
+No install, target analysis, global config or private upload occurred.
+
+Automatic review 97 of planning commit 3f7d920 identified an older contradictory
+README repository-selection paragraph. The follow-up corrects it to the three
+current provider repositories, without changing actual Forge configuration.
+Final follow-up review/commit evidence belongs to native kamh.
 ## Forge Pi dependency provisioning: 2026-10-28
 
 - Forge Pi uses `PI_CODING_AGENT_DIR=/home/nkirrish/kenn-kopy/.local/environment/pi`; packages in `~/.pi/agent` do not carry into Forge. Run `python3 scripts/local_env.py install-pi-extensions` from the configured platform checkout to install pinned JSON schema and `pi-subagents` packages into the isolated profile. Extensions require a newly launched Pi process.
@@ -323,9 +885,9 @@ or reconfigured. Preserve the existing scoped commit hook.
 
 ## Cleanup refinement evidence: 2026-10-26 (Kata ycns)
 
-See `refactoring.md` for the nine task references, source-backed deletion
-targets, preserved behavior and first bounded design. Parent inspected Engineer;
-two read-only scouts inspected Librarian/Falcon and externally owned SPUD.
+Native Kata owns the nine task references and current acceptance state. The
+parent inspected Engineer; two read-only scouts inspected Librarian/Falcon and
+externally owned SPUD.
 No neighbor source was edited. A follow-up challenged suggested abstractions:
 XLSX helper extraction and typed coverage-loader replacement were rejected
 because they add compatibility/freshness complexity rather than remove it.
@@ -772,9 +1334,9 @@ Reproduced `kata-local.py --project supply-chain-user-interface list --json`
 failing before native execution. The guard is in `local_env.py::kata_launch`,
 not the entrypoint itself, and `kata_mcp_launch` shares it. Removing that guard
 without separating CLI selection from MCP pinning would change the established
-scope contract. Native `projects list --json` confirms all four registered
-application project UIDs still match `kata-adoption.md`; `--as copilot whoami
---json` resolves actor `copilot` from the explicit flag.
+scope contract. Native `projects list --json` confirmed all four registered
+application project UIDs; `--as copilot whoami --json` resolves actor `copilot`
+from the explicit flag.
 
 At 17:14 the owner approved explicit CLI selection of only
 those four application projects with explicit Copilot attribution; retain
@@ -846,7 +1408,7 @@ Remaining scopes were individually reviewed and are not complete:
 
 | Open Katas | Remaining acceptance |
 | --- | --- |
-| `k03a`, `mpew` | Active Forge/private-Pi engineering policy loading and its synthetic behavioral/publication-gate demonstration; the saved refinement example is still inactive. Existing red/green hook repairs do not establish that separate prompt contract. |
+| `k03a`, `mpew` | Active Forge/private-Pi engineering policy loading and its synthetic behavioral/publication-gate demonstration; the refinement boundary is not an installed prompt. Existing red/green hook repairs do not establish that separate prompt contract. |
 | `5ayh` | Deliberate checkout/state/service-name migration; active kenn-kopy paths and units remain. |
 | `p4ke`, `ww7g`, `5xrm` | Clean-host end-to-end acceptance, automatic pinned Pi provisioning, and the complete reproducible team redeployment/restoration contract. Initial dist scripts and manual Pi instructions are not those outcomes. |
 | `0rc1` | Actual Spokenly microphone/hotkey/text insertion trial; no completed personal GUI trial is recorded. |
@@ -937,7 +1499,7 @@ not committed. No service restart or experimental background process.
 
 Owner-authorized native `kata projects create` added one empty project per
 Falcon repository through `scripts/kata-local.py --as copilot`. Project names
-match repository names; immutable UIDs are recorded in `kata-adoption.md`.
+match repository names; native Kata is authoritative for their immutable UIDs.
 No checkout binding or alias is needed for a daemon project.
 
 Native partial `PUT /api/v1/settings` persisted four exact `kata_projects`
@@ -1130,11 +1692,12 @@ a newly started session reads only `usai`.
 
 For the 2026-10-12 live service/boot snapshot, see `status.md`. For Forge
 workflow semantics and draft prompt responsibilities, see
-`engineering-workflow.md`. Repository-free Kata runtime findings and remaining
-integration boundaries are in `kata-evaluation.md`; current project-scoped
-backlog adoption and CLI/index operations are in `kata-adoption.md`.
-The project display name is now Engi Platform;
-paths and installed service names remain `kenn-kopy` pending migration.
+`engineering-workflow.md`. README owns current project-scoped Kata operations;
+`project.md` and `status.md` retain durable adoption decisions, synthetic-check
+outcomes and integration boundaries.
+The earlier Engi Platform display name has since been replaced by Engineer.
+`engi-platform` remains the live Kata project identity, and paths and installed
+service names remain `kenn-kopy` pending migration.
 
 Exact source revisions are the parent repository's gitlinks:
 `git submodule status`. Do not duplicate version pins in this document.
@@ -1433,18 +1996,17 @@ and each future project binding remain separate acceptance work.
 
 Read the canonical Clanker Constitution at `v2026.08.11` from the author's
 repository. It is compact, language-neutral baseline behavior under CC BY 4.0,
-not a Jira intake protocol, scheduler or orchestrator implementation. The owner
-approved an inactive example at 11:36:
-`context/prompt-drafts/jira-refinement.example.md` reproduces the baseline
-unchanged with version, Kenn Software attribution and CC BY 4.0 license, then
-appends the owner's exact draft-only overlay. Its `.example.md` filename and
-context-only location keep it outside live instruction/skill/profile discovery.
-No launcher, MCP settings or agent target references it.
+not a Jira intake protocol, scheduler or orchestrator implementation. At 11:36
+the owner approved a draft-only boundary for future Jira refinement: propose tasks
+for human approval without changing requirements or source, writing tasks,
+launching workers or publishing. No launcher, MCP setting, skill or agent target
+implements that boundary.
 
 The 11:38 project task audit used native list/show commands for all 32 open
 tasks and selected comments/dependencies. Scope corrections are recorded in
-`status.md`; the inactive example does not complete active prompt, Jira intake
-or Forge-worker integration. No task status, body, ownership or link changed.
+`status.md`; the recorded refinement boundary does not complete active prompt,
+Jira intake or Forge-worker integration. No task status, body, ownership or
+link changed.
 
 At 11:46 the owner approves cleanup. Five native `edit` operations prepend
 current scopes to preserved historical text; `v3sd` closes with reason
@@ -1689,8 +2251,8 @@ already-installed tmux baseline before any additional terminal runtime.
 
 ## Kata agent-access milestone: 23:16 request
 
-Native scoped stdio MCP now backs both project clients. See README and
-`kata-adoption.md` for setup and actual read/actor/scope/retry evidence.
+Native scoped stdio MCP now backs both project clients. See README for current
+setup; private runtime records retain read/actor/scope/retry evidence.
 Pi uses codemode and refreshes Kata's progressive catalog successfully.
 Copilot discovers the workspace server on new sessions; this running session
 uses the scoped CLI. A successful saved Pi/USAi model read now supplements

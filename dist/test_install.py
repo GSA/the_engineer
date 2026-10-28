@@ -8,8 +8,10 @@ import shlex
 import socket
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import time
+import tomllib
 import unittest
 from unittest.mock import MagicMock, patch
 import urllib.error
@@ -85,12 +87,12 @@ class InstallerTests(unittest.TestCase):
                 patch.object(installer, "check_c_toolchain"):
             errors = installer.prerequisites(self.corpus)
         self.assertTrue(any("24.11" in error for error in errors))
-        self.assertTrue(any("1.0.3" in error for error in errors))
+        self.assertTrue(any("1.4.0" in error for error in errors))
 
     def test_missing_c_headers_and_linker_are_reported(self):
         with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
                 patch.object(installer, "capture", side_effect=lambda command, **kw:
-                             "v26.9.0" if command[0] == "node" else "1.0.3"), \
+                             "v26.9.0" if command[0] == "node" else "1.4.0"), \
                 patch.object(installer, "check_c_toolchain", side_effect=RuntimeError("missing header")):
             errors = installer.prerequisites(self.corpus)
         self.assertTrue(any("libc6-dev" in error for error in errors))
@@ -314,9 +316,177 @@ class InstallerTests(unittest.TestCase):
                                 SERVICE_PORTS=dict.fromkeys(installer.MANAGED_SERVICES))
         patch.object(installer, "load_environment", return_value=environment).start()
         patch.object(installer.shutil, "which", return_value="/usr/bin/node").start()
+        patch.object(installer.Path, "home", return_value=self.root / "installer-home").start()
         patch.object(installer, "check_submodules").start()
         self.addCleanup(patch.stopall)
         return environment
+
+    def native_kata_binary(self, checkout=None):
+        checkout = checkout or self.root / "checkout"
+        binary = checkout / "kata/kata"
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        binary.write_text("#!/bin/sh\nexit 0\n")
+        binary.chmod(0o755)
+        return checkout, binary
+
+    def test_native_kata_provisioning_is_repeatable_and_preserves_config(self):
+        checkout, binary = self.native_kata_binary()
+        home = self.root / "home"
+        kata_home = home / ".kata"
+        kata_home.mkdir(parents=True)
+        config_path = kata_home / "config.toml"
+        config_path.write_text('[tui]\nmouse = true\n\n[auth]\ntoken = "synthetic-token"\n')
+
+        installer.provision_native_kata_client(checkout, home)
+        link = home / ".local/bin/kata"
+        first_config = config_path.read_bytes()
+        installer.provision_native_kata_client(checkout, home)
+
+        self.assertEqual(link.resolve(), binary.resolve())
+        self.assertEqual(config_path.read_bytes(), first_config)
+        config = tomllib.loads(config_path.read_text())
+        self.assertEqual(config["tui"]["mouse"], True)
+        self.assertEqual(config["auth"]["token"], "synthetic-token")
+        self.assertEqual(config["active_daemon"], "local")
+        self.assertEqual(config["daemon"], [
+            {"name": "local", "url": installer.KATA_DAEMON_URL},
+        ])
+
+    def test_native_kata_provisioning_refuses_other_active_daemon_before_changes(self):
+        checkout, _ = self.native_kata_binary()
+        home = self.root / "home"
+        kata_home = home / ".kata"
+        kata_home.mkdir(parents=True)
+        config_path = kata_home / "config.toml"
+        config_path.write_text(
+            'active_daemon = "other"\n\n[[daemon]]\n'
+            'name = "other"\nurl = "http://127.0.0.1:17778"\n'
+        )
+        original_config = config_path.read_bytes()
+
+        with self.assertRaisesRegex(RuntimeError, "active Kata daemon"):
+            installer.provision_native_kata_client(checkout, home)
+
+        self.assertFalse((home / ".local/bin/kata").exists())
+        self.assertEqual(config_path.read_bytes(), original_config)
+
+    def test_native_kata_provisioning_refuses_existing_binary(self):
+        checkout, _ = self.native_kata_binary()
+        home = self.root / "home"
+        link = home / ".local/bin/kata"
+        link.parent.mkdir(parents=True)
+        link.write_text("not the installed Kata binary")
+
+        with self.assertRaisesRegex(RuntimeError, "already exists"):
+            installer.provision_native_kata_client(checkout, home)
+
+        self.assertEqual(link.read_text(), "not the installed Kata binary")
+        self.assertFalse((home / ".kata/config.toml").exists())
+
+    def test_native_kata_provisioning_preserves_existing_selected_target(self):
+        checkout, _ = self.native_kata_binary()
+        home = self.root / "home"
+        kata_home = home / ".kata"
+        kata_home.mkdir(parents=True)
+        config_path = kata_home / "config.toml"
+        config_path.write_text(
+            'active_daemon = "existing"\n\n[[daemon]]\n'
+            'name = "existing"\nurl = "http://127.0.0.1:17777"\n'
+            '[auth]\ntoken = "synthetic-token"\n'
+        )
+        original_config = config_path.read_bytes()
+
+        installer.provision_native_kata_client(checkout, home)
+
+        self.assertEqual((home / ".local/bin/kata").resolve(), (checkout / "kata/kata").resolve())
+        self.assertEqual(config_path.read_bytes(), original_config)
+
+    def test_native_kata_provisioning_refuses_symlinked_config(self):
+        checkout, _ = self.native_kata_binary()
+        home = self.root / "home"
+        kata_home = home / ".kata"
+        kata_home.mkdir(parents=True)
+        external_config = self.root / "external-config.toml"
+        external_config.write_text('[auth]\ntoken = "synthetic-token"\n')
+        (kata_home / "config.toml").symlink_to(external_config)
+
+        with self.assertRaisesRegex(RuntimeError, "config is a symlink"):
+            installer.provision_native_kata_client(checkout, home)
+
+        self.assertFalse((home / ".local/bin/kata").exists())
+        self.assertEqual(external_config.read_text(), '[auth]\ntoken = "synthetic-token"\n')
+
+    def test_manual_kata_command_clears_inherited_environment(self):
+        checkout, binary = self.native_kata_binary()
+        binary.write_text(
+            f"#!{sys.executable}\nimport json, os\nprint(json.dumps(dict(os.environ)))\n"
+        )
+        binary.chmod(0o755)
+        home = self.root / "home"
+        with patch.object(installer.Path, "home", return_value=home), \
+                patch.dict(os.environ, {
+                    "KATA_AUTH_TOKEN": "synthetic-token",
+                    "KATA_AUTH_TOKEN_FILE": "/synthetic/token",
+                    "KATA_DSN": "/other/database",
+                    "KATA_DB": "/other/legacy.db",
+                    "KATA_SERVER": "https://daemon.example",
+                    "KATA_TRUST_PRIVATE_NETWORK": "1",
+                }):
+            command = installer.manual_kata_command(checkout)
+            result = subprocess.run(
+                command, check=True, capture_output=True, text=True, env=os.environ.copy(),
+            )
+
+        service_environment = json.loads(result.stdout)
+        self.assertEqual(service_environment["HOME"], str(home))
+        self.assertEqual(service_environment["KATA_HOME"], str(checkout / ".local/environment/kata"))
+        self.assertEqual(
+            service_environment["KATA_DSN"],
+            str(checkout / ".local/environment/kata/kata.db"),
+        )
+        self.assertEqual(service_environment["KATA_DB"], "")
+        self.assertNotIn("KATA_AUTH_TOKEN", service_environment)
+        self.assertNotIn("KATA_AUTH_TOKEN_FILE", service_environment)
+        self.assertNotIn("KATA_SERVER", service_environment)
+        self.assertNotIn("KATA_TRUST_PRIVATE_NETWORK", service_environment)
+
+    def test_native_kata_cli_uses_provisioned_target_and_repository_binding(self):
+        binary = installer.ROOT / "kata/kata"
+        if not binary.is_file() or not os.access(binary, os.X_OK):
+            self.skipTest("native Kata binary is not built")
+        home = self.root / "home"
+        workspace = self.root / "workspace"
+        workspace.mkdir()
+        (workspace / ".kata.toml").write_text(
+            'version = 1\n\n[project]\nname = "spoke-project"\n'
+        )
+        with socket.socket() as reserved_port:
+            reserved_port.bind(("127.0.0.1", 0))
+            daemon_url = f"http://127.0.0.1:{reserved_port.getsockname()[1]}"
+            with patch.object(installer, "KATA_DAEMON_URL", daemon_url, create=True):
+                installer.provision_native_kata_client(installer.ROOT, home)
+            result = subprocess.run(
+                ["kata", "daemon", "diagnose", "--json"],
+                cwd=workspace,
+                env={
+                    **os.environ,
+                    "HOME": str(home),
+                    "KATA_HOME": str(home / ".kata"),
+                    "KATA_SERVER": "",
+                    "KATA_DSN": "",
+                    "KATA_DB": "",
+                    "PATH": f"{home / '.local/bin'}{os.pathsep}{os.environ.get('PATH', '')}",
+                },
+                text=True,
+                capture_output=True,
+                timeout=15,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        diagnosis = json.loads(result.stdout)
+        self.assertEqual(diagnosis["kind"], "remote")
+        self.assertEqual(diagnosis["endpoint"], daemon_url)
+        self.assertEqual(diagnosis["project"], "spoke-project")
 
     def test_manual_install_initializes_builds_and_configures_without_services(self):
         self.installation()
@@ -329,6 +499,11 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("configure-private-pi-tracking" in command for command in commands))
         self.assertTrue(any("install-pi-extensions" in command for command in commands))
         self.assertFalse(any(any(arg.endswith("-service") for arg in command) for command in commands))
+        home = self.root / "installer-home"
+        self.assertEqual((home / ".local/bin/kata").resolve(), (self.root / "kata/kata").resolve())
+        config = tomllib.loads((home / ".kata/config.toml").read_text())
+        self.assertEqual(config["active_daemon"], "local")
+        self.assertEqual(config["daemon"][0]["url"], installer.KATA_DAEMON_URL)
 
     def test_user_install_explicitly_enables_all_four_services(self):
         self.installation()

@@ -25,14 +25,44 @@ import urllib.request
 
 
 ROOT = Path(__file__).resolve().parent.parent
-STATE = ROOT / ".local/environment"
+
+
+def resolve_runtime_root(source_root, environment=None):
+    environment = os.environ if environment is None else environment
+    override = environment.get("KENN_KOPY_RUNTIME_ROOT")
+    if override:
+        runtime_root = Path(override).expanduser()
+        if not runtime_root.is_absolute():
+            raise RuntimeError("KENN_KOPY_RUNTIME_ROOT must be an absolute path")
+        runtime_root = runtime_root.resolve()
+        if not runtime_root.is_dir():
+            raise RuntimeError("KENN_KOPY_RUNTIME_ROOT must name an existing directory")
+        return runtime_root
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=source_root, text=True, capture_output=True, check=False, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return source_root
+    if result.returncode != 0 or not result.stdout.strip():
+        return source_root
+    common = Path(result.stdout.strip())
+    if not common.is_absolute():
+        common = source_root / common
+    common = common.resolve()
+    return source_root if common == (source_root / ".git").resolve() else common.parent
+
+
+RUNTIME_ROOT = resolve_runtime_root(ROOT)
+STATE = RUNTIME_ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
-PI_VERSION = "1.0.3"
+PI_VERSION = "1.4.0"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
 PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
 GH_VERSION = "2.102.0"
-GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
+GH_BINARY = RUNTIME_ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
 PORTS = (17373, 17374, 17777, 18080, 18091)
 FORGE_PORT = 18091
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
@@ -95,7 +125,9 @@ def base_environment(roborev_executable=None):
     roborev_executable = roborev_binary() if roborev_executable is None else roborev_executable
     return {
         "PATH": os.pathsep.join([str(GH_BINARY.parent), str(roborev_executable.parent),
-                                str(ROOT / "kata"), str(ROOT / "agentsview"), os.environ["PATH"]]),
+                                str(RUNTIME_ROOT / "kata"), str(RUNTIME_ROOT / "agentsview"),
+                                os.environ["PATH"]]),
+        "KENN_KOPY_RUNTIME_ROOT": str(RUNTIME_ROOT),
         "HOME": str(home),
         "USER": getpass.getuser(),
         "XDG_CONFIG_HOME": str(home / ".config"),
@@ -153,7 +185,7 @@ def setup(corpus, forge_binary):
     if config_path.exists() and json.loads(private_read(config_path)) != config:
         raise RuntimeError(f"setup differs from saved paths/version; inspect {config_path} first")
     json_write(config_path, config)
-    wrapper = ROOT / "scripts/pi-local.py"
+    wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
     disabled = "".join(f'\n[[agents]]\nkey = "{key}"\nenabled = false\n'
                        for key in ("claude", "codex", "gemini", "opencode", "aider"))
     private_write(
@@ -170,13 +202,29 @@ def setup(corpus, forge_binary):
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
         '[web]\nlisten = "127.0.0.1:17374"\n',
     )
+    managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
+    launcher_migrations = (
+        (STATE / "forge/config.toml",
+         re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi"\n.*?^command = )'
+                    rf'\["{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"\]$'),
+         lambda match: match.group(1) + f'[{json.dumps(str(wrapper))}]'),
+        (STATE / "roborev/config.toml",
+         re.compile(rf'(?m)^pi_cmd = "{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"$'),
+         lambda _match: f'pi_cmd = {json.dumps(str(wrapper))}'),
+    )
+    for path, pattern, replacement in launcher_migrations:
+        if path.exists():
+            content = private_read(path)
+            migrated, count = pattern.subn(replacement, content, count=1)
+            if count and migrated != content:
+                private_write(path, migrated, replace=True)
     private_write(
         STATE / "kata/config.toml",
         'listen = "127.0.0.1:17777"\nactive_daemon = "local"\n'
         '[[daemon]]\nname = "local"\nurl = "http://127.0.0.1:17777"\n',
     )
     json_write(STATE / "pi/settings.json",
-               {"defaultThinkingLevel": "off", "packages": [str(ROOT / "superpowers")]})
+               {"defaultThinkingLevel": "off", "packages": [str(RUNTIME_ROOT / "superpowers")]})
     json_write(STATE / "pi/mcp.json", {"mcpServers": {"falcon-context": {
         "command": str(server), "args": ["--root", str(corpus), "--reader", str(reader)],
         "exposure": "codemode", "timeout": 60,
@@ -213,7 +261,7 @@ def set_key(*, private_only=False):
 
 
 def link_cli_key():
-    command = "!" + shlex.join([sys.executable, str(ROOT / "scripts/usai-key.py")])
+    command = "!" + shlex.join([sys.executable, str(RUNTIME_ROOT / "scripts/usai-key.py")])
     auth_path = GLOBAL_PI / "auth.json"
     auth = json.loads(private_read(auth_path)) if auth_path.exists() or auth_path.is_symlink() else {}
     if not isinstance(auth, dict):
@@ -550,7 +598,7 @@ def agentsview_request(method, path, body=None, timeout=30):
 
 
 def agentsview_command():
-    args = [str(ROOT / "agentsview/agentsview"), "serve", "--host", "127.0.0.1",
+    args = [str(RUNTIME_ROOT / "agentsview/agentsview"), "serve", "--host", "127.0.0.1",
             "--port", "18080", "--no-browser", "--no-update-check"]
     if not (STATE / "agentsview-tracking.json").exists():
         args.append("--no-sync")
@@ -679,7 +727,7 @@ def install_user_service(unit_name, command, description, ports, readiness, args
     private_dir(directory)
     unit = directory / unit_name
     executable = " ".join(systemd_quote(value) for value in (executable or (
-        sys.executable, ROOT / "scripts/local_env.py", command, *args,
+        sys.executable, RUNTIME_ROOT / "scripts/local_env.py", command, *args,
     )))
     environment_lines = "".join(f"Environment={systemd_quote(value)}\n" for value in environment)
     directory_line = ""
@@ -780,7 +828,7 @@ def roborev_binary():
             if not binary.is_absolute():
                 raise RuntimeError("saved roborev binary must be an absolute path")
             return binary
-    return ROOT / "roborev/bin/roborev"
+    return RUNTIME_ROOT / "roborev/bin/roborev"
 
 
 def roborev_command(binary=None):
@@ -954,7 +1002,7 @@ def validate_kata_config():
 
 
 def kata_command():
-    binary = ROOT / "kata/kata"
+    binary = RUNTIME_ROOT / "kata/kata"
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError("missing executable Kata binary; build it before starting the service")
     return [str(binary), "daemon", "start", "--foreground", "--no-auto-token",
@@ -962,8 +1010,23 @@ def kata_command():
 
 
 def kata_environment():
-    return {"KATA_HOME": str(STATE / "kata"),
-            "KATA_DSN": str(STATE / "kata/kata.db"), "KATA_DB": ""}
+    return {
+        "HOME": str(Path.home()),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "KATA_HOME": str(STATE / "kata"),
+        "KATA_DSN": str(STATE / "kata/kata.db"),
+        "KATA_DB": "",
+        "KATA_TELEMETRY_ENABLED": "0",
+    }
+
+
+def kata_service_command():
+    env = Path("/usr/bin/env")
+    if not env.is_file() or not os.access(env, os.X_OK):
+        raise RuntimeError("missing /usr/bin/env required to isolate the Kata service environment")
+    environment = [f"{key}={value}" for key, value in kata_environment().items()]
+    return [str(env), "-i", *environment, *kata_command()]
 
 
 def install_kata_service():
@@ -972,8 +1035,7 @@ def install_kata_service():
     install_user_service(
         KATA_UNIT, None, "Engi Platform local task ledger",
         SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
-        executable=kata_command(),
-        environment=tuple(f"{key}={value}" for key, value in kata_environment().items()),
+        executable=kata_service_command(),
     )
     json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
     print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
@@ -1055,9 +1117,9 @@ def serve():
         services = [
             ("roborev", Path(roborev[0]), roborev[1:],
              "http://127.0.0.1:17373/api/status"),
-            ("kata", ROOT / "kata/kata", kata_command()[1:],
+            ("kata", RUNTIME_ROOT / "kata/kata", kata_command()[1:],
              "http://127.0.0.1:17777/api/v1/health"),
-            ("agentsview", ROOT / "agentsview/agentsview", agentsview_command()[1:],
+            ("agentsview", RUNTIME_ROOT / "agentsview/agentsview", agentsview_command()[1:],
              "http://127.0.0.1:18080/api/ping"),
             ("forge", Path(forge[0]), forge[1:], f"http://127.0.0.1:{FORGE_PORT}/healthz"),
         ]
