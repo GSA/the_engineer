@@ -39,6 +39,9 @@ TOOLS = {
     "node": "Node.js >=24.11.0 (use an approved installation method)",
     "npm": "npm compatible with your Node.js installation",
     "tmux": "tmux",
+    "rg": "ripgrep",
+    "fd": "fd-find, then expose Ubuntu's fdfind as fd: "
+          "mkdir -p \"$HOME/.local/bin\" && ln -s /usr/bin/fdfind \"$HOME/.local/bin/fd\"",
     "pi": f"Pi {PI_VERSION}: npm install --prefix \"$HOME/.local/engi-pi\" "
           f"@earendil-works/pi-coding-agent@{PI_VERSION}; "
           "then add $HOME/.local/engi-pi/node_modules/.bin to PATH",

@@ -58,9 +58,11 @@ class InstallerTests(unittest.TestCase):
                 patch.object(installer.platform, "system", return_value="Linux"), \
                 patch.object(installer.platform, "machine", return_value="x86_64"):
             errors = installer.prerequisites(self.corpus)
-        for tool in ("git", "curl", "node", "npm", "cc", "tmux", "pi"):
+        for tool in ("git", "curl", "node", "npm", "cc", "tmux", "pi", "rg", "fd"):
             self.assertTrue(any(tool in error for error in errors), tool)
         self.assertTrue(any("build-essential" in error for error in errors))
+        self.assertTrue(any("ripgrep" in error for error in errors))
+        self.assertTrue(any("fd-find" in error and "fdfind" in error for error in errors))
 
     def test_unsupported_architecture_is_reported(self):
         with patch.object(installer.shutil, "which", return_value=None), \

@@ -9,6 +9,26 @@
 - **Blocker:** approved `sudo apt-get install -y python3-venv` cannot run in this agent because kernel `no_new_privs` blocks sudo. A fresh real venv probe still fails. Owner must install it from an unrestricted shell, then launch a new Forge Pi process to verify tool exposure.
 - Full `scripts/` discovery is not green in this partial Forge worktree: 19 errors and 2 failures from absent submodule binaries and overlong Unix socket paths, unrelated to this change. Diagnostic report: `~/.superpowers/diagnosing-superpowers/01a1835d-0e9f-72de-9526-1c96560fdbf4/report.md`.
 
+## Offline Forge Pi search tools restored (489f)
+
+- Root cause: host lacked ripgrep and fd; Forge correctly sets `PI_OFFLINE=1`,
+  so Pi skipped helper downloads. Offline mode and `NoNewPrivileges` remain.
+- Installed Ubuntu ripgrep 15.1.0 and fd-find 10.3.0 executables in
+  `/home/nkirrish/.local/bin`, with `fd -> fdfind`. Running Forge PID 426
+  already inherits that path; both version commands pass under its exact
+  environment with `PI_OFFLINE=1`. No restart is required.
+- Installer now requires `rg` and `fd`, reports Ubuntu package/link guidance,
+  and documents why they must be preinstalled. The regression test was observed
+  failing before implementation. Combined focused suite: 130 tests pass, one
+  expected skip; Python compile and diff checks pass.
+- Forge sandbox blocked sudo as intended, so this host used unprivileged apt
+  package download/extraction rather than weakening service security. No
+  experimental process remains; mistaken private-HOME copies were removed.
+- Exact-commit roborev job 135 passed with no findings. Published branch
+  `kenn-forge/work-0de2ae9c` and opened GitHub PR 1 against `main`:
+  https://github.com/GSA/the_engineer/pull/1
+
+# Previous status: 2026-10-26
 
 ## Private remotes and separated task routing delivered (7943)
 

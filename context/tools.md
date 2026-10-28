@@ -6,6 +6,18 @@
 - Ubuntu's `/usr/bin/pip` being present does not imply `python3 -m venv` can bootstrap pip. The required host package is `python3-venv` (currently matching `python3.14-venv`). Agent sessions run with `no_new_privs`, so install this from an unrestricted owner shell.
 - Diagnostic evidence is under `~/.superpowers/diagnosing-superpowers/01a1835d-0e9f-72de-9526-1c96560fdbf4/`.
 
+## Offline Forge Pi search commands: 2026-10-28 (489f)
+
+Forge's running PID 426 retains `PI_OFFLINE=1` and PATH includes
+`/home/nkirrish/.local/bin`. The host initially had neither `rg`, `fd` nor
+`fdfind`; apt metadata offered ripgrep 15.1.0 and fd-find 10.3.0. Forge's
+`NoNewPrivileges=true` correctly blocked sudo from its session. Downloaded the
+same Ubuntu packages without privilege, extracted only their executables, and
+installed user-local `rg`/`fdfind` plus `fd -> fdfind`; no global package
+state or service configuration changed. Both execute under PID 426's exact
+environment while offline. A normal authorized host should instead install
+`ripgrep fd-find` through apt and add the documented user-local fd link.
+
 
 ## Private GSA remotes and Forge onboarding: 2026-10-26 (7943)
 
