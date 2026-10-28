@@ -356,6 +356,34 @@ Historical planning snapshot; current acceptance is in the txt3 section above.
   source acquisition, corpus writes, agent launch, publication or rename.
   Shutdown: no experimental process was started; persistent services were
   left unchanged. Planning closure/commit evidence belongs to native kamh.
+## Forge Pi dependency provisioning
+
+- Claimed Kata `engi-platform#h28d`. Diagnosed session `01a1835d-0e9f-72de-9526-1c96560fdbf4`: pip/Python resolve correctly in Forge under sh/Bash/zsh; the actual failure is Ubuntu Python lacking `ensurepip` because `python3-venv` is absent. The session created ignored `.superpowers/.../python-deps` via `pip --target` as a workaround.
+- Removed only that generated `python-deps` directory (the failed venv had already disappeared) from `the_knowitall`; retained task progress and implementation artifacts.
+- Provisioned pinned `npm:pi-subagents@0.83.0` in Forge's isolated Pi profile. Exact-profile `pi list` now reports Superpowers, JSON schema, and subagents. New code installs both pinned extensions repeatably and clean install invokes the combined command.
+- Added clean-host preflight that creates a real pip-enabled venv and reports `install python3-venv` when unavailable. Installer tests: 31 passed, 3 skipped; focused local environment tests: 2 passed; `git diff --check` passed.
+- **Blocker:** approved `sudo apt-get install -y python3-venv` cannot run in this agent because kernel `no_new_privs` blocks sudo. A fresh real venv probe still fails. Owner must install it from an unrestricted shell, then launch a new Forge Pi process to verify tool exposure.
+- Full `scripts/` discovery is not green in this partial Forge worktree: 19 errors and 2 failures from absent submodule binaries and overlong Unix socket paths, unrelated to this change. Diagnostic report: `~/.superpowers/diagnosing-superpowers/01a1835d-0e9f-72de-9526-1c96560fdbf4/report.md`.
+
+## Offline Forge Pi search tools restored (489f)
+
+- Root cause: host lacked ripgrep and fd; Forge correctly sets `PI_OFFLINE=1`,
+  so Pi skipped helper downloads. Offline mode and `NoNewPrivileges` remain.
+- Installed Ubuntu ripgrep 15.1.0 and fd-find 10.3.0 executables in
+  `/home/nkirrish/.local/bin`, with `fd -> fdfind`. Running Forge PID 426
+  already inherits that path; both version commands pass under its exact
+  environment with `PI_OFFLINE=1`. No restart is required.
+- Installer now requires `rg` and `fd`, reports Ubuntu package/link guidance,
+  and documents why they must be preinstalled. The regression test was observed
+  failing before implementation. Combined focused suite: 130 tests pass, one
+  expected skip; Python compile and diff checks pass.
+- Forge sandbox blocked sudo as intended, so this host used unprivileged apt
+  package download/extraction rather than weakening service security. No
+  experimental process remains; mistaken private-HOME copies were removed.
+- Exact-commit roborev job 135 passed with no findings. Published branch
+  `kenn-forge/work-0de2ae9c` and opened GitHub PR 1 against `main`:
+  https://github.com/GSA/the_engineer/pull/1
+
 
 ## Private remotes and separated task routing delivered (7943)
 

@@ -230,40 +230,46 @@ class LocalEnvironmentTests(unittest.TestCase):
                 runpy.run_path(str(local_env.ROOT / "scripts/terminal-local.py"), run_name="__main__")
         self.assertEqual(exit_result.exception.code, 2)
 
-    def test_review_extension_installation_is_private_pinned_and_preserves_settings(self):
+    def test_pi_extension_installation_is_private_pinned_and_preserves_settings(self):
         path = self.state / "pi/settings.json"
         config = json.loads(path.read_text())
         config["theme"] = "retained"
         local_env.json_write(path, config, replace=True)
         before = config.copy()
 
+        installed = []
+
         def install(command, **kwargs):
-            self.assertEqual(command, ["/usr/bin/pi", "install", local_env.PI_REVIEW_EXTENSION])
+            self.assertEqual(command[:2], ["/usr/bin/pi", "install"])
+            self.assertIn(command[2], local_env.PI_EXTENSIONS)
+            installed.append(command[2])
             self.assertEqual(kwargs["cwd"], self.state / "home")
             self.assertEqual(kwargs["env"]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
             self.assertNotIn("USAI_API_KEY", kwargs["env"])
             self.assertTrue(kwargs["check"])
-            config["packages"] = list(dict.fromkeys([*config["packages"], local_env.PI_REVIEW_EXTENSION]))
+            config["packages"] = list(dict.fromkeys([*config["packages"], command[2]]))
             local_env.json_write(path, config, replace=True)
 
         with patch.object(local_env.subprocess, "run", side_effect=install) as run:
             with contextlib.redirect_stdout(io.StringIO()):
-                local_env.install_pi_review_extension()
-                local_env.install_pi_review_extension()
-        self.assertEqual(run.call_count, 2)
+                local_env.install_pi_extensions()
+                local_env.install_pi_extensions()
+        self.assertEqual(run.call_count, 2 * len(local_env.PI_EXTENSIONS))
+        self.assertEqual(installed, list(local_env.PI_EXTENSIONS) * 2)
         self.assertEqual(config["theme"], before["theme"])
         self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), config["packages"])
-        self.assertEqual(config["packages"].count(local_env.PI_REVIEW_EXTENSION), 1)
+        for extension in local_env.PI_EXTENSIONS:
+            self.assertEqual(config["packages"].count(extension), 1)
         self.assertEqual(list(self.global_pi.iterdir()), [])
 
-    def test_review_extension_installation_reports_failure_and_wrong_profile(self):
+    def test_pi_extension_installation_reports_failure_and_wrong_profile(self):
         with patch.object(local_env.subprocess, "run", side_effect=local_env.subprocess.CalledProcessError(
                 1, ["pi", "install"])):
             with self.assertRaises(local_env.subprocess.CalledProcessError):
-                local_env.install_pi_review_extension()
+                local_env.install_pi_extensions()
         with patch.object(local_env.subprocess, "run"):
             with self.assertRaisesRegex(RuntimeError, "isolated profile"):
-                local_env.install_pi_review_extension()
+                local_env.install_pi_extensions()
 
     def test_scoped_roborev_pins_profile_endpoint_and_preserves_arguments(self):
         binary = local_env.RUNTIME_ROOT / "roborev/bin/roborev"

@@ -292,6 +292,14 @@ trial after the first real workflow without waiting for Drive. Recommend REA
 only as an optional Engineer investigation capability for authorized artifacts
 or runtime questions that source/SPUD cannot answer. Superpowers remains the
 working method. No new skill/MCP registration, global setup or model run.
+## Offline Forge Pi search tools restored: 2026-10-28 (489f)
+
+The owner requested restoring `fd` and ripgrep to reduce search-related agent
+token usage. Preserve Forge's intentional `PI_OFFLINE=1`; agents must find both
+commands on the inherited PATH rather than download helpers. Fresh installations
+must treat `rg` and `fd` as prerequisites and explain Ubuntu's `fd-find` /
+`fdfind` naming. No service security weakening or online Pi fallback.
+
 
 ## Private GSA publication and task separation: 2026-10-26 (7943)
 

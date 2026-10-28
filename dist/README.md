@@ -72,15 +72,23 @@ download source/packages, change persistent configuration or register/start
 services. It does not prove corpus freshness, model access or service health.
 
 Required host tools include Bash, Git, curl, tar, coreutils, diffutils, make,
-a C compiler/development headers, tmux, Node/npm, Python and **Pi 1.4.0**.
+a C compiler/development headers, tmux, ripgrep (`rg`), fd (`fd`), Node/npm,
+Python and **Pi 1.4.0**. Forge keeps Pi offline, so these search tools must be
+available on `PATH` rather than left for Pi to download at runtime.
 The script reports installation guidance; it does **not** run sudo, install
 Ubuntu packages, upgrade Node or replace global Pi. A typical Ubuntu OS-tools
 installation, performed separately by an authorized user, is:
 
 ```sh
 sudo apt-get install git curl ca-certificates build-essential libc6-dev \
-  tmux python3 tar coreutils diffutils
+  tmux python3 tar coreutils diffutils ripgrep fd-find
+mkdir -p "$HOME/.local/bin"
+ln -s /usr/bin/fdfind "$HOME/.local/bin/fd"
 ```
+
+Ubuntu names fd's packaged executable `fdfind`; the user-local link supplies
+the standard `fd` command expected by Pi. If the link already exists, inspect
+it rather than replacing it blindly.
 
 Install an approved Node.js 24.11+ and compatible npm separately. Pi can be
 installed in a dedicated user-local prefix, without changing a global profile:

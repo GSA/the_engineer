@@ -406,18 +406,19 @@ stop/start ownership were verified; a full WSL reboot remains untested.
 
 ### Isolated Pi reviews without Forge
 
-Install the pinned structured-output extension using Pi's own package manager:
+Install the pinned Forge/roborev extensions using Pi's own package manager:
 
 ```sh
-python3 scripts/local_env.py install-pi-review-extension
+python3 scripts/local_env.py install-pi-extensions
 ```
 
-This installs **`npm:@nqbao/pi-json-schema@0.1.1`** into
-`.local/environment/pi/npm/` and adds it to the private Pi settings, preserving
-Superpowers and the other settings. It needs package-registry access, not a
-USAi credential, and can be repeated. Global Pi configuration is untouched.
-Roborev explicitly loads the extension and supplies the review JSON schema.
-The extension validates the result before roborev stores it.
+This installs **`npm:@nqbao/pi-json-schema@0.1.1`** and
+**`npm:pi-subagents@0.83.0`** into `.local/environment/pi/npm/` and adds them to
+the private Pi settings, preserving Superpowers and the other settings. It
+needs package-registry access, not a USAi credential, and can be repeated.
+Global Pi configuration is untouched. Roborev explicitly loads the schema
+extension; Forge Pi agents receive the subagent dispatch tool needed by
+subagent-driven Superpowers workflows.
 
 Use the native release binary for both normal commands and the managed service:
 
@@ -573,8 +574,10 @@ optional. It requires an approved existing Librarian installation and reports
 missing host tools rather than installing system packages or changing global
 agent profiles. Clean-host acceptance is still outstanding.
 
-The current host has built application binaries, Python 3.11+, Node, Git, tmux
-and user-installed Pi **1.4.0**. Falcon's existing MCP installation/index must
+The current host requires built application binaries, Python 3.11+ with the
+Ubuntu **`python3-venv`** package (so repository-local environments include
+pip), Node, Git, tmux and user-installed Pi **1.4.0**. Falcon's existing MCP
+installation/index must
 be present under `~/falcon-docs`. Setup validates Pi's exact version but does
 not install it or modify global Pi configuration.
 
