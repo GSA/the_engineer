@@ -17,6 +17,36 @@
 - Updated `AGENTS.md` and `context/tools.md` so parent agents omit `model` or
   pass `model: "inherit"` (or a configured `usai/*` model) when dispatching
   Pi subagents.
+- Filed Kata `sb77` (`Reconcile pi-subagents profiles and Superpowers review
+  dispatch with roborev`, linked to `k03a` and `zmzh`) and recorded detailed
+  session evidence in `context/engineering-workflow.md` covering `general-purpose`
+  vs. builtin `reviewer` profile collisions, read-only `task-N-review.md`
+  handoff failures, `roborev` sessions loading ancestor/coder onboarding
+  contracts (`context/*.md`, `agents/coder.md`), duplicate review layers, and
+  `action: "resume"` model-override errors.
+
+## Librarian strict text and Docling retrieval implemented (8a5h/zqdh)
+
+- Branch `kenn-forge/work-4e9ad41d` contains approved design/plan and three
+  implementation increments: strict UTF-8 lifecycle `1d48de6`, selected text
+  retrieval `82cf2e4`, and exact-review-qualified Docling retrieval `fb7fa5a`.
+- Synthetic temporary-store verification after the Docling commit: Workspace
+  30 passed; existing Docling adapter/worker 61 passed with seven optional
+  skips; exact gate 51 passed. Roborev exact staged scope passed job 225.
+- Review findings were reproduced and fixed under TDD, including final review
+  freshness, exact citations, qualification fingerprinting, collective scope,
+  conversion warnings, malformed structures, unsupported collections and
+  controlled manifest errors. Existing GeminiTXT/ODT behavior remains covered.
+- Final schema check reports no changes; package creation emitted 66 allowlisted
+  files; kit suite passed 83/83; targeted lifecycle/worker suite passed 89/89
+  with 14 declared skips. Broad discovery ran 145 tests: runnable tests passed,
+  seven optional tests skipped, and `test_mcp` failed import exactly with
+  `ModuleNotFoundError: No module named 'mcp'` under `/usr/bin/python3`.
+- Remaining delivery work: Kata criterion comments/closure, whole-branch review
+  and PR creation. Installed environment has no `python`/`.venv`; no network
+  dependency install will be improvised. No real acquisition/ingestion, model execution,
+  operational review/selection, migration, push or publication has occurred.
+
 
 ## Delivery documentation and Forge/Pi audit: 2026-10-28 (9aw1)
 
