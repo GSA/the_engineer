@@ -1,5 +1,21 @@
 # Upstream components
 
+## Demo acceptance gap evidence: 2026-10-27
+
+Current code baseline remains Engineer `2feac4b`, Knowitall `eb4f947`
+(bootstrap only), Librarian `b368d7e` with the same prior roadmap/ADR edits.
+Compared native `pyzt/k4mp/pbqn/6hce`, Librarian `pwhw/xzkj/0nj8` and Knowitall
+`vky6`; searched existing task history for conformance/demo fixtures, linking
+and Knowitall onboarding. Local history corroborates the prior implementation
+and retirement dispositions; no new delivered runtime appeared.
+
+The link lifecycle is a partially covered ownership/acceptance gap, not proof
+that existing contracts omit references: they explicitly include them. Shared
+provider conformance/demo fixtures are not a delivered cross-product harness.
+Knowitall bootstrap deliberately made no remote or Forge registration; its
+Git/Kata binding must not be presented as Forge onboarding. No code, tests,
+source inputs, services or profiles were changed in this question-only audit.
+
 ## Knowitall bootstrap and resumed AgentsView repair: 2026-10-27 (c6by)
 
 After disconnection, the first AgentsView agent was cancelled but had already

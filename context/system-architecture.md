@@ -29,6 +29,51 @@ it rather than maintaining competing copies. Use dated decision entries for
 changes in direction, and do not turn a proposed sequence into task status or
 authorization.
 
+## Remaining demo integration gaps: 2026-10-27, pre-refinement
+
+The current component backlog is substantially covered; do not add another
+parser, queue, graph engine, memory-research task or replacement UI. Comparing
+the current native acceptance bodies with the unchanged code baseline exposes
+three cross-product concerns before parallel implementation:
+
+1. **Business-to-code link lifecycle ownership is underspecified.** `pwhw`
+   defines external code references, `xzkj` implements business relationships,
+   and `k4mp` consumes a connected evidence trace. Explicitly assign creating,
+   qualifying, retaining and invalidating the cross-product assertion when
+   either document or code revision changes. Prefer a bounded Librarian-owned
+   implementation slice or deliberate expansion of `xzkj`, not an Engineer
+   shadow graph. Candidate matches, ambiguous links and confirmed assertions
+   need different states; names alone cannot establish implementation.
+2. **No shared known-answer contract fixture / integrated demo harness is
+   explicitly owned.** Provider contracts and component tests are planned,
+   but their combination needs one versioned scenario and expected answers.
+   Exercise real adapters/providers, source-to-symbol evidence, a changed source,
+   interrupted intake/replay, and explicit missing evidence. Include
+   counterexamples such as same-name entities and an unsupported/contradictory
+   claim. Keep synthetic fixtures temporary and business data out of reusable
+   product initialization; real-data demonstration remains a separate approved
+   acceptance. This can be an Engineer child of `pyzt`.
+3. **Knowitall development onboarding is conditional work.** Git and native
+   Kata binding exist; no remote/provider registration or Forge mapping was
+   created. If Forge runs this repo's implementation agents, select and prove
+   the supported repository/worktree/agent route. A CLI-only local worktree
+   workflow can avoid making private remote publication a prerequisite. Do not
+   confuse code-source intake (`7gv8`) with development-repository onboarding.
+
+Refine existing acceptance rather than create more infrastructure:
+`pyzt` should name the approved demo cohort/change and a read-only evidence
+walkthrough showing passage -> business assertion -> code/dependency ->
+change/review, including completion/DLQ limitations. A CLI/static report is
+sufficient; do not resurrect the retired Falcon visualization project.
+`k4mp`/`6hce` should explicitly prove real provider binding/discovery, not just
+well-shaped mocked packets. `pbqn`/`zbww` should supply a two-session memory
+reuse/correction scene; archive visibility is not memory usefulness.
+
+Project/material/model approval, known hardening findings, connector recovery,
+graph incrementality and deployment choices already have owners. These are
+open gates, not newly discovered features. This audit records proposals only:
+no new Katas, changed dependencies or implementation agents were launched.
+
 ## Approved product split and filed backlog: 2026-10-27 (c6by)
 
 The owner now establishes **The Knowitall as the code-context repository/graph**,
