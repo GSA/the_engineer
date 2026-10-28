@@ -1,5 +1,14 @@
 # Objective and decisions
 
+## Delivery documentation policy: 2026-10-28 (9aw1)
+
+The owner requires working plans to stay out of PRs. Root `AGENTS.md` now
+directs planning output to ignored local state/Kata, shipped user usage to
+README and reusable agent usage to context. Existing contracts/history and
+other agents' work remain intact. Actual Forge/Pi instruction-loading evidence
+is in `context/engineering-workflow.md`; broader writer/reviewer policy wiring
+remains with existing tasks, not an installed profile change.
+
 ## Managed Pi 1.4.0 approved: 2026-10-28 (gamy)
 
 The owner chose upgrading the managed runtime pin to Pi 1.4.0 rather than
@@ -8,8 +17,10 @@ repository launcher/installer guards still required 1.0.3. Update both pins,
 current installation guidance and private saved version metadata consistently;
 retain exact-version checking, executable paths and approved USAi routing.
 Do not change global settings, credentials or services. Offline startup/MCP/
-structured-output compatibility is verified; the owner will retry Forge's GUI.
-Broader fresh-host Pi provisioning remains open under `ww7g`.
+structured-output compatibility is verified; the owner subsequently confirmed
+Forge Pi boots. `gamy` was reopened after automatic review job 130 identified
+the missing repeatable upgrade for existing saved 1.0.3 metadata; that fix is
+not delivered here. Broader fresh-host Pi provisioning remains open under `ww7g`.
 
 ## Demo priority and value gates approved: 2026-10-27, 23:00
 
