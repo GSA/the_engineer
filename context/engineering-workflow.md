@@ -4,6 +4,44 @@ Reviewed changes keep additive correction commits. Do not amend a commit
 without explicit owner approval; carry that rule into external-agent dispatch,
 not only the coordinating agent's private instructions.
 
+## Pi subagent and review profile loading audit: 2026-10-28 (sb77)
+
+Forensic inspection of recent Forge Pi sessions across `the_engineer`
+(`kenn-forge/work-7d57d583`, session `01a18388`) and `the_librarian`
+(`kenn-forge/work-22874a66`, session `01a18387`; `kenn-forge/work-4e9ad41d`,
+session `01a18381`) documented four profile and workflow collisions in Kata
+`sb77` (linked to `k03a` and `zmzh`):
+
+1. **Superpowers `general-purpose` reviewer dispatch vs. `pi-subagents` builtin
+   `reviewer` profile:** Superpowers (`subagent-driven-development` and
+   `requesting-code-review`) dispatches a `general-purpose` subagent whose
+   reviewer persona, rubric, and `.superpowers/sdd/.../task-N-review.md`
+   artifact handoff are defined in the caller prompt. `pi-subagents` has no
+   `general-purpose` builtin (`01a18387` failed with `Unknown agent:
+   general-purpose`). When controllers instead dispatch `agent: "reviewer"`
+   (`01a18388` runs `9eb32845`, `dcdb45d6`, `dec3c99c`), `pi-subagents` loads
+   its own builtin `agents/reviewer.md` profile (`systemPromptMode: replace`,
+   `inheritProjectContext: true`, read-only tools without `write` or `bash`),
+   injecting a competing P0/P1/P2 review rubric and preventing the child from
+   writing `task-N-review.md`.
+2. **Reviewer sessions inheriting coder/ancestor onboarding instructions:**
+   Because `roborev` and `pi-subagents` run inside worktrees (or
+   `.local/roborev-precommit/...` snapshots under `.local/environment/forge/worktrees/`),
+   Pi's `DefaultResourceLoader` injects ancestor `AGENTS.md` and worktree
+   `AGENTS.override.md`. Every inspected `roborev` Pi review session began by
+   reading `context/project.md`, `context/tools.md`, `context/status.md`, and
+   `agents/coder.md` before inspecting the diff.
+3. **Duplicate review layers:** Superpowers skills mandate per-task and
+   whole-branch `pi-subagents` reviewer dispatches alongside repository-required
+   `roborev` commit/branch gates (`roborev` was confirmed by the owner in
+   `01a18387` as the sole required review mechanism).
+4. **Subagent model & `resume` parameter mismatches:** Superpowers SDD instructs
+   controllers to pass `model` on every `subagent` call and `resume`
+   implementers on fix rounds `R<=3`, whereas `pi-subagents` rejects `model` on
+   `action: "resume"` (`01a18388`) and `merge_pi_subagents_settings()` in
+   `scripts/local_env.py` still needs to enforce USAi-only policy over stale
+   pre-existing settings (`roborev` job 237).
+
 ## Active delivery documentation and instruction loading: 2026-10-28 (9aw1)
 
 The owner requires temporary specs/plans to stay out of delivered PRs.
