@@ -1,5 +1,45 @@
 # Status: 2026-10-28
 
+## Knowitall revision-bound code-context contract closed (vky6): 2026-10-28
+
+- Closed Kata `knowitall#vky6` at commit `9003873` on branch
+  `kenn-forge/kata/vky6-49a49c22-define-the-knowitall-revision-bound-code-context-provider`
+  in the isolated Forge worktree. Delivered a versioned
+  `knowitall.code-context/v1` provider/consumer contract: JSON schemas, frozen
+  models, validation APIs, four examples, and a working local implementation
+  over synthetic Python and TypeScript fixtures.
+- Every response binds project, repository, snapshot, commit (or dirty-content)
+  identity, graph generation, and raw-artifact digest. `current` is only a
+  selector, never evidence. Four query kinds are served: `symbol`,
+  `dependencies`, `path`, `source_range`, each with half-open source ranges and
+  content digests.
+- Engine reuse: `graphifyy==0.9.96` behind an engine-neutral adapter, Apache-2.0
+  with notices, source revision `dac0634`, 237/237 files byte-identical to the
+  published artifact, and a complete 31-distribution hash lock. Adapter runs it
+  offline, shell-free, with fixed code-only arguments, confined paths, an
+  allowlisted credential-free environment, and bounded receipts.
+- Coverage conservatism holds end to end: inventory failures and snapshot
+  exclusions persist as machine-readable `missing_evidence`, publication rejects
+  partial coverage lacking records, and incomplete or excluded scope can never
+  authorize repository-wide absence.
+- Fresh verification at `9003873`: 119 tests pass, 4/4 contract examples
+  validate, wheel and sdist build, `compileall` clean, working tree clean.
+- Reverted accumulated runtime-attestation machinery as out-of-scope drift: it
+  pinned host-specific library paths and local development venv digests, could
+  not prove the ELF loader's dependency closure before execution, and had grown
+  the adapter larger than the rest of the package combined. The adapter now
+  verifies extractor package and version identity only (141 lines) and makes no
+  production runtime-integrity claim; `docs/graphify-dependency.md` states that
+  boundary explicitly. Deployment-attested runtime integrity is tracked as
+  `knowitall#d2qt` with `needs-scope-approval`.
+- Process correction: fifteen consecutive Roborev failing verdicts drove
+  unapproved scope expansion. Reviewers surface concerns; they do not set task
+  scope. Findings outside a task's approved threat model get recorded as
+  separate, deferred work with documented rationale. Standing owner instruction:
+  do not automatically act on Roborev feedback.
+- No real source acquisition, model invocation, deployment, publication, or push
+  occurred. Branch remains local.
+
 ## Pi subagent USAi model resolution enabled: 2026-10-28
 
 - Root-caused `Unknown subagent model 'openai-codex/gpt-5.3-codex:medium'` in
@@ -42,10 +82,23 @@
   with 14 declared skips. Broad discovery ran 145 tests: runnable tests passed,
   seven optional tests skipped, and `test_mcp` failed import exactly with
   `ModuleNotFoundError: No module named 'mcp'` under `/usr/bin/python3`.
-- Remaining delivery work: Kata criterion comments/closure, whole-branch review
-  and PR creation. Installed environment has no `python`/`.venv`; no network
-  dependency install will be improvised. No real acquisition/ingestion, model execution,
-  operational review/selection, migration, push or publication has occurred.
+- Final hardening retained Docling confidence/omissions and rejected malformed,
+  non-finite, out-of-page, non-object, oversized and excessive page geometry;
+  commits `06e1014`, `75bc15a`, and `8a127e2` passed exact staged review.
+- Final verification: schema snapshots unchanged; kit 85/85; targeted 89 with
+  14 declared real-artifact skips; review gate 51/51; package contains all 66
+  allowlisted files. ZIP metadata is not reproducible, so archive SHA-256 is
+  retained only as per-run evidence and is not a stable build identity.
+  Broad discovery had 139 runnable passes, seven optional skips, and only the
+  installed-environment `ModuleNotFoundError: No module named 'mcp'` import block.
+- Removed task-generated working plan/spec before delivery under the active
+  owner rule. Whole-branch Roborev job 290 passed with no issues. Closed Katas
+  `8a5h` and `zqdh` with criterion evidence. Published branch and opened
+  https://github.com/GSA/the_librarian/pull/1; worktree remains for feedback.
+- No real acquisition/ingestion, model execution, operational review/selection,
+  migration, or content publication occurred. The Forge target-registration
+  tool was not available in this session, so PR workspace registration remains
+  unconfirmed and is reported explicitly.
 
 
 ## Delivery documentation and Forge/Pi audit: 2026-10-28 (9aw1)

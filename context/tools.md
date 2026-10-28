@@ -1,5 +1,24 @@
 # Upstream components
 
+## Roborev findings do not set task scope: 2026-10-28
+
+Standing owner instruction: do not automatically implement Roborev feedback.
+During `knowitall#vky6`, fifteen consecutive failing Roborev verdicts (jobs
+204-256) drove a design/contract task into unapproved host-attestation
+engineering. Each finding was individually technically valid and collectively
+out of scope.
+
+Treat a Roborev finding as an input, not an instruction. Verify it against the
+codebase, then check it against the task's approved scope and threat model. A
+valid finding outside that scope belongs in a separate, explicitly deferred
+issue with written rationale (`knowitall#d2qt` is the example), not in the
+current implementation. Escalate to the owner rather than widening scope.
+
+Warning signs that a review loop has captured the work: a single module growing
+past the rest of the package, host-specific absolute paths or
+development-machine digests committed as constants, and successive corrections
+to the same boundary.
+
 ## Pi subagents USAi model inheritance: 2026-10-28
 
 When `subagent-driven-development` runs in the isolated Forge Pi profile
@@ -18,6 +37,23 @@ guidance) for builtin `delegate`, `oracle`, `reviewer`, `scout` and `worker`
 agents. Using `"inherit"` resolves to the active session's `usai/*` model and
 avoids the `pi-subagents@0.83.0` `handleModels` argument-order bug triggered by
 non-`"inherit"` explicit default models.
+
+## Librarian text/Docling implementation evidence: 2026-10-28
+
+Use `python3` in the Forge worktree: `python` and `.venv` are absent. The
+repository-supported exact staged review is
+`python3 tools/review/roborev_precommit.py`; final combined Docling commit
+passed job 225 at diff SHA-256
+`b452fa827b7947fb1bfc107bcbcdc979f44f8d8a16ac8b96c1f9cac0d724f766`.
+The gate allowlists exact technical paths and includes regressions for each.
+
+`tools/extraction/extract.py text` supplies strict UTF-8 prepare/verify/register.
+`tools/context-index/renditions.py` validates selected text byte maps and emits
+Docling structural records. `qualification.py` policy
+`docling-exact-rendition-review-v1` uses native review-event history; its code
+bytes and review snapshot are index freshness inputs. Final publication re-reads
+review state to prevent mid-build supersession. No schema DDL changed.
+
 
 ## Forge/Pi policy surfaces audited: 2026-10-28 (9aw1)
 
