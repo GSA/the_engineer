@@ -1,5 +1,19 @@
 # Upstream components
 
+## Forge/Pi policy surfaces audited: 2026-10-28 (9aw1)
+
+See `context/engineering-workflow.md` for verified instruction discovery,
+generated overrides and shared coding/reviewer profile boundaries. Pi supports
+`--append-system-prompt` with text or file contents; this is a possible
+invocation-specific seam, not a configured writer policy. No runtime/profile
+settings or upstream skills were changed. `.local/plans/` is already ignored.
+
+The current configured reviewer is Pi through USAi deployment
+`gpt-5.6-sol-latest-guardrails-defaultv2`, with roborev standard reasoning
+(Pi medium). Recent job metadata confirms Pi but does not record an immutable
+resolved model. This alias/selection is current configuration, not proof of
+the backend used by every historical or already-running job.
+
 ## Pi 1.4.0 launcher and compatibility evidence: 2026-10-28 (gamy)
 
 The exact pin belongs to `scripts/local_env.py` and `dist/install.py`, not
@@ -21,11 +35,13 @@ preserved the approved selected model and kept Pi running until explicit
 cleanup. `get_all_tools` is not a supported Pi 1.4 RPC command; an initial
 probe using it was corrected, not treated as an agent regression.
 
-No model request, review job or corpus-tool invocation occurred. Probe processes
-were stopped and temporary fixtures removed. Before-state metadata, profile
-integrity baseline and RPC/schema reports are retained as `files/pi-140-*`
-in session `e238bd23-e93c-4ca9-8793-9eda408ffb69`. Forge GUI retry remains
-owner-observed; no service restart or live review acceptance is claimed.
+The probes made no model request, review request or corpus-tool invocation.
+Probe processes were stopped and temporary fixtures removed. Before-state
+metadata, profile integrity baseline and RPC/schema reports are retained as `files/pi-140-*`
+in session `e238bd23-e93c-4ca9-8793-9eda408ffb69`. The owner subsequently confirmed
+Forge Pi boots. The existing post-commit hook automatically queued review job
+130 after commit `345778c`; its valid saved-metadata upgrade finding remains
+open and `gamy` was reopened. No service restart or completed review fix is claimed.
 
 ## Public Knowitall onboarding and demo task verification: 2026-10-27, 23:00
 

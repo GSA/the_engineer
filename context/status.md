@@ -1,5 +1,17 @@
 # Status: 2026-10-28
 
+## Delivery documentation and Forge/Pi audit: 2026-10-28 (9aw1)
+
+- Added the owner's no-plan-artifacts-in-PR rule to active root instructions:
+  use ignored `.local/plans/`/Kata and promote shipped usage to README/context.
+  No tracked plan/spec artifacts were found in this root checkout.
+- Verified actual Pi instruction-file discovery and recorded the legacy coder
+  template's limited purpose, shared reviewer-profile boundary and missing Pi
+  review-feedback integration. Detailed evidence is in engineering-workflow;
+  recommendations are recorded on existing `k03a`, whose owner is unchanged.
+- No shared profile, route, upstream skill, hook, service or active worktree
+  was changed. No model/corpus calls or experimental process remains.
+
 ## Managed Pi launch restored for 1.4.0: 2026-10-28 (gamy)
 
 - Owner approved the managed pin migration after the old saved executable
@@ -10,12 +22,14 @@
   commands succeed; the installed review extension wrote validated synthetic
   schema output in an isolated Pi 1.4 SDK session. Actual private-profile RPC
   remained running with the same approved model until cleanup.
-- The owner will retry launching Pi from Forge; this does not claim their GUI
-  symptom or live model-backed coding/review acceptance has been verified.
+- The owner subsequently confirmed a Pi instance boots from Forge. Automatic
+  review job 130 found the missing repeatable existing-installation metadata
+  migration; `gamy` was reopened and that finding remains unresolved here.
   `ww7g` fresh-host provisioning and other lifecycle/provider tasks remain open.
 - Global installation/settings, credentials, model routes, MCP/Forge/roborev
-  configuration and live services were preserved. No model/review/corpus calls,
-  service restart, push or publication; no experimental process remains.
+  configuration and live services were preserved. No explicit model/review/corpus
+  requests during probes, service restart, push or publication; the existing
+  post-commit hook subsequently queued review 130. No experimental process remains.
 
 ## Demo backlog and public Knowitall delivered: 2026-10-27, 23:00
 

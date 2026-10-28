@@ -4,6 +4,43 @@ Reviewed changes keep additive correction commits. Do not amend a commit
 without explicit owner approval; carry that rule into external-agent dispatch,
 not only the coordinating agent's private instructions.
 
+## Active delivery documentation and instruction loading: 2026-10-28 (9aw1)
+
+The owner requires temporary planning artifacts to stay out of delivered PRs.
+Use ignored `.local/plans/` or native Kata for working plans, including output
+from planning skills that normally commit their documents. Before delivery,
+promote shipped user-facing usage into `README.md` and reusable agent-facing
+usage into `context/`; do not retain the implementation plan as usage guidance.
+This rule is active in root `AGENTS.md`. It does not authorize deleting other
+agents' work, rewriting history or removing enduring interface contracts/ADRs.
+The current root tracks no `*plan*.md` or `*spec*.md` artifacts.
+
+An actual Pi 1.4 SDK resource-loader probe, without extensions, sessions or model
+calls, found the ancestor Engineer `AGENTS.md` plus the sampled Forge worktree's
+`AGENTS.override.md`, not that worktree's separate `AGENTS.md`. Forge generates
+the override on launch and appends the worktree's repository instructions
+(`forge/internal/workspace/agent_context.go:298-340`). Do not hand-edit that
+generated file or assume an existing session reloads newly changed policy.
+File discovery proves loading, not behavioral compliance; `k03a` remains open
+with its existing owner for the broader policy-loading/behavior acceptance.
+
+The private Pi profile currently has no `AGENTS.md`, `SYSTEM.md` or
+`APPEND_SYSTEM.md`. Its configured Superpowers package supplies the Pi bootstrap
+and skills. Superpowers' implementer subagent template includes clarification,
+commits and review-fix handoff only when that workflow is actually used.
+Librarian `agents/coder.md` is a context-consumption/reviewer-handoff contract;
+it was not among the loaded instruction files and is not an installed Forge
+coder base.
+
+Both Forge coding and roborev review invoke `scripts/pi-local.py` with the same
+private profile and selected model. Keep writer-only commit/fix duties out of
+unconditional shared reviewer instructions. Root policy already requires
+consequential clarification and completed-work commits, but does not specify
+checkpoint frequency or a roborev completion loop. The Git post-commit hook
+queues asynchronous reviews; it does not make the coding agent consume them.
+The inspected native roborev Agent Hook support list does not include Pi.
+No new role prompt, feedback hook, autofix or model pairing was installed.
+
 Investigated 2026-10-12 for Engi Platform. Source facts below describe the pinned
 Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
