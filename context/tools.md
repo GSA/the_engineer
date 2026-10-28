@@ -2,17 +2,24 @@
 
 ## Librarian simplification delivery evidence: 2026-10-28
 
-Branch `kenn-forge/work-22874a66` is pushed at
-`3d0277c7e6c5de5f336f3336f7be16dd863fc684`; PR 2 targets `main`:
-https://github.com/GSA/the_librarian/pull/2. Fresh installed-environment
-verification used `/home/nkirrish/the_librarian/.venv/bin/python` only as an
-interpreter against the Forge worktree: discovery passed 119 tests with seven
-declared optional Docling skips. Schema checking, exact release-manifest archive
-comparison, targeted Docling/review suites and whole-branch whitespace checks
-passed. Aggregate RoboRev job 298 passed with no findings. Kata `djrb` is closed
-with commit, PR, test and review evidence; `w5aj` and `df1a` retain deferred
-generic extension work. Forge target-registration tools were not exposed in the
-session, so PR workspace registration is unconfirmed.
+Branch `kenn-forge/work-22874a66` is pushed at merge commit
+`a210d3c04ae5628e7274a3935a52af63f7518392`; PR 2 targets `main`:
+https://github.com/GSA/the_librarian/pull/2. The merge has parents `3d0277c` and
+`b0bf359`, preserving PR 1's strict text/qualified Docling retrieval while
+retaining the simplification history. Conflict-resolution verification used
+`/home/nkirrish/the_librarian/.venv/bin/python` only as an interpreter against
+the Forge worktree: discovery passed 139 tests with seven declared optional
+Docling skips; targeted Docling and review suites passed 28/28 (seven skips) and
+51/51. Schema checking, exact 73-entry release-manifest archive comparison,
+whole-diff whitespace, unmerged-file and conflict-marker checks passed. RoboRev
+job 304 passed the 13-path staged integration after regressions fixed its two
+valid findings: qualification now requires a canonical complete-scope statement,
+and Docling record count is bounded with forward collection scans instead of
+per-record full-payload searches. Local and remote branch hashes match. Earlier
+aggregate RoboRev job 298 passed the pre-merge simplification branch. Kata
+`djrb` remains closed; `w5aj` and `df1a` retain deferred generic extension work.
+Forge target-registration tools were not exposed, so PR workspace registration
+is unconfirmed.
 
 
 ## Roborev findings do not set task scope: 2026-10-28

@@ -2,13 +2,20 @@
 
 ## Librarian repository simplification delivered (djrb)
 
-- Pushed `kenn-forge/work-22874a66` at `3d0277c` and opened
-  https://github.com/GSA/the_librarian/pull/2 against `main`; the Forge-owned
-  worktree remains available for review feedback.
-- Fresh installed-environment discovery passed 119 tests with seven declared
+- Resolved PR 2's conflicts by merging `origin/main` and preserving both
+  histories in `a210d3c`; pushed `kenn-forge/work-22874a66`, and local/remote
+  hashes match. https://github.com/GSA/the_librarian/pull/2 remains against
+  `main`; the Forge-owned worktree remains available for review feedback.
+- Reconciled strict text/qualified Docling retrieval with package-path,
+  packaging, MCP dependency and review-gate simplifications. Two valid staged
+  review findings were fixed under red-green tests: ambiguous free-text
+  whole-scope claims are rejected, and Docling record processing is bounded and
+  forward-scanned. RoboRev job 304 passed the 13-path staged integration.
+- Fresh installed-environment discovery passed 139 tests with seven declared
   optional Docling skips. Targeted Docling/review suites, schema checks, exact
-  release archive comparison and whole-branch whitespace checks passed.
-  Aggregate RoboRev job 298 passed with no findings.
+  73-entry release archive comparison, whole-diff whitespace, unmerged-file and
+  conflict-marker checks passed. Earlier aggregate RoboRev job 298 passed the
+  pre-merge simplification branch.
 - Closed Kata `djrb` with commit, PR, test and review evidence. Generic future
   instance/corpus work remains in `w5aj` and `df1a`; no instance-specific data
   or defaults entered the reusable toolkit.
