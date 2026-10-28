@@ -885,9 +885,9 @@ or reconfigured. Preserve the existing scoped commit hook.
 
 ## Cleanup refinement evidence: 2026-10-26 (Kata ycns)
 
-See `refactoring.md` for the nine task references, source-backed deletion
-targets, preserved behavior and first bounded design. Parent inspected Engineer;
-two read-only scouts inspected Librarian/Falcon and externally owned SPUD.
+Native Kata owns the nine task references and current acceptance state. The
+parent inspected Engineer; two read-only scouts inspected Librarian/Falcon and
+externally owned SPUD.
 No neighbor source was edited. A follow-up challenged suggested abstractions:
 XLSX helper extraction and typed coverage-loader replacement were rejected
 because they add compatibility/freshness complexity rather than remove it.
@@ -1334,9 +1334,9 @@ Reproduced `kata-local.py --project supply-chain-user-interface list --json`
 failing before native execution. The guard is in `local_env.py::kata_launch`,
 not the entrypoint itself, and `kata_mcp_launch` shares it. Removing that guard
 without separating CLI selection from MCP pinning would change the established
-scope contract. Native `projects list --json` confirms all four registered
-application project UIDs still match `kata-adoption.md`; `--as copilot whoami
---json` resolves actor `copilot` from the explicit flag.
+scope contract. Native `projects list --json` confirmed all four registered
+application project UIDs; `--as copilot whoami --json` resolves actor `copilot`
+from the explicit flag.
 
 At 17:14 the owner approved explicit CLI selection of only
 those four application projects with explicit Copilot attribution; retain
@@ -1408,7 +1408,7 @@ Remaining scopes were individually reviewed and are not complete:
 
 | Open Katas | Remaining acceptance |
 | --- | --- |
-| `k03a`, `mpew` | Active Forge/private-Pi engineering policy loading and its synthetic behavioral/publication-gate demonstration; the saved refinement example is still inactive. Existing red/green hook repairs do not establish that separate prompt contract. |
+| `k03a`, `mpew` | Active Forge/private-Pi engineering policy loading and its synthetic behavioral/publication-gate demonstration; the refinement boundary is not an installed prompt. Existing red/green hook repairs do not establish that separate prompt contract. |
 | `5ayh` | Deliberate checkout/state/service-name migration; active kenn-kopy paths and units remain. |
 | `p4ke`, `ww7g`, `5xrm` | Clean-host end-to-end acceptance, automatic pinned Pi provisioning, and the complete reproducible team redeployment/restoration contract. Initial dist scripts and manual Pi instructions are not those outcomes. |
 | `0rc1` | Actual Spokenly microphone/hotkey/text insertion trial; no completed personal GUI trial is recorded. |
@@ -1499,7 +1499,7 @@ not committed. No service restart or experimental background process.
 
 Owner-authorized native `kata projects create` added one empty project per
 Falcon repository through `scripts/kata-local.py --as copilot`. Project names
-match repository names; immutable UIDs are recorded in `kata-adoption.md`.
+match repository names; native Kata is authoritative for their immutable UIDs.
 No checkout binding or alias is needed for a daemon project.
 
 Native partial `PUT /api/v1/settings` persisted four exact `kata_projects`
@@ -1692,9 +1692,9 @@ a newly started session reads only `usai`.
 
 For the 2026-10-12 live service/boot snapshot, see `status.md`. For Forge
 workflow semantics and draft prompt responsibilities, see
-`engineering-workflow.md`. Repository-free Kata runtime findings and remaining
-integration boundaries are in `kata-evaluation.md`; current project-scoped
-backlog adoption and CLI/index operations are in `kata-adoption.md`.
+`engineering-workflow.md`. README owns current project-scoped Kata operations;
+`project.md` and `status.md` retain durable adoption decisions, synthetic-check
+outcomes and integration boundaries.
 The earlier Engi Platform display name has since been replaced by Engineer.
 `engi-platform` remains the live Kata project identity, and paths and installed
 service names remain `kenn-kopy` pending migration.
@@ -1996,18 +1996,17 @@ and each future project binding remain separate acceptance work.
 
 Read the canonical Clanker Constitution at `v2026.08.11` from the author's
 repository. It is compact, language-neutral baseline behavior under CC BY 4.0,
-not a Jira intake protocol, scheduler or orchestrator implementation. The owner
-approved an inactive example at 11:36:
-`context/prompt-drafts/jira-refinement.example.md` reproduces the baseline
-unchanged with version, Kenn Software attribution and CC BY 4.0 license, then
-appends the owner's exact draft-only overlay. Its `.example.md` filename and
-context-only location keep it outside live instruction/skill/profile discovery.
-No launcher, MCP settings or agent target references it.
+not a Jira intake protocol, scheduler or orchestrator implementation. At 11:36
+the owner approved a draft-only boundary for future Jira refinement: propose tasks
+for human approval without changing requirements or source, writing tasks,
+launching workers or publishing. No launcher, MCP setting, skill or agent target
+implements that boundary.
 
 The 11:38 project task audit used native list/show commands for all 32 open
 tasks and selected comments/dependencies. Scope corrections are recorded in
-`status.md`; the inactive example does not complete active prompt, Jira intake
-or Forge-worker integration. No task status, body, ownership or link changed.
+`status.md`; the recorded refinement boundary does not complete active prompt,
+Jira intake or Forge-worker integration. No task status, body, ownership or
+link changed.
 
 At 11:46 the owner approves cleanup. Five native `edit` operations prepend
 current scopes to preserved historical text; `v3sd` closes with reason
@@ -2252,8 +2251,8 @@ already-installed tmux baseline before any additional terminal runtime.
 
 ## Kata agent-access milestone: 23:16 request
 
-Native scoped stdio MCP now backs both project clients. See README and
-`kata-adoption.md` for setup and actual read/actor/scope/retry evidence.
+Native scoped stdio MCP now backs both project clients. See README for current
+setup; private runtime records retain read/actor/scope/retry evidence.
 Pi uses codemode and refreshes Kata's progressive catalog successfully.
 Copilot discovers the workspace server on new sessions; this running session
 uses the scoped CLI. A successful saved Pi/USAi model read now supplements

@@ -266,8 +266,8 @@ refinement or worker dispatch a prerequisite for the first demo.
 1. Manual intake: retain ticket identity, original acceptance criteria and
    source provenance; agree refinements and create bounded/dependent Kata tasks.
 2. Optional on-demand refinement Pi: use Falcon context and Superpowers to
-   propose the same task contract for human review. The saved draft explicitly
-   forbids task writes and worker launches; it is not an installed agent.
+   propose the same task contract for human review. The retained boundary
+   forbids task writes and worker launches; no such agent is installed.
 3. Later service: automate approved Jira reads, reconciliation/retry handling
    and reviewed conversion into Kata tasks after the manual contract is proven.
    Worker scheduling is separate from ingestion/refinement.
@@ -278,22 +278,18 @@ retrieve only relevant qualified evidence and cite actual returned locators.
 Do not turn server discovery into a claim of model-backed Forge-worker use.
 
 The canonical Constitution v2026.08.11 is compact baseline behavior, not an
-intake/orchestrator protocol. At 11:36 the owner approved an inactive reference:
-[`prompt-drafts/jira-refinement.example.md`](prompt-drafts/jira-refinement.example.md).
-It reproduces the Constitution unchanged with its attribution/license/version,
-then appends the owner's exact concise overlay. The adaptation is labeled, and
-the file remains outside live instruction, skill and profile discovery.
-It proposes task outcomes, acceptance criteria and dependencies for human
-approval; it forbids modifying/adding requirements, source edits, task writes,
-worker launches and publication. No live coordinator or automated intake is
-installed.
+intake/orchestrator protocol. Any future refinement agent must propose task
+outcomes, acceptance criteria and dependencies for human approval; it must not
+modify or add requirements, edit source, write task records, launch workers or
+publish. No live coordinator or automated intake is installed.
 
 At 11:46 the owner approved backlog consolidation: `k03a` now explicitly owns
 the active Forge/private-Pi/Superpowers/Librarian guidance and the former
 workflow/Constitution scope of superseded `v3sd`. The four-role draft remains
 optional historical design, not required acceptance. `99gr` now explicitly
 tracks manual first-ticket intake; synthetic behavior remains a separate open
-demo task. Saving the inactive example does not complete either integration.
+demo task. Recording the refinement boundary does not complete either
+integration.
 
 ## What Forge actually owns
 

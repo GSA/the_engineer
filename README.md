@@ -27,10 +27,8 @@ free of AOS/Falcon-identifying material; private scenario evidence stays in
 authorized local state.
 [Selective engineering memory](context/engineering-memory.md) describes
 decisions, corrections and handoffs rather than full conversation capture.
-These are design drafts, not installed integrations or completed deployment.
-The [cleanup refinement](context/refactoring.md) maps the next small,
-complexity-reducing slices to native Katas. Memory must demonstrate incremental
-value over no memory and simple records before optional runtime work proceeds.
+Memory must demonstrate incremental value over no memory and simple records
+before optional runtime work proceeds.
 
 ## Standalone agent terminals: Ghosthub replacement
 

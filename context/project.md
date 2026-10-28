@@ -427,9 +427,9 @@ repository scopes, bounded subagents where useful and roborev reviews.
 Tests are selective by risk/value, not a mandatory full TDD pipeline.
 Preserve safety, source fidelity, compatibility and unrelated local changes.
 
-`context/refactoring.md` records nine backlog proposals (eight active) and rejected
-refactors. Superpowers design gates apply before implementation; the first
-proposed slice is four-service installer consistency and Kata isolation (`rzsc`). No new shared
+Native Kata records own the cleanup backlog and rejected refactors. Superpowers
+design gates apply before each implementation. The first delivered slice was
+four-service installer consistency and Kata isolation (`rzsc`). No new shared
 runtime, SPUD ownership, task rebinding, service migration or memory selection
 is implied. Toolkit/corpus tasks remain distinguished by repo metadata inside
 their existing shared `librarian` project.
@@ -697,12 +697,10 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   tasks versus create them) and its first-version inclusion remain open; no
   Jira service, worker scheduler or live coordinator is authorized by this
   discussion.
-  At 11:36 the owner approves saving the unchanged Constitution with their
-  exact draft-only Jira refinement overlay as an inactive example and
-  committing existing work. The overlay proposes tasks for human approval;
-  it cannot modify/add requirements, edit source, write task records, launch
-  workers or publish. Saved in `context/prompt-drafts/jira-refinement.example.md`;
-  this does not install a coordinator or authorize automated intake.
+  At 11:36 the owner approved a draft-only Jira refinement boundary: propose
+  tasks for human approval, but do not modify or add requirements, edit source,
+  write task records, launch workers or publish. This does not install a
+  coordinator or authorize automated intake.
   At 11:38 the owner asks which existing Kata tasks can be cleaned up.
   The live 32-task audit identifies overlapping workflow/prompt work and stale
   scopes, not completed platform integration. Consolidation/scope changes are
@@ -839,8 +837,8 @@ Current decisions, incorporating the user's 2026-10-04 clarification:
   Native `.kata.toml` binding and the private CLI are wired; automatic agent
   hooks/MCP setup are still open work. The owner defers database backups to a
   separate session; do not treat the task index as a backup or start one here.
-  See `kata-adoption.md` for operations/provenance and `kata-evaluation.md`
-  for the earlier synthetic checks.
+  README owns current Kata operations. This file and `status.md` retain the
+  durable adoption decision and earlier synthetic-check outcome.
 - At 17:55 on 2026-10-12 the owner requested a current-state Git commit and
   Kata boot startup alongside the other dashboards. The pre-service snapshot
   is commit `7c6df7d`. Kata now uses independent `kenn-kopy-kata.service`

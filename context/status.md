@@ -1,5 +1,21 @@
 # Status: 2026-10-28
 
+## Obsolete planning/spec cleanup (Kata ba0d)
+
+- Owner approved deleting implementation-era planning/spec artifacts after
+  preserving durable guidance in README and canonical context files.
+- Removed the dated Kata adoption/evaluation documents, cleanup refinement and
+  inactive Jira refinement prompt example. Native Kata remains authoritative
+  for live work; README owns current human operations, while project, workflow,
+  tools and status context retain current agent boundaries and material evidence.
+- Removed every repository reference to the deleted files. A focused Markdown
+  link scan found only pre-existing links into uninitialized submodules or
+  neighboring checkouts; `git diff --check` passes. Dirty review 176 identified
+  residual prose describing the deleted prompt as saved; those statements were
+  rewritten as direct policy boundaries, and follow-up review 177 passed with
+  no findings. No runtime, service, credential, private evidence or source
+  behavior changed.
+
 ## PR 3 reconciled with current main (c287)
 
 - Merged current `origin/main` after PRs 1 and 2 made PR 3 conflicting.
@@ -550,9 +566,8 @@ routed through the newer default CLI was canceled; it is not acceptance evidence
   Engineer rzsc/f47m/k79n/qc96/0sfx; toolkit 7bna/55nx; FALCON 939r; SPUD 3sv9.
   Both Librarian repos retain their existing project binding, distinguished by
   repo metadata. Producer contract 3sv9 blocks receiver design 55nx.
-- Saved `refactoring.md` with concrete simplifications, the first bounded
-  installer design and risk-based review/verification. Memory trials follow
-  cleanup. No runtime implementation or unseen-plan approval is claimed.
+- Recorded concrete simplifications and rejected abstractions in native Kata.
+  Memory trials follow cleanup. No unseen-plan approval is implied.
 - Two read-only scouts completed. Rejected style-driven changes to legacy XLSX
   helpers and direct-source coverage loading after examining compatibility and
   freshness costs. No cross-checkout shared runtime is adopted.
@@ -1582,7 +1597,7 @@ block; and which verification gate a kata may legitimately require.
 
 - Read all 32 open task scopes and selected histories/links. No open task's
   remaining implementation is established complete by the recent prompt work.
-  The saved refinement example is an artifact, not an installed intake agent.
+  The agreed refinement boundary does not install an intake agent.
 - Recommended consolidation: supersede `v3sd` into `k03a`, retaining its
   original workflow/Constitution scope and provenance in the surviving task.
   This would be supersession, not a claim that active integration is done.
@@ -1603,20 +1618,13 @@ block; and which verification gate a kata may legitimately require.
   model/corpus/provider operation or experiment process. Context committed
   locally and the generated TODO refreshed without changing the 32-task index.
 
-## Inactive Jira refinement example saved: 11:36 request
+## Jira refinement boundary: 11:36 request
 
-- Saved `context/prompt-drafts/jira-refinement.example.md` with the canonical
-  Constitution v2026.08.11 unchanged, retaining attribution/license, followed
-  by the owner's exact overlay. The file is an inactive reference, not a live
-  `AGENTS.md`, skill or installed agent profile.
-- Draft authority is now agreed: propose tasks for human approval, without
-  modifying/adding requirements, editing source, writing task records,
+- Draft authority is agreed: propose tasks for human approval, without
+  modifying or adding requirements, editing source, writing task records,
   launching workers or publishing. Active prompt/platform integration remains
-  open; saving this example does not complete `k03a` or Jira intake `99gr`.
-- Updated project/tool/workflow context and existing task handoffs; committed
-  the completed document changes locally. No profile/config/service/upstream
-  changes, model requests, corpus access, Jira/Helix requests or publication.
-  No experiment process was started; previous context work was already committed.
+  open; this boundary does not complete `k03a` or Jira intake `99gr`.
+- No coordinator, profile, skill or automated intake was installed.
 
 ## Manual Jira intake and future coordinator discussion: 11:29 request
 
@@ -1755,8 +1763,8 @@ block; and which verification gate a kata may legitimately require.
   unavailable results despite exit zero; failed JSONL evidence is retained.
 - All 109 focused Python tests pass, including seven new integration
   regressions; actual repeated setup and read-only transport/SDK checks pass.
-  README/root task guidance and `kata-adoption.md` describe scope, client
-  restart, progressive loaders and limits. Private evidence is
+  README/root task guidance describes scope, client restart, progressive
+  loaders and limits. Private evidence is
   `runtime/kata-agent-integration-verification.json` plus three model-pilot
   JSONL files; saved private Pi sessions remain available to AgentsView.
   A pre-existing schema-extension peer-dependency warning is not hidden or
@@ -1928,7 +1936,8 @@ block; and which verification gate a kata may legitimately require.
   pass. Native workspace resolution, repeated full import without duplicates,
   exact source coverage/body preservation, identical repeat index refresh,
   actual stopped-daemon failure preservation and restart persistence passed.
-  No close events were introduced. Detailed evidence is in `kata-adoption.md`.
+  No close events were introduced. Private migration evidence remains under
+  `.local/environment/runtime/`.
 - Kata restarted from PID 21281 to 23500, then both test-owned supervisors
   exited. Final Kata port 17777 is absent; data persists. AgentsView PID 395,
   Forge PID 396 and roborev PID 397 are healthy/unchanged. No experimental
@@ -1953,10 +1962,10 @@ block; and which verification gate a kata may legitimately require.
   `meta set --json-value`, not the string-valued create metadata flag; HTML SPA
   readiness needs `Accept: text/html`. Initial browser failure is retained in
   the pre-restart evidence, with a separate successful browser correction.
-- Detailed findings/recommendation are in `kata-evaluation.md`; README has
-  restart/private-CLI inspection commands, TODO distinguishes verified backend
-  reads from pending task/worktree/client/hook/Jira integration. Recommendation
-  is a bounded engineering-task pilot, not final adoption or TODO migration.
+- README has restart and inspection commands; TODO distinguishes verified
+  backend reads from pending task/worktree/client/hook/Jira integration. The
+  recommendation was a bounded engineering-task pilot, not final adoption or
+  TODO migration.
 - Both test-owned supervisors and MCP processes exited. Kata is stopped with
   no 17777 listener; synthetic data/evidence are retained privately.
   AgentsView PID 395, Forge PID 396 and roborev PID 397 remained healthy and
