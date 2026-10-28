@@ -61,8 +61,21 @@
   scope. Findings outside a task's approved threat model get recorded as
   separate, deferred work with documented rationale. Standing owner instruction:
   do not automatically act on Roborev feedback.
-- No real source acquisition, model invocation, deployment, publication, or push
-  occurred. Branch remains local.
+- Published with owner authorization: branch pushed at `fa25060` and
+  https://github.com/GSA/the_knowitall/pull/1 opened (60 files, +3564/-3, base
+  `main`, open, mergeable, not a draft). Pre-push secret and absolute-path scans
+  over the branch diff were clean. Delivery commit `fa25060` also documented the
+  shipped contract in `README.md`, corrected its stale design/bootstrap status
+  line, and removed the task-generated spec/plan from `docs/` under the
+  working-plan policy, retaining both in ignored local state.
+- Roborev jobs 303/304 were checked before publishing: both belong to the
+  Librarian precommit repository, not Knowitall. 303's two findings are already
+  fixed upstream (`COMPLETE_SCOPE` exact-value check, `DOCLING_MAX_RECORDS`
+  bound) and 304 passed. The newest Knowitall review remains job 256.
+- No real source acquisition, model invocation, deployment, or corpus/graph
+  publication occurred. Forge workspace target registration was unavailable in
+  this session, so PR 1 still needs registering against workspace
+  `649ee2478ec805c4`.
 
 ## Pi subagent USAi model resolution enabled: 2026-10-28
 
