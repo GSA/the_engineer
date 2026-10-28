@@ -60,7 +60,7 @@ pre-existing Pi metadata migration tracked by `gamy`, not this branch delta.
 PR preflight ran the two documented suites. `python3 -m unittest discover -s
 dist -p 'test_*.py'` passed 44 tests with 4 skips. `python3 -m unittest
 discover -s scripts -p test_local_env.py` ran 103 tests but ended with 4 errors:
-one Kata service test could not find `kata/bin/kata`, and three supervisor tests
+one Kata service test could not find `kata/kata`, and three supervisor tests
 could not find `roborev/bin/roborev`. `git submodule status` confirms all
 submodules are uninitialized in this Forge worktree; the branch changes only
 Markdown. Publication remains blocked rather than claiming a green full suite.

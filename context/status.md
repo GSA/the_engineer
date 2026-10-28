@@ -25,7 +25,7 @@
   stricter prohibition on AOS/Falcon-identifying repository content.
 - PR publication is blocked by the required full-suite gate. The `dist` suite
   passed 44 tests (4 skipped), but `scripts/test_local_env.py` had 4 errors
-  because this partial Forge worktree lacks built `kata/bin/kata` and
+  because this partial Forge worktree lacks built `kata/kata` and
   `roborev/bin/roborev` submodule artifacts. The documentation-only branch does
   not change those runtime files; do not describe the full suite as green.
 - Owner declined both a reusable AOS-derived fixture and a generic substitute.
