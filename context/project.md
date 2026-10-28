@@ -10,6 +10,18 @@ is in `context/engineering-workflow.md`. Clarification, commits, review follow-u
 and plan cleanup are Forge coder duties (`k03a`); opposite-family independent
 review belongs to roborev (`zmzh`). Both remain unbuilt profile/configuration work.
 
+## Approved AgentsView alias pricing: 2026-10-28 (3c2c)
+
+The owner approved using the existing non-USAi base-model rates for the two
+guarded GPT deployments, on a new local AgentsView branch, with a rebuild and
+restart of only its managed service. Use explicit canonical aliases, not flat
+custom prices that discard request bands or broad suffix stripping.
+The deployed local source commit is `f7cbb4c1`; archived names, historical rates
+and exact custom overrides are preserved. Rates are estimates, not USAi bills.
+Transcript policy, source scope, private configuration and archive remain intact.
+This pricing slice does not close broader unknown-cost presentation, retention
+duration or client-coverage acceptance in `3c2c`.
+
 ## Managed Pi 1.4.0 approved: 2026-10-28 (gamy)
 
 The owner chose upgrading the managed runtime pin to Pi 1.4.0 rather than
@@ -70,8 +82,8 @@ The owner also authorizes restoring AgentsView conversation visibility for
 already configured local sources. Transcripts mode is now verified, without
 remote upload, new client scope or automatic memory import. Existing `3c2c`
 remains open for its broader unfinished policy/client/pricing acceptance.
-The current guarded GPT cost zeros are confirmed unpriced estimates, not
-missing token ingestion or free usage; operational interpretation is in tools.
+The original guarded GPT cost zeros were unpriced estimates, not missing
+token ingestion or free usage; the approved alias repair is recorded above.
 
 ## Unworked implementation shortlist: 2026-10-27 (e5dd)
 

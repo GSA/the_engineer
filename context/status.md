@@ -34,6 +34,27 @@
 - No shared profile, route, upstream skill, hook, service or active worktree
   was changed. No model/corpus calls or experimental process remains.
 
+## AgentsView guarded GPT pricing deployed: 2026-10-28 (3c2c)
+
+- Local AgentsView branch `fix/usai-alias-pricing`, commit `f7cbb4c1`, maps the
+  two guarded Sol deployments to existing base-model pricing without changing
+  reported names, historical rates, request bands or exact custom overrides.
+  Pricing/cache regressions, pricing/export suites, formatting, vet and existing
+  lint checks passed, including scoped NilAway.
+- Built separately and atomically replaced only the managed AgentsView binary.
+  Health identifies `v0.44.0-131-gf7cbb4c1`; other managed service PIDs stayed
+  unchanged. Exact old binary and deployment manifest are retained privately.
+- Historical API totals for both aliases changed from unpriced zero to positive
+  estimates with identical token counts and canonical pricing provenance.
+  Real session and all five saved Pi child-session usage endpoints have recorded
+  tokens and priced costs. Existing child relationships are classified as forks,
+  so correct subagent labeling is not claimed.
+- Archive file identity/body preservation and four private configuration hashes
+  passed; transcripts mode and the existing Copilot/Pi source scope are intact.
+  README/context own usage and operations; no working plan is committed.
+  `3c2c` stays open for broader unknown-cost presentation, retention-duration
+  decisions and remaining client-coverage qualifications. Nothing pushed.
+
 ## Managed Pi launch restored for 1.4.0: 2026-10-28 (gamy)
 
 - Owner approved the managed pin migration after the old saved executable

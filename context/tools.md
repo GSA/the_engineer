@@ -2881,9 +2881,10 @@ override otherwise hides the configured multi-directory Pi sources.
 application's `config.toml.lock`, and refuses source/content-policy conflicts.
 Rerunning the current configuration preserves its bytes. `archive_content`
 supports full, transcripts or usage; transcripts is not a redaction guarantee.
-The initial `usage` policy retains metrics/activity but excludes transcript
-text, thinking, tool payloads and titles. Native client sources are unchanged.
-Retention and deliberate fuller-content migration remain separate work.
+The owner later approved the current `transcripts` policy: conversation text
+and usage are retained, while raw tool payloads are omitted. The earlier
+`usage` policy excluded transcript text as well. Capture is not redaction;
+source scope and any future expiry/full-content policy require separate approval.
 
 The first import contained 42 Copilot and 11 global Pi sessions. A real saved
 synthetic USAi Pi request added the twelfth Pi session automatically: 481 input
@@ -2892,21 +2893,43 @@ event growth was automatically rearchived, and 19 historical Copilot sessions
 had native per-request store usage at verification; other histories include
 shutdown-derived usage. The current Copilot UUID had no native usage-store
 rows yet, despite its event/activity updates. Do not infer zero consumption.
-Copilot shutdown may finalize metrics, and complete ACP/subagent coverage is
-not established. The 2026-10-28 read-only check confirms both guarded USAi GPT
-aliases have nonzero tokens but no matching price. A recent session API response
-has `has_token_data=true`, `has_cost=false` and the alias in `unpriced_models`.
-Usage summaries/tables can still render the zero-valued cost as $0.00.
-Claude Opus Pi usage in the same report resolves catalog pricing and has a
-nonzero estimate, so this is not a general Pi importer failure.
+Copilot shutdown may finalize metrics; missing counters are not zero usage.
+The owner-approved 2026-10-28 repair maps exactly
+`gpt-5.6-sol-latest-guardrails-defaultv2` to `gpt-5.6-sol` and
+`gpt-6.1-sol-latest-guardrails-defaultv2` to `gpt-6.1-sol`, including reported
+`usai/` prefixes. AgentsView local commit `f7cbb4c1` on
+`fix/usai-alias-pricing` reuses the canonical resolver: historical rates,
+large-context bands and future catalog updates remain intact. Exact custom
+alias rates still win; unknown suffixes are not inferred. Do not replace these
+mappings with flat custom prices, which suppress fetched request bands.
 
-Recent private Pi logs also contain zero `usage.cost.total` values, and the
-selected custom model has no declared cost metadata. AgentsView's Pi parser
-imports token/model fields and independently catalog-prices them; changing
-Pi-only rates would not fix AgentsView's estimates. Do not equate public
-catalog estimates with verified USAi billing or invent an alias mapping.
-Detailed evidence and unresolved pricing/presentation acceptance remain in
-native `3c2c`; no pricing/profile change, resync or archive mutation was requested.
+Usage-cache generation 15 automatically reprices existing facts after restart.
+It is a disposable cache change, not an archive migration or source reimport.
+The managed service now identifies `v0.44.0-131-gf7cbb4c1`. Historical API
+checks show positive costs for both aliases, unchanged token counts and
+canonical pricing provenance. Five real persisted Pi child sessions also have
+recorded tokens and priced costs; existing relationship labels say `fork`,
+not `subagent`, so this does not establish correct lineage classification.
+ACP-specific coverage remains conditional and unverified.
+
+The private rollback copy is
+`.local/environment/agentsview-pricing-3c2c/agentsview.before`, alongside
+`deployment.json`. To undo the binary change, stop only
+`kenn-kopy-agentsview.service`, stage and atomically replace its executable
+from that exact copy, restart the unit, and verify `/api/ping` against MainPID.
+Do not delete or restore `sessions.db` to roll back this pricing change.
+Deployment preserved archive file identity and body counts, all four private
+configuration hashes, transcripts policy, sources and other service PIDs.
+Body-free verification artifacts are in this Copilot session's private files
+as `3c2c-{usage-before,deployment-verification,config-baseline}.json`.
+
+Native Pi logs can still contain zero `usage.cost.total`, because the selected
+custom Pi model has no cost metadata. AgentsView independently estimates costs
+from imported tokens; this change does not alter Pi's native counters or model
+routing. Catalog estimates are not verified USAi billing. Other unknown models
+can still show $0.00 in summary/table views despite `has_cost=false` in session
+usage. Broader unknown-cost presentation, retention duration and remaining
+client coverage keep native `3c2c` open.
 
 The real health endpoint is `/api/ping`; other API calls use `/api/v1/...`.
 Per-step usage rows require `?breakdown=true` on

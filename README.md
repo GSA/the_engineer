@@ -294,15 +294,19 @@ Copilot's `session-store.db` supplies per-request metrics where available.
 Some active/older sessions have no recorded token data; missing metrics are
 not evidence of zero consumption.
 Cost displays are estimates, not an authoritative USAi bill. The guarded GPT
-aliases currently have no matching price; some views show **$0.00** for this
-unpriced usage. Use **Tokens** mode to inspect recorded consumption. A zero
-cost display is not evidence that inference was free.
+aliases `gpt-5.6-sol-latest-guardrails-defaultv2` and
+`gpt-6.1-sol-latest-guardrails-defaultv2` now reuse their corresponding base
+models' pricing, including historical rates and large-context bands. Existing
+history is repriced without reimporting conversations; refresh the Usage page
+after upgrading. Other unpriced models can still appear as **$0.00** in some
+views. Use **Tokens** mode for recorded consumption; zero cost is not proof
+that inference was free.
 
-The initial policy is **usage-only**: session/activity metadata and token
-records are archived, but transcript text, thinking, tool payloads and titles
-are excluded. Original client files are unchanged. Transcript replay/search
-features are consequently limited. Other agent sources, telemetry, generated
-insights and external publication are not enabled by this integration.
+The current policy is **transcripts**: conversation text, session/activity
+metadata and token records are archived; raw tool payloads are omitted.
+Original client files are unchanged. Transcript capture is not redaction.
+Other agent sources, telemetry, generated insights and external publication
+are not enabled by this integration.
 The archive and private pre-import backup live under `.local/environment/`.
 
 The existing `kenn-kopy-agentsview.service` is enabled in the user manager;
