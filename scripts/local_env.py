@@ -703,7 +703,7 @@ def install_user_service(unit_name, command, description, ports, readiness, args
     private_dir(directory)
     unit = directory / unit_name
     executable = " ".join(systemd_quote(value) for value in (executable or (
-        sys.executable, ROOT / "scripts/local_env.py", command, *args,
+        sys.executable, RUNTIME_ROOT / "scripts/local_env.py", command, *args,
     )))
     environment_lines = "".join(f"Environment={systemd_quote(value)}\n" for value in environment)
     directory_line = ""

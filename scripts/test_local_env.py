@@ -1064,6 +1064,10 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(database.read_bytes(), b"persistent-workspace-fixture")
         self.assertEqual((self.state / "systemd" / local_env.FORGE_UNIT).read_bytes(), first)
         self.assertIn('"forge-run" "--node-executable" ' + local_env.systemd_quote(node), first.decode())
+        self.assertIn(local_env.systemd_quote(local_env.RUNTIME_ROOT / "scripts/local_env.py"),
+                      first.decode())
+        self.assertNotIn(local_env.systemd_quote(local_env.ROOT / "scripts/local_env.py"),
+                         first.decode())
         self.assertIn("WantedBy=default.target", first.decode())
         self.assertNotIn("USAI_API_KEY", first.decode())
         self.assertIn(unittest.mock.call(
