@@ -6,11 +6,13 @@ not only the coordinating agent's private instructions.
 
 ## Active delivery documentation and instruction loading: 2026-10-28 (9aw1)
 
-The owner requires temporary planning artifacts to stay out of delivered PRs.
+The owner requires temporary specs/plans to stay out of delivered PRs.
 Use ignored `.local/plans/` or native Kata for working plans, including output
 from planning skills that normally commit their documents. Before delivery,
 promote shipped user-facing usage into `README.md` and reusable agent-facing
-usage into `context/`; do not retain the implementation plan as usage guidance.
+usage into `context/`, then remove task-generated working specs/plans. Do not
+preserve them by renaming them context documents or ADRs. Documentation describes
+the delivered functionality and current contracts, not the implementation steps.
 This rule is active in root `AGENTS.md`. It does not authorize deleting other
 agents' work, rewriting history or removing enduring interface contracts/ADRs.
 The current root tracks no `*plan*.md` or `*spec*.md` artifacts.
@@ -40,6 +42,13 @@ checkpoint frequency or a roborev completion loop. The Git post-commit hook
 queues asynchronous reviews; it does not make the coding agent consume them.
 The inspected native roborev Agent Hook support list does not include Pi.
 No new role prompt, feedback hook, autofix or model pairing was installed.
+
+The owner explicitly scopes clarification, checkpoint commits, review follow-up
+and delivery-document cleanup to Forge coders. Roborev owns the opposite-family,
+independent reviewer requirement; using the same Pi runtime is not itself a
+problem. Existing `zmzh` owns model/role separation and `k03a` owns concise coder
+policy integration. Their native task comments hold the implementation proposal,
+including an unbuilt delivery-artifact check; it is not installed behavior.
 
 Investigated 2026-10-12 for Engi Platform. Source facts below describe the pinned
 Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the

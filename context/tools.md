@@ -8,6 +8,10 @@ generated overrides and shared coding/reviewer profile boundaries. Pi supports
 invocation-specific seam, not a configured writer policy. No runtime/profile
 settings or upstream skills were changed. `.local/plans/` is already ignored.
 
+Native roborev supports `review_model`, but the current shared `pi_launch()`
+rejects caller `--model` and injects the coder selection. Setting the native
+review key alone cannot split these routes; `zmzh` records this verified gap.
+
 The current configured reviewer is Pi through USAi deployment
 `gpt-5.6-sol-latest-guardrails-defaultv2`, with roborev standard reasoning
 (Pi medium). Recent job metadata confirms Pi but does not record an immutable

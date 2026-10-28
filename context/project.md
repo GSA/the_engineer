@@ -6,8 +6,9 @@ The owner requires working plans to stay out of PRs. Root `AGENTS.md` now
 directs planning output to ignored local state/Kata, shipped user usage to
 README and reusable agent usage to context. Existing contracts/history and
 other agents' work remain intact. Actual Forge/Pi instruction-loading evidence
-is in `context/engineering-workflow.md`; broader writer/reviewer policy wiring
-remains with existing tasks, not an installed profile change.
+is in `context/engineering-workflow.md`. Clarification, commits, review follow-up
+and plan cleanup are Forge coder duties (`k03a`); opposite-family independent
+review belongs to roborev (`zmzh`). Both remain unbuilt profile/configuration work.
 
 ## Managed Pi 1.4.0 approved: 2026-10-28 (gamy)
 
