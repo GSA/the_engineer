@@ -202,6 +202,13 @@ def setup(corpus, forge_binary):
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
         '[web]\nlisten = "127.0.0.1:17374"\n',
     )
+    if RUNTIME_ROOT != ROOT:
+        legacy_wrapper = str(ROOT / "scripts/pi-local.py")
+        for path in (STATE / "forge/config.toml", STATE / "roborev/config.toml"):
+            if path.exists():
+                content = private_read(path)
+                if legacy_wrapper in content:
+                    private_write(path, content.replace(legacy_wrapper, str(wrapper)), replace=True)
     private_write(
         STATE / "kata/config.toml",
         'listen = "127.0.0.1:17777"\nactive_daemon = "local"\n'

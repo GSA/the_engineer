@@ -108,6 +108,25 @@ class LocalEnvironmentTests(unittest.TestCase):
             self.assertNotIn(source_wrapper, (self.state / "forge/config.toml").read_text())
             self.assertNotIn(source_wrapper, (self.state / "roborev/config.toml").read_text())
 
+    def test_setup_migrates_only_legacy_linked_worktree_launchers(self):
+        if local_env.RUNTIME_ROOT == local_env.ROOT:
+            self.skipTest("requires distinct source and runtime roots")
+        legacy = str(local_env.ROOT / "scripts/pi-local.py")
+        canonical = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
+        paths = (self.state / "forge/config.toml", self.state / "roborev/config.toml")
+        for path in paths:
+            local_env.private_write(
+                path, path.read_text().replace(canonical, legacy) + "\n# retained edit\n",
+                replace=True,
+            )
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        for path in paths:
+            content = path.read_text()
+            self.assertIn(canonical, content)
+            self.assertNotIn(legacy, content)
+            self.assertIn("# retained edit", content)
+
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"
         content = '{"theme":"light","custom":"retained"}\n'
