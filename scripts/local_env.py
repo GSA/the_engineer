@@ -202,13 +202,19 @@ def setup(corpus, forge_binary):
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
         '[web]\nlisten = "127.0.0.1:17374"\n',
     )
-    if RUNTIME_ROOT != ROOT:
-        legacy_wrapper = str(ROOT / "scripts/pi-local.py")
-        for path in (STATE / "forge/config.toml", STATE / "roborev/config.toml"):
-            if path.exists():
-                content = private_read(path)
-                if legacy_wrapper in content:
-                    private_write(path, content.replace(legacy_wrapper, str(wrapper)), replace=True)
+    launcher_migrations = (
+        (STATE / "forge/config.toml",
+         re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi"\n.*?^command = )\[[^\n]*\]$'),
+         lambda match: match.group(1) + f'[{json.dumps(str(wrapper))}]'),
+        (STATE / "roborev/config.toml", re.compile(r'(?m)^pi_cmd = .*?$'),
+         lambda _match: f'pi_cmd = {json.dumps(str(wrapper))}'),
+    )
+    for path, pattern, replacement in launcher_migrations:
+        if path.exists():
+            content = private_read(path)
+            migrated, count = pattern.subn(replacement, content, count=1)
+            if count and migrated != content:
+                private_write(path, migrated, replace=True)
     private_write(
         STATE / "kata/config.toml",
         'listen = "127.0.0.1:17777"\nactive_daemon = "local"\n'
