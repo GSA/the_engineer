@@ -1,5 +1,22 @@
 # Status: 2026-10-28
 
+## Librarian repository simplification delivered (djrb)
+
+- Pushed `kenn-forge/work-22874a66` at `3d0277c` and opened
+  https://github.com/GSA/the_librarian/pull/2 against `main`; the Forge-owned
+  worktree remains available for review feedback.
+- Fresh installed-environment discovery passed 119 tests with seven declared
+  optional Docling skips. Targeted Docling/review suites, schema checks, exact
+  release archive comparison and whole-branch whitespace checks passed.
+  Aggregate RoboRev job 298 passed with no findings.
+- Closed Kata `djrb` with commit, PR, test and review evidence. Generic future
+  instance/corpus work remains in `w5aj` and `df1a`; no instance-specific data
+  or defaults entered the reusable toolkit.
+- Forge target-registration tools were unavailable in this session, so PR
+  registration to workspace `22874a665ef96e79` remains unconfirmed. No
+  experimental process was started and no owned process needs shutdown.
+
+
 ## Knowitall revision-bound code-context contract closed (vky6): 2026-10-28
 
 - Closed Kata `knowitall#vky6` at commit `9003873` on branch

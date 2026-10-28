@@ -1,5 +1,20 @@
 # Upstream components
 
+## Librarian simplification delivery evidence: 2026-10-28
+
+Branch `kenn-forge/work-22874a66` is pushed at
+`3d0277c7e6c5de5f336f3336f7be16dd863fc684`; PR 2 targets `main`:
+https://github.com/GSA/the_librarian/pull/2. Fresh installed-environment
+verification used `/home/nkirrish/the_librarian/.venv/bin/python` only as an
+interpreter against the Forge worktree: discovery passed 119 tests with seven
+declared optional Docling skips. Schema checking, exact release-manifest archive
+comparison, targeted Docling/review suites and whole-branch whitespace checks
+passed. Aggregate RoboRev job 298 passed with no findings. Kata `djrb` is closed
+with commit, PR, test and review evidence; `w5aj` and `df1a` retain deferred
+generic extension work. Forge target-registration tools were not exposed in the
+session, so PR workspace registration is unconfirmed.
+
+
 ## Roborev findings do not set task scope: 2026-10-28
 
 Standing owner instruction: do not automatically implement Roborev feedback.
