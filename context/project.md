@@ -13,6 +13,35 @@ and first-corpus extension work remains deferred to Katas `w5aj` and `df1a`.
 PR: https://github.com/GSA/the_librarian/pull/2.
 
 
+## Knowitall revision-bound code-context contract: 2026-10-28 (vky6)
+
+The owner approved `knowitall.code-context/v1` as the versioned code-context
+provider/consumer contract. One reproducible Knowitall deployment serves one
+project and may hold several explicitly identified repositories. Every query
+binds project, repository, snapshot, commit (or admitted dirty-content)
+identity, graph generation and raw-artifact digest; `current` is a selector
+only and never appears as evidence. Four query kinds are served: `symbol`,
+`dependencies`, `path` and `source_range`, each with half-open source ranges
+and content digests.
+
+Source snapshots are immutable and dirty working trees are rejected unless
+explicitly admitted with their own identity. Publication is durable staging
+plus an atomic pointer swap. Deterministic extraction stays separate from
+inferred evidence; inventory failures and scope exclusions persist as
+machine-readable missing evidence, publication rejects partial coverage
+lacking those records, and incomplete or excluded scope never authorizes
+repository-wide absence or deletion.
+
+Engine reuse is `graphifyy==0.9.96` behind an engine-neutral adapter, verified
+for hashes, source correspondence and Apache-2.0 licensing, pinned by a
+complete 31-distribution hash lock, and run offline with fixed code-only
+arguments. The adapter claims extractor package and version identity only;
+deployment-attested runtime integrity is deferred to `knowitall#d2qt`.
+Validation is synthetic Python/TypeScript only: no Acquire validation,
+real acquisition, model call, deployment or publication. Commits: cc0ced1,
+d0ecc07, 73d6b10, 4e75e90, fa727ff, 2fbb4fc, 225b09f, f296b8f, fa07d1e,
+9003873.
+
 ## Librarian text and qualified Docling retrieval: 2026-10-28 (8a5h/zqdh)
 
 The owner approved and the isolated Forge branch implements strict ordinary
