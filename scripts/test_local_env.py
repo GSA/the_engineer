@@ -99,6 +99,15 @@ class LocalEnvironmentTests(unittest.TestCase):
     def key(self):
         local_env.private_write(self.state / "secrets/usai-api-key", "test-only-token\n", replace=True)
 
+    def test_setup_persists_launchers_from_canonical_runtime_checkout(self):
+        wrapper = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
+        self.assertIn(wrapper, (self.state / "forge/config.toml").read_text())
+        self.assertIn(wrapper, (self.state / "roborev/config.toml").read_text())
+        if local_env.RUNTIME_ROOT != local_env.ROOT:
+            source_wrapper = str(local_env.ROOT / "scripts/pi-local.py")
+            self.assertNotIn(source_wrapper, (self.state / "forge/config.toml").read_text())
+            self.assertNotIn(source_wrapper, (self.state / "roborev/config.toml").read_text())
+
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"
         content = '{"theme":"light","custom":"retained"}\n'
@@ -521,7 +530,9 @@ class LocalEnvironmentTests(unittest.TestCase):
             cli_settings = json.loads((self.global_pi / "settings.json").read_text())
             command = cli_models["providers"]["usai"]["apiKey"]
             self.assertTrue(command.startswith("!"))
-            self.assertIn(str(local_env.ROOT / "scripts/usai-key.py"), command)
+            self.assertIn(str(local_env.RUNTIME_ROOT / "scripts/usai-key.py"), command)
+            if local_env.RUNTIME_ROOT != local_env.ROOT:
+                self.assertNotIn(str(local_env.ROOT / "scripts/usai-key.py"), command)
             self.assertEqual(cli_settings["litellm"]["providers"]["litellm-usai"]["apiKey"], command)
             models["providers"]["usai"]["apiKey"] = command
             settings["litellm"]["providers"]["litellm-usai"]["apiKey"] = command

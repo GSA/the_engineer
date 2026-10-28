@@ -81,7 +81,7 @@ installation, performed separately by an authorized user, is:
 
 ```sh
 sudo apt-get install git curl ca-certificates build-essential libc6-dev \
-  tmux python3 tar coreutils diffutils ripgrep fd-find
+  tmux python3 python3-venv tar coreutils diffutils ripgrep fd-find
 mkdir -p "$HOME/.local/bin"
 ln -s /usr/bin/fdfind "$HOME/.local/bin/fd"
 ```

@@ -185,7 +185,7 @@ def setup(corpus, forge_binary):
     if config_path.exists() and json.loads(private_read(config_path)) != config:
         raise RuntimeError(f"setup differs from saved paths/version; inspect {config_path} first")
     json_write(config_path, config)
-    wrapper = ROOT / "scripts/pi-local.py"
+    wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
     disabled = "".join(f'\n[[agents]]\nkey = "{key}"\nenabled = false\n'
                        for key in ("claude", "codex", "gemini", "opencode", "aider"))
     private_write(
@@ -245,7 +245,7 @@ def set_key(*, private_only=False):
 
 
 def link_cli_key():
-    command = "!" + shlex.join([sys.executable, str(ROOT / "scripts/usai-key.py")])
+    command = "!" + shlex.join([sys.executable, str(RUNTIME_ROOT / "scripts/usai-key.py")])
     auth_path = GLOBAL_PI / "auth.json"
     auth = json.loads(private_read(auth_path)) if auth_path.exists() or auth_path.is_symlink() else {}
     if not isinstance(auth, dict):
