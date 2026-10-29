@@ -21,7 +21,13 @@ from provider-asserted code identity, and associations never exceed
 Interpreter and server program paths in the configuration are absolutized
 lexically rather than resolved, because dereferencing a virtual environment's
 `bin/python` changes the child's prefix and breaks the Knowitall bridge. Corpus,
-store, reader and selection paths are still fully resolved.
+store, reader and selection paths are still fully resolved. They are treated as
+paths only, so spaces are allowed and no launch goes through a shell.
+`src/engineer_context/bridge.py` is executed by path on the provider
+interpreter and imports nothing from `engineer_context`, so Engineer and
+Knowitall can live in separate private environments; its fixed `REASONS`
+vocabulary diagnoses a missing provider package, unpublished store, rejected
+request, invalid response or exceeded budget without echoing provider text.
 
 Actual-provider verification lives in `tests/integration/` and fails rather
 than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or

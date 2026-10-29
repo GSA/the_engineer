@@ -1,10 +1,13 @@
 import copy
+import io
 import json
+from contextlib import redirect_stdout
 from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
+from engineer_context import bridge
 from engineer_context.config import KnowitallBinding, Limits
 from engineer_context.knowitall import KnowitallClient, ProviderError, validate_response
 
@@ -62,6 +65,39 @@ class KnowitallTests(unittest.TestCase):
             with self.assertRaises(ProviderError):
                 KnowitallClient(binding, Limits(timeout_seconds=.2)).query(query)
             self.assertLess(time.monotonic() - started, 10)
+
+    def test_provider_environment_without_the_consumer_can_still_describe(self):
+        # Engineer and Knowitall may live in separate private environments, so
+        # the bridge must run on an interpreter that cannot import this package.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ('stages', 'generations', 'current'): (root / name).mkdir()
+            site = root / 'provider-site'
+            metadata = site / 'knowitall_code_context-0.1.0.dist-info'; metadata.mkdir(parents=True)
+            (metadata / 'METADATA').write_text('Metadata-Version: 2.1\nName: knowitall-code-context\nVersion: 0.1.0\n')
+            exe = root / 'provider-python'
+            exe.write_text(f'''#!{sys.executable}
+import runpy, sys
+sys.path.insert(0, {str(site)!r})
+class Blocked:
+    def find_spec(self, name, path=None, target=None):
+        if name.split('.')[0] == 'engineer_context': raise ModuleNotFoundError(name)
+sys.meta_path.insert(0, Blocked())
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name='__main__')
+''')
+            exe.chmod(0o700)
+            binding = KnowitallBinding('project-synthetic', 'repo-python-service', exe, root)
+            info = KnowitallClient(binding, Limits(timeout_seconds=30)).describe()
+            self.assertEqual(info['contract'], 'knowitall.code-context/v1')
+
+    def test_bridge_reports_a_diagnosable_reason(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = io.StringIO()
+            with redirect_stdout(output):
+                status = bridge.main(['--store', temp, '--max-bytes', '1024'])
+            self.assertEqual(status, 1)
+            self.assertIn(json.loads(output.getvalue())['error'], bridge.REASONS)
 
     def test_bridge_timeout_and_malformed_json_are_bounded(self):
         with tempfile.TemporaryDirectory() as temp:

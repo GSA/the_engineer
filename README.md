@@ -941,11 +941,15 @@ an `engineer.context-config/v1` file naming the explicit providers:
 
 The Knowitall store must already be a published store: an incomplete directory
 is refused rather than initialized, because collection never writes provider
-state.
+state. `knowitall.python` names the interpreter that owns
+`knowitall-code-context` 0.1.0; Engineer itself need not be installed there,
+because the provider-side bridge runs by path. A failing exchange reports which
+prerequisite is missing.
 
 Relative paths resolve against the configuration file. Interpreter and server
 program paths keep the link you select, so a virtual environment's `bin/python`
-runs with that environment's prefix.
+runs with that environment's prefix. Paths may contain spaces; every provider
+launch uses an argument list, never a shell.
 
 ```sh
 engineer-context collect --config binding.json --request request.json --output packet.json

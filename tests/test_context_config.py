@@ -32,9 +32,17 @@ class ConfigTests(unittest.TestCase):
                       dict(config_value(), limits={'timeout_seconds': float('inf')}),
                       dict(config_value(), limits={'max_code_queries': -1})]:
             with self.subTest(value=value), self.assertRaises(ValueError): self.load(value)
-        for field, bad in [('project_id', ''), ('selection', '../elsewhere'), ('executable', 'python -m server')]:
+        for field, bad in [('project_id', ''), ('selection', '../elsewhere'), ('executable', 'exe\nname')]:
             value = config_value(); value['librarian'][field] = bad
             with self.subTest(field=field), self.assertRaises(ValueError): self.load(value)
+
+    def test_binding_paths_may_contain_spaces(self):
+        value = config_value()
+        value['librarian']['executable'] = 'private tools/librarian-mcp'
+        value['knowitall']['python'] = 'private tools/python'
+        conf = self.load(value)
+        self.assertEqual(conf.librarian.executable, self.path.parent / 'private tools/librarian-mcp')
+        self.assertEqual(conf.knowitall.python, self.path.parent / 'private tools/python')
 
     def test_interpreter_paths_keep_their_selected_symlink(self):
         # A virtual environment's bin/python must be launched through its own

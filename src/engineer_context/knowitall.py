@@ -1,35 +1,22 @@
 """Read-only bridge into an explicitly installed owning query implementation."""
-import argparse
 from dataclasses import asdict
-from importlib.metadata import version
 import json
 import os
 from pathlib import Path
 import selectors
 import subprocess
-import sys
 import time
-from .librarian import ProviderError
-from .packet import canonical_bytes
+from .bridge import REASONS, canonical, check_response, published_store
+from .errors import ProviderError
+
+BRIDGE = Path(__file__).with_name('bridge.py')
 
 
 def validate_response(request, response):
     try:
-        from knowitall_contract.validation import validate_query_request, validate_query_response
-        validate_query_request(request)
-        validate_query_response(response, expected_request=request)
-        if request['selector']['mode'] == 'exact' and response.get('resolved') is not None:
-            for field in ['snapshot_id', 'generation_id']:
-                if response['resolved'][field] != request['selector'][field]:
-                    raise ValueError()
+        check_response(request, response)
     except Exception:
         raise ProviderError('invalid', 'Knowitall contract or identity validation failed') from None
-
-
-def published_store(root):
-    # The owning store constructor creates its layout, so an incomplete directory
-    # is refused here rather than written to by a read-only consumer.
-    return all((root / name).is_dir() for name in ('stages', 'generations', 'current'))
 
 
 class KnowitallClient:
@@ -38,11 +25,13 @@ class KnowitallClient:
 
     def _exchange(self, operation, request=None):
         if not published_store(self.binding.store):
-            raise ProviderError('unavailable', 'published code store unavailable')
-        payload = canonical_bytes({'operation': operation, 'request': request}) + b'\n'
+            raise ProviderError('unavailable', REASONS['store-unavailable'])
+        payload = canonical({'operation': operation, 'request': request}) + b'\n'
         if len(payload) > self.limits.max_bytes:
             raise ProviderError('invalid', 'code request exceeded budget')
-        command = [str(self.binding.python), '-m', 'engineer_context.knowitall',
+        # The bridge runs by path: the provider interpreter owns the Knowitall
+        # packages and need not have this consumer installed.
+        command = [str(self.binding.python), str(BRIDGE),
                    '--store', str(self.binding.store), '--max-bytes', str(self.limits.max_bytes)]
         try:
             with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -75,14 +64,19 @@ class KnowitallClient:
                                     output.extend(part)
                                     if len(output) > self.limits.max_bytes: raise ValueError()
                             if not selector.get_map(): break
-                    if process.wait(timeout=max(.01, deadline-time.monotonic())) != 0: raise ValueError()
+                    status = process.wait(timeout=max(.01, deadline-time.monotonic()))
                     value = json.loads(output)
-                    if not isinstance(value, dict) or value.get('error'): raise ValueError()
-                    canonical_bytes(value)
+                    if not isinstance(value, dict): raise ValueError()
+                    if status != 0 or value.get('error'):
+                        raise ProviderError('unavailable', REASONS.get(value.get('error'),
+                                                                       'Knowitall exchange failed'))
+                    canonical(value)
                     return value
                 finally:
                     if process.poll() is None:
                         process.kill(); process.wait()
+        except ProviderError:
+            raise
         except Exception:
             raise ProviderError('unavailable', 'Knowitall transport failed or exceeded budget') from None
 
@@ -97,34 +91,3 @@ class KnowitallClient:
         if request.get('project_id') != self.binding.project_id or request.get('repository_id') != self.binding.repository_id:
             raise ProviderError('invalid', 'code request binding mismatch')
         return self._exchange('query', request)
-
-
-def bridge_main(argv=None):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--store', required=True, type=Path)
-    parser.add_argument('--max-bytes', required=True, type=int)
-    args = parser.parse_args(argv)
-    try:
-        if version('knowitall-code-context') != '0.1.0' or not published_store(args.store): raise ValueError()
-        line = sys.stdin.buffer.readline(args.max_bytes + 1)
-        if len(line) > args.max_bytes or not line.endswith(b'\n'): raise ValueError()
-        value = json.loads(line)
-        if value['operation'] == 'describe':
-            result = {'contract': 'knowitall.code-context/v1', 'package_version': '0.1.0'}
-        elif value['operation'] == 'query':
-            from knowitall_contract.validation import validate_query_request
-            from knowitall_publication.store import PublicationStore
-            from knowitall_query.service import QueryService
-            request = value['request']; validate_query_request(request)
-            result = QueryService(PublicationStore(args.store)).execute(request)
-            validate_response(request, result)
-        else: raise ValueError()
-        output = canonical_bytes(result) + b'\n'
-        if len(output) > args.max_bytes: raise ValueError()
-        sys.stdout.buffer.write(output); return 0
-    except Exception:
-        sys.stdout.write('{"error":"code provider unavailable or invalid"}\n'); return 1
-
-
-if __name__ == '__main__':
-    raise SystemExit(bridge_main())

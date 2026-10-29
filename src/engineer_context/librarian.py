@@ -6,14 +6,8 @@ import json
 import os
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from .errors import ProviderError
 from .packet import canonical_bytes
-
-
-class ProviderError(ValueError):
-    def __init__(self, status, reason):
-        self.status = status
-        self.reason = reason
-        super().__init__(reason)
 
 
 class LibrarianClient:

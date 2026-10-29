@@ -90,9 +90,6 @@ def load_config(path: Path) -> ConsumerConfig:
     lib = value['librarian']; code = value['knowitall']
     exact_fields(lib, ['project_id', 'executable', 'reader', 'root'], ['selection'])
     exact_fields(code, ['project_id', 'repository_id', 'python', 'store'])
-    for obj, key in [(lib, 'executable'), (code, 'python')]:
-        if ' ' in identity(obj[key]):
-            raise ValueError('executable must be a path, not a command')
     librarian = LibrarianBinding(identity(lib['project_id']), program_path(lib['executable']),
                                  local_path(lib['reader']), local_path(lib['root']),
                                  local_path(lib['selection']) if lib.get('selection') is not None else None)
