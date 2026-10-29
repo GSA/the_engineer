@@ -35,8 +35,11 @@ const { session } = await createAgentSession({
 try {
   await session.bindExtensions({});
   const deadline = Date.now() + 30_000;
-  while (!session.getToolDefinition("mcp__falcon_context__get")) {
-    assert.ok(Date.now() < deadline, "Falcon MCP tools did not become callable in Pi");
+  while (
+    !session.getToolDefinition("mcp__falcon_context__get") ||
+    !session.getToolDefinition("mcp__kata__kata_load_issue_discovery")
+  ) {
+    assert.ok(Date.now() < deadline, "Falcon and Kata MCP tools did not become callable in Pi");
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   async function call(name, args) {

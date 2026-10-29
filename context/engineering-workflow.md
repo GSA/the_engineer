@@ -6,7 +6,8 @@
 2. **Execute in an isolated worktree or checkout**: launch a Forge workspace (`Pi (USAi)`) or work in the bound repository checkout using `scripts/pi-local.py` or Copilot CLI.
 3. **Validate incrementally**: run targeted unit/integration tests for each change and commit coherent slices locally.
 4. **Review asynchronously via native `roborev`**: native `post-commit` hooks batch every 5 commits (`post_commit_batch_size = 5`) into a single background `roborev` job and flush any unreviewed commits on `git push`.
-5. **Close in Kata with evidence**: record test and commit evidence in Kata (`kata close <id> --reason "..."`) and update `context/status.md` when a milestone completes.
+5. **Complete the Forge workspace PR and register targets**: in a Kenn Forge workspace (`AGENTS.override.md` present or `KENN_FORGE_RUNTIME_SESSION_KEY` set), always finish verified work by pushing the workspace branch (`git push -u origin HEAD`), creating or updating the GitHub PR (`gh pr create` / `gh pr edit`) without stopping on `finishing-a-development-branch`'s local-merge menu, and registering the PR and worked Kata/GitHub items via `kenn_forge_add_workspace_target` and `kenn_forge_add_workspace_kata_target` (confirming with `kenn_forge_list_workspace_targets`).
+6. **Close in Kata with evidence**: record test, commit, and PR evidence in Kata (`kata close <id> --reason "..."`) and update `context/status.md` when a milestone completes.
 
 ## Subagents vs. `roborev`
 
