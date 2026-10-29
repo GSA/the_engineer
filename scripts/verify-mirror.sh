@@ -104,7 +104,8 @@ for spec in "${REPO_ARGS[@]}"; do
         log "OK    $src_org/$src_repo -> $DEST_ORG/$dest_name  ($(printf '%s\n' "$src_tips" | wc -l | tr -d ' ') refs, identical tips)"
     else
         log "DIFF  $src_org/$src_repo -> $DEST_ORG/$dest_name"
-        diff <(printf '%s\n' "$src_tips") <(printf '%s\n' "$dest_tips") |
+        # diff exits 1 on differences, which is the expected result here.
+        { diff <(printf '%s\n' "$src_tips") <(printf '%s\n' "$dest_tips") || [ $? -eq 1 ]; } |
             sed 's/^/        /' | head -40
         FAILED=$((FAILED + 1))
     fi

@@ -155,6 +155,7 @@ if [ -z "$WORKDIR" ]; then
     CREATED_WORKDIR=1
 else
     mkdir -p "$WORKDIR"
+    WORKDIR="$(cd "$WORKDIR" && pwd)"
 fi
 LOGDIR="$WORKDIR/logs"
 mkdir -p "$LOGDIR"
@@ -389,7 +390,14 @@ for spec in "${REPO_ARGS[@]}"; do
 
     # 1. Mirror clone from the VPN-side host.
     if [ -d "$mirror_dir" ]; then
-        log "    reusing existing clone $mirror_dir"
+        log "    reusing existing clone $mirror_dir; refreshing from source"
+        if ! { git --git-dir="$mirror_dir" remote set-url origin "$src_url" &&
+               git --git-dir="$mirror_dir" remote update --prune origin; } >>"$repo_log" 2>&1; then
+            log "    git fetch output:"
+            sed 's/^/        /' "$repo_log" | tail -15
+            repo_failed "refreshing retained clone from source failed"
+            continue
+        fi
     else
         log "    cloning $src_url"
         if ! git clone --mirror "$src_url" "$mirror_dir" >>"$repo_log" 2>&1; then

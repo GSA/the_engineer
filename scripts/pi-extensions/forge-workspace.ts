@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+const RUNTIME_KEY_LOOKUP_COOLDOWN_MS = 5000;
 const FORGE_HOOK_SOURCE = "kenn-forge-agent-activity";
 const FORGE_HOOK_TIMEOUT_MS = 1500;
 const GEMINI_SUMMARY_MODEL = process.env.KENN_FORGE_PR_SUMMARY_MODEL?.trim() || "gemini-4-argon";
@@ -205,7 +206,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	let sessionStartContext: string | null = null;
 	let sessionStartResolved = false;
 	let resolvedRuntimeKey: string | null = null;
-	let runtimeKeyLookupDone = false;
+	let lastRuntimeKeyLookupMs = 0;
 	const pendingPrCommands = new Map<string, string>();
 
 	async function resolveRuntimeSessionKey(cwd: string): Promise<string> {
@@ -216,7 +217,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		if (resolvedRuntimeKey) {
 			return resolvedRuntimeKey;
 		}
-		if (runtimeKeyLookupDone) {
+		if (Date.now() - lastRuntimeKeyLookupMs < RUNTIME_KEY_LOOKUP_COOLDOWN_MS) {
 			return "";
 		}
 		const sourceText = readOverrideFile(cwd)?.content || sessionStartContext || "";
@@ -224,27 +225,44 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		if (!match?.[1]) {
 			return "";
 		}
-		runtimeKeyLookupDone = true;
-		try {
-			const response = await fetch(
-				`${forgeApiBaseUrl()}/api/v1/workspaces/${encodeURIComponent(match[1])}/agent-sessions`,
-				{ signal: AbortSignal.timeout(FORGE_HOOK_TIMEOUT_MS) },
-			);
-			if (!response.ok) {
-				return "";
+		lastRuntimeKeyLookupMs = Date.now();
+		const workspaceUrl = `${forgeApiBaseUrl()}/api/v1/workspaces/${encodeURIComponent(match[1])}`;
+		const fetchJson = async (suffix: string): Promise<any> => {
+			try {
+				const response = await fetch(`${workspaceUrl}${suffix}`, {
+					signal: AbortSignal.timeout(FORGE_HOOK_TIMEOUT_MS),
+				});
+				return response.ok ? await response.json() : null;
+			} catch {
+				return null;
 			}
-			const data: any = await response.json();
-			const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
-			const active =
-				sessions.find((item: any) => item?.target_key === "pi" && item?.state !== "done") ||
-				sessions.find((item: any) => item?.target_key === "pi") ||
-				sessions[0];
-			if (typeof active?.runtime_session_key === "string" && active.runtime_session_key.trim()) {
+		};
+		// The live runtime inventory exists before any hook has reported, so a
+		// fresh session resolves here; agent-sessions only lists reported ones.
+		const runtime = await fetchJson("/runtime");
+		const live = (Array.isArray(runtime?.sessions) ? runtime.sessions : []).filter(
+			(item: any) =>
+				(item?.kind === "agent" || item?.kind === "acp") &&
+				(item?.status === "starting" || item?.status === "running") &&
+				typeof item?.key === "string" &&
+				item.key.trim(),
+		);
+		const livePi = live.filter((item: any) => item?.target_key === "pi");
+		// Only trust an unambiguous match so a sibling agent's key is never adopted.
+		if (livePi.length === 1) {
+			resolvedRuntimeKey = livePi[0].key.trim();
+			return resolvedRuntimeKey;
+		}
+		if (livePi.length === 0) {
+			const reported = await fetchJson("/agent-sessions");
+			const sessions = (Array.isArray(reported?.sessions) ? reported.sessions : []).filter(
+				(item: any) => item?.target_key === "pi" && typeof item?.runtime_session_key === "string",
+			);
+			const active = sessions.find((item: any) => item?.state !== "done") || sessions[0];
+			if (active?.runtime_session_key?.trim()) {
 				resolvedRuntimeKey = active.runtime_session_key.trim();
 				return resolvedRuntimeKey;
 			}
-		} catch {
-			// Ignore lookup failures
 		}
 		return "";
 	}
