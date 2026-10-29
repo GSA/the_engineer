@@ -31,8 +31,12 @@
 #                         (default: one push, then automatic batched retry)
 #   --dry-run             clone + audit only: no repo creation, no push
 #   --allow-nonempty      push even if the destination repo already has refs
-#                         (an existing destination must already be private)
 #   -h | --help           this text
+#
+# Every destination, new or existing, must be confirmed private with no
+# GitHub Pages site and no rename/transfer redirect before each push, and has
+# GitHub Actions disabled so mirrored workflows cannot publish or deploy.
+# Privacy is checked again after pushing.
 #
 # Exit status is non-zero if any repository failed. Per-repo logs are written
 # to <workdir>/logs/<dest>.log and a summary is printed at the end.
@@ -286,6 +290,38 @@ remote_ref_count() {
     printf '%s\n' "$refs" | grep -v '\^{}$' | grep -c . || true
 }
 
+destination_private() {
+    # Succeeds only when the exact destination (no rename/transfer redirect)
+    # is private and has no GitHub Pages site, which can be public even for a
+    # private repository. Any lookup failure counts as not private.
+    local info
+    info="$(GH_HOST="$DEST_HOST" gh api "repos/$dest_full" \
+        --jq '[.full_name, .visibility, (.private | tostring), (.has_pages | tostring)] | join(" ")' \
+        2>>"$repo_log")" || { log "    visibility check: destination lookup failed"; return 1; }
+    local name visibility private pages
+    read -r name visibility private pages <<<"$info"
+    if [ "${name,,}" != "${dest_full,,}" ]; then
+        log "    visibility check: $dest_full resolves to $name (renamed or transferred)"
+        return 1
+    fi
+    if [ "$visibility" != "private" ] || [ "$private" != "true" ]; then
+        log "    visibility check: $dest_full is $visibility, not private"
+        return 1
+    fi
+    if [ "$pages" != "false" ]; then
+        log "    visibility check: $dest_full has GitHub Pages enabled"
+        return 1
+    fi
+    return 0
+}
+
+disable_destination_actions() {
+    # Mirrored workflows would otherwise run on push and could publish or
+    # deploy repository content.
+    GH_HOST="$DEST_HOST" gh api -X PUT "repos/$dest_full/actions/permissions" \
+        -F enabled=false >>"$repo_log" 2>&1
+}
+
 push_in_batches() {
     # Push refs a batch at a time. GitHub rejects a single pack over ~2GB and
     # hundreds of refs in one push can also time out; batches keep each
@@ -296,6 +332,10 @@ push_in_batches() {
     log "    pushing $total ref(s) in batches of $size"
     while [ "$sent" -lt "$total" ]; do
         batch=("${refs[@]:sent:size}")
+        if ! destination_private; then
+            log "    destination is no longer private; stopping before batch at ref $((sent + 1))"
+            return 1
+        fi
         if ! git push "$url" "${batch[@]/#/+}" >>"$repo_log" 2>&1; then
             log "    git push output:"
             sed 's/^/        /' "$repo_log" | tail -15
@@ -417,13 +457,6 @@ for spec in "${REPO_ARGS[@]}"; do
     # GH_HOST pins gh to the destination host now that two hosts are logged in.
     if GH_HOST="$DEST_HOST" gh repo view "$dest_full" >>"$repo_log" 2>&1; then
         log "    destination exists"
-        visibility="$(GH_HOST="$DEST_HOST" gh repo view "$dest_full" \
-            --json visibility -q .visibility 2>>"$repo_log")" || visibility=""
-        if [ "$visibility" != "PRIVATE" ]; then
-            repo_failed "existing destination visibility is '${visibility:-unknown}', not PRIVATE; make it private before mirroring"
-            cd "$WORKDIR"
-            continue
-        fi
         if ! existing_refs="$(remote_ref_count "$dest_url")"; then
             repo_failed "could not list destination refs; refusing to push"
             cd "$WORKDIR"
@@ -446,6 +479,19 @@ for spec in "${REPO_ARGS[@]}"; do
         fi
     fi
 
+    # Never push unless the destination is confirmed private, Pages-free and
+    # has Actions disabled. Visibility is rechecked immediately before pushing.
+    if ! destination_private; then
+        repo_failed "destination is not confirmed private; refusing to push"
+        cd "$WORKDIR"
+        continue
+    fi
+    if ! disable_destination_actions; then
+        repo_failed "could not disable GitHub Actions on destination; refusing to push"
+        cd "$WORKDIR"
+        continue
+    fi
+
     # 6. Push every ref. One push is fastest; batching is the fallback for
     # repos with very many refs or a pack too large for a single request.
     push_ok=0
@@ -453,7 +499,7 @@ for spec in "${REPO_ARGS[@]}"; do
         if push_in_batches "$dest_url" "$BATCH_SIZE"; then
             push_ok=1
         fi
-    elif git push --mirror "$dest_url" >>"$repo_log" 2>&1; then
+    elif destination_private && git push --mirror "$dest_url" >>"$repo_log" 2>&1; then
         push_ok=1
     else
         log "    single mirror push failed:"
@@ -462,6 +508,12 @@ for spec in "${REPO_ARGS[@]}"; do
         if push_in_batches "$dest_url" 50; then
             push_ok=1
         fi
+    fi
+    # Any push attempt may have transferred refs, so confirm privacy again.
+    if ! destination_private; then
+        repo_failed "DESTINATION IS NOT CONFIRMED PRIVATE AFTER PUSH; make it private or delete it now"
+        cd "$WORKDIR"
+        continue
     fi
     if [ "$push_ok" -ne 1 ]; then
         repo_failed "push failed"
