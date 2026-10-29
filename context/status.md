@@ -49,7 +49,14 @@
   - Merged current `main` into the branch, keeping main's compacted docs,
     configurable ports (`KENN_KOPY_PORT_OFFSET`) and roborev wrapper removal,
     and re-applying the explicit Librarian binding so `setup` preserves the
-    other saved `pi/mcp.json` servers.
+    other saved `pi/mcp.json` servers. Branch review job 399 passed.
+  - Open upstream drift: Librarian `f4c8500` dropped `--reader` from
+    `librarian-mcp` and moved the reader to the `tools.context_index` module
+    under `--root`, so the 9 code-evidence integration tests still pass against
+    the current checkout while the qualified business read fails with
+    `Librarian transport failed`. Both the consumer binding
+    (`librarian.reader`) and `setup --librarian-reader` still send `--reader`;
+    realigning that configured contract needs an owner decision.
   - Assertions and contributions stay unavailable pending `the_librarian#923h`
     and `the_librarian#rjr5`, so associations remain `unasserted` and `k4mp`
     stays open. Public tests are non-identifying; real corpus/ticket use, model
