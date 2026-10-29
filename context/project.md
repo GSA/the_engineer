@@ -21,9 +21,10 @@ engineering workflow:
 
 - Selected product name: **Engineer** (`engineer`), replacing Engi Platform and
   Kenn Kopy in user-facing documentation and UI copy.
-- Checkout directory (`~/kenn-kopy`), Kata project key (`engi-platform`), and
-  systemd unit prefix (`kenn-kopy-*`) remain stable until the scheduled
-  runtime/identifier migration (`eb48`).
+- Kata projects match repository names (`the_engineer`, `the_librarian`,
+  `the_knowitall`). Checkout directory (`~/kenn-kopy`) and systemd unit prefix
+  (`kenn-kopy-*`) remain stable until the scheduled runtime/identifier
+  migration (`eb48`).
 
 ## Repository structure
 

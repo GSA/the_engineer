@@ -432,8 +432,13 @@ def configure_provider(base_url, model, api):
     provider = providers.setdefault("usai", {})
     provider.update({"baseUrl": base_url, "api": api, "apiKey": "${USAI_API_KEY}"})
     entries = provider.setdefault("models", [])
-    if not any(entry.get("id") == model for entry in entries):
-        entries.append({"id": model})
+    for required_model in (model, "gemini-4-argon"):
+        if not any(entry.get("id") == required_model for entry in entries):
+            entries.append({"id": required_model, "compat": {"supportsDeveloperRole": False}})
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("id"):
+            compat = entry.get("compat")
+            entry["compat"] = {**(compat if isinstance(compat, dict) else {}), "supportsDeveloperRole": False}
     json_write(path, models, replace=True)
     settings_path = STATE / "pi/settings.json"
     pi_settings = json.loads(private_read(settings_path)) if settings_path.exists() else {}
