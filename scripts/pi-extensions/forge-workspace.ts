@@ -14,7 +14,7 @@ const FORGE_WORKSPACE_SECTION = [
 	"- When implementation and verification are complete, do NOT stop to ask whether to merge locally to `main`, keep the branch as-is, or discard work.",
 	"- Before opening or updating a pull request, run `roborev review --branch --wait` (and `roborev fix` if any findings are reported).",
 	"- Always complete the workspace by pushing the workspace branch (`git push -u origin HEAD`) and creating or updating the GitHub pull request (`gh pr create` / `gh pr edit`).",
-	"- Keep PR descriptions concise and proportional to the diff (1 short sentence + 2-4 flat bullets; no `##` section headers or multi-paragraph prose); `gemini-4-argon` automatically summarizes the PR body when `gh pr create` / `gh pr edit` runs.",
+	"- Scale PR descriptions proportionally to the size of the change (short 1-sentence + 2-3 bullets for small 1-3 file changes; fuller overview + 4-10 bullets for medium/large multi-module changes; omit raw test transcripts and negative 'what this does not do' disclaimers); `gemini-4-argon` automatically formats the PR summary scaled to the diff when `gh pr create` / `gh pr edit` runs.",
 	"- After creating or updating a PR (or working on a GitHub issue or Kata task), register every target with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using `mcp__kenn_forge__kenn_forge_list_repos` if needed to look up `platform_repo_id`), then confirm with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 ].join("\n");
 
@@ -26,7 +26,7 @@ const FINISHING_BRANCH_OVERRIDE = [
 	"",
 	"Once Step 1 (tests pass) is verified:",
 	"1. Run `roborev review --branch --wait` (and `roborev fix` if needed) so the branch has a clean review.",
-	"2. Automatically execute **Option 2 (Push and Create a Pull Request)**: push the workspace branch (`git push -u origin HEAD`) and create or update the pull request (`gh pr create` / `gh pr edit`) with a short summary (`gemini-4-argon` will automatically condense the PR body to 1 sentence + 2-4 flat bullets).",
+	"2. Automatically execute **Option 2 (Push and Create a Pull Request)**: push the workspace branch (`git push -u origin HEAD`) and create or update the pull request (`gh pr create` / `gh pr edit`) with a summary proportional to the diff size (`gemini-4-argon` will automatically scale the PR body to the change size).",
 	"3. Register the pull request and any worked GitHub issue or Kata task with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using the `Workspace ID` and `Repository` from the Kenn Forge Workspace Context), then verify with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 	"4. Do not remove the Forge workspace worktree; Forge manages workspace worktree lifecycle.",
 ].join("\n");
@@ -90,6 +90,24 @@ function runGitOrGh(cmd: string, args: string[], cwd: string, input?: string): s
 	}
 }
 
+function describeSizeGuidance(shortStat: string): string {
+	const filesMatch = shortStat.match(/(\d+)\s+files?\s+changed/);
+	const insertionsMatch = shortStat.match(/(\d+)\s+insertions?\(\+\)/);
+	const deletionsMatch = shortStat.match(/(\d+)\s+deletions?\(-\)/);
+	const files = filesMatch ? Number(filesMatch[1]) : 0;
+	const lines =
+		(insertionsMatch ? Number(insertionsMatch[1]) : 0) +
+		(deletionsMatch ? Number(deletionsMatch[1]) : 0);
+
+	if (files > 0 && files <= 3 && lines <= 80) {
+		return "Size tier: SMALL (<=3 files, <=80 lines). Write 1 short sentence followed by 2-3 flat bullet points. Do not use section headings.";
+	}
+	if (files <= 10 && lines <= 350) {
+		return "Size tier: MEDIUM (4-10 files or 81-350 lines). Write a 1-2 sentence overview followed by 4-6 bullet points covering the key behavioral, contract, and module changes. Avoid unnecessary section headings.";
+	}
+	return "Size tier: LARGE (>10 files or >350 lines). Write a concise 2-3 sentence overview followed by 6-10 structured bullet points (grouped by module or concern if helpful) so all important architectural, contract, and behavioral changes are captured without fluff.";
+}
+
 async function summarizePrWithGemini(cwd: string, commandOutput: string): Promise<void> {
 	const apiKey = process.env.USAI_API_KEY?.trim();
 	if (!apiKey) {
@@ -114,17 +132,19 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 		return;
 	}
 	const baseRef = pr.baseRefName || "main";
+	const shortStat = runGitOrGh("git", ["diff", "--shortstat", `origin/${baseRef}...HEAD`], cwd) || "";
 	const diffStat = runGitOrGh("git", ["diff", "--stat", `origin/${baseRef}...HEAD`], cwd) || "";
 	const commitLog = runGitOrGh("git", ["log", "--oneline", `origin/${baseRef}...HEAD`], cwd) || "";
 	const prompt = [
-		"Summarize this GitHub pull request concisely.",
+		"Summarize this GitHub pull request with length and detail strictly proportional to the size of the change.",
 		"Rules:",
-		"- Scale length strictly to the diff size: for 1-5 changed files, write 1 short sentence followed by at most 2-3 flat bullet points. For larger changes, write 1 short sentence followed by at most 4-5 flat bullet points.",
-		"- Do NOT use markdown section headings (no `## Summary`, `## Verification`, `## Limitations`, etc.).",
-		"- Do NOT include test command transcripts, negative disclaimers ('what this does not do'), or multi-paragraph prose.",
+		`- ${describeSizeGuidance(shortStat)}`,
+		"- Focus on what changed and why (contracts, behavior, architecture, and important edge cases).",
+		"- Do NOT include raw test command transcripts, environment boilerplate, or negative disclaimers ('what this PR does not do').",
 		"- Preserve any Kata or issue reference (for example `Kata: the_engineer#abcd` or `Closes #12`) on a single final line if present.",
 		"",
 		`PR Title: ${pr.title}`,
+		shortStat ? `Short stat: ${shortStat}` : "",
 		diffStat ? `\nDiff stat:\n${diffStat}` : "",
 		commitLog ? `\nCommits:\n${commitLog}` : "",
 		pr.body ? `\nDraft PR body:\n${pr.body}` : "",
