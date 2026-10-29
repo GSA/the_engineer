@@ -37,7 +37,9 @@ that issued it, so collection and revalidation replay a paged request unchanged
 and verify generation identity separately: revalidation uses a pinned probe,
 and collection compares the resolved identity with the pinned generation after
 the response. Collection otherwise pins the first `current` resolution onto
-later `current` queries.
+later `current` queries, skipping every page of a supplied chain, including its
+first page: repinning one page would make the provider issue different tokens
+and break the chain.
 
 A page is partial evidence by itself, so readiness requires the packet to hold
 the whole page chain for that query and generation: every carried token must

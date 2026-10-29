@@ -109,6 +109,28 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
             scope=[{'request':dict(entry['request']),'required':True} for entry in packet['code']]
             scope.append({'request':dict(self.wide,selector=selector,continuation=page['continuation']),'required':True})
 
+    async def page_requests(self,selector):
+        """Real page requests of one paged query, each holding its own token."""
+        requests=[dict(self.wide,selector=selector)]
+        while True:
+            packet=await self.collect_code(requests[-1]); page=packet['code'][0]['response']
+            self.assertEqual(page['status'],'ok')
+            if not page['truncated']: return requests
+            requests.append(dict(self.wide,selector=selector,continuation=page['continuation']))
+
+    async def test_real_page_chain_after_another_current_query_is_ready(self):
+        # The leading current query pins the generation, but repinning the
+        # chain's first page would make the provider issue other tokens.
+        pages=await self.page_requests({'mode':'current'})
+        self.assertGreater(len(pages),1)
+        leading=dict(self.request['code'][0]['request'],request_id='component-leading',selector={'mode':'current'})
+        packet=await collect(self.config,{'task':TASK.copy(),'business':[],
+                                          'code':[{'request':leading,'required':True}]+
+                                                 [{'request':page,'required':True} for page in pages]})
+        self.assertEqual(packet['code'][1]['request']['selector'],{'mode':'current'})
+        self.assertEqual([issue for issue in packet['issues'] if issue['provider']=='knowitall'],[])
+        self.assertEqual(packet['readiness'],'ready')
+
     async def test_real_held_page_follows_a_current_query_in_one_collection(self):
         first=await self.collect_code(dict(self.wide,selector={'mode':'current'}))
         token=first['code'][0]['response']['continuation']

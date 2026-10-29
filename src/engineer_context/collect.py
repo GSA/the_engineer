@@ -32,6 +32,7 @@ def code_position(value):
     exact_fields(value,['line','column'])
     for field in ['line','column']:
         if type(value[field]) is not int or value[field]<1: raise ValueError('invalid source position')
+    return (value['line'],value['column'])
 
 
 def code_scope(scope):
@@ -45,12 +46,16 @@ def code_scope(scope):
         identity(scope['symbol_id'])
         if scope['direction'] not in ('incoming','outgoing'): raise ValueError('invalid dependency direction')
         kinds=scope['relationship_kinds']
-        if not isinstance(kinds,list) or not kinds or len(set(kinds))!=len(kinds): raise ValueError('invalid relationship kinds')
+        if not isinstance(kinds,list) or not kinds: raise ValueError('invalid relationship kinds')
+        # Elements are checked before set(), which would raise TypeError on an
+        # unhashable value instead of the promised invalid-input error.
         for value in kinds: identity(value)
+        if len(set(kinds))!=len(kinds): raise ValueError('invalid relationship kinds')
     else:
         code_path(scope['path'])
         if kind=='source_range':
-            for field in ['start','end']: code_position(scope[field])
+            # The owning range is nonempty and half-open.
+            if code_position(scope['end'])<=code_position(scope['start']): raise ValueError('invalid source range')
 
 
 def validate_code_request(config, query):
@@ -158,12 +163,14 @@ async def collect_with_clients(config, request, librarian, knowitall):
     except ProviderError as error:
         code_error=error; packet['providers']['knowitall']={'description':None,'status':error.status}
     pinned=None; pages={}
+    # Every page of a supplied chain keeps the selector that bound its tokens:
+    # repinning one page would make the provider issue different tokens and
+    # break the chain. Identity is enforced against the pin after the response.
+    chained={page_shape(item['request']) for item in request['code'] if item['request'].get('continuation') is not None}
     for index,item in enumerate(request['code']):
         query=item['request']
         held=query.get('continuation')
-        # A held page token is bound to the selector that issued it, so it is
-        # replayed unchanged and its identity is compared after the response.
-        if query['selector']['mode']=='current' and pinned is not None and held is None:
+        if query['selector']['mode']=='current' and pinned is not None and page_shape(query) not in chained:
             query['selector']=pin_selector(pinned)
         entry=dict(request=query,required=item['required'],response=None)
         try:
@@ -175,9 +182,9 @@ async def collect_with_clients(config, request, librarian, knowitall):
             if resolved is not None and query['selector']['mode']=='exact':
                 if any(resolved.get(field)!=query['selector'].get(field) for field in ('snapshot_id','generation_id')):
                     raise ProviderError('stale','exact code identity changed')
-            if held is not None and resolved is not None and pinned is not None:
+            if query['selector']['mode']=='current' and resolved is not None and pinned is not None:
                 if any(resolved.get(field)!=pinned.get(field) for field in ('snapshot_id','generation_id')):
-                    raise ProviderError('stale','continuation page left the pinned code generation')
+                    raise ProviderError('stale','paged code query left the pinned code generation')
             if query['selector']['mode']=='current' and resolved is not None and pinned is None: pinned=copy.deepcopy(resolved)
             entry['response']=response
             pages[index]=dict(held=held,issued=response.get('continuation'),resolved=resolved,shape=page_shape(query))

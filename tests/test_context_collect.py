@@ -1,4 +1,5 @@
 import copy
+import json
 from pathlib import Path
 import unittest
 from engineer_context.config import ConsumerConfig, LibrarianBinding, KnowitallBinding, Limits
@@ -34,13 +35,22 @@ class CodeClient:
             if req['selector']['snapshot_id'] != result['resolved']['snapshot_id']: raise ProviderError('stale','changed')
         return result
 
+def paging_token(query):
+    """Mirror the fake provider's selector-and-query-bound page token."""
+    return 'token:'+query['selector']['mode']+':'+json.dumps(query['query'],sort_keys=True)
+
+
 class PagingClient(CodeClient):
-    """Two real pages: a token is bound to the selector that issued it."""
+    """Two real pages per paged query: a token binds the selector that issued it."""
+    def __init__(self, value=None, only=None):
+        super().__init__(value); self.only=only
+    def token(self, req): return paging_token(req)
     def query(self, req):
         held=req.get('continuation')
-        if held is not None and held!=f"token:{req['selector']['mode']}": raise ProviderError('invalid','request rejected')
+        if held is not None and held!=self.token(req): raise ProviderError('invalid','request rejected')
         result=super().query(req)
-        if held is None: result['continuation']=f"token:{req['selector']['mode']}"; result['truncated']=True
+        paged=self.only is None or req['query']==self.only
+        if held is None and paged: result['continuation']=self.token(req); result['truncated']=True
         return result
 
 class RejectingClient(CodeClient):
@@ -81,16 +91,31 @@ class CollectTests(unittest.IsolatedAsyncioTestCase):
     async def test_held_continuation_keeps_the_selector_that_issued_it(self):
         req=collection_request(); req['code'][0]['request']['selector']={'mode':'current'}
         second=copy.deepcopy(req['code'][0]); second['request']['request_id']='followup'
-        second['request']['continuation']='token:current'; req['code'].append(second)
+        second['request']['continuation']=paging_token(second['request']); req['code'].append(second)
         packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient())
         self.assertEqual(packet['code'][1]['request']['selector'],{'mode':'current'})
         self.assertIsNotNone(packet['code'][1]['response'])
         self.assertEqual(packet['readiness'],'ready')
         self.assertEqual([issue for issue in packet['issues'] if issue['provider']=='knowitall'],[])
 
+    async def test_page_chain_after_another_current_query_stays_whole(self):
+        # Every page of a supplied chain keeps the selector that bound its
+        # tokens, even when an earlier current query already pinned the
+        # generation; identity is checked against that pin afterwards.
+        req=collection_request(); req['code'][0]['request']['selector']={'mode':'current'}
+        first=copy.deepcopy(req['code'][0]); first['request']['request_id']='paged'
+        first['request']['query']={'kind':'path','path':'src/wide.py'}
+        second=copy.deepcopy(first); second['request']['request_id']='paged-2'
+        second['request']['continuation']=paging_token(first['request'])
+        req['code'].extend([first,second])
+        packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient(only=first['request']['query']))
+        self.assertEqual(packet['code'][1]['request']['selector'],{'mode':'current'})
+        self.assertEqual(packet['readiness'],'ready')
+        self.assertEqual([issue for issue in packet['issues'] if issue['provider']=='knowitall'],[])
+
     async def test_page_without_the_rest_of_its_chain_blocks(self):
         req=collection_request(); req['code'][0]['request']['selector']={'mode':'current'}
-        req['code'][0]['request']['continuation']='token:current'
+        req['code'][0]['request']['continuation']=paging_token(req['code'][0]['request'])
         packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient())
         self.assertEqual(packet['readiness'],'blocked')
         self.assertIsNotNone(packet['code'][0]['response'])
@@ -127,7 +152,10 @@ class CollectTests(unittest.IsolatedAsyncioTestCase):
                'absolute path':lambda q:q.__setitem__('query',{'kind':'path','path':'/etc/passwd'}),
                'zero line':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':0,'column':1},'end':{'line':2,'column':1}}),
                'boolean line':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':True,'column':1},'end':{'line':2,'column':1}}),
-               'position without column':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':1},'end':{'line':2,'column':1}})}
+               'position without column':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':1},'end':{'line':2,'column':1}}),
+               'empty range':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':3,'column':4},'end':{'line':3,'column':4}}),
+               'reversed range':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':9,'column':1},'end':{'line':2,'column':1}}),
+               'unhashable relationship kind':lambda q:q.__setitem__('query',{'kind':'dependencies','symbol_id':'s','direction':'outgoing','relationship_kinds':[{'kind':'calls'}]})}
         for name,break_it in cases.items():
             for required in [True,False]:
                 with self.subTest(case=name,required=required):
