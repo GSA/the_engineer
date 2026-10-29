@@ -1,12 +1,22 @@
 """Failure-injection transport fixture, not owning-provider acceptance."""
+import argparse
 import asyncio
 import json
 import os
 from pathlib import Path
+import sys
 from mcp.server import MCPServer
 from mcp.types import TextContent
 
 mode = os.environ.get('CONTEXT_TEST_MODE', 'normal')
+# Mirror the owning launch contracts: the current toolkit loads its reader
+# module from --root, and only a legacy release accepts --reader.
+parser = argparse.ArgumentParser()
+parser.add_argument('--root', required=True)
+parser.add_argument('--manifest')
+parser.add_argument('--timeout-seconds', type=float)
+if mode == 'legacy': parser.add_argument('--reader', required=True)
+parser.parse_args(sys.argv[1:])
 if os.environ.get('CONTEXT_TEST_PID'):
     Path(os.environ['CONTEXT_TEST_PID']).write_text(str(os.getpid()))
 server = MCPServer('wrong' if mode == 'wrong' else 'the-librarian', version='0.3.0')

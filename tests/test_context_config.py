@@ -27,6 +27,14 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(conf.knowitall.store, self.path.parent / 'store')
         self.assertEqual(conf.limits.max_bytes, 1048576)
 
+    def test_librarian_reader_is_optional(self):
+        # The current toolkit resolves its reader module under its own root, so
+        # a binding without a reader must load and stay reader-free.
+        value = config_value(); del value['librarian']['reader']
+        conf = self.load(value)
+        self.assertIsNone(conf.librarian.reader)
+        self.assertEqual(self.load(config_value()).librarian.reader, self.path.parent / 'reader.py')
+
     def test_config_rejects_incomplete_binding_and_bad_limits(self):
         for value in [dict(config_value(), unexpected=True), dict(config_value(), limits={'max_bytes': True}),
                       dict(config_value(), limits={'timeout_seconds': float('inf')}),

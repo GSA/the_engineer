@@ -17,8 +17,11 @@ class LibrarianClient:
     @classmethod
     @asynccontextmanager
     async def open(cls, binding, limits):
-        args = ['--root', str(binding.root), '--reader', str(binding.reader),
-                '--timeout-seconds', str(limits.timeout_seconds)]
+        args = ['--root', str(binding.root), '--timeout-seconds', str(limits.timeout_seconds)]
+        # A legacy release needs its reader CLI named explicitly; the current
+        # toolkit rejects that flag and resolves the module under --root.
+        if binding.reader is not None:
+            args += ['--reader', str(binding.reader)]
         if binding.selection is not None:
             args += ['--manifest', str(binding.selection)]
         params = StdioServerParameters(command=str(binding.executable), args=args, env=dict(os.environ))

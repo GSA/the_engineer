@@ -115,7 +115,13 @@ Interpreter and server program paths in the configuration are absolutized
 lexically rather than resolved, because dereferencing a virtual environment's
 `bin/python` changes the child's prefix and breaks the Knowitall bridge. Corpus,
 store, reader and selection paths are still fully resolved. They are treated as
-paths only, so spaces are allowed and no launch goes through a shell.
+paths only, so spaces are allowed and no launch goes through a shell. The
+Librarian launch sends `--root` and, when selected, `--manifest`; the current
+toolkit loads its reader from `tools.context_index` under that root and rejects
+`--reader`, so `librarian.reader` and `setup --librarian-reader` stay optional
+and exist only for a legacy release that requires that argument. The provider
+advertises the same `the-librarian` 0.3.0 identity under both contracts, so an
+identity check cannot distinguish them.
 `src/engineer_context/bridge.py` is executed by path on the provider
 interpreter and imports nothing from `engineer_context`, so Engineer and
 Knowitall can live in separate private environments; its fixed `REASONS`

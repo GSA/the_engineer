@@ -236,7 +236,7 @@ an `engineer.context-config/v1` file naming the explicit providers:
 {
   "schema": "engineer.context-config/v1",
   "librarian": {"project_id": "<business project>", "executable": "<librarian-mcp>",
-                "reader": "<context_index.py>", "root": "<corpus root>", "selection": null},
+                "root": "<corpus root>", "reader": null, "selection": null},
   "knowitall": {"project_id": "<code project>", "repository_id": "<repository>",
                 "python": "<venv>/bin/python", "store": "<publication store>"}
 }
@@ -252,7 +252,10 @@ prerequisite is missing.
 Relative paths resolve against the configuration file. Interpreter and server
 program paths keep the link you select, so a virtual environment's `bin/python`
 runs with that environment's prefix. Paths may contain spaces; every provider
-launch uses an argument list, never a shell.
+launch uses an argument list, never a shell. Leave `librarian.reader` null for a
+current Librarian toolkit, which loads its reader module from `root` and refuses
+an explicit `--reader`; set it only for a legacy release that requires that
+argument.
 
 ```sh
 engineer-context collect --config binding.json --request request.json --output packet.json

@@ -16,7 +16,18 @@ class LibrarianTests(unittest.IsolatedAsyncioTestCase):
         fixture = Path(__file__).with_name('context_mcp_fixture.py')
         self.exe.write_text(f'#!{sys.executable}\nimport runpy\nrunpy.run_path({str(fixture)!r}, run_name="__main__")\n')
         self.exe.chmod(0o700)
-        self.binding = LibrarianBinding('business-1', self.exe, fixture, self.root)
+        self.binding = LibrarianBinding('business-1', self.exe, self.root)
+        self.fixture = fixture
+
+    async def test_legacy_release_receives_its_explicit_reader(self):
+        # A legacy release refuses to start without --reader, so the binding's
+        # reader must still reach the launch when one is configured.
+        legacy = LibrarianBinding('business-1', self.exe, self.root, self.fixture)
+        with patch.dict(os.environ, CONTEXT_TEST_MODE='legacy'):
+            with self.assertRaises(ProviderError):
+                async with LibrarianClient.open(self.binding, Limits()): pass
+            async with LibrarianClient.open(legacy, Limits()) as client:
+                self.assertTrue((await client.status())['fresh'])
 
     async def test_single_text_json_preserves_qualification(self):
         async with LibrarianClient.open(self.binding, Limits()) as client:

@@ -43,8 +43,10 @@ class Limits:
 class LibrarianBinding:
     project_id: str
     executable: Path
-    reader: Path
     root: Path
+    # Only a legacy release takes its reader CLI as an argument; the current
+    # toolkit loads that module from its own root.
+    reader: Path | None = None
     selection: Path | None = None
 
 
@@ -88,10 +90,11 @@ def load_config(path: Path) -> ConsumerConfig:
         return Path(os.path.normpath(path.parent / raw))
 
     lib = value['librarian']; code = value['knowitall']
-    exact_fields(lib, ['project_id', 'executable', 'reader', 'root'], ['selection'])
+    exact_fields(lib, ['project_id', 'executable', 'root'], ['reader', 'selection'])
     exact_fields(code, ['project_id', 'repository_id', 'python', 'store'])
     librarian = LibrarianBinding(identity(lib['project_id']), program_path(lib['executable']),
-                                 local_path(lib['reader']), local_path(lib['root']),
+                                 local_path(lib['root']),
+                                 local_path(lib['reader']) if lib.get('reader') is not None else None,
                                  local_path(lib['selection']) if lib.get('selection') is not None else None)
     if librarian.selection is not None and not librarian.selection.is_relative_to(librarian.root):
         raise ValueError('selection outside business root')

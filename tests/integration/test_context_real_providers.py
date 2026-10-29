@@ -68,7 +68,7 @@ def create_fixture(root):
     query={'contract':'knowitall.code-context/v1','request_id':'component-query','project_id':'code-component','repository_id':'repo-component',
            'selector':{'mode':'exact','snapshot_id':snapshot.snapshot_id,'generation_id':generation.generation_id,'freshness':'require_current'},
            'query':{'kind':'dependencies','symbol_id':edge.source,'direction':'outgoing','relationship_kinds':['calls']}}
-    config=ConsumerConfig(LibrarianBinding('business-component',executable,corpus/'tools/context-index/context_index.py',corpus),
+    config=ConsumerConfig(LibrarianBinding('business-component',executable,corpus),
                           KnowitallBinding('code-component','repo-component',Path(sys.executable),root/'store'),Limits())
     paging=dict(query,request_id='component-paging',query={'kind':'symbol','name':'handle()','match':'exact'})
     wide=dict(query,request_id='component-wide',query={'kind':'path','path':'src/wide.py'})

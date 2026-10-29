@@ -86,15 +86,18 @@ def check_python_venv():
 
 
 def librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
-    explicit = (executable, reader, root)
-    if any(value is not None for value in (*explicit, selection)) and not all(explicit):
-        raise RuntimeError("--librarian-executable, --librarian-reader and --librarian-root must be supplied together")
+    explicit = (executable, root)
+    # Only a legacy release takes its reader CLI as an argument; the current
+    # toolkit loads that module from the selected root.
+    if any(value is not None for value in (*explicit, reader, selection)) and not all(explicit):
+        raise RuntimeError("--librarian-executable and --librarian-root must be supplied together")
     if all(explicit):
         root = root.expanduser().resolve()
         selection = selection.expanduser().resolve() if selection is not None else None
         if selection is not None and not selection.is_relative_to(root):
             raise RuntimeError("--librarian-selection must stay within --librarian-root")
-        return (executable.expanduser().resolve(), reader.expanduser().resolve(), root, selection)
+        return (executable.expanduser().resolve(),
+                reader.expanduser().resolve() if reader is not None else None, root, selection)
     return (corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp",
             corpus / "tools/context-index/context_index.py", corpus, None)
 
@@ -441,11 +444,10 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
     print("\nCreating missing private configuration; existing settings are preserved...")
     setup_command = [*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)]
     if librarian_executable is not None:
-        setup_command.extend([
-            "--librarian-executable", str(librarian_executable),
-            "--librarian-reader", str(librarian_reader),
-            "--librarian-root", str(librarian_root),
-        ])
+        setup_command.extend(["--librarian-executable", str(librarian_executable)])
+        if librarian_reader is not None:
+            setup_command.extend(["--librarian-reader", str(librarian_reader)])
+        setup_command.extend(["--librarian-root", str(librarian_root)])
         if librarian_selection is not None:
             setup_command.extend(["--librarian-selection", str(librarian_selection)])
     run(setup_command, cwd=checkout)
@@ -525,11 +527,11 @@ def main(argv=None):
     parser.add_argument("--revision", help="exact platform commit for a new clone (never an implicit latest)")
     parser.add_argument("--corpus", type=Path, required=True, help="existing approved local Librarian checkout")
     parser.add_argument("--librarian-executable", type=Path,
-                        help="explicit Librarian MCP executable (requires reader and root)")
+                        help="explicit Librarian MCP executable (requires root)")
     parser.add_argument("--librarian-reader", type=Path,
-                        help="explicit trusted reader CLI (requires executable and root)")
+                        help="legacy release's trusted reader CLI (requires executable and root)")
     parser.add_argument("--librarian-root", type=Path,
-                        help="explicit Librarian data root (requires executable and reader)")
+                        help="explicit Librarian data root (requires executable)")
     parser.add_argument("--librarian-selection", type=Path,
                         help="optional selection manifest for the explicit Librarian binding")
     parser.add_argument("--check", action="store_true", help="check prerequisites; no downloads/config/service changes")

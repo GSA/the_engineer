@@ -40,9 +40,9 @@
   - Interpreter and server program paths are absolutized lexically, because
     resolving a virtual environment's `bin/python` symlink changed the child's
     prefix and broke the Knowitall bridge.
-  - Verified with 56 consumer tests, 10 actual-provider integration tests
+  - Verified with 58 consumer tests, 10 actual-provider integration tests
     against the Librarian release and pinned Knowitall `81cc9b2` with the
-    offline Graphify runtime, 121 local-environment tests, 51 distribution tests
+    offline Graphify runtime, 122 local-environment tests, 52 distribution tests
     (4 expected skips), a Pi runtime receipt with `model_requests: 0`, plus
     build, compile and whitespace checks. Branch review job 384 passed;
     delivered as https://github.com/GSA/the_engineer/pull/4.
@@ -50,13 +50,11 @@
     configurable ports (`KENN_KOPY_PORT_OFFSET`) and roborev wrapper removal,
     and re-applying the explicit Librarian binding so `setup` preserves the
     other saved `pi/mcp.json` servers. Branch review job 399 passed.
-  - Open upstream drift: Librarian `f4c8500` dropped `--reader` from
-    `librarian-mcp` and moved the reader to the `tools.context_index` module
-    under `--root`, so the 9 code-evidence integration tests still pass against
-    the current checkout while the qualified business read fails with
-    `Librarian transport failed`. Both the consumer binding
-    (`librarian.reader`) and `setup --librarian-reader` still send `--reader`;
-    realigning that configured contract needs an owner decision.
+  - Upstream Librarian `f4c8500` dropped `--reader` from `librarian-mcp` and
+    moved the reader to the `tools.context_index` module under `--root`, so the
+    consumer binding and `setup --librarian-reader` now treat the reader as an
+    optional legacy argument and omit it by default. All 10 actual-provider
+    integration tests pass against the current checkout.
   - Assertions and contributions stay unavailable pending `the_librarian#923h`
     and `the_librarian#rjr5`, so associations remain `unasserted` and `k4mp`
     stays open. Public tests are non-identifying; real corpus/ticket use, model

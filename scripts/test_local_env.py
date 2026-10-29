@@ -227,10 +227,23 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.setup(self.corpus, self.binary)
         self.assertEqual(path.read_bytes(), before)
 
+    def test_explicit_librarian_binding_without_reader_omits_the_flag(self):
+        # The current toolkit rejects --reader and loads its reader module from
+        # --root, so a reader-free binding must not persist that flag.
+        executable, _, selection = self.explicit_librarian()
+        state = self.root / "current-toolkit-environment"
+        toolkit = executable.parents[2]
+        with patch.object(local_env, "STATE", state), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary, executable, None, toolkit, selection)
+        binding = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection)])
+        saved = json.loads((state / "environment.json").read_text())
+        self.assertIsNone(saved["librarian_reader"])
+
     def test_explicit_librarian_tuple_and_prerequisites_are_required(self):
         executable, reader, selection = self.explicit_librarian()
         with self.assertRaisesRegex(RuntimeError, "together"):
-            local_env.setup(self.corpus, self.binary, executable, None, self.corpus, None)
+            local_env.setup(self.corpus, self.binary, None, reader, self.corpus, None)
         toolkit = executable.parents[2]
         executable.chmod(0o644)
         with self.assertRaisesRegex(RuntimeError, "not executable"):

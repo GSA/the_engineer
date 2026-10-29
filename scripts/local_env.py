@@ -382,12 +382,14 @@ def merge_pi_subagents_settings(existing):
 
 
 def librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
-    explicit = (executable, reader, root)
-    if any(value is not None for value in (*explicit, selection)) and not all(explicit):
-        raise RuntimeError("--librarian-executable, --librarian-reader and --librarian-root must be supplied together")
+    explicit = (executable, root)
+    # The current toolkit resolves its reader module under --root; only a legacy
+    # release takes the reader CLI as an argument, so it stays optional.
+    if any(value is not None for value in (*explicit, reader, selection)) and not all(explicit):
+        raise RuntimeError("--librarian-executable and --librarian-root must be supplied together")
     if all(explicit):
         server = executable.expanduser().resolve()
-        reader = reader.expanduser().resolve()
+        reader = reader.expanduser().resolve() if reader is not None else None
         root = root.expanduser().resolve()
         selection = selection.expanduser().resolve() if selection is not None else None
         if selection is not None and not selection.is_relative_to(root):
@@ -406,7 +408,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     forge_binary = forge_binary.resolve()
     server, reader, root, selection = librarian_binding(
         corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
-    for path in (server, reader, forge_binary):
+    for path in (server, forge_binary) + ((reader,) if reader is not None else ()):
         if not path.is_file() or not os.access(path, os.R_OK):
             raise RuntimeError(f"missing readable prerequisite: {path}")
     if not os.access(server, os.X_OK):
@@ -430,7 +432,8 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         config["port_offset"] = PORT_OFFSET
     if librarian_executable is not None:
         config.update({
-            "librarian_executable": str(server), "librarian_reader": str(reader),
+            "librarian_executable": str(server),
+            "librarian_reader": str(reader) if reader is not None else None,
             "librarian_root": str(root),
             "librarian_selection": str(selection) if selection is not None else None,
         })
@@ -494,7 +497,9 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             "subagents": default_pi_subagents_settings(),
         },
     )
-    librarian_args = ["--root", str(root), "--reader", str(reader)]
+    librarian_args = ["--root", str(root)]
+    if reader is not None:
+        librarian_args.extend(["--reader", str(reader)])
     if selection is not None:
         librarian_args.extend(["--manifest", str(selection)])
     servers = {

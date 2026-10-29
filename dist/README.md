@@ -39,21 +39,21 @@ bash dist/install.sh --corpus /approved/path/to/falcon-docs --services user
 ```
 
 To select a data-empty Librarian toolkit instead of the legacy Falcon command,
-supply its executable, trusted reader and data root together. Selection remains
-optional and is passed through only when explicitly supplied:
+supply its executable and data root together. Selection remains optional and is
+passed through only when explicitly supplied; add `--librarian-reader` only for
+a legacy release that still takes its reader CLI as an argument:
 
 ```sh
 bash dist/install.sh --check \
   --corpus /approved/path/to/the_librarian \
   --librarian-executable /approved/path/to/the_librarian/.venv/bin/librarian-mcp \
-  --librarian-reader /approved/path/to/the_librarian/tools/context-index/context_index.py \
   --librarian-root /approved/path/to/the_librarian \
   --librarian-selection /approved/path/to/the_librarian/config/selection.local.json
 ```
 
 Use the same options without `--check` for installation. Omit
 `--librarian-selection` to retain that toolkit instance's default manifest.
-Partial explicit bindings fail rather than guessing a command or reader.
+Partial explicit bindings fail rather than guessing a command or root.
 
 ## Source acquisition
 
@@ -123,9 +123,10 @@ supplied checkout must contain:
 - `tools/context-index/context_index.py` (readable).
 
 That omitted-option route preserves existing Falcon commands and saved
-configuration shape. The explicit toolkit route requires a readable root and
-reader plus a working executable; an explicitly selected manifest must also be
-readable. Preflight runs the selected executable's `--help` to expose missing
+configuration shape. The explicit toolkit route requires a readable root and a
+working executable; an explicitly supplied legacy reader or selected manifest
+must also be readable. Preflight runs the selected executable's `--help` to
+expose missing
 runtime dependencies. Setup saves the exact selected binding and refuses later
 mismatches instead of probing aliases or silently migrating it. Reruns preserve
 unrelated MCP entries and existing state.

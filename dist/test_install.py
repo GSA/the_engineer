@@ -143,9 +143,17 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("missing dependency" in error for error in errors))
 
     def test_explicit_librarian_tuple_is_all_or_none(self):
-        executable, _, root, _ = self.explicit_librarian()
+        _, reader, root, _ = self.explicit_librarian()
         with self.assertRaisesRegex(RuntimeError, "together"):
-            installer.librarian_binding(self.corpus, executable, None, root, None)
+            installer.librarian_binding(self.corpus, None, reader, root, None)
+
+    def test_explicit_librarian_reader_is_optional(self):
+        # The current toolkit rejects --reader and loads its reader module from
+        # the selected root, so a reader-free binding must be accepted.
+        executable, _, root, selection = self.explicit_librarian()
+        server, reader, selected, manifest = installer.librarian_binding(
+            self.corpus, executable, None, root, selection)
+        self.assertEqual((server, reader, selected, manifest), (executable, None, root, selection))
 
     def test_explicit_librarian_selection_must_stay_within_root(self):
         executable, reader, root, _ = self.explicit_librarian()
@@ -563,10 +571,17 @@ class InstallerTests(unittest.TestCase):
         with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
             installer.install(self.root, self.corpus, "normal", "manual",
                               executable, reader, root, selection)
-        setup = next(call.args[0] for call in run.call_args_list if "setup" in call.args[0])
-        self.assertEqual(setup[-8:], [
+            installer.install(self.root, self.corpus, "normal", "manual",
+                              executable, None, root, selection)
+        setups = [call.args[0] for call in run.call_args_list if "setup" in call.args[0]]
+        self.assertEqual(setups[0][-8:], [
             "--librarian-executable", str(executable),
             "--librarian-reader", str(reader),
+            "--librarian-root", str(root),
+            "--librarian-selection", str(selection),
+        ])
+        self.assertEqual(setups[1][-6:], [
+            "--librarian-executable", str(executable),
             "--librarian-root", str(root),
             "--librarian-selection", str(selection),
         ])
