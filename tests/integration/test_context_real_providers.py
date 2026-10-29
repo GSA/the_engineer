@@ -45,6 +45,10 @@ def create_fixture(root):
     # Local runtime entry point for actual owning MCP, never a test provider.
     executable.write_text(f'#!{sys.executable}\nimport sys\nsys.path.insert(0,{str(librarian/"tools/context-mcp/src")!r})\nfrom the_librarian_mcp.server import main\nmain()\n'); executable.chmod(0o700)
     repo=root/'repo'; shutil.copytree(knowitall/'tests/fixtures/repos/python_service',repo)
+    # Enough same-named symbols that the owning page size must be exceeded, so
+    # continuation is exercised against real extraction rather than a fixture.
+    handlers=repo/'src/handlers'; handlers.mkdir()
+    for index in range(101): (handlers/f'h{index}.py').write_text(f'def handle():\n    return {index}\n')
     for args in [['init','-q'],['config','user.name','Component Test'],['config','user.email','component@example.invalid'],['add','.'],['commit','-qm','component']]:
         command(['git','-c','core.hooksPath=/dev/null',*args],repo)
     from knowitall_snapshot import SnapshotPolicy,create_snapshot
@@ -63,8 +67,9 @@ def create_fixture(root):
            'query':{'kind':'dependencies','symbol_id':edge.source,'direction':'outgoing','relationship_kinds':['calls']}}
     config=ConsumerConfig(LibrarianBinding('business-component',executable,corpus/'tools/context-index/context_index.py',corpus),
                           KnowitallBinding('code-component','repo-component',Path(sys.executable),root/'store'),Limits())
+    paging=dict(query,request_id='component-paging',query={'kind':'symbol','name':'handle()','match':'exact'})
     request={'task':TASK.copy(),'business':[{'locator':'documents/guide.md#overview','required':True}],'code':[{'request':query,'required':True}]}
-    return config,request,snapshot,generation,document
+    return config,request,paging,snapshot,generation,document
 
 
 class RealProviders(unittest.IsolatedAsyncioTestCase):
@@ -73,7 +78,21 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(os.environ.get(key),f'explicit prerequisite missing: {key}')
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)
-        self.config,self.request,self.snapshot,self.generation,self.document=await asyncio.to_thread(create_fixture,self.root)
+        self.config,self.request,self.paging,self.snapshot,self.generation,self.document=await asyncio.to_thread(create_fixture,self.root)
+
+    async def test_real_continuation_returns_the_next_page(self):
+        first=await collect(self.config,{'task':TASK.copy(),'business':[],'code':[{'request':self.paging,'required':True}]})
+        page=first['code'][0]['response']
+        self.assertTrue(page['truncated']); self.assertIsNotNone(page['continuation'])
+        self.assertEqual(len(page['ambiguities']),100)
+        following=dict(self.paging,continuation=page['continuation'])
+        second=await collect(self.config,{'task':TASK.copy(),'business':[],'code':[{'request':following,'required':True}]})
+        rest=second['code'][0]['response']
+        self.assertEqual(rest['status'],'ambiguous')
+        self.assertEqual(len(rest['ambiguities']),1)
+        self.assertFalse(rest['truncated'])
+        seen={item['symbol_id'] for item in page['ambiguities']}
+        self.assertNotIn(rest['ambiguities'][0]['symbol_id'],seen)
 
     async def test_real_qualified_read_and_code_query_handoff(self):
         packet=await collect(self.config,self.request);validate_packet(packet,parse_task(TASK))

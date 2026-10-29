@@ -28,6 +28,11 @@ interpreter and imports nothing from `engineer_context`, so Engineer and
 Knowitall can live in separate private environments; its fixed `REASONS`
 vocabulary diagnoses a missing provider package, unpublished store, rejected
 request, invalid response or exceeded budget without echoing provider text.
+Because each exchange is a fresh process, the bridge passes the owning
+`QueryService` a store-bound `continuation_secret` derived from the resolved
+store path; a random per-process key would reject every page token the previous
+response issued, and the token only selects an offset inside a binding the
+holder can already query.
 
 Actual-provider verification lives in `tests/integration/` and fails rather
 than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or

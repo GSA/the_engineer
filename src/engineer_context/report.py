@@ -18,8 +18,14 @@ def render_report(packet,validation=None):
         lines.append(f'Business {index}: '+('missing' if response is None else json.dumps({k:v for k,v in response.items() if k!='pieces'},sort_keys=True)))
         if response:
             for piece in response.get('pieces',[]):
-                lines.extend([f"  {piece['locator']} ({piece['path']}:{piece['line_start']}-{piece['line_end']}; hash {piece['source_hash']})",
-                              f"  Qualifications: {json.dumps(piece.get('reasons',[]))}",piece['text']])
+                lines.append(f"  {piece['locator']} (indexed {piece['path']}:{piece['line_start']}-{piece['line_end']}; hash {piece['source_hash']})")
+                if 'source_location' in piece:
+                    # Rendition pieces index extraction JSON, so the indexed range above
+                    # is not the original location a citation must name.
+                    lines.append(f"  Original source location: {json.dumps(piece['source_location'],sort_keys=True,ensure_ascii=False)}")
+                rest={k:v for k,v in piece.items() if k not in ('locator','path','line_start','line_end','source_hash','text','reasons','source_location')}
+                if rest: lines.append(f"  Provenance: {json.dumps(rest,sort_keys=True,ensure_ascii=False)}")
+                lines.extend([f"  Qualifications: {json.dumps(piece.get('reasons',[]))}",piece['text']])
     for index,entry in enumerate(packet['code']):
         lines.append(f"Code {index}: {json.dumps(entry['response'],sort_keys=True,ensure_ascii=False)}")
     lines += [f"Associations (presentation only): {json.dumps(packet['associations'],sort_keys=True)}",

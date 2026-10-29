@@ -6,6 +6,7 @@ contain the consumer, so this file is launched by path and imports nothing from
 """
 import argparse
 from importlib.metadata import version
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -37,6 +38,18 @@ def published_store(root):
     # The owning store constructor creates its layout, so an incomplete
     # directory is refused rather than written to by a read-only consumer.
     return all((Path(root) / name).is_dir() for name in ('stages', 'generations', 'current'))
+
+
+def continuation_secret(root):
+    """Derive a store-bound signing key so page cursors survive one exchange.
+
+    Each exchange is a fresh process, and the owning service otherwise invents a
+    random key, which would reject every continuation the previous response
+    issued. Deriving the key from the store identity keeps cursors usable and
+    grants nothing extra: a cursor only selects an offset within a binding the
+    holder can already query directly.
+    """
+    return hashlib.sha256(b'engineer.task-context/v1 continuation\0' + str(Path(root).resolve()).encode()).digest()
 
 
 def check_response(request, response):
@@ -73,7 +86,8 @@ def main(argv=None):
             request = value['request']
             try: validate_query_request(request)
             except Exception: raise BridgeError('request-invalid') from None
-            result = QueryService(PublicationStore(args.store)).execute(request)
+            result = QueryService(PublicationStore(args.store),
+                                  continuation_secret=continuation_secret(args.store)).execute(request)
             try: check_response(request, result)
             except Exception: raise BridgeError('response-invalid') from None
         else: raise BridgeError('request-invalid')

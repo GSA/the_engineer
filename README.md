@@ -962,11 +962,15 @@ returned evidence; it exits 2 when the packet is blocked and 1 on invalid input
 or I/O. `report` renders provenance, gaps and readiness; `--json` emits the
 machine form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
 `revalidate` rechecks the whole qualified response and current
-required code identity against a sealed packet without changing it.
+required code identity against a sealed packet without changing it. A truncated
+code response's `continuation` token can be sent back in a later request to
+read the next page of the same generation.
 
 Packets preserve full provider responses, exact passages, locators, source
 hashes, line ranges, snapshot/generation identities, coverage and handling
-restrictions. Business/code pairs are only ever `unasserted`: a name or
+restrictions. Rendition pieces report their original source location next to
+the indexed extraction range, so citations name the real location. Business/code
+pairs are only ever `unasserted`: a name or
 presentation match never establishes an assertion. Assertions and contributions
 are reported as unavailable capabilities pending `the_librarian#923h` and
 `the_librarian#rjr5`. Packets can carry restricted source text, so write them
