@@ -2,6 +2,7 @@
 from dataclasses import dataclass, fields
 import json
 import math
+import os
 from pathlib import Path
 
 
@@ -77,13 +78,22 @@ def load_config(path: Path) -> ConsumerConfig:
             raise ValueError('invalid path')
         return (path.parent / raw).resolve()
 
+    def program_path(raw):
+        # Programs keep the selected link: a virtual environment's interpreter
+        # must run through its own path so its prefix stays that environment.
+        # Traversal is still collapsed lexically against the configuration root.
+        identity(raw)
+        if any(c in raw for c in ('\n', '\r', '\x00')):
+            raise ValueError('invalid path')
+        return Path(os.path.normpath(path.parent / raw))
+
     lib = value['librarian']; code = value['knowitall']
     exact_fields(lib, ['project_id', 'executable', 'reader', 'root'], ['selection'])
     exact_fields(code, ['project_id', 'repository_id', 'python', 'store'])
     for obj, key in [(lib, 'executable'), (code, 'python')]:
         if ' ' in identity(obj[key]):
             raise ValueError('executable must be a path, not a command')
-    librarian = LibrarianBinding(identity(lib['project_id']), local_path(lib['executable']),
+    librarian = LibrarianBinding(identity(lib['project_id']), program_path(lib['executable']),
                                  local_path(lib['reader']), local_path(lib['root']),
                                  local_path(lib['selection']) if lib.get('selection') is not None else None)
     if librarian.selection is not None and not librarian.selection.is_relative_to(librarian.root):
@@ -96,4 +106,4 @@ def load_config(path: Path) -> ConsumerConfig:
         if name != 'timeout_seconds' and not isinstance(number, int):
             raise ValueError('integer resource limit required')
     return ConsumerConfig(librarian, KnowitallBinding(identity(code['project_id']), identity(code['repository_id']),
-                                                    local_path(code['python']), local_path(code['store'])), Limits(**limits))
+                                                    program_path(code['python']), local_path(code['store'])), Limits(**limits))

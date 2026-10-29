@@ -9,6 +9,26 @@ Forge checkout at `d6b14b9f25930c6d1ad9b962b8d3fd49ab2eaa71`, which matches the
 running local-Kata build's Forge revision. Draft policy/role text is a proposal,
 not active instructions, installed prompts or an enforced state machine.
 
+## Task-bound evidence before acting: 2026-10-29 (k4mp)
+
+Before acting on a task that depends on business requirements and code, collect
+one `engineer.task-context/v1` packet with `engineer-context collect` and read
+its report. Treat the packet as an observation, not authorization: a ready
+packet records that required evidence was present at observation time, not that
+an assertion, review or approval exists.
+
+Recheck with `engineer-context revalidate` immediately before acting, and stop
+when it reports blocked. A corrected source passage or a newer published code
+generation must block, because a historical packet is never rewritten to follow
+current provider state. Required missing or partial scope, including
+pagination, blocks readiness; optional gaps are reported but do not.
+
+Packets and revalidation receipts can carry restricted source text and exact
+code locations. Keep them in private paths such as ignored `.local/`, never in
+Git, chat, logs or command arguments. Publishing restricted evidence, using a
+real corpus or ticket, or running model traffic against it needs separate owner
+authorization.
+
 ## Knowitall onboarding and paired review plan: 2026-10-27, 23:00
 
 The owner approved public `GSA/the_knowitall`; main is published at `ffd28b7`.

@@ -13,10 +13,11 @@ def config_value():
                 knowitall=dict(project_id='code-1', repository_id='repo-1', python='bin/python', store='store'))
 
 class ConfigTests(unittest.TestCase):
-    def load(self, value):
+    def load(self, value, prepare=None):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / 'binding.json'
+        if prepare is not None: prepare(self.path.parent)
         self.path.write_text(json.dumps(value))
         return load_config(self.path)
 
@@ -34,6 +35,25 @@ class ConfigTests(unittest.TestCase):
         for field, bad in [('project_id', ''), ('selection', '../elsewhere'), ('executable', 'python -m server')]:
             value = config_value(); value['librarian'][field] = bad
             with self.subTest(field=field), self.assertRaises(ValueError): self.load(value)
+
+    def test_interpreter_paths_keep_their_selected_symlink(self):
+        # A virtual environment's bin/python must be launched through its own
+        # path, because resolving the link changes the interpreter's prefix.
+        value = config_value()
+        def prepare(directory):
+            real = directory / 'real-python'; real.write_text('')
+            (directory / 'bin').mkdir()
+            for name in ('python', 'librarian-mcp'):
+                (directory / 'bin' / name).symlink_to(real)
+        conf = self.load(value, prepare)
+        self.assertEqual(conf.knowitall.python, self.path.parent / 'bin/python')
+        self.assertEqual(conf.librarian.executable, self.path.parent / 'bin/librarian-mcp')
+
+    def test_interpreter_paths_collapse_traversal_without_following_links(self):
+        value = config_value()
+        value['knowitall']['python'] = 'bin/../bin/./python'
+        conf = self.load(value)
+        self.assertEqual(conf.knowitall.python, self.path.parent / 'bin/python')
 
     def test_task_requires_exact_nonempty_identity(self):
         self.assertEqual(parse_task(TASK).issue_uid, 'task-1')

@@ -919,6 +919,65 @@ assessment, canonical updates and returned disposition. A response alone is
 not submission, and this platform's `context/` files are not automatically
 ingested. No MCP write permission or background queue follows from access.
 
+## Task-bound business and code evidence
+
+`engineer-task-context` composes one task-bound evidence packet from the
+configured Librarian business corpus and a revision-bound Knowitall code
+generation. It is a read-only consumer: it never acquires sources, indexes,
+extracts, or publishes, and it never mutates a Kata task.
+
+Install it into a private virtual environment (Python 3.12 or newer) and write
+an `engineer.context-config/v1` file naming the explicit providers:
+
+```json
+{
+  "schema": "engineer.context-config/v1",
+  "librarian": {"project_id": "<business project>", "executable": "<librarian-mcp>",
+                "reader": "<context_index.py>", "root": "<corpus root>", "selection": null},
+  "knowitall": {"project_id": "<code project>", "repository_id": "<repository>",
+                "python": "<venv>/bin/python", "store": "<publication store>"}
+}
+```
+
+Relative paths resolve against the configuration file. Interpreter and server
+program paths keep the link you select, so a virtual environment's `bin/python`
+runs with that environment's prefix.
+
+```sh
+engineer-context collect --config binding.json --request request.json --output packet.json
+engineer-context report --packet packet.json
+engineer-context revalidate --config binding.json --packet packet.json --task task.json --output recheck.json
+```
+
+`collect` exits 0 only when every required business locator and code query
+returned evidence; it exits 2 when the packet is blocked and 1 on invalid input
+or I/O. `report` renders provenance, gaps and readiness; `--json` emits the
+machine form. `revalidate` rechecks the whole qualified response and current
+required code identity against a sealed packet without changing it.
+
+Packets preserve full provider responses, exact passages, locators, source
+hashes, line ranges, snapshot/generation identities, coverage and handling
+restrictions. Business/code pairs are only ever `unasserted`: a name or
+presentation match never establishes an assertion. Assertions and contributions
+are reported as unavailable capabilities pending `the_librarian#923h` and
+`the_librarian#rjr5`. Packets can carry restricted source text, so write them
+only to private paths and never paste them into shared channels.
+
+Agents reach the same three read-only operations through a stdio MCP server
+configured once at startup:
+
+```sh
+engineer-context-mcp --config binding.json
+```
+
+Verify an actual Pi session's discovery and qualified read without any model
+call, writing a private receipt:
+
+```sh
+node scripts/verify-context-runtime.mjs <pi-install> <private agent dir> \
+  <engineer-context-mcp> <config> <request> <receipt.json>
+```
+
 ## USAi credential and provider setup
 
 On this host, the owner has supplied the key. The isolated Pi profile is now

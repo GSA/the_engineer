@@ -16,9 +16,34 @@
 - Knowitall `8jvw` is closed; its implemented provider offers `QueryService`
   and JSON-lines stdio, not MCP. Librarian `rjr5` and `923h` remain open;
   unavailable contribution/assertion interfaces must stay explicit.
-- Architectural design review precedes implementation. Public tests remain
-  non-identifying; real corpus/model use and the private system demo are separate
-  gates. Review checklist is in ignored `.local/plans/k4mp-review.md`.
+- Owner approved the conversational consumer design and isolated non-identifying
+  runtime verification. Concrete self-reviewed spec is in ignored
+  `.local/plans/2026-10-29-k4mp-design.md`; the owner approved the written spec.
+  Owner approved native inline execution of
+  `.local/plans/2026-10-29-k4mp-implementation.md`. Tasks 1–5 are committed
+  through `b4ef190`. Task 6 passes: two actual-provider integration tests use a
+  temporary non-identifying Librarian release and owning Knowitall `81cc9b2`
+  with pinned offline Graphify, and `scripts/verify-context-runtime.mjs` proves
+  actual Pi MCP discovery plus a qualified collect/report with
+  `model_requests: 0`. Source corrections and newer publications block
+  revalidation. The probe exposed a real product defect: resolving a venv
+  `bin/python` symlink changed the child prefix, so interpreter and server
+  program paths are now absolutized lexically while corpus/store/reader paths
+  stay resolved. 40 consumer tests, 2 integration tests, 116 local-environment
+  tests, 51 distribution tests (4 expected skips), build, compile and whitespace
+  checks pass. No probe child remains. Whole-branch review and PR delivery are
+  the remaining steps; assertions/contributions stay unavailable upstream.
+- Provider prerequisites are Python >=3.12, Librarian MCP SDK 2.2.0, and the
+  owning Knowitall 0.1.0 package. The uncommitted `.kata.toml` rename already
+  present during planning is preserved separately until ownership is confirmed.
+- Librarian status has no native project UID or immutable generation token;
+  preserve configured business identity distinctly from provider-asserted code
+  identity. Exact qualified responses/source hashes are rechecked before action.
+  Assertions/contributions remain unavailable until their owning contracts ship;
+  a source/code presentation trace is explicitly unasserted, not a semantic link.
+- Branch roborev job 313 passed the approved f47m integration with no findings.
+  Public tests remain non-identifying; real corpus/model use and the private
+  system demonstration retain separate gates.
 - No product code, live configuration, provider store or service changed;
   no experimental process was started.
 

@@ -1,5 +1,45 @@
 # Upstream components
 
+## Task-bound evidence consumer: 2026-10-29 (k4mp)
+
+`engineer-task-context` (`src/engineer_context/`, CLI `engineer-context`, stdio
+MCP `engineer-context-mcp`) composes `engineer.task-context/v1` packets from the
+Librarian MCP server and the owning Knowitall `knowitall.code-context/v1`
+provider. Routing is explicit per `engineer.context-config/v1`; the consumer
+never discovers providers, writes provider state, or mutates a task.
+
+Provider facts to respect when extending it: Librarian identity is
+`the-librarian` 0.3.0, requires fresh `status` and returns exactly one JSON
+`TextContent`; `search` is discovery only. Knowitall is
+`knowitall-code-context` 0.1.0 over `PublicationStore`, with `resolve_current`
+pinned once per packet and exact selectors for follow-ups. Librarian exposes no
+project UID or generation token, so configured business identity stays distinct
+from provider-asserted code identity, and associations never exceed
+`unasserted`. Assertions and contributions remain unavailable pending
+`the_librarian#923h` and `the_librarian#rjr5`; do not invent those contracts.
+
+Interpreter and server program paths in the configuration are absolutized
+lexically rather than resolved, because dereferencing a virtual environment's
+`bin/python` changes the child's prefix and breaks the Knowitall bridge. Corpus,
+store, reader and selection paths are still fully resolved.
+
+Actual-provider verification lives in `tests/integration/` and fails rather
+than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or
+`KNOWITALL_GRAPHIFY_RUNTIME` is absent. Fixtures are built only through owning
+supported APIs: Librarian `package.release_paths` plus `tools/initialize.py`,
+and Knowitall `create_snapshot`/`extract_generation`/`PublicationStore`. Use the
+pinned offline Graphify runtime (`graphifyy==0.9.96`) and non-identifying
+fixtures only; never point tests at the Falcon corpus or a production index.
+
+`scripts/verify-context-runtime.mjs` proves actual Pi discovery and a qualified
+read with zero model requests. Pi SDK facts it depends on: passing `tools: []`
+to `createAgentSession` is an empty allowlist that hides `codemode` and all
+`mcp__*` tools; nested tool execution needs a last assistant message, which the
+probe supplies through `SessionManager.inMemory` preloaded entries; MCP servers
+connect in the background, so a direct `tool.execute` must poll
+`session.getAllTools()` first; and MCP tools resolve to `CallToolResult`, so
+content text must be parsed and `isError` surfaced.
+
 ## PR 3 conflict resolution: 2026-10-28 (c287)
 
 Fetched `origin/main` at 1602654 and reproduced GitHub's CONFLICTING/DIRTY
