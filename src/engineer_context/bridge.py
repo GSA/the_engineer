@@ -63,6 +63,13 @@ def check_response(request, response):
                 raise ValueError('exact selector resolved to another identity')
 
 
+def rejected(response):
+    """The owning service answers a refused request, including a cursor whose
+    binding changed, with a valid response carrying this status. That is caller
+    input rather than a gap in the provider's evidence."""
+    return response.get('status') == 'invalid_request'
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--store', required=True, type=Path)
@@ -88,6 +95,7 @@ def main(argv=None):
             except Exception: raise BridgeError('request-invalid') from None
             result = QueryService(PublicationStore(args.store),
                                   continuation_secret=continuation_secret(args.store)).execute(request)
+            if rejected(result): raise BridgeError('request-invalid')
             try: check_response(request, result)
             except Exception: raise BridgeError('response-invalid') from None
         else: raise BridgeError('request-invalid')

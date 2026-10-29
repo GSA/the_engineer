@@ -132,6 +132,20 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
                     await collect(self.config,{'task':TASK.copy(),'business':[],
                                                'code':[{'request':broken,'required':required}]})
 
+    async def test_real_rejected_continuation_is_invalid_input(self):
+        # The owning service answers a cursor whose binding changed with
+        # status 'invalid_request', which is caller input: an optional query
+        # carrying it must not become an availability gap in a ready packet.
+        first=await self.collect_code(dict(self.wide,selector={'mode':'current'}))
+        token=first['code'][0]['response']['continuation']
+        self.assertIsNotNone(token)
+        rebound=dict(self.wide,request_id='component-rebound',selector={'mode':'current'},continuation=token)
+        for required in [True,False]:
+            with self.subTest(required=required):
+                with self.assertRaises(ValueError):
+                    await collect(self.config,{'task':TASK.copy(),'business':[],
+                                               'code':[{'request':rebound,'required':required}]})
+
     async def test_real_complete_page_chain_is_ready(self):
         packet=await self.page_chain({'mode':'current'})
         self.assertEqual(packet['readiness'],'ready')

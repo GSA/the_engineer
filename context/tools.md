@@ -48,10 +48,14 @@ page during revalidation, where the digest comparison already proves the page
 is unchanged.
 
 The consumer also checks a code request against the owning request shape
-(required fields, selector variant and query kind) before any provider
-exchange, and treats a contract rejection as caller input rather than a scoped
-provider gap, so an incomplete optional query can never be hidden inside a
-ready packet. The owning validator in the bridge remains authoritative.
+(required fields, selector variant, query kind, enumerations, relationship
+lists, repository-relative paths and one-based positions) before any provider
+exchange, so an unreachable provider cannot turn caller input into an
+availability gap. A contract rejection is likewise caller input: the bridge
+translates the owning `invalid_request` status, which also answers a cursor
+whose binding changed, into `request-invalid`, which surfaces as
+`InvalidCodeRequest` and exits 1 rather than appearing as a scoped provider
+gap. The owning validator in the bridge remains authoritative.
 
 Actual-provider verification lives in `tests/integration/` and fails rather
 than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or

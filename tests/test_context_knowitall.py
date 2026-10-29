@@ -9,6 +9,7 @@ import time
 import unittest
 from engineer_context import bridge
 from engineer_context.config import KnowitallBinding, Limits
+from engineer_context.errors import InvalidCodeRequest
 from engineer_context.knowitall import KnowitallClient, ProviderError, validate_response
 
 EXAMPLES = Path(__file__).parent / 'fixtures/knowitall-v1'
@@ -98,6 +99,21 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                 status = bridge.main(['--store', temp, '--max-bytes', '1024'])
             self.assertEqual(status, 1)
             self.assertIn(json.loads(output.getvalue())['error'], bridge.REASONS)
+
+    def test_rejected_request_reaches_the_caller_as_invalid_input(self):
+        # The owning service answers a refused request with a valid response
+        # carrying this status, so it must not read as a provider gap.
+        self.assertTrue(bridge.rejected({'status':'invalid_request'}))
+        self.assertFalse(bridge.rejected(response()))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ('stages', 'generations', 'current'): (root / name).mkdir()
+            exe = root / 'runtime'
+            exe.write_text(f'#!{sys.executable}\nprint(\'{{"error": "request-invalid"}}\')\nraise SystemExit(1)\n')
+            exe.chmod(0o700)
+            binding = KnowitallBinding('project-synthetic', 'repo-python-service', exe, root)
+            with self.assertRaises(InvalidCodeRequest):
+                KnowitallClient(binding, Limits(timeout_seconds=10)).query(request())
 
     def test_bridge_timeout_and_malformed_json_are_bounded(self):
         with tempfile.TemporaryDirectory() as temp:

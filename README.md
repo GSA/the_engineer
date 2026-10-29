@@ -960,8 +960,9 @@ engineer-context revalidate --config binding.json --packet packet.json --task ta
 `collect` exits 0 only when every required business locator and code query
 returned evidence; it exits 2 when the packet is blocked and 1 on invalid input
 or I/O. A code query that the owning contract would reject, such as one missing
-`query` or `selector`, is invalid caller input and exits 1 instead of becoming
-an optional availability gap. `report` renders provenance, gaps and readiness; `--json` emits the
+`query`, naming an unsupported match or carrying a cursor whose binding
+changed, is invalid caller input and exits 1 instead of becoming an optional
+availability gap. `report` renders provenance, gaps and readiness; `--json` emits the
 machine form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
 `revalidate` rechecks the whole qualified response and current
 required code identity against a sealed packet without changing it. A truncated

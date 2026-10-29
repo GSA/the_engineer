@@ -117,11 +117,23 @@ class CollectTests(unittest.IsolatedAsyncioTestCase):
                'unknown field':lambda q:q.__setitem__('extra',1),
                'exact without generation':lambda q:q['selector'].pop('generation_id'),
                'query without kind':lambda q:q.__setitem__('query',{'name':'submit_order'}),
-               'empty continuation':lambda q:q.__setitem__('continuation','')}
+               'empty continuation':lambda q:q.__setitem__('continuation',''),
+               'unsupported match':lambda q:q.__setitem__('query',{'kind':'symbol','name':'submit_order','match':'fuzzy'}),
+               'non-string name':lambda q:q.__setitem__('query',{'kind':'symbol','name':7,'match':'exact'}),
+               'unsupported direction':lambda q:q.__setitem__('query',{'kind':'dependencies','symbol_id':'s','direction':'both','relationship_kinds':['calls']}),
+               'empty relationship kinds':lambda q:q.__setitem__('query',{'kind':'dependencies','symbol_id':'s','direction':'outgoing','relationship_kinds':[]}),
+               'repeated relationship kinds':lambda q:q.__setitem__('query',{'kind':'dependencies','symbol_id':'s','direction':'outgoing','relationship_kinds':['calls','calls']}),
+               'escaping path':lambda q:q.__setitem__('query',{'kind':'path','path':'../outside.py'}),
+               'absolute path':lambda q:q.__setitem__('query',{'kind':'path','path':'/etc/passwd'}),
+               'zero line':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':0,'column':1},'end':{'line':2,'column':1}}),
+               'boolean line':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':True,'column':1},'end':{'line':2,'column':1}}),
+               'position without column':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':1},'end':{'line':2,'column':1}})}
         for name,break_it in cases.items():
             for required in [True,False]:
                 with self.subTest(case=name,required=required):
                     req=collection_request(); req['code'][0]['required']=required; break_it(req['code'][0]['request'])
+                    # An unreachable provider must not turn caller input into an
+                    # availability gap that a ready packet could hide.
                     with self.assertRaises(ValueError):
                         await collect_with_clients(CONFIG,req,BusinessClient(),Unreachable())
 

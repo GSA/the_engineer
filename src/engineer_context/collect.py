@@ -14,12 +14,43 @@ def now():
 
 
 # Minimal shape of the owning request contract, so an incomplete query is a
-# caller error here instead of a provider round trip. The owning validator in
-# the bridge remains authoritative.
+# caller error here instead of a provider round trip, even when the selected
+# provider is unreachable. The owning validator in the bridge stays
+# authoritative; this mirrors its request schema only.
 CODE_FIELDS = (['contract','request_id','project_id','repository_id','selector','query'],['continuation'])
 CODE_SELECTORS = {'exact':['mode','snapshot_id','generation_id','freshness'],'current':['mode']}
 CODE_QUERIES = {'symbol':['kind','name','match'],'dependencies':['kind','symbol_id','direction','relationship_kinds'],
                 'path':['kind','path'],'source_range':['kind','path','start','end']}
+
+
+def code_path(value):
+    parts=value.split('/') if isinstance(value,str) else []
+    if not parts or any(part in ('','.','..') for part in parts): raise ValueError('invalid code path')
+
+
+def code_position(value):
+    exact_fields(value,['line','column'])
+    for field in ['line','column']:
+        if type(value[field]) is not int or value[field]<1: raise ValueError('invalid source position')
+
+
+def code_scope(scope):
+    if not isinstance(scope,dict) or scope.get('kind') not in CODE_QUERIES: raise ValueError('invalid code query')
+    exact_fields(scope,CODE_QUERIES[scope['kind']])
+    kind=scope['kind']
+    if kind=='symbol':
+        identity(scope['name'])
+        if scope['match'] not in ('exact','normalized'): raise ValueError('invalid symbol match')
+    elif kind=='dependencies':
+        identity(scope['symbol_id'])
+        if scope['direction'] not in ('incoming','outgoing'): raise ValueError('invalid dependency direction')
+        kinds=scope['relationship_kinds']
+        if not isinstance(kinds,list) or not kinds or len(set(kinds))!=len(kinds): raise ValueError('invalid relationship kinds')
+        for value in kinds: identity(value)
+    else:
+        code_path(scope['path'])
+        if kind=='source_range':
+            for field in ['start','end']: code_position(scope[field])
 
 
 def validate_code_request(config, query):
@@ -37,9 +68,7 @@ def validate_code_request(config, query):
     if selector['mode']=='exact':
         for field in ['snapshot_id','generation_id']: identity(selector[field])
         if selector['freshness'] not in ('allow_historical','require_current'): raise ValueError('invalid code freshness')
-    scope=query['query']
-    if not isinstance(scope,dict) or scope.get('kind') not in CODE_QUERIES: raise ValueError('invalid code query')
-    exact_fields(scope,CODE_QUERIES[scope['kind']])
+    code_scope(query['query'])
 
 
 def validate_collection(config, request):
