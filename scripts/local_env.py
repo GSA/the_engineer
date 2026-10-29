@@ -163,19 +163,57 @@ def verify_pi(config, *, env=None):
     return executable
 
 
-def setup(corpus, forge_binary):
+def librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
+    explicit = (executable, reader, root)
+    if any(value is not None for value in (*explicit, selection)) and not all(explicit):
+        raise RuntimeError("--librarian-executable, --librarian-reader and --librarian-root must be supplied together")
+    if all(explicit):
+        server = executable.expanduser().resolve()
+        reader = reader.expanduser().resolve()
+        root = root.expanduser().resolve()
+        selection = selection.expanduser().resolve() if selection is not None else None
+        if selection is not None and not selection.is_relative_to(root):
+            raise RuntimeError("--librarian-selection must stay within --librarian-root")
+    else:
+        root = corpus
+        server = corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp"
+        reader = corpus / "tools/context-index/context_index.py"
+        selection = None
+    return server, reader, root, selection
+
+
+def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None,
+          librarian_root=None, librarian_selection=None):
     corpus = corpus.expanduser().resolve()
     forge_binary = forge_binary.resolve()
-    server = corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp"
-    reader = corpus / "tools/context-index/context_index.py"
+    server, reader, root, selection = librarian_binding(
+        corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
     for path in (server, reader, forge_binary):
-        if not path.is_file():
-            raise RuntimeError(f"missing prerequisite: {path}")
+        if not path.is_file() or not os.access(path, os.R_OK):
+            raise RuntimeError(f"missing readable prerequisite: {path}")
+    if not os.access(server, os.X_OK):
+        raise RuntimeError(f"Librarian executable is not executable: {server}")
+    if not root.is_dir() or not os.access(root, os.R_OK | os.X_OK):
+        raise RuntimeError(f"missing readable and searchable Librarian root: {root}")
+    if selection is not None and (not selection.is_file() or not os.access(selection, os.R_OK)):
+        raise RuntimeError(f"missing readable Librarian selection: {selection}")
+    try:
+        subprocess.run([str(server), "--help"], text=True, capture_output=True,
+                       check=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as error:
+        detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
+        raise RuntimeError(f"Librarian runtime/dependencies unavailable: {detail}") from error
     pi = shutil.which("pi")
     if pi is None:
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
     config = {"corpus": str(corpus), "forge_binary": str(forge_binary),
               "pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    if librarian_executable is not None:
+        config.update({
+            "librarian_executable": str(server), "librarian_reader": str(reader),
+            "librarian_root": str(root),
+            "librarian_selection": str(selection) if selection is not None else None,
+        })
     private_dir(STATE)
     for name in ("home", "runtime", "tmp", "logs", "secrets", "pi", "forge",
                  "roborev", "kata", "agentsview"):
@@ -225,10 +263,25 @@ def setup(corpus, forge_binary):
     )
     json_write(STATE / "pi/settings.json",
                {"defaultThinkingLevel": "off", "packages": [str(RUNTIME_ROOT / "superpowers")]})
-    json_write(STATE / "pi/mcp.json", {"mcpServers": {"falcon-context": {
-        "command": str(server), "args": ["--root", str(corpus), "--reader", str(reader)],
-        "exposure": "codemode", "timeout": 60,
-    }}})
+    librarian_args = ["--root", str(root), "--reader", str(reader)]
+    if selection is not None:
+        librarian_args.extend(["--manifest", str(selection)])
+    librarian_mcp = {"command": str(server), "args": librarian_args,
+                     "exposure": "codemode", "timeout": 60}
+    mcp_path = STATE / "pi/mcp.json"
+    if mcp_path.exists():
+        mcp = json.loads(private_read(mcp_path))
+        servers = mcp.get("mcpServers")
+        if not isinstance(servers, dict):
+            raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
+        saved_librarian = servers.get("falcon-context")
+        if saved_librarian is not None and saved_librarian != librarian_mcp:
+            raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
+        if saved_librarian is None:
+            servers["falcon-context"] = librarian_mcp
+            json_write(mcp_path, mcp, replace=True)
+    else:
+        json_write(mcp_path, {"mcpServers": {"falcon-context": librarian_mcp}})
     print(f"Persistent local settings/data: {STATE}")
     print(f"Private USAi key destination: {STATE / 'secrets/usai-api-key'}")
     print("Existing settings were preserved. No service or model request was started.")
@@ -1234,6 +1287,10 @@ def main():
     init = commands.add_parser("setup", help="create missing private settings without overwriting existing ones")
     init.add_argument("--corpus", type=Path, required=True)
     init.add_argument("--forge-binary", type=Path, required=True)
+    init.add_argument("--librarian-executable", type=Path)
+    init.add_argument("--librarian-reader", type=Path)
+    init.add_argument("--librarian-root", type=Path)
+    init.add_argument("--librarian-selection", type=Path)
     commands.add_parser("run", help="run supervised services; retain independent services and saved state")
     commands.add_parser("stop", help="signal only the verified local supervisor")
     commands.add_parser("status", help="show the verified supervisor and persistent project registry")
@@ -1270,7 +1327,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == "setup":
-            setup(args.corpus, args.forge_binary)
+            setup(args.corpus, args.forge_binary, args.librarian_executable,
+                  args.librarian_reader, args.librarian_root, args.librarian_selection)
         elif args.command == "run":
             serve()
         elif args.command == "stop":

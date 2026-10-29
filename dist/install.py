@@ -84,7 +84,22 @@ def check_python_venv():
         capture([str(pip), "--version"])
 
 
-def prerequisites(corpus):
+def librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
+    explicit = (executable, reader, root)
+    if any(value is not None for value in (*explicit, selection)) and not all(explicit):
+        raise RuntimeError("--librarian-executable, --librarian-reader and --librarian-root must be supplied together")
+    if all(explicit):
+        root = root.expanduser().resolve()
+        selection = selection.expanduser().resolve() if selection is not None else None
+        if selection is not None and not selection.is_relative_to(root):
+            raise RuntimeError("--librarian-selection must stay within --librarian-root")
+        return (executable.expanduser().resolve(), reader.expanduser().resolve(), root, selection)
+    return (corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp",
+            corpus / "tools/context-index/context_index.py", corpus, None)
+
+
+def prerequisites(corpus, librarian_executable=None, librarian_reader=None,
+                  librarian_root=None, librarian_selection=None):
     errors = []
     if platform.system() != "Linux" or platform.machine() != "x86_64":
         errors.append("This release supports Linux x86_64 only (Ubuntu/WSL).")
@@ -120,11 +135,13 @@ def prerequisites(corpus):
     certificates = ssl.get_default_verify_paths()
     if not certificates.cafile and not certificates.capath:
         errors.append("No system TLS trust store found; install ca-certificates.")
-    server = corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp"
-    reader = corpus / "tools/context-index/context_index.py"
-    for path in (server, reader):
-        if not path.is_file() or not os.access(path, os.R_OK):
+    server, reader, root, selection = librarian_binding(
+        corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
+    for path in (server, reader, selection):
+        if path is not None and (not path.is_file() or not os.access(path, os.R_OK)):
             errors.append(f"Missing readable Librarian prerequisite: {path}")
+    if not root.is_dir() or not os.access(root, os.R_OK | os.X_OK):
+        errors.append(f"Missing readable and searchable Librarian prerequisite: {root}")
     if server.is_file():
         if not os.access(server, os.X_OK):
             errors.append(f"Librarian server is not executable: {server}")
@@ -390,7 +407,8 @@ def load_environment(checkout):
     return module
 
 
-def install(checkout, corpus, forge_build, choice):
+def install(checkout, corpus, forge_build, choice, librarian_executable=None,
+            librarian_reader=None, librarian_root=None, librarian_selection=None):
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
         raise RuntimeError("Installer/runtime Pi pins differ; use dist from the selected platform revision.")
@@ -414,7 +432,16 @@ def install(checkout, corpus, forge_build, choice):
     provision_native_kata_client(checkout)
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print("\nCreating missing private configuration; existing settings are preserved...")
-    run([*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)], cwd=checkout)
+    setup_command = [*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)]
+    if librarian_executable is not None:
+        setup_command.extend([
+            "--librarian-executable", str(librarian_executable),
+            "--librarian-reader", str(librarian_reader),
+            "--librarian-root", str(librarian_root),
+        ])
+        if librarian_selection is not None:
+            setup_command.extend(["--librarian-selection", str(librarian_selection)])
+    run(setup_command, cwd=checkout)
     run([*command, "configure-private-pi-tracking"], cwd=checkout)
     run([*command, "install-pi-extensions"], cwd=checkout)
     run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
@@ -487,6 +514,14 @@ def main(argv=None):
     parser.add_argument("--source", help="approved platform Git URL/path; required for a new clone")
     parser.add_argument("--revision", help="exact platform commit for a new clone (never an implicit latest)")
     parser.add_argument("--corpus", type=Path, required=True, help="existing approved local Librarian checkout")
+    parser.add_argument("--librarian-executable", type=Path,
+                        help="explicit Librarian MCP executable (requires reader and root)")
+    parser.add_argument("--librarian-reader", type=Path,
+                        help="explicit trusted reader CLI (requires executable and root)")
+    parser.add_argument("--librarian-root", type=Path,
+                        help="explicit Librarian data root (requires executable and reader)")
+    parser.add_argument("--librarian-selection", type=Path,
+                        help="optional selection manifest for the explicit Librarian binding")
     parser.add_argument("--check", action="store_true", help="check prerequisites; no downloads/config/service changes")
     parser.add_argument("--services", choices=("ask", "manual", "user"), default="ask")
     parser.add_argument("--forge-build", choices=("normal", "local-kata"), default="normal",
@@ -495,7 +530,11 @@ def main(argv=None):
     checkout = args.checkout.expanduser().resolve()
     corpus = args.corpus.expanduser().resolve()
     try:
-        errors = prerequisites(corpus)
+        server, reader, root, selection = librarian_binding(
+            corpus, args.librarian_executable, args.librarian_reader,
+            args.librarian_root, args.librarian_selection)
+        errors = (prerequisites(corpus, server, reader, root, selection)
+                  if args.librarian_executable else prerequisites(corpus))
         if errors:
             for error in errors:
                 print(f"ERROR: {error}", file=sys.stderr)
@@ -525,7 +564,11 @@ def main(argv=None):
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 raise RuntimeError("Another installer is using this checkout; wait for it to finish.") from error
-            install(checkout, corpus, args.forge_build, choice)
+            install(checkout, corpus, args.forge_build, choice,
+                    server if args.librarian_executable else None,
+                    reader if args.librarian_executable else None,
+                    root if args.librarian_executable else None,
+                    selection if args.librarian_executable else None)
         return 0
     except (OSError, RuntimeError, ValueError, EOFError, subprocess.SubprocessError) as error:
         print(f"ERROR: Installation stopped: {error}", file=sys.stderr)

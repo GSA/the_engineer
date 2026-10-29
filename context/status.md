@@ -1,4 +1,26 @@
-# Status: 2026-10-28
+# Status: 2026-10-29
+
+## Task-bound evidence review (k4mp)
+
+- Claimed the existing task through native `--project the_engineer` and linked
+  its verified Kata identity to Forge workspace `d61d2ce3d3253dae`. This checkout's
+  `.kata.toml` still names retired `engi-platform`; binding repair is pending.
+- Owner approved integrating preserved f47m commit `dae66cd` with a merge
+  commit. Resolutions retain current runtime-root, Pi pin, venv guard and
+  native Kata provisioning; f47m adds explicit Librarian binding unchanged.
+  Its preflight test now mocks the separately tested newer venv check.
+- Combined verification: 116 local-environment tests pass; 51 distribution
+  tests pass with 4 expected skips; Python compilation and whitespace checks
+  pass. Integration preserves newer architecture/history rather than restoring
+  obsolete planning material from the older branch.
+- Knowitall `8jvw` is closed; its implemented provider offers `QueryService`
+  and JSON-lines stdio, not MCP. Librarian `rjr5` and `923h` remain open;
+  unavailable contribution/assertion interfaces must stay explicit.
+- Architectural design review precedes implementation. Public tests remain
+  non-identifying; real corpus/model use and the private system demo are separate
+  gates. Review checklist is in ignored `.local/plans/k4mp-review.md`.
+- No product code, live configuration, provider store or service changed;
+  no experimental process was started.
 
 ## Obsolete planning/spec cleanup (Kata ba0d)
 

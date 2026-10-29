@@ -103,6 +103,73 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("qualified-context-mcp" in error for error in errors))
         self.assertTrue(any("context_index.py" in error for error in errors))
 
+    def explicit_librarian(self):
+        root = self.root / "empty toolkit"
+        executable = root / ".venv/bin/librarian-mcp"
+        reader = root / "tools/context-index/context_index.py"
+        selection = root / "config/selection.local.json"
+        for path in (executable, reader, selection):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o755)
+        return executable, reader, root, selection
+
+    def test_explicit_librarian_prerequisites_use_selected_executable(self):
+        executable, reader, root, selection = self.explicit_librarian()
+        commands = []
+        def capture(command, **kwargs):
+            commands.append(command)
+            if command[0] == "node":
+                return "v26.9.0"
+            if command[0] == "pi":
+                return installer.PI_VERSION
+            return ""
+        with patch.object(installer.shutil, "which", return_value="/available"), \
+                patch.object(installer, "capture", side_effect=capture), \
+                patch.object(installer, "check_c_toolchain"), \
+                patch.object(installer, "check_python_venv"):
+            errors = installer.prerequisites(self.corpus, executable, reader, root, selection)
+        self.assertEqual(errors, [])
+        self.assertIn([str(executable), "--help"], commands)
+
+    def test_explicit_librarian_missing_selection_and_dependencies_are_visible(self):
+        executable, reader, root, selection = self.explicit_librarian()
+        selection.unlink()
+        with patch.object(installer.shutil, "which", return_value="/available"), \
+                patch.object(installer, "capture", side_effect=RuntimeError("missing dependency")), \
+                patch.object(installer, "check_c_toolchain"):
+            errors = installer.prerequisites(self.corpus, executable, reader, root, selection)
+        self.assertTrue(any(str(selection) in error for error in errors))
+        self.assertTrue(any("missing dependency" in error for error in errors))
+
+    def test_explicit_librarian_tuple_is_all_or_none(self):
+        executable, _, root, _ = self.explicit_librarian()
+        with self.assertRaisesRegex(RuntimeError, "together"):
+            installer.librarian_binding(self.corpus, executable, None, root, None)
+
+    def test_explicit_librarian_selection_must_stay_within_root(self):
+        executable, reader, root, _ = self.explicit_librarian()
+        outside = self.root / "outside-selection.json"
+        outside.touch()
+        with self.assertRaisesRegex(RuntimeError, "within --librarian-root"):
+            installer.librarian_binding(self.corpus, executable, reader, root, outside)
+
+    def test_explicit_librarian_root_must_be_readable_and_searchable(self):
+        executable, reader, root, _ = self.explicit_librarian()
+        real_access = os.access
+
+        def access(path, mode):
+            if Path(path) == root and mode & os.X_OK:
+                return False
+            return real_access(path, mode)
+
+        with patch.object(installer.shutil, "which", return_value="/available"), \
+                patch.object(installer.os, "access", side_effect=access), \
+                patch.object(installer, "capture", return_value=""), \
+                patch.object(installer, "check_c_toolchain"):
+            errors = installer.prerequisites(self.corpus, executable, reader, root)
+        self.assertTrue(any(str(root) in error for error in errors))
+
     def test_source_credentials_are_rejected(self):
         for source in ("https://user:secret@example.test/repo.git",
                        "https://example.test/repo.git?token=secret",
@@ -487,6 +554,20 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(diagnosis["kind"], "remote")
         self.assertEqual(diagnosis["endpoint"], daemon_url)
         self.assertEqual(diagnosis["project"], "spoke-project")
+
+    def test_install_propagates_explicit_librarian_binding_to_setup(self):
+        self.installation()
+        executable, reader, root, selection = self.explicit_librarian()
+        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+            installer.install(self.root, self.corpus, "normal", "manual",
+                              executable, reader, root, selection)
+        setup = next(call.args[0] for call in run.call_args_list if "setup" in call.args[0])
+        self.assertEqual(setup[-8:], [
+            "--librarian-executable", str(executable),
+            "--librarian-reader", str(reader),
+            "--librarian-root", str(root),
+            "--librarian-selection", str(selection),
+        ])
 
     def test_manual_install_initializes_builds_and_configures_without_services(self):
         self.installation()
