@@ -9,13 +9,35 @@ const GEMINI_SUMMARY_TIMEOUT_MS = 15000;
 const USAI_DEFAULT_BASE_URL = "https://api.gsa.usai.gov/api/v1";
 
 const FORGE_WORKSPACE_SECTION = [
-	"Kenn Forge Workspace Completion Policy:",
-	"- This session is running inside a Kenn Forge workspace.",
+	"Kenn Forge Workspace Execution & Completion Policy:",
+	"- This session is running inside an autonomous Kenn Forge workspace.",
+	"- Unless a genuine blocking requirement ambiguity cannot be resolved from the repository or Kata/issue description, do NOT stop after `brainstorming` or `writing-plans` to wait for human approval of a classification, design, written spec, implementation plan, or execution method.",
+	"- Keep any working spec or implementation plan in ignored `.local/plans/` (never under `docs/superpowers/`), execute the plan directly with TDD, and remove temporary `.local/plans/` files before delivery.",
+	"- Before opening or updating a pull request, run `roborev review --branch --wait` once. If `roborev` reports concrete correctness, security, or contract bugs in your changed code, apply at most one focused fix commit (`roborev fix` or direct fix + test verification) and proceed to delivery; do NOT loop `roborev review --branch --wait` across multiple rounds or add speculative defensive code for hypothetical edge cases.",
 	"- When implementation and verification are complete, do NOT stop to ask whether to merge locally to `main`, keep the branch as-is, or discard work.",
-	"- Before opening or updating a pull request, run `roborev review --branch --wait` (and `roborev fix` if any findings are reported).",
 	"- Always complete the workspace by pushing the workspace branch (`git push -u origin HEAD`) and creating or updating the GitHub pull request (`gh pr create` / `gh pr edit`).",
 	"- Scale PR descriptions proportionally to the size of the change (short 1-sentence + 2-3 bullets for small 1-3 file changes; fuller overview + 4-10 bullets for medium/large multi-module changes; omit raw test transcripts and negative 'what this does not do' disclaimers); `gemini-4-argon` automatically formats the PR summary scaled to the diff when `gh pr create` / `gh pr edit` runs.",
 	"- After creating or updating a PR (or working on a GitHub issue or Kata task), register every target with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using `mcp__kenn_forge__kenn_forge_list_repos` if needed to look up `platform_repo_id`), then confirm with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
+].join("\n");
+
+const BRAINSTORMING_OVERRIDE = [
+	"",
+	"## Kenn Forge Workspace Override (Active)",
+	"",
+	"You are running inside an autonomous Kenn Forge workspace.",
+	"- Unless a genuine blocking requirement ambiguity cannot be resolved from the codebase or Kata/issue specification, `<HARD-GATE>` is satisfied by the workspace launch prompt: do **NOT** stop and wait for human approval of your path classification, in-chat design, or written spec.",
+	"- Save any working design/spec to ignored `.local/plans/` (never under `docs/superpowers/specs/` and never commit it to Git).",
+	"- Complete the inline spec self-review and immediately proceed to `writing-plans` and TDD implementation in the same turn.",
+].join("\n");
+
+const WRITING_PLANS_OVERRIDE = [
+	"",
+	"## Kenn Forge Workspace Override (Active)",
+	"",
+	"You are running inside an autonomous Kenn Forge workspace.",
+	"- Save any working implementation plan to ignored `.local/plans/` (never under `docs/superpowers/plans/` and never commit it to Git).",
+	"- After self-reviewing the plan, do **NOT** stop at `Execution Handoff` to ask the human partner to review the plan or choose between Subagent-driven and Native execution.",
+	"- Immediately proceed to implement the plan with TDD in this session (or using `subagent` with `model: \"inherit\"` for independent tasks), remove temporary `.local/plans/` artifacts before delivery, run one `roborev review --branch --wait` pass (with at most one fix pass for concrete bugs in changed code), push the branch, create/update the PR, and register the PR and Kata/issue targets with Forge.",
 ].join("\n");
 
 const FINISHING_BRANCH_OVERRIDE = [
@@ -25,7 +47,7 @@ const FINISHING_BRANCH_OVERRIDE = [
 	"You are running inside a Kenn Forge workspace. Do **NOT** present Step 4's 4-option menu or ask whether to merge locally to `main`.",
 	"",
 	"Once Step 1 (tests pass) is verified:",
-	"1. Run `roborev review --branch --wait` (and `roborev fix` if needed) so the branch has a clean review.",
+	"1. Run `roborev review --branch --wait` once (and apply at most one focused fix commit if concrete bugs in changed code are reported; do not loop `roborev review --branch --wait` across multiple rounds) and remove any temporary `.local/plans/` files.",
 	"2. Automatically execute **Option 2 (Push and Create a Pull Request)**: push the workspace branch (`git push -u origin HEAD`) and create or update the pull request (`gh pr create` / `gh pr edit`) with a summary proportional to the diff size (`gemini-4-argon` will automatically scale the PR body to the change size).",
 	"3. Register the pull request and any worked GitHub issue or Kata task with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using the `Workspace ID` and `Repository` from the Kenn Forge Workspace Context), then verify with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 	"4. Do not remove the Forge workspace worktree; Forge manages workspace worktree lifecycle.",
@@ -182,7 +204,49 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 export default function forgeWorkspaceExtension(pi: any): void {
 	let sessionStartContext: string | null = null;
 	let sessionStartResolved = false;
+	let resolvedRuntimeKey: string | null = null;
+	let runtimeKeyLookupDone = false;
 	const pendingPrCommands = new Map<string, string>();
+
+	async function resolveRuntimeSessionKey(cwd: string): Promise<string> {
+		const envKey = process.env.KENN_FORGE_RUNTIME_SESSION_KEY?.trim() || "";
+		if (envKey) {
+			return envKey;
+		}
+		if (resolvedRuntimeKey) {
+			return resolvedRuntimeKey;
+		}
+		if (runtimeKeyLookupDone) {
+			return "";
+		}
+		const sourceText = readOverrideFile(cwd)?.content || sessionStartContext || "";
+		const match = sourceText.match(/-\s*Workspace ID:\s*`([^`]+)`/);
+		if (!match?.[1]) {
+			return "";
+		}
+		runtimeKeyLookupDone = true;
+		try {
+			const response = await fetch(
+				`${forgeApiBaseUrl()}/api/v1/workspaces/${encodeURIComponent(match[1])}/agent-sessions`,
+				{ signal: AbortSignal.timeout(FORGE_HOOK_TIMEOUT_MS) },
+			);
+			if (!response.ok) {
+				return "";
+			}
+			const data: any = await response.json();
+			const runtimes = Array.isArray(data?.runtimes) ? data.runtimes : [];
+			const active =
+				runtimes.find((item: any) => item?.target_key === "pi" && item?.status === "running") ||
+				runtimes[0];
+			if (typeof active?.runtime_session_key === "string" && active.runtime_session_key.trim()) {
+				resolvedRuntimeKey = active.runtime_session_key.trim();
+				return resolvedRuntimeKey;
+			}
+		} catch {
+			// Ignore lookup failures
+		}
+		return "";
+	}
 
 	async function postForgeHook(
 		ctx: any,
@@ -192,7 +256,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		if (isSubagentProcess()) {
 			return null;
 		}
-		const runtimeKey = process.env.KENN_FORGE_RUNTIME_SESSION_KEY?.trim() || "";
+		const runtimeKey = await resolveRuntimeSessionKey(ctx.cwd);
 		if (!runtimeKey && !options?.allowWithoutRuntimeKey) {
 			return null;
 		}
@@ -258,6 +322,19 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		const overrideFile = readOverrideFile(ctx.cwd);
 		const contextFiles = event?.systemPromptOptions?.contextFiles;
 		if (Array.isArray(contextFiles)) {
+			if (overrideFile || sessionStartContext || ctx.cwd.includes("/.local/environment/forge/worktrees/")) {
+				const piDir = process.env.PI_CODING_AGENT_DIR?.trim() || "";
+				for (let idx = contextFiles.length - 1; idx >= 0; idx -= 1) {
+					const itemPath = String(contextFiles[idx]?.path ?? "");
+					if (
+						itemPath.endsWith("/AGENTS.md") &&
+						!itemPath.startsWith(`${ctx.cwd}/`) &&
+						(!piDir || !itemPath.startsWith(`${piDir}/`))
+					) {
+						contextFiles.splice(idx, 1);
+					}
+				}
+			}
 			if (overrideFile) {
 				const agentsMdPath = join(ctx.cwd, "AGENTS.md");
 				const existingOverrideIdx = contextFiles.findIndex((item: any) => item?.path === overrideFile.path);
@@ -350,13 +427,21 @@ export default function forgeWorkspaceExtension(pi: any): void {
 			return undefined;
 		}
 		const targetPath = String(event?.input?.path ?? "").replace(/\\/g, "/");
-		if (!targetPath.endsWith("finishing-a-development-branch/SKILL.md")) {
+		let overrideText: string | null = null;
+		if (targetPath.endsWith("brainstorming/SKILL.md")) {
+			overrideText = BRAINSTORMING_OVERRIDE;
+		} else if (targetPath.endsWith("writing-plans/SKILL.md")) {
+			overrideText = WRITING_PLANS_OVERRIDE;
+		} else if (targetPath.endsWith("finishing-a-development-branch/SKILL.md")) {
+			overrideText = FINISHING_BRANCH_OVERRIDE;
+		}
+		if (!overrideText) {
 			return undefined;
 		}
 		const content = Array.isArray(event.content) ? [...event.content] : [];
 		content.push({
 			type: "text",
-			text: FINISHING_BRANCH_OVERRIDE,
+			text: overrideText,
 		});
 		return {
 			content,

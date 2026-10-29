@@ -17,4 +17,6 @@ __pycache__/
 /.github/mcp.json
 /.roborev.toml
 /.roborev/
+/.superpowers/
+/AGENTS.override.md
 /scripts/mirror-repos.txt

@@ -94,11 +94,41 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIn(str(self.corpus), server["args"])
         self.assertEqual(server["exposure"], "codemode")
         self.assertEqual(mcp["mcpServers"]["kata"]["exposure"], "direct")
+        self.assertNotIn("cwd", mcp["mcpServers"]["kata"])
         self.assertEqual(mcp["mcpServers"]["kenn-forge"]["url"], "http://127.0.0.1:18092/mcp")
         self.assertEqual(mcp["mcpServers"]["kenn-forge"]["exposure"], "direct")
         self.assertTrue((self.state / "pi/extensions/forge-workspace.ts").is_file())
         self.assertIn("[mcp]\nenabled = true", (self.state / "forge/config.toml").read_text())
         self.assertEqual((self.state / "pi/mcp.json").stat().st_mode & 0o777, 0o600)
+
+    def test_isolated_gitconfig_and_forge_runtime_env_passthrough(self):
+        (self.state / "home/.gitconfig").unlink(missing_ok=True)
+        host_gitconfig = self.root / "host.gitconfig"
+        host_gitconfig.write_text(
+            "[http]\n\tsslCAinfo = /etc/ssl/certs/ca-certificates.crt\n"
+            "[user]\n\tname = Test Engineer\n\temail = engineer@example.gov\n"
+        )
+        local_env.seed_isolated_gitconfig(self.state / "home", host_config=host_gitconfig)
+        gitconfig_text = (self.state / "home/.gitconfig").read_text()
+        self.assertIn("name = Test Engineer", gitconfig_text)
+        self.assertIn("email = engineer@example.gov", gitconfig_text)
+        self.assertIn("sslCAinfo = /etc/ssl/certs/ca-certificates.crt", gitconfig_text)
+        self.assertIn("auth git-credential", gitconfig_text)
+        ignore_text = (self.state / "home/.config/git/ignore").read_text()
+        self.assertIn("/AGENTS.override.md", ignore_text)
+        self.assertIn("/.superpowers/", ignore_text)
+
+        self.provider()
+        self.key()
+        with patch.dict(os.environ, {
+            "KENN_FORGE_RUNTIME_SESSION_KEY": "ws_runtime_123",
+            "KENN_FORGE_API_URL": "http://127.0.0.1:18091",
+        }):
+            _, env = local_env.pi_launch(["--no-session", "-p", "Synthetic test"])
+        self.assertEqual(env["KENN_FORGE_RUNTIME_SESSION_KEY"], "ws_runtime_123")
+        self.assertEqual(env["KENN_FORGE_API_URL"], "http://127.0.0.1:18091")
+        self.assertIn(str(local_env.JQ_BINARY.parent), env["PATH"].split(os.pathsep))
+        self.assertIn(str(local_env.PYDEPS_DIR / "bin"), env["PATH"].split(os.pathsep))
 
     def test_missing_usai_fails_without_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "no provider fallback"):

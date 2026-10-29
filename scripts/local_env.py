@@ -55,6 +55,9 @@ PI_SUBAGENT_DESCRIPTIONS = {
 }
 GH_VERSION = "2.102.0"
 GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
+JQ_VERSION = "1.7.1"
+JQ_BINARY = ROOT / f".local/tools/jq-{JQ_VERSION}/bin/jq"
+PYDEPS_DIR = ROOT / ".local/tools/pydeps"
 PORTS = (17373, 17374, 17777, 18080, 18091)
 FORGE_PORT = 18091
 FORGE_MCP_PORT = 18092
@@ -113,12 +116,79 @@ def settings():
     return json.loads(private_read(STATE / "environment.json"))
 
 
+def host_git_settings(host_config=None):
+    host_config = (Path.home() / ".gitconfig") if host_config is None else Path(host_config)
+    values = {}
+    if not host_config.is_file():
+        return values
+    try:
+        section = ""
+        for raw_line in host_config.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith(("#", ";")):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1].strip().split()[0].lower()
+                continue
+            if "=" in line and section in ("user", "http"):
+                key, value = (part.strip() for part in line.split("=", 1))
+                if value:
+                    values[f"{section}.{key.lower()}"] = value
+    except OSError:
+        return {}
+    return values
+
+
+def seed_isolated_gitconfig(home=None, *, host_config=None):
+    home = (STATE / "home") if home is None else Path(home)
+    private_dir(home)
+    path = home / ".gitconfig"
+    existing = private_read(path) if (path.exists() or path.is_symlink()) else ""
+    host = host_git_settings(host_config)
+    blocks = []
+    if "[http]" not in existing and host.get("http.sslcainfo"):
+        blocks.append(f"[http]\n\tsslCAinfo = {host['http.sslcainfo']}\n")
+    if "[user]" not in existing and host.get("user.name") and host.get("user.email"):
+        blocks.append(
+            f"[user]\n\tname = {host['user.name']}\n\temail = {host['user.email']}\n"
+        )
+    if '[credential "https://github.com"]' not in existing:
+        blocks.append(
+            '[credential "https://github.com"]\n'
+            "\thelper = \n"
+            f"\thelper = !{GH_BINARY} auth git-credential\n"
+            '[credential "https://gist.github.com"]\n'
+            "\thelper = \n"
+            f"\thelper = !{GH_BINARY} auth git-credential\n"
+        )
+    if blocks:
+        updated = existing + ("" if not existing or existing.endswith("\n") else "\n") + "".join(blocks)
+        private_write(path, updated, replace=True)
+    git_config_dir = home / ".config/git"
+    private_dir(home / ".config")
+    private_dir(git_config_dir)
+    ignore_path = git_config_dir / "ignore"
+    existing_ignore = private_read(ignore_path) if (ignore_path.exists() or ignore_path.is_symlink()) else ""
+    required_ignores = ("/AGENTS.override.md", "/.superpowers/", "/.local/", "/.roborev/")
+    missing_ignores = [entry for entry in required_ignores if entry not in existing_ignore.splitlines()]
+    if missing_ignores:
+        updated_ignore = (
+            existing_ignore
+            + ("" if not existing_ignore or existing_ignore.endswith("\n") else "\n")
+            + "\n".join(missing_ignores)
+            + "\n"
+        )
+        private_write(ignore_path, updated_ignore, replace=True)
+
+
 def base_environment(roborev_executable=None):
     home = STATE / "home"
     roborev_executable = roborev_binary() if roborev_executable is None else roborev_executable
-    return {
+    env = {
         "PATH": os.pathsep.join([str(GH_BINARY.parent), str(roborev_executable.parent),
-                                str(ROOT / "kata"), str(ROOT / "agentsview"), os.environ["PATH"]]),
+                                str(ROOT / "kata"), str(ROOT / "agentsview"),
+                                str(JQ_BINARY.parent), str(PYDEPS_DIR / "bin"),
+                                os.environ["PATH"]]),
         "HOME": str(home),
         "USER": getpass.getuser(),
         "XDG_CONFIG_HOME": str(home / ".config"),
@@ -143,6 +213,10 @@ def base_environment(roborev_executable=None):
         "GH_CONFIG_DIR": str(STATE / "gh"),
         "GH_PROMPT_DISABLED": "1",
     }
+    if PYDEPS_DIR.is_dir():
+        existing_py = os.environ.get("PYTHONPATH", "").strip()
+        env["PYTHONPATH"] = f"{PYDEPS_DIR}{os.pathsep}{existing_py}" if existing_py else str(PYDEPS_DIR)
+    return env
 
 
 def verify_pi(config, *, env=None):
@@ -214,6 +288,7 @@ def setup(corpus, forge_binary):
     for name in ("home", "runtime", "tmp", "logs", "secrets", "pi", "forge",
                  "roborev", "kata", "agentsview"):
         private_dir(STATE / name)
+    seed_isolated_gitconfig(STATE / "home")
     verify_pi(config)
     config_path = STATE / "environment.json"
     if config_path.exists() and json.loads(private_read(config_path)) != config:
@@ -264,7 +339,6 @@ def setup(corpus, forge_binary):
                 "kata": {
                     "command": str(ROOT / "kata/kata"),
                     "args": ["mcp", "serve"],
-                    "cwd": str(ROOT),
                     "exposure": "direct",
                     "timeout": 30,
                     "env": {"KATA_SERVER": "http://127.0.0.1:17777"},
@@ -451,8 +525,13 @@ def configure_provider(base_url, model, api):
 
 def pi_launch(args):
     config = settings()
+    seed_isolated_gitconfig(STATE / "home")
     executable = verify_pi(config)
     env = base_environment()
+    for forge_var in ("KENN_FORGE_RUNTIME_SESSION_KEY", "KENN_FORGE_API_URL"):
+        value = os.environ.get(forge_var, "").strip()
+        if value:
+            env[forge_var] = value
     if args and (args[0] == "mcp" or args == ["--version"] or args == ["--help"]):
         return [executable, *args], env
     for arg in args:
