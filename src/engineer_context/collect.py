@@ -102,7 +102,11 @@ async def collect_with_clients(config, request, librarian, knowitall):
     pinned=None
     for index,item in enumerate(request['code']):
         query=item['request']
-        if query['selector']['mode']=='current' and pinned is not None: query['selector']=pin_selector(pinned)
+        held='continuation' in query
+        # A held page token is bound to the selector that issued it, so it is
+        # replayed unchanged and its identity is compared after the response.
+        if query['selector']['mode']=='current' and pinned is not None and not held:
+            query['selector']=pin_selector(pinned)
         entry=dict(request=query,required=item['required'],response=None)
         try:
             if code_error: raise code_error
@@ -113,7 +117,10 @@ async def collect_with_clients(config, request, librarian, knowitall):
             if resolved is not None and query['selector']['mode']=='exact':
                 if any(resolved.get(field)!=query['selector'].get(field) for field in ('snapshot_id','generation_id')):
                     raise ProviderError('stale','exact code identity changed')
-            if query['selector']['mode']=='current' and resolved is not None: pinned=copy.deepcopy(resolved)
+            if held and resolved is not None and pinned is not None:
+                if any(resolved.get(field)!=pinned.get(field) for field in ('snapshot_id','generation_id')):
+                    raise ProviderError('stale','continuation page left the pinned code generation')
+            if query['selector']['mode']=='current' and resolved is not None and pinned is None: pinned=copy.deepcopy(resolved)
             entry['response']=response
             if incomplete_code(response): issue('knowitall',index,item['required'],ProviderError('partial','code scope incomplete'))
         except ProviderError as error: issue('knowitall',index,item['required'],error)

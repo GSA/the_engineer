@@ -33,6 +33,13 @@ class CodeClient:
             if req['selector']['snapshot_id'] != result['resolved']['snapshot_id']: raise ProviderError('stale','changed')
         return result
 
+class PagingClient(CodeClient):
+    """Binds a page token to its selector, as the owning provider does."""
+    def query(self, req):
+        held=req.get('continuation')
+        if held is not None and held!=f"token:{req['selector']['mode']}": raise ProviderError('invalid','request rejected')
+        result=super().query(req); result['continuation']=f"token:{req['selector']['mode']}"; return result
+
 class CollectTests(unittest.IsolatedAsyncioTestCase):
     async def test_collection_keeps_original_responses(self):
         req=collection_request(); before=copy.deepcopy(req)
@@ -58,6 +65,16 @@ class CollectTests(unittest.IsolatedAsyncioTestCase):
         packet=await collect_with_clients(CONFIG,req,BusinessClient(),CodeClient())
         self.assertEqual(packet['code'][1]['request']['selector'], {'mode':'exact','snapshot_id':'snap-python-0001','generation_id':'gen-python-0001','freshness':'require_current'})
         self.assertEqual(packet['readiness'],'ready')
+
+    async def test_held_continuation_keeps_the_selector_that_issued_it(self):
+        req=collection_request(); req['code'][0]['request']['selector']={'mode':'current'}
+        second=copy.deepcopy(req['code'][0]); second['request']['request_id']='followup'
+        second['request']['continuation']='token:current'; req['code'].append(second)
+        packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient())
+        self.assertEqual(packet['code'][1]['request']['selector'],{'mode':'current'})
+        self.assertIsNotNone(packet['code'][1]['response'])
+        self.assertEqual([issue for issue in packet['issues'] if issue['provider']=='knowitall'
+                          and issue['status'] not in ('partial','truncated')],[])
 
     async def test_name_match_never_creates_assertion(self):
         packet=await collect_with_clients(CONFIG,collection_request(),BusinessClient(),CodeClient())

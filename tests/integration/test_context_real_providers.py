@@ -98,6 +98,19 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(pages,1)
         return packet
 
+    async def test_real_held_page_follows_a_current_query_in_one_collection(self):
+        first=await self.collect_code(dict(self.wide,selector={'mode':'current'}))
+        token=first['code'][0]['response']['continuation']
+        self.assertIsNotNone(token)
+        packet=await collect(self.config,{'task':TASK.copy(),'business':[],'code':[
+            {'request':dict(self.wide,request_id='component-current',selector={'mode':'current'}),'required':True},
+            {'request':dict(self.wide,selector={'mode':'current'},continuation=token),'required':True}]})
+        held=packet['code'][1]
+        self.assertEqual(held['request']['selector'],{'mode':'current'})
+        self.assertIsNotNone(held['response'])
+        self.assertEqual(held['response']['status'],'ok')
+        self.assertEqual(held['response']['resolved']['generation_id'],self.generation.generation_id)
+
     async def test_real_final_page_revalidates_under_any_selector(self):
         # A page token is bound to the selector that issued it, so revalidation
         # must recheck currency without rebinding the held token.
