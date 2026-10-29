@@ -42,10 +42,14 @@
     prefix and broke the Knowitall bridge.
   - Verified with 56 consumer tests, 10 actual-provider integration tests
     against the Librarian release and pinned Knowitall `81cc9b2` with the
-    offline Graphify runtime, 116 local-environment tests, 51 distribution tests
+    offline Graphify runtime, 121 local-environment tests, 51 distribution tests
     (4 expected skips), a Pi runtime receipt with `model_requests: 0`, plus
     build, compile and whitespace checks. Branch review job 384 passed;
     delivered as https://github.com/GSA/the_engineer/pull/4.
+  - Merged current `main` into the branch, keeping main's compacted docs,
+    configurable ports (`KENN_KOPY_PORT_OFFSET`) and roborev wrapper removal,
+    and re-applying the explicit Librarian binding so `setup` preserves the
+    other saved `pi/mcp.json` servers.
   - Assertions and contributions stay unavailable pending `the_librarian#923h`
     and `the_librarian#rjr5`, so associations remain `unasserted` and `k4mp`
     stays open. Public tests are non-identifying; real corpus/ticket use, model
