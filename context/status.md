@@ -58,6 +58,14 @@
     `a6a17b3`).
   - Compacted `kenn-kopy/context/*.md` into concise current-state reference
     documents under 16 KiB each.
+  - Hardened Forge workspace autonomy and environment (`forge-workspace.ts`,
+    `scripts/local_env.py`, `scripts/bootstrap-toolchains.sh`): added
+    `KENN_FORGE_RUNTIME_SESSION_KEY` passthrough + workspace API fallback,
+    filtered leaked parent `AGENTS.md` from child worktrees, overrode
+    `brainstorming` and `writing-plans` interactive stops, capped pre-PR
+    `roborev` to 1 branch review + 1 fix pass, removed hardcoded `cwd` from
+    `kata` MCP, seeded `.local/environment/home/.gitconfig` + `.config/git/ignore`,
+    and provisioned `jq-1.7.1` and shared Python test deps (`.local/tools/pydeps`).
 - **Selective engineering memory and workspace backup (`5xrm`, `bc20`)**:
   - Documented the selective engineering memory architecture (`context/engineering-memory.md`)
     and added `dist/hindsight.compose.yaml` (`5xrm` awaits owner approval of the

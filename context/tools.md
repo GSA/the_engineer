@@ -70,6 +70,11 @@ for standalone `pi` invocations):
   `pre-push`) in each repo's `.git/hooks/`. Global `core.hooksPath` and Copilot
   CLI's `~/.copilot/hooks/agenthook.json` remain unset/removed to prevent
   recursive review loops.
+- Forge workspace execution (`scripts/pi-extensions/forge-workspace.ts`):
+  - Preserves `KENN_FORGE_RUNTIME_SESSION_KEY` across `scripts/pi-local.py` (with API fallback by workspace ID) so Forge tracks live Pi session activity.
+  - Filters parent repo `AGENTS.md` files from child worktrees under `.local/environment/forge/worktrees/`.
+  - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, run a single `roborev review --branch --wait` + at most one fix pass, scale PR descriptions via `gemini-4-argon`, and register PR/Kata targets with Forge.
+  - Seeds `.local/environment/home/.gitconfig` and `.config/git/ignore`, and exposes `jq` (`.local/tools/jq-1.7.1/bin`) and shared Python test dependencies (`.local/tools/pydeps`) on `PATH`/`PYTHONPATH`.
 
 ## Build and test commands
 

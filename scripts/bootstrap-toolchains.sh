@@ -32,6 +32,25 @@ if [[ "$("$gh_binary" --version)" != "gh version $gh_version "* ]]; then
     exit 1
 fi
 
+jq_version=1.7.1
+jq_binary=".local/tools/jq-$jq_version/bin/jq"
+if [[ ! -x "$jq_binary" ]]; then
+    archive=".local/downloads/jq_${jq_version}_linux_amd64"
+    curl --fail --location --silent --show-error --max-time 180 \
+        "https://github.com/jqlang/jq/releases/download/jq-$jq_version/jq-linux-amd64" \
+        -o "$archive"
+    printf '%s\n' \
+        "5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5  $archive" \
+        | sha256sum --check
+    mkdir -p ".local/tools/jq-$jq_version/bin"
+    cp "$archive" "$jq_binary"
+    chmod 755 "$jq_binary"
+fi
+if [[ "$("$jq_binary" --version)" != "jq-$jq_version" ]]; then
+    echo "jq version mismatch in $jq_binary." >&2
+    exit 1
+fi
+
 export npm_config_cache="$PWD/.local/cache/npm"
 mkdir -p .local/downloads .local/tools/go-1.27.1
 if [[ ! -x .local/tools/go-1.27.1/bin/go ]]; then
