@@ -400,7 +400,11 @@ for spec in "${REPO_ARGS[@]}"; do
         fi
         # remote update does not move a mirror's symbolic HEAD, so follow the
         # source's current default branch explicitly.
-        src_head="$(git ls-remote --symref "$src_url" HEAD 2>>"$repo_log" | awk '/^ref:/ {print $2; exit}')"
+        if ! src_head_out="$(git ls-remote --symref "$src_url" HEAD 2>>"$repo_log")"; then
+            repo_failed "reading source default branch failed"
+            continue
+        fi
+        src_head="$(printf '%s\n' "$src_head_out" | awk '/^ref:/ {print $2; exit}')"
         if [ -n "$src_head" ]; then
             git --git-dir="$mirror_dir" symbolic-ref HEAD "$src_head" >>"$repo_log" 2>&1 || true
         fi
