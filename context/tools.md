@@ -32,7 +32,10 @@ Because each exchange is a fresh process, the bridge passes the owning
 `QueryService` a store-bound `continuation_secret` derived from the resolved
 store path; a random per-process key would reject every page token the previous
 response issued, and the token only selects an offset inside a binding the
-holder can already query.
+holder can already query. A continuation token is bound to the whole selector
+that issued it, so revalidation replays a held page with its original selector
+and checks currency with a separate pinned probe instead of repinning the
+token.
 
 Actual-provider verification lives in `tests/integration/` and fails rather
 than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or

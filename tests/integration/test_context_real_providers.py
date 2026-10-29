@@ -49,6 +49,9 @@ def create_fixture(root):
     # continuation is exercised against real extraction rather than a fixture.
     handlers=repo/'src/handlers'; handlers.mkdir()
     for index in range(101): (handlers/f'h{index}.py').write_text(f'def handle():\n    return {index}\n')
+    # One file with more definitions than the owning page size, so a complete
+    # final page of ok evidence is reachable.
+    (repo/'src/wide.py').write_text(''.join(f'def wide{index}():\n    return {index}\n' for index in range(150)))
     for args in [['init','-q'],['config','user.name','Component Test'],['config','user.email','component@example.invalid'],['add','.'],['commit','-qm','component']]:
         command(['git','-c','core.hooksPath=/dev/null',*args],repo)
     from knowitall_snapshot import SnapshotPolicy,create_snapshot
@@ -68,8 +71,9 @@ def create_fixture(root):
     config=ConsumerConfig(LibrarianBinding('business-component',executable,corpus/'tools/context-index/context_index.py',corpus),
                           KnowitallBinding('code-component','repo-component',Path(sys.executable),root/'store'),Limits())
     paging=dict(query,request_id='component-paging',query={'kind':'symbol','name':'handle()','match':'exact'})
+    wide=dict(query,request_id='component-wide',query={'kind':'path','path':'src/wide.py'})
     request={'task':TASK.copy(),'business':[{'locator':'documents/guide.md#overview','required':True}],'code':[{'request':query,'required':True}]}
-    return config,request,paging,snapshot,generation,document
+    return config,request,paging,wide,snapshot,generation,document
 
 
 class RealProviders(unittest.IsolatedAsyncioTestCase):
@@ -78,7 +82,57 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(os.environ.get(key),f'explicit prerequisite missing: {key}')
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)
-        self.config,self.request,self.paging,self.snapshot,self.generation,self.document=await asyncio.to_thread(create_fixture,self.root)
+        self.config,self.request,self.paging,self.wide,self.snapshot,self.generation,self.document=await asyncio.to_thread(create_fixture,self.root)
+
+    async def collect_code(self,query):
+        return await collect(self.config,{'task':TASK.copy(),'business':[],'code':[{'request':query,'required':True}]})
+
+    async def final_page(self,selector):
+        """Walk real pages with held tokens until the complete last page."""
+        query=dict(self.wide,selector=selector); pages=0
+        while True:
+            packet=await self.collect_code(query); page=packet['code'][0]['response']
+            self.assertEqual(page['status'],'ok'); pages+=1
+            if not page['truncated']: break
+            query=dict(self.wide,selector=selector,continuation=page['continuation'])
+        self.assertGreater(pages,1)
+        return packet
+
+    async def test_real_final_page_revalidates_under_any_selector(self):
+        # A page token is bound to the selector that issued it, so revalidation
+        # must recheck currency without rebinding the held token.
+        for selector in [{'mode':'current'},dict(self.wide['selector'],freshness='allow_historical')]:
+            with self.subTest(mode=selector['mode'],freshness=selector.get('freshness')):
+                packet=await self.final_page(selector)
+                self.assertEqual(packet['readiness'],'ready')
+                self.assertIn('continuation',packet['code'][0]['request'])
+                result=await revalidate(self.config,packet,parse_task(TASK))
+                self.assertEqual(result['readiness'],'ready')
+                self.assertTrue(all(c['status']=='unchanged' for c in result['checks']))
+
+    async def test_real_newer_publication_blocks_a_held_final_page(self):
+        packet=await self.final_page({'mode':'current'})
+        self.assertEqual(packet['readiness'],'ready')
+        await asyncio.to_thread(self.publish_second_generation)
+        result=await revalidate(self.config,packet,parse_task(TASK))
+        self.assertEqual(result['readiness'],'blocked')
+        self.assertTrue(any(c['provider']=='knowitall' and c['status']!='unchanged' for c in result['checks']))
+
+    def publish_second_generation(self):
+        from knowitall_snapshot import SnapshotPolicy,create_snapshot
+        from knowitall_graphify import GraphifyConfig,executable_digest,extract_generation
+        from knowitall_publication import PublicationStore
+        repo=self.root/'repo'
+        (repo/'revision.txt').write_text('second component revision\n')
+        command(['git','add','.'],repo)
+        command(['git','-c','core.hooksPath=/dev/null','commit','-qm','second component revision'],repo)
+        snapshot=create_snapshot(repo,'code-component','repo-component',self.root/'snapshots',SnapshotPolicy())
+        runtime=Path(os.environ['KNOWITALL_GRAPHIFY_RUNTIME'])
+        interpreter=runtime/'bin/python'
+        generation=extract_generation(snapshot,self.root/'snapshots'/snapshot.snapshot_id/'source',self.root/'extraction-2',
+            GraphifyConfig(executable=interpreter,python_path=str(runtime/'lib'/f'python{sys.version_info.major}.{sys.version_info.minor}'/'site-packages'),expected_executable_digest=executable_digest(interpreter)))
+        store=PublicationStore(self.root/'store');store.publish(store.stage(generation))
+        return snapshot,generation
 
     async def test_real_continuation_returns_the_next_page(self):
         first=await collect(self.config,{'task':TASK.copy(),'business':[],'code':[{'request':self.paging,'required':True}]})
@@ -117,19 +171,7 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(c['provider']=='librarian' and c['status']!='unchanged' for c in result['checks']))
         # Publish a second real extraction through the owning API. The old exact
         # selector must not silently follow this newer current generation.
-        from knowitall_snapshot import SnapshotPolicy,create_snapshot
-        from knowitall_graphify import GraphifyConfig,executable_digest,extract_generation
-        from knowitall_publication import PublicationStore
-        repo=self.root/'repo'
-        (repo/'revision.txt').write_text('second component revision\n')
-        command(['git','add','.'],repo)
-        command(['git','-c','core.hooksPath=/dev/null','commit','-qm','second component revision'],repo)
-        snapshot=create_snapshot(repo,'code-component','repo-component',self.root/'snapshots',SnapshotPolicy())
-        runtime=Path(os.environ['KNOWITALL_GRAPHIFY_RUNTIME'])
-        interpreter=runtime/'bin/python'
-        generation=extract_generation(snapshot,self.root/'snapshots'/snapshot.snapshot_id/'source',self.root/'extraction-2',
-            GraphifyConfig(executable=interpreter,python_path=str(runtime/'lib'/f'python{sys.version_info.major}.{sys.version_info.minor}'/'site-packages'),expected_executable_digest=executable_digest(interpreter)))
-        store=PublicationStore(self.root/'store');store.publish(store.stage(generation))
+        await asyncio.to_thread(self.publish_second_generation)
         result=await revalidate(self.config,packet,parse_task(TASK))
         self.assertTrue(any(c['provider']=='knowitall' and c['status']!='unchanged' for c in result['checks']))
 

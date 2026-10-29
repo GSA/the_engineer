@@ -964,7 +964,8 @@ machine form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
 `revalidate` rechecks the whole qualified response and current
 required code identity against a sealed packet without changing it. A truncated
 code response's `continuation` token can be sent back in a later request to
-read the next page of the same generation.
+read the next page of the same generation; revalidating a packet that holds a
+token rechecks currency separately, so the held page keeps its own binding.
 
 Packets preserve full provider responses, exact passages, locators, source
 hashes, line ranges, snapshot/generation identities, coverage and handling
