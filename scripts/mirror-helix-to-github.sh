@@ -31,6 +31,7 @@
 #                         (default: one push, then automatic batched retry)
 #   --dry-run             clone + audit only: no repo creation, no push
 #   --allow-nonempty      push even if the destination repo already has refs
+#                         (an existing destination must already be private)
 #   -h | --help           this text
 #
 # Exit status is non-zero if any repository failed. Per-repo logs are written
@@ -279,7 +280,10 @@ audit_submodules() {
 remote_ref_count() {
     # Count real refs on the destination. Annotated tags also emit a peeled
     # "refs/tags/x^{}" line, which must not inflate the comparison.
-    git ls-remote --heads --tags "$1" 2>>"$repo_log" | grep -cv '\^{}$' || true
+    # Fails (rather than reporting 0) when the destination cannot be read.
+    local refs
+    refs="$(git ls-remote --heads --tags "$1" 2>>"$repo_log")" || return 1
+    printf '%s\n' "$refs" | grep -v '\^{}$' | grep -c . || true
 }
 
 push_in_batches() {
@@ -413,7 +417,18 @@ for spec in "${REPO_ARGS[@]}"; do
     # GH_HOST pins gh to the destination host now that two hosts are logged in.
     if GH_HOST="$DEST_HOST" gh repo view "$dest_full" >>"$repo_log" 2>&1; then
         log "    destination exists"
-        existing_refs="$(remote_ref_count "$dest_url")"
+        visibility="$(GH_HOST="$DEST_HOST" gh repo view "$dest_full" \
+            --json visibility -q .visibility 2>>"$repo_log")" || visibility=""
+        if [ "$visibility" != "PRIVATE" ]; then
+            repo_failed "existing destination visibility is '${visibility:-unknown}', not PRIVATE; make it private before mirroring"
+            cd "$WORKDIR"
+            continue
+        fi
+        if ! existing_refs="$(remote_ref_count "$dest_url")"; then
+            repo_failed "could not list destination refs; refusing to push"
+            cd "$WORKDIR"
+            continue
+        fi
         if [ "$existing_refs" != "0" ] && [ "$ALLOW_NONEMPTY" -eq 0 ]; then
             repo_failed "destination already has $existing_refs ref(s); use --allow-nonempty"
             cd "$WORKDIR"
@@ -457,7 +472,7 @@ for spec in "${REPO_ARGS[@]}"; do
     # 7. Verify the destination holds exactly the refs we sent, then set the
     # default branch, which --mirror does not transfer.
     expected_refs=$((branches + tags))
-    pushed="$(remote_ref_count "$dest_url")"
+    pushed="$(remote_ref_count "$dest_url")" || pushed="unreadable"
     if [ "$pushed" != "$expected_refs" ]; then
         repo_failed "ref count mismatch: sent $expected_refs, destination reports $pushed"
         cd "$WORKDIR"
