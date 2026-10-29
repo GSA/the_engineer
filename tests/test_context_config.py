@@ -1,0 +1,41 @@
+"""Binding errors must not route evidence to another root/project."""
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from engineer_context.config import load_config, parse_task
+
+TASK = dict(daemon_id='local', project_uid='project-1', issue_uid='task-1', workspace_id='work-1')
+
+def config_value():
+    return dict(schema='engineer.context-config/v1',
+                librarian=dict(project_id='business-1', executable='bin/librarian-mcp', reader='reader.py', root='corpus', selection='corpus/selected'),
+                knowitall=dict(project_id='code-1', repository_id='repo-1', python='bin/python', store='store'))
+
+class ConfigTests(unittest.TestCase):
+    def load(self, value):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / 'binding.json'
+        self.path.write_text(json.dumps(value))
+        return load_config(self.path)
+
+    def test_config_relative_paths_are_config_relative(self):
+        conf = self.load(config_value())
+        self.assertEqual(conf.librarian.root, self.path.parent / 'corpus')
+        self.assertEqual(conf.knowitall.store, self.path.parent / 'store')
+        self.assertEqual(conf.limits.max_bytes, 1048576)
+
+    def test_config_rejects_incomplete_binding_and_bad_limits(self):
+        for value in [dict(config_value(), unexpected=True), dict(config_value(), limits={'max_bytes': True}),
+                      dict(config_value(), limits={'timeout_seconds': float('inf')}),
+                      dict(config_value(), limits={'max_code_queries': -1})]:
+            with self.subTest(value=value), self.assertRaises(ValueError): self.load(value)
+        for field, bad in [('project_id', ''), ('selection', '../elsewhere'), ('executable', 'python -m server')]:
+            value = config_value(); value['librarian'][field] = bad
+            with self.subTest(field=field), self.assertRaises(ValueError): self.load(value)
+
+    def test_task_requires_exact_nonempty_identity(self):
+        self.assertEqual(parse_task(TASK).issue_uid, 'task-1')
+        for value in [dict(TASK, issue_uid=''), dict(TASK, project_uid=1), dict(TASK, title='task-1')]:
+            with self.assertRaises(ValueError): parse_task(value)
