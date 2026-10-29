@@ -36,7 +36,10 @@ def code_position(value):
 
 
 def code_scope(scope):
-    if not isinstance(scope,dict) or scope.get('kind') not in CODE_QUERIES: raise ValueError('invalid code query')
+    # A discriminator of another JSON type is caller input, not a lookup key:
+    # an unhashable value would raise TypeError past the caller's handling.
+    if not isinstance(scope,dict) or not isinstance(scope.get('kind'),str) or scope['kind'] not in CODE_QUERIES:
+        raise ValueError('invalid code query')
     exact_fields(scope,CODE_QUERIES[scope['kind']])
     kind=scope['kind']
     if kind=='symbol':
@@ -67,7 +70,7 @@ def validate_code_request(config, query):
         raise ValueError('code binding mismatch')
     if 'continuation' in query: identity(query['continuation'])
     selector=query['selector']
-    if not isinstance(selector,dict) or selector.get('mode') not in CODE_SELECTORS:
+    if not isinstance(selector,dict) or not isinstance(selector.get('mode'),str) or selector['mode'] not in CODE_SELECTORS:
         raise ValueError('invalid code selector')
     exact_fields(selector,CODE_SELECTORS[selector['mode']])
     if selector['mode']=='exact':

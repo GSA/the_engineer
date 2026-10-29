@@ -3,6 +3,7 @@ import asyncio
 import copy
 from contextlib import AsyncExitStack
 from .collect import UnavailableClient, now, page_scope, pin_selector
+from .errors import InvalidCodeRequest
 from .knowitall import KnowitallClient
 from .librarian import LibrarianClient, ProviderError
 from .packet import canonical_bytes, canonical_digest, validate_packet
@@ -64,7 +65,14 @@ async def revalidate_with_clients(config, packet, task, librarian, knowitall):
                             raise ProviderError('stale','pinned code generation is no longer current')
                     else:
                         query['selector']=pin_selector(resolved)
-                    observed=await asyncio.to_thread(knowitall.query,query)
+                    try:
+                        observed=await asyncio.to_thread(knowitall.query,query)
+                    except InvalidCodeRequest as error:
+                        # A held cursor the provider now refuses is changed
+                        # provider state, not new caller input: the packet's
+                        # requests were accepted when they were collected.
+                        if 'continuation' not in query: raise
+                        raise ProviderError('stale','held code continuation is no longer accepted') from error
                     for field in ('contract','request_id','project_id','repository_id'):
                         if observed.get(field)!=query.get(field): raise ProviderError('invalid','code response identity mismatch')
                     # Pagination itself is not a gap here: the packet's page chain was

@@ -155,7 +155,9 @@ class CollectTests(unittest.IsolatedAsyncioTestCase):
                'position without column':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':1},'end':{'line':2,'column':1}}),
                'empty range':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':3,'column':4},'end':{'line':3,'column':4}}),
                'reversed range':lambda q:q.__setitem__('query',{'kind':'source_range','path':'src/orders.py','start':{'line':9,'column':1},'end':{'line':2,'column':1}}),
-               'unhashable relationship kind':lambda q:q.__setitem__('query',{'kind':'dependencies','symbol_id':'s','direction':'outgoing','relationship_kinds':[{'kind':'calls'}]})}
+               'unhashable relationship kind':lambda q:q.__setitem__('query',{'kind':'dependencies','symbol_id':'s','direction':'outgoing','relationship_kinds':[{'kind':'calls'}]}),
+               'unhashable selector mode':lambda q:q.__setitem__('selector',{'mode':[]}),
+               'unhashable query kind':lambda q:q.__setitem__('query',{'kind':{}})}
         for name,break_it in cases.items():
             for required in [True,False]:
                 with self.subTest(case=name,required=required):

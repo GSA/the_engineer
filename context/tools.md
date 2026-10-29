@@ -47,7 +47,9 @@ match a page in the packet, and every issued token must have its successor
 there too. Missing neighbours are reported as absent pages rather than treated
 as a complete observation. Pagination therefore no longer blocks an individual
 page during revalidation, where the digest comparison already proves the page
-is unchanged.
+is unchanged. When a provider refuses a cursor during revalidation, the held
+request was accepted at collection, so this is changed provider state and the
+check is reported as stale rather than raised as caller input.
 
 The consumer also checks a code request against the owning request shape
 (required fields, selector variant, query kind, enumerations, relationship

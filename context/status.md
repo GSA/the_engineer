@@ -33,8 +33,8 @@
   tests, 51 distribution tests (4 expected skips), build, compile and whitespace
   checks pass. No probe child remains. Whole-branch review and PR delivery are
   the remaining steps; assertions/contributions stay unavailable upstream.
-- Whole-branch review rounds 346, 350, 356, 362, 363, 364, 372 and 379 are
-  resolved. The
+- Whole-branch review rounds 346, 350, 356, 362, 363, 364, 372, 379 and 382
+  are resolved. The
   latest round added two evidence-honesty corrections: a required paged code
   query is ready only when the packet holds the whole page chain for that query
   and generation (a lone page reports its absent neighbours), and the consumer
@@ -46,7 +46,7 @@
   binding changed, into the same caller-input error. Revalidation replays any
   paged request unchanged with a separate pinned currency probe.
   Page requests of a supplied chain keep the selector that bound their tokens.
-  54 consumer tests, 10 actual-provider integration tests,
+  56 consumer tests, 10 actual-provider integration tests,
   116 local-environment tests, 51 distribution tests (4 expected skips), the Pi
   runtime probe with `model_requests: 0`, build, compile and whitespace checks
   pass; no probe child remains.
