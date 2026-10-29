@@ -298,7 +298,9 @@ engineer-context-mcp --config binding.json
 ```
 
 Verify an actual Pi session's discovery and qualified read without any model
-call, writing a private receipt:
+call, writing a private receipt. The probe connects only the server it
+registers, so your own `mcp.json` entries are neither launched nor able to
+shadow it:
 
 ```sh
 node scripts/verify-context-runtime.mjs <pi-install> <private agent dir> \

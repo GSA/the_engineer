@@ -16,7 +16,13 @@ const cwd = process.cwd();
 let calls = 0;
 const loader = new sdk.DefaultResourceLoader({ cwd, agentDir, noExtensions: true, noSkills: true,
   noPromptTemplates: true, noThemes: true,
-  extensionFactories: [pi => sdk.createCodemodeExtension({ mode: 'on' })(pi), pi => sdk.createMcpExtension()(pi), pi => {
+  // The MCP extension's default loader and log path read the operator agent
+  // directory (PI_CODING_AGENT_DIR or ~/.pi/agent) rather than the agentDir of
+  // this session, so an explicit empty configuration keeps the probe from
+  // launching configured servers or letting one shadow the registered provider.
+  extensionFactories: [pi => sdk.createCodemodeExtension({ mode: 'on' })(pi),
+    pi => sdk.createMcpExtension({ loadConfig: () => ({ servers: [], autoEnableCodemode: true, errors: [] }),
+      logPath: path.join(agentDir, 'mcp.log') })(pi), pi => {
     pi.on('before_provider_request', () => { calls++; throw new Error('model traffic forbidden'); });
     pi.registerMcpServer('component-context', { command: executable, args: ['--config', config], cwd,
       exposure: 'codemode', timeout: 30 });
@@ -48,6 +54,9 @@ try {
   const registered = () => session.getAllTools().some(t => t.name.startsWith('mcp__component_context__'));
   while (!registered() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
   assert.ok(registered(), 'component context MCP tools unregistered');
+  const foreign = session.getAllTools().map(t => t.name)
+    .filter(name => name.startsWith('mcp__') && !name.startsWith('mcp__component_context__'));
+  assert.deepEqual(foreign, [], 'only the registered provider may be reachable');
   // The SDK's wrapped codemode AgentTool receives ExtensionToolContext; nested
   // execution uses Pi's validation/hooks and actual MCP discovery, not RPC guesses.
   const tool = session.agent.state.tools.find(t => t.name === 'codemode');
@@ -76,7 +85,7 @@ try {
   const parent = await fs.lstat(path.dirname(receiptPath));
   assert.ok(parent.isDirectory() && !parent.isSymbolicLink() && !(parent.mode & 0o077), 'receipt parent must be private');
   await fs.writeFile(receiptPath, JSON.stringify({ schema: 'engineer.runtime-verification/v1', cwd,
-    model_requests: calls, sdk_root: sdkRoot, output }, null, 2), { mode: 0o600, flag: 'wx' });
+    model_requests: calls, configured_mcp_servers: foreign.length, sdk_root: sdkRoot, output }, null, 2), { mode: 0o600, flag: 'wx' });
   console.log('Actual Pi discovery, qualified collect/report and zero model requests verified.');
 } finally {
   await session.extensionRunner.emit({ type: 'session_shutdown', reason: 'exit' });

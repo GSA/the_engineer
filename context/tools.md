@@ -175,7 +175,14 @@ to `createAgentSession` is an empty allowlist that hides `codemode` and all
 probe supplies through `SessionManager.inMemory` preloaded entries; MCP servers
 connect in the background, so a direct `tool.execute` must poll
 `session.getAllTools()` first; and MCP tools resolve to `CallToolResult`, so
-content text must be parsed and `isError` surfaced.
+content text must be parsed and `isError` surfaced. The MCP extension's default
+configuration loader and log path read `getAgentDir()`
+(`PI_CODING_AGENT_DIR` or `~/.pi/agent`) rather than the session's `agentDir`,
+so the probe passes an explicit empty `loadConfig` and a private `logPath`;
+otherwise operator-configured servers launch and a saved `component-context`
+entry would shadow the registered provider. The receipt records
+`configured_mcp_servers: 0` alongside `model_requests: 0` as that isolation
+evidence.
 
 ## Build and test commands
 

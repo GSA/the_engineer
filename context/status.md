@@ -43,7 +43,8 @@
   - Verified with 58 consumer tests, 10 actual-provider integration tests
     against the Librarian release and pinned Knowitall `81cc9b2` with the
     offline Graphify runtime, 122 local-environment tests, 52 distribution tests
-    (4 expected skips), a Pi runtime receipt with `model_requests: 0`, plus
+    (4 expected skips), a Pi runtime receipt with `model_requests: 0` and
+    `configured_mcp_servers: 0`, plus
     build, compile and whitespace checks. Branch review job 384 passed;
     delivered as https://github.com/GSA/the_engineer/pull/4.
   - Merged current `main` into the branch, keeping main's compacted docs,
@@ -54,7 +55,10 @@
     moved the reader to the `tools.context_index` module under `--root`, so the
     consumer binding and `setup --librarian-reader` now treat the reader as an
     optional legacy argument and omit it by default. All 10 actual-provider
-    integration tests pass against the current checkout.
+    integration tests pass against the current checkout, and the Pi probe now
+    supplies the MCP extension an explicit empty configuration and private log
+    path, because its default loader reads the operator agent directory rather
+    than the session's.
   - Assertions and contributions stay unavailable pending `the_librarian#923h`
     and `the_librarian#rjr5`, so associations remain `unasserted` and `k4mp`
     stays open. Public tests are non-identifying; real corpus/ticket use, model
