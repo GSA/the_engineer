@@ -5,6 +5,8 @@
 .venv/
 .kata.local.toml
 __pycache__/
+*.egg-info/
+/build/
 *.py[cod]
 *.sqlite3*
 *.db
