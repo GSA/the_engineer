@@ -61,6 +61,28 @@ class PiVersionTests(unittest.TestCase):
                 local_env.verify_pi({"pi_executable": "/test/pi"}, env={})
 
 
+class PortOffsetTests(unittest.TestCase):
+    def test_valid_offsets_are_accepted(self):
+        for value, expected in (("0", 0), (" 1000 ", 1000), (1000, 1000), (20000, 20000)):
+            with self.subTest(value=value):
+                self.assertEqual(local_env.parse_port_offset(value), expected)
+
+    def test_invalid_or_colliding_offsets_are_rejected(self):
+        # 1 maps roborev 17373 onto 17374; 11 maps AgentsView 18080 onto Forge 18091.
+        for value in ("-1", "abc", "1.5", True, -5, "1", "11", "48000"):
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                local_env.parse_port_offset(value)
+
+    def test_environment_overrides_saved_offset_and_missing_settings_default_to_zero(self):
+        with tempfile.TemporaryDirectory(dir=local_env.ROOT / ".local") as directory:
+            path = Path(directory) / "environment.json"
+            self.assertEqual(local_env.resolve_port_offset({}, path), 0)
+            path.write_text('{"port_offset": 2000}')
+            self.assertEqual(local_env.resolve_port_offset({}, path), 2000)
+            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 1000)
+            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": ""}, path), 2000)
+
+
 class LocalEnvironmentTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="local-env-test-", dir=local_env.ROOT / ".local")
@@ -161,6 +183,43 @@ class LocalEnvironmentTests(unittest.TestCase):
         other.touch()
         with self.assertRaisesRegex(RuntimeError, "differs"):
             local_env.setup(self.corpus, other)
+
+    def test_default_offset_keeps_existing_ports_and_saved_settings(self):
+        self.assertNotIn("port_offset", json.loads((self.state / "environment.json").read_text()))
+        self.assertIn("port = 18091\n", (self.state / "forge/config.toml").read_text())
+        self.assertIn('listen = "127.0.0.1:17777"', (self.state / "kata/config.toml").read_text())
+        self.assertEqual(local_env.PORTS, (17373, 17374, 17777, 18080, 18091))
+
+    def test_port_offset_moves_every_generated_endpoint(self):
+        self.addCleanup(local_env.configure_ports, local_env.PORT_OFFSET)
+        local_env.configure_ports(1000)
+        state = self.root / "offset-environment"
+        patch.object(local_env, "STATE", state).start()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads((state / "environment.json").read_text())["port_offset"], 1000)
+        forge = local_env.validate_forge_config()
+        self.assertEqual((forge["port"], forge["mcp"]["port"]), (19091, 19092))
+        self.assertEqual(forge["roborev"]["endpoint"], "http://127.0.0.1:18373")
+        local_env.validate_roborev_config()
+        local_env.validate_kata_config()
+        self.assertIn('url = "http://127.0.0.1:18777"', (state / "kata/config.toml").read_text())
+        servers = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]
+        self.assertEqual(servers["kata"]["env"]["KATA_SERVER"], "http://127.0.0.1:18777")
+        self.assertEqual(servers["kenn-forge"]["url"], "http://127.0.0.1:19092/mcp")
+        env = local_env.base_environment()
+        self.assertEqual(env["KATA_SERVER"], "http://127.0.0.1:18777")
+        self.assertEqual(env["KENN_FORGE_API_URL"], "http://127.0.0.1:19091")
+        self.assertIn("19080", local_env.agentsview_command())
+        self.assertEqual(local_env.PORTS, (18373, 18374, 18777, 19080, 19091))
+        self.assertEqual(local_env.SERVICE_PORTS["roborev"], (18373, 18374))
+        with patch.object(local_env.socket, "socket") as probe:
+            local_env.check_ports()
+        bound = [call.args[0][1] for call in probe.return_value.__enter__.return_value.bind.call_args_list]
+        self.assertEqual(bound, list(local_env.PORTS))
+        local_env.configure_ports(0)
+        with self.assertRaisesRegex(RuntimeError, "differs from the saved port_offset 1000"):
+            local_env.settings()
 
     def test_profile_is_private_and_uses_existing_corpus(self):
         for path in (self.state, self.state / "secrets", self.state / "pi"):

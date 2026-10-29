@@ -80,58 +80,104 @@ recipe; Kata `p4ke` tracks the gaps. See [dist/README.md](dist/README.md).
 
 ## Isolated WSL2 instance and two-layer isolation
 
-For MVP reproduction, intake, and demo rehearsals (`the_engineer#n0vk` and
-`the_engineer#t592`), we use a **two-layer isolation strategy** rather than
-containerizing individual stdio MCP processes (which breaks `systemd --user`
-units, Forge worktree paths, and Librarian's absolute-path index bindings per
-`the_librarian` Decision 0004):
+MVP reproduction and demo rehearsals (`the_engineer#n0vk`, `the_engineer#t592`)
+use two layers instead of containers. Containers would break `systemd --user`
+units, Forge worktree paths, and Librarian's absolute index paths
+(`the_librarian` Decision 0004).
 
-1. **Layer 1 — Full-clone MVP instances (`the_engineer#n0vk`)**: Keep upstream
-   `~/the_librarian` and `~/the_knowitall` data-empty; unpack/clone dedicated
-   program instances (`~/falcon-librarian-mvp` and `~/falcon-knowitall-mvp`)
-   with private `.local/` stores pointing to `~/falcon-docs/INBOX/` and
-   `~/falcon/*`.
-2. **Layer 2 — Dedicated WSL2 Ubuntu 24.04 instance (`the_engineer#t592`)**:
-   Create a separate WSL2 distribution on the same Windows host to test clean
-   reproduction and run demos without touching your primary WSL environment.
+1. **Layer 1 (`n0vk`)**: Keep `~/the_librarian` and `~/the_knowitall` free of
+   data. Clone separate instances (`~/falcon-librarian-mvp`,
+   `~/falcon-knowitall-mvp`) with private `.local/` stores for
+   `~/falcon-docs/INBOX/` and `~/falcon/*`.
+2. **Layer 2 (`t592`)**: A second WSL2 Ubuntu 24.04 distro, `engineer-mvp`, on
+   the same Windows host. It has its own files, users, and services.
 
-### Creating, snapshotting, and resetting an isolated WSL2 instance
+### Ports are shared with your primary distro
 
-Run these commands in **Windows PowerShell**:
+All WSL2 distros run in one VM and share one network namespace
+([Microsoft: What is WSL](https://learn.microsoft.com/windows/wsl/about)).
+`127.0.0.1` in `engineer-mvp` is the same `127.0.0.1` as in your primary distro.
+The default ports would collide, or silently reach your primary services.
+
+Set `KENN_KOPY_PORT_OFFSET=1000` in `engineer-mvp` before `setup` or
+`dist/install.sh`. `setup` saves it in `environment.json`, so services and later
+commands use it. A different value later is an error. The offset must be a
+non-negative integer that does not overlap the default ports.
+
+| Service | Primary distro | `engineer-mvp` (offset 1000) |
+| --- | --- | --- |
+| Forge (MCP) | 18091 (18092) | 19091 (19092) |
+| Kata | 17777 | 18777 |
+| roborev API, UI | 17373, 17374 | 18373, 18374 |
+| AgentsView | 18080 | 19080 |
+
+Both stacks can run at once. Do not stop the primary services.
+
+### Create a clean instance
+
+This needs WSL 2.4.10 or later for Ubuntu's image format. Check with
+`wsl --version`. Run in PowerShell. Keep the files under `%LOCALAPPDATA%`,
+which OneDrive does not sync.
 
 ```powershell
-# 1. Create a host directory and export a clean Ubuntu 24.04 base rootfs
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\wsl\engineer-mvp"
-wsl --export Ubuntu-24.04 "$env:USERPROFILE\wsl\ubuntu-24.04-base.tar"
-
-# 2. Import the isolated 'engineer-mvp' WSL2 instance
-wsl --import engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp" "$env:USERPROFILE\wsl\ubuntu-24.04-base.tar" --version 2
-
-# 3. Create the operator account and enable systemd
-wsl -d engineer-mvp -u root -- bash -c '
-  useradd -m -s /bin/bash -G sudo nkirrish &&
-  passwd -d nkirrish &&
-  printf "[boot]\nsystemd=true\n\n[user]\ndefault=nkirrish\n" > /etc/wsl.conf
-'
-
-# 4. Restart the instance so systemd --user initializes, then open a shell
-wsl --terminate engineer-mvp
-wsl -d engineer-mvp
+$dir = "$env:LOCALAPPDATA\engineer-wsl"
+New-Item -ItemType Directory -Force -Path $dir
+wsl --install Ubuntu-24.04 --name engineer-mvp --location "$dir\engineer-mvp"
 ```
 
-After completing [Stand it up](#stand-it-up) inside `engineer-mvp`, export a
-verified pre-demo snapshot from PowerShell so you can reset to a clean baseline
-in under two minutes:
+The first launch asks for a user name and password. Set a real password;
+`sudo` needs it. Without Microsoft Store access, download the
+`ubuntu-24.04.*-wsl-amd64.wsl` image and `SHA256SUMS` from
+https://releases.ubuntu.com/noble/, check the hash, and use
+`wsl --install --from-file <image>.wsl --name engineer-mvp --location "$dir\engineer-mvp"`.
+
+Inside `engineer-mvp`, enable systemd and keep your user as the default after
+an import:
+
+```sh
+printf '[boot]\nsystemd=true\n[user]\ndefault=%s\n' "$USER" | sudo tee /etc/wsl.conf
+```
+
+Then save the clean baseline from PowerShell. It holds only the stock image and
+your account. No repos, keys, or logins.
 
 ```powershell
-# Save a verified pre-demo snapshot
 wsl --terminate engineer-mvp
-wsl --export engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp-ready.tar"
+wsl --export engineer-mvp "$dir\engineer-mvp-base.tar"
+```
 
-# Reset to the clean pre-demo baseline at any time
+### Stand it up inside `engineer-mvp`
+
+```sh
+export KENN_KOPY_PORT_OFFSET=1000
+export KATA_SERVER=http://127.0.0.1:18777
+```
+
+Add both lines to `~/.bashrc` in `engineer-mvp`. Then follow
+[Requirements](#requirements) and [Stand it up](#stand-it-up). `KATA_SERVER` keeps the native `kata` CLI off the primary Kata. Check that
+`python3 scripts/local_env.py status` shows `"port_offset": 1000`.
+Knowitall has no MCP server yet (`the_knowitall#vz6q`).
+
+### Snapshots and reset
+
+A snapshot taken after `set-key` and `gh-local.py auth login` contains the USAi
+key and the GitHub token. Treat it as a secret. Keep it only under
+`%LOCALAPPDATA%`. Never copy it to OneDrive, shared drives, Git, or chat.
+Delete it when the rehearsal is over.
+
+```powershell
+# $dir is "$env:LOCALAPPDATA\engineer-wsl", as above. Save the ready (secret) snapshot:
+wsl --terminate engineer-mvp
+wsl --export engineer-mvp "$dir\engineer-mvp-ready.tar"
+
+# Reset to it. Use engineer-mvp-base.tar instead to start clean.
 wsl --unregister engineer-mvp
-wsl --import engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp" "$env:USERPROFILE\wsl\engineer-mvp-ready.tar" --version 2
+wsl --import engineer-mvp "$dir\engineer-mvp" "$dir\engineer-mvp-ready.tar" --version 2
 ```
+
+After a reset, open `engineer-mvp` and run `python3 scripts/local_env.py status`.
+Use the offset URLs in the demo: Forge http://127.0.0.1:19091/ and Kata
+http://127.0.0.1:18777/kata.
 
 ## Services
 
@@ -142,7 +188,8 @@ wsl --import engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp" "$env:USERPROFILE\
 | roborev | http://127.0.0.1:17374/reviews (API `:17373`) | `kenn-kopy-roborev.service` |
 | AgentsView | http://127.0.0.1:18080/ | `kenn-kopy-agentsview.service` |
 
-All services bind to `127.0.0.1`.
+All services bind to `127.0.0.1`. `KENN_KOPY_PORT_OFFSET` shifts every port; see
+[Ports are shared with your primary distro](#ports-are-shared-with-your-primary-distro).
 
 ## Configuration reference
 
@@ -152,7 +199,7 @@ different root.
 
 | File | Purpose |
 | --- | --- |
-| `environment.json` | Corpus path, Forge binary, Pi executable and version, written by `setup` |
+| `environment.json` | Corpus path, Forge binary, Pi executable and version, and any `port_offset`, written by `setup` |
 | `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
 | `usai.json` | Active coder `model` and `review_model` |
 | `usai-models.json` | Last model catalog fetched from USAi |

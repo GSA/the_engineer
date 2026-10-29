@@ -165,6 +165,11 @@ Dashboards listen on **loopback only**:
 | roborev | http://127.0.0.1:17374/reviews |
 | AgentsView | http://127.0.0.1:18080/ |
 
+Export `KENN_KOPY_PORT_OFFSET` (for example `1000`) before installing to shift
+every port, including the `~/.kata/config.toml` client URL. A second WSL2
+distro needs this because it shares `127.0.0.1` with the first; see the
+repository README.
+
 Opt-in service registration requires a working `systemctl --user` manager and
 `systemd-analyze`. Existing unit names remain `kenn-kopy-*.service`; a unit from
 another installation is rejected, not overwritten. Manage each with:
