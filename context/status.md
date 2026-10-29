@@ -45,8 +45,8 @@
     a revision-bound Knowitall generation, reports provenance and readiness, and
     rechecks a sealed packet with `revalidate`. Collection is read-only and
     never writes provider state or mutates a task.
-  - Integrated preserved commit `dae66cd` (explicit Librarian binding) as merge
-    `b75210c`; branch review job 313 passed it with no findings.
+  - Integrated preserved commit `871a1bc` (explicit Librarian binding) as merge
+    `9988f2b`; branch review job 313 passed it with no findings.
   - Required paged code queries are ready only with the whole page chain;
     malformed requests and refused cursors are caller input (exit 1), while a
     cursor refused during revalidation is reported as changed provider state.
@@ -54,7 +54,7 @@
     resolving a virtual environment's `bin/python` symlink changed the child's
     prefix and broke the Knowitall bridge.
   - Verified with 58 consumer tests, 10 actual-provider integration tests
-    against the Librarian release and pinned Knowitall `81cc9b2` with the
+    against the Librarian release and pinned Knowitall `28d195d` with the
     offline Graphify runtime, 122 local-environment tests, 52 distribution tests
     (4 expected skips), a Pi runtime receipt with `model_requests: 0` and
     `configured_mcp_servers: 0`, plus
@@ -64,7 +64,7 @@
     configurable ports (`KENN_KOPY_PORT_OFFSET`) and roborev wrapper removal,
     and re-applying the explicit Librarian binding so `setup` preserves the
     other saved `pi/mcp.json` servers. Branch review job 399 passed.
-  - Upstream Librarian `f4c8500` dropped `--reader` from `librarian-mcp` and
+  - Upstream Librarian `73597aa` dropped `--reader` from `librarian-mcp` and
     moved the reader to the `tools.context_index` module under `--root`, so the
     consumer binding and `setup --librarian-reader` now treat the reader as an
     optional legacy argument and omit it by default. All 10 actual-provider
@@ -94,7 +94,7 @@
     `gpt-6.1-sol-latest-guardrails-defaultv2` on Roborev reviewers, and simplified
     the over-engineered snapshot acquisition/materialization code in
     `the_knowitall` (`src/knowitall_snapshot/acquire.py` and `materialize.py`,
-    commit `a266fa4`).
+    commit `5efdd85`).
 
 - **Forge workspace PR completion, MCP targets, and Pi lifecycle hooks (`24g8`)**:
   - Enabled Forge MCP on `http://127.0.0.1:18092/mcp` in
@@ -129,13 +129,13 @@
     affirmative `review_guidelines` in `.roborev.toml`.
   - Removed `scripts/roborev-local.py`, `scripts/roborev_hooks.py`, and
     `the_librarian`'s custom `pre-commit` review gate and negative-disclaimer
-    context bloat (`the_librarian` commit `876dfcd`, `the_knowitall` commit
-    `a6a17b3`).
+    context bloat (`the_librarian` commit `376d6d4`, `the_knowitall` commit
+    `d985920`).
   - Compacted `kenn-kopy/context/*.md` into concise current-state reference
     documents under 16 KiB each.
   - Hardened Forge workspace autonomy and environment (`forge-workspace.ts`,
     `scripts/local_env.py`, `scripts/bootstrap-toolchains.sh`): added
-    `KENN_FORGE_RUNTIME_SESSION_KEY` passthrough + workspace API fallback,
+    `KENN_FORGE_RUNTIME_SESSION_KEY` passthrough + workspace `agent-sessions` API fallback (reads `sessions[].runtime_session_key`),
     filtered leaked parent `AGENTS.md` from child worktrees, overrode
     `brainstorming` and `writing-plans` interactive stops, capped pre-PR
     `roborev` to 1 branch review + 1 fix pass, removed hardcoded `cwd` from
@@ -149,40 +149,21 @@
 
 ## Active Kata queue (`engi-platform`)
 
-- `2jgk` (`in_progress`): Refactor and simplify `the_engineer` codebase and
-  scripts (active in Forge worktree `.local/environment/forge/worktrees/kenn-forge/work-7d57d583`).
-- `5xrm` (`open`, `blocked` on owner approval): Design selective engineering
-  memory and decision log.
-- `eb48` (`open`): Rename runtime identifiers from `kenn-kopy`/`engi-platform`
-  to `engineer`.
-- `t592` (`open`): Isolated WSL2 `engineer-mvp` rehearsal. The plan uses a clean
-  `wsl --install Ubuntu-24.04 --name` base exported before secrets, treats
-  post-`set-key` snapshots as secrets, and runs with `KENN_KOPY_PORT_OFFSET=1000`
-  (`8k15`, branch `t592-configurable-ports`) beside the primary stack. Needs a
-  real WSL2 run; Knowitall MCP discovery waits on `the_knowitall#vz6q`.
-- Ready unblocked follow-ups (`kata ready --no-label blocked --no-label deferred --agent`):
-  `t14m` (reconcile `dist/install.py` with systemd service topology), `k03a`
-  (curate Superpowers skills in Pi), `zmzh` (curate installed Pi extensions),
-  `025n` (verify Forge terminal click-to-type focus in live browser), and `pcrv`
-  (harden USAi provider model discovery).
+- List current work with `kata ready --no-label blocked --no-label deferred --agent`.
+- Open priority-1 items include `k4mp` (assertions/contributions wait on
+  `the_librarian#923h` and `#rjr5`), `pyzt`, `p4ke`, `99gr`, `86ey`, `n0vk`,
+  `gamy` and `h28d`.
+- `5xrm` (reproducible redeployment script), `eb48` (legacy identity/path
+  migration during planned downtime) and `t592` (isolated WSL2 Ubuntu 24.04
+  reproduction with `KENN_KOPY_PORT_OFFSET=1000`) remain open.
 
-## Knowitall Forge handoff (2026-10-29)
+## Repository history
 
-- Forge workspace `577f9f28aea5d6e2`, branch `kenn-forge/work-577f9f28`, rebased
-  onto merged provider-contract PR #1 and pushed as PR #2:
-  https://github.com/GSA/the_knowitall/pull/2 (open and mergeable).
-- Closed `knowitall#r9gz` after fresh execution of all 29 Graphify tests against
-  the retained exact lock-built runtime, including real offline Python and
-  TypeScript extraction.
-- Closed `knowitall#7gv8`; rebased commit `414660e`: added explicit credential-free
-  remote clone/fetch intake, origin provenance, executable-mode preservation and
-  digest binding, interruption recovery, and immutable-upstream-removal tests.
-- Closed `knowitall#8jvw`; rebased commit `08e929d`: added a minimal local NDJSON stdio
-  adapter over the revision-bound query service with malformed-line isolation.
-- Final post-rebase verification at `08e929d`: 127 pytest tests passed with the pinned
-  Graphify runtime, all four contract examples validated, wheel/sdist built and
-  contained the new modules, compileall and `git diff --check` passed, and the
-  worktree was clean. PR #2 (`GSA/the_knowitall#2`) and Kata tasks
-  `knowitall#r9gz`, `knowitall#7gv8`, and `knowitall#8jvw` are registered on
-  workspace `577f9f28aea5d6e2`; the host-managed worktree remains for PR
-  feedback.
+- On 2026-10-29 the histories of `GSA/the_engineer`, `GSA/the_librarian`,
+  `GSA/the_knowitall` and the `GSA/supply-chain-user-interface` PR #1 branch
+  were rewritten so author/committer `nader.kirrish@cgifederal.gov` became
+  `nader.kirrish@gsa.gov` (linked to GitHub `biggestbinary`), then
+  force-pushed. Commit IDs above are post-rewrite; refresh other clones with
+  `git fetch` and `git reset --hard origin/<branch>`.
+- Knowitall PRs #2 and #5 are merged; Forge hot spares were re-prepared on the
+  rewritten history.

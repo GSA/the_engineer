@@ -234,10 +234,11 @@ export default function forgeWorkspaceExtension(pi: any): void {
 				return "";
 			}
 			const data: any = await response.json();
-			const runtimes = Array.isArray(data?.runtimes) ? data.runtimes : [];
+			const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
 			const active =
-				runtimes.find((item: any) => item?.target_key === "pi" && item?.status === "running") ||
-				runtimes[0];
+				sessions.find((item: any) => item?.target_key === "pi" && item?.state !== "done") ||
+				sessions.find((item: any) => item?.target_key === "pi") ||
+				sessions[0];
 			if (typeof active?.runtime_session_key === "string" && active.runtime_session_key.trim()) {
 				resolvedRuntimeKey = active.runtime_session_key.trim();
 				return resolvedRuntimeKey;
