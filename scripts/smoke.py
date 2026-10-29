@@ -14,6 +14,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from local_env import (AGENTSVIEW_PORT, FORGE_PORT, KATA_PORT, KATA_URL, ROBOREV_PORT,
+                       ROBOREV_WEB_PORT)
+
 
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
@@ -53,7 +56,7 @@ ENV = {
     "AGENTSVIEW_TELEMETRY_ENABLED": "0",
     "ROBOREV_DATA_DIR": str(RUN / "roborev"),
     "KATA_HOME": str(RUN / "kata"),
-    "KATA_SERVER": "http://127.0.0.1:17777",
+    "KATA_SERVER": KATA_URL,
     "KATA_AUTHOR": "smoke-test",
     "KENN_FORGE_HOME": str(RUN / "forge"),
     "AGENTSVIEW_DATA_DIR": str(RUN / "agentsview"),
@@ -64,12 +67,12 @@ ENV = {
 for name in ("roborev", "kata", "forge", "agentsview"):
     (RUN / name).mkdir()
 (RUN / "roborev/config.toml").write_text(
-    'server_addr = "127.0.0.1:17373"\nmax_workers = 1\n'
-    'default_agent = "pi"\n[web]\nlisten = "127.0.0.1:17374"\n'
+    f'server_addr = "127.0.0.1:{ROBOREV_PORT}"\nmax_workers = 1\n'
+    f'default_agent = "pi"\n[web]\nlisten = "127.0.0.1:{ROBOREV_WEB_PORT}"\n'
 )
 (RUN / "forge/config.toml").write_text(
-    'host = "127.0.0.1"\nport = 18091\n'
-    '[roborev]\nendpoint = "http://127.0.0.1:17373"\n'
+    f'host = "127.0.0.1"\nport = {FORGE_PORT}\n'
+    f'[roborev]\nendpoint = "http://127.0.0.1:{ROBOREV_PORT}"\n'
     'init_managed_clones = false\n'
 )
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -202,18 +205,20 @@ try:
     kata_ready = False
     if not options.only_forge:
         start("roborev", "roborev/bin/roborev", ["daemon", "run"],
-              [17373, 17374], "http://127.0.0.1:17373/api/status", "http://127.0.0.1:17374/reviews")
+              [ROBOREV_PORT, ROBOREV_WEB_PORT], f"http://127.0.0.1:{ROBOREV_PORT}/api/status",
+              f"http://127.0.0.1:{ROBOREV_WEB_PORT}/reviews")
         kata_ready = start(
             "kata", "kata/kata",
-            ["daemon", "start", "--foreground", "--no-auto-token", "--listen", "127.0.0.1:17777"],
-            [17777], "http://127.0.0.1:17777/api/v1/health", "http://127.0.0.1:17777/kata",
+            ["daemon", "start", "--foreground", "--no-auto-token", "--listen", f"127.0.0.1:{KATA_PORT}"],
+            [KATA_PORT], f"{KATA_URL}/api/v1/health", f"{KATA_URL}/kata",
         )
         start("agentsview", "agentsview/agentsview",
-              ["serve", "--host", "127.0.0.1", "--port", "18080",
+              ["serve", "--host", "127.0.0.1", "--port", str(AGENTSVIEW_PORT),
                "--no-browser", "--no-sync", "--no-update-check"],
-              [18080], "http://127.0.0.1:18080/api/ping", "http://127.0.0.1:18080/")
+              [AGENTSVIEW_PORT], f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/ping",
+              f"http://127.0.0.1:{AGENTSVIEW_PORT}/")
     start("forge", FORGE_BINARY, ["serve", "--disable-sync"],
-          [18091], "http://127.0.0.1:18091/healthz", "http://127.0.0.1:18091/")
+          [FORGE_PORT], f"http://127.0.0.1:{FORGE_PORT}/healthz", f"http://127.0.0.1:{FORGE_PORT}/")
 
     if kata_ready:
         try:

@@ -25,7 +25,8 @@ PI_VERSION = "1.4.0"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
 MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
 KATA_DAEMON_NAME = "local"
-KATA_DAEMON_URL = "http://127.0.0.1:17777"
+DEFAULT_PORTS = {"kata": 17777, "forge": 18091, "roborev_web": 17374, "agentsview": 18080}
+KATA_DAEMON_URL = f"http://127.0.0.1:{DEFAULT_PORTS['kata']}"
 REQUIRED_FILES = (
     ".gitmodules", "scripts/bootstrap-sources.sh", "scripts/bootstrap-toolchains.sh",
     "scripts/build.sh", "scripts/local_env.py",
@@ -244,7 +245,8 @@ def _write_native_kata_config(path, contents, mode):
             os.unlink(temporary)
 
 
-def provision_native_kata_client(checkout, home=None):
+def provision_native_kata_client(checkout, home=None, url=None):
+    url = KATA_DAEMON_URL if url is None else url
     checkout = Path(checkout).resolve()
     home = Path(home or Path.home()).expanduser().resolve()
     binary = checkout / "kata/kata"
@@ -288,9 +290,9 @@ def provision_native_kata_client(checkout, home=None):
     entries = config.get("daemon", [])
     if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
         raise RuntimeError(f"Native Kata config has an invalid daemon catalog: {config_path}")
-    expected_identity = _loopback_daemon_identity(KATA_DAEMON_URL)
+    expected_identity = _loopback_daemon_identity(url)
     if expected_identity is None:
-        raise RuntimeError(f"Installer Kata endpoint must be a loopback URL: {KATA_DAEMON_URL}")
+        raise RuntimeError(f"Installer Kata endpoint must be a loopback URL: {url}")
 
     active_present = "active_daemon" in config
     active_name = config.get("active_daemon")
@@ -351,7 +353,7 @@ def provision_native_kata_client(checkout, home=None):
             config_text += (
                 f"{separator}[[daemon]]\n"
                 f"name = {json.dumps(selected_name)}\n"
-                f"url = {json.dumps(KATA_DAEMON_URL)}\n"
+                f"url = {json.dumps(url)}\n"
             )
 
     home.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -399,6 +401,11 @@ def check_user_services(checkout):
             raise RuntimeError(f"{unit} belongs to another installation; use manual services or migrate it explicitly.")
 
 
+def service_ports(environment):
+    return {"kata": environment.KATA_PORT, "forge": environment.FORGE_PORT,
+            "roborev_web": environment.ROBOREV_WEB_PORT, "agentsview": environment.AGENTSVIEW_PORT}
+
+
 def load_environment(checkout):
     spec = importlib.util.spec_from_file_location("engi_install_environment",
                                                checkout / "scripts/local_env.py")
@@ -429,7 +436,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
                    checkout / "kata/kata", checkout / "agentsview/agentsview"):
         if not binary.is_file() or not os.access(binary, os.X_OK):
             raise RuntimeError(f"Build did not produce an executable: {binary}")
-    provision_native_kata_client(checkout)
+    provision_native_kata_client(checkout, url=environment.KATA_URL)
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print("\nCreating missing private configuration; existing settings are preserved...")
     setup_command = [*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)]
@@ -446,7 +453,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
     run([*command, "install-pi-extensions"], cwd=checkout)
     run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
     node = Path(shutil.which("node")).resolve()
-    instructions(checkout, node)
+    instructions(checkout, node, service_ports(environment))
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
         for name in MANAGED_SERVICES:
@@ -457,7 +464,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
         print("\nInstallation configured for manual startup; no services were started or registered.")
 
 
-def manual_kata_command(checkout):
+def manual_kata_command(checkout, kata_port=DEFAULT_PORTS["kata"]):
     env = Path("/usr/bin/env")
     if not env.is_file() or not os.access(env, os.X_OK):
         raise RuntimeError("Missing /usr/bin/env required to isolate the Kata process environment.")
@@ -474,11 +481,12 @@ def manual_kata_command(checkout):
         str(env), "-i",
         *(f"{key}={value}" for key, value in environment.items()),
         str(checkout / "kata/kata"), "daemon", "start", "--foreground",
-        "--no-auto-token", "--listen", "127.0.0.1:17777",
+        "--no-auto-token", "--listen", f"127.0.0.1:{kata_port}",
     ]
 
 
-def instructions(checkout, node):
+def instructions(checkout, node, ports=None):
+    ports = DEFAULT_PORTS if ports is None else ports
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print(f"\nNative Kata CLI: {Path.home() / '.local/bin/kata'}")
     print("  The installer does not edit shell startup files; add ~/.local/bin to PATH if needed.")
@@ -486,7 +494,7 @@ def instructions(checkout, node):
     print("  " + shlex.join([*command, "run"]))
     print("Or run each service in a separate terminal:")
     for name in MANAGED_SERVICES:
-        args = (manual_kata_command(checkout) if name == "kata"
+        args = (manual_kata_command(checkout, ports["kata"]) if name == "kata"
                 else [*command, f"{name}-run"])
         if name in ("roborev", "forge"):
             args.extend(["--node-executable", str(node)])
@@ -496,9 +504,11 @@ def instructions(checkout, node):
     print("Independent user services are NOT stopped by that command. For each installed unit:")
     for name in MANAGED_SERVICES:
         print(f"  systemctl --user stop kenn-kopy-{name}.service")
-    print(f"\nNative Kata client selects {KATA_DAEMON_URL} by default.")
-    print("\nDashboards: Forge http://127.0.0.1:18091/ | Kata http://127.0.0.1:17777/kata")
-    print("roborev http://127.0.0.1:17374/reviews | AgentsView http://127.0.0.1:18080/")
+    kata_url = f"http://127.0.0.1:{ports['kata']}"
+    print(f"\nNative Kata client selects {kata_url} by default.")
+    print(f"\nDashboards: Forge http://127.0.0.1:{ports['forge']}/ | Kata {kata_url}/kata")
+    print(f"roborev http://127.0.0.1:{ports['roborev_web']}/reviews | "
+          f"AgentsView http://127.0.0.1:{ports['agentsview']}/")
     print("\nAgents are not model-ready until you configure your approved USAi endpoint/model and key.")
     print("  " + shlex.join([*command, "configure-provider",
                              "--base-url", "APPROVED_URL", "--model", "APPROVED_MODEL",

@@ -380,7 +380,9 @@ class InstallerTests(unittest.TestCase):
             binary.touch()
             binary.chmod(0o755)
         environment = MagicMock(PI_VERSION=installer.PI_VERSION,
-                                SERVICE_PORTS=dict.fromkeys(installer.MANAGED_SERVICES))
+                                SERVICE_PORTS=dict.fromkeys(installer.MANAGED_SERVICES),
+                                KATA_PORT=18777, KATA_URL="http://127.0.0.1:18777",
+                                FORGE_PORT=19091, ROBOREV_WEB_PORT=18374, AGENTSVIEW_PORT=19080)
         patch.object(installer, "load_environment", return_value=environment).start()
         patch.object(installer.shutil, "which", return_value="/usr/bin/node").start()
         patch.object(installer.Path, "home", return_value=self.root / "installer-home").start()
@@ -571,7 +573,8 @@ class InstallerTests(unittest.TestCase):
 
     def test_manual_install_initializes_builds_and_configures_without_services(self):
         self.installation()
-        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(installer, "run") as run, \
+                contextlib.redirect_stdout(io.StringIO()) as output:
             installer.install(self.root, self.corpus, "normal", "manual")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(commands[0], ["bash", "scripts/bootstrap-sources.sh"])
@@ -584,7 +587,10 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual((home / ".local/bin/kata").resolve(), (self.root / "kata/kata").resolve())
         config = tomllib.loads((home / ".kata/config.toml").read_text())
         self.assertEqual(config["active_daemon"], "local")
-        self.assertEqual(config["daemon"][0]["url"], installer.KATA_DAEMON_URL)
+        self.assertEqual(config["daemon"][0]["url"], "http://127.0.0.1:18777")
+        self.assertIn("--listen 127.0.0.1:18777", output.getvalue())
+        self.assertIn("Forge http://127.0.0.1:19091/", output.getvalue())
+        self.assertIn("AgentsView http://127.0.0.1:19080/", output.getvalue())
 
     def test_user_install_explicitly_enables_all_four_services(self):
         self.installation()

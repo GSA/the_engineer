@@ -61,6 +61,28 @@ class PiVersionTests(unittest.TestCase):
                 local_env.verify_pi({"pi_executable": "/test/pi"}, env={})
 
 
+class PortOffsetTests(unittest.TestCase):
+    def test_valid_offsets_are_accepted(self):
+        for value, expected in (("0", 0), (" 1000 ", 1000), (1000, 1000), (20000, 20000)):
+            with self.subTest(value=value):
+                self.assertEqual(local_env.parse_port_offset(value), expected)
+
+    def test_invalid_or_colliding_offsets_are_rejected(self):
+        # 1 maps roborev 17373 onto 17374; 11 maps AgentsView 18080 onto Forge 18091.
+        for value in ("-1", "abc", "1.5", True, -5, "1", "11", "48000"):
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                local_env.parse_port_offset(value)
+
+    def test_environment_overrides_saved_offset_and_missing_settings_default_to_zero(self):
+        with tempfile.TemporaryDirectory(dir=local_env.ROOT / ".local") as directory:
+            path = Path(directory) / "environment.json"
+            self.assertEqual(local_env.resolve_port_offset({}, path), 0)
+            path.write_text('{"port_offset": 2000}')
+            self.assertEqual(local_env.resolve_port_offset({}, path), 2000)
+            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 1000)
+            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": ""}, path), 2000)
+
+
 class LocalEnvironmentTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="local-env-test-", dir=local_env.ROOT / ".local")
@@ -263,6 +285,43 @@ class LocalEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "differs"):
             local_env.setup(self.corpus, other)
 
+    def test_default_offset_keeps_existing_ports_and_saved_settings(self):
+        self.assertNotIn("port_offset", json.loads((self.state / "environment.json").read_text()))
+        self.assertIn("port = 18091\n", (self.state / "forge/config.toml").read_text())
+        self.assertIn('listen = "127.0.0.1:17777"', (self.state / "kata/config.toml").read_text())
+        self.assertEqual(local_env.PORTS, (17373, 17374, 17777, 18080, 18091))
+
+    def test_port_offset_moves_every_generated_endpoint(self):
+        self.addCleanup(local_env.configure_ports, local_env.PORT_OFFSET)
+        local_env.configure_ports(1000)
+        state = self.root / "offset-environment"
+        patch.object(local_env, "STATE", state).start()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads((state / "environment.json").read_text())["port_offset"], 1000)
+        forge = local_env.validate_forge_config()
+        self.assertEqual((forge["port"], forge["mcp"]["port"]), (19091, 19092))
+        self.assertEqual(forge["roborev"]["endpoint"], "http://127.0.0.1:18373")
+        local_env.validate_roborev_config()
+        local_env.validate_kata_config()
+        self.assertIn('url = "http://127.0.0.1:18777"', (state / "kata/config.toml").read_text())
+        servers = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]
+        self.assertEqual(servers["kata"]["env"]["KATA_SERVER"], "http://127.0.0.1:18777")
+        self.assertEqual(servers["kenn-forge"]["url"], "http://127.0.0.1:19092/mcp")
+        env = local_env.base_environment()
+        self.assertEqual(env["KATA_SERVER"], "http://127.0.0.1:18777")
+        self.assertEqual(env["KENN_FORGE_API_URL"], "http://127.0.0.1:19091")
+        self.assertIn("19080", local_env.agentsview_command())
+        self.assertEqual(local_env.PORTS, (18373, 18374, 18777, 19080, 19091))
+        self.assertEqual(local_env.SERVICE_PORTS["roborev"], (18373, 18374))
+        with patch.object(local_env.socket, "socket") as probe:
+            local_env.check_ports()
+        bound = [call.args[0][1] for call in probe.return_value.__enter__.return_value.bind.call_args_list]
+        self.assertEqual(bound, list(local_env.PORTS))
+        local_env.configure_ports(0)
+        with self.assertRaisesRegex(RuntimeError, "differs from the saved port_offset 1000"):
+            local_env.settings()
+
     def test_profile_is_private_and_uses_existing_corpus(self):
         for path in (self.state, self.state / "secrets", self.state / "pi"):
             self.assertEqual(path.stat().st_mode & 0o777, 0o700)
@@ -270,7 +329,42 @@ class LocalEnvironmentTests(unittest.TestCase):
         server = mcp["mcpServers"]["falcon-context"]
         self.assertIn(str(self.corpus), server["args"])
         self.assertEqual(server["exposure"], "codemode")
+        self.assertEqual(mcp["mcpServers"]["kata"]["exposure"], "direct")
+        self.assertNotIn("cwd", mcp["mcpServers"]["kata"])
+        self.assertEqual(mcp["mcpServers"]["kenn-forge"]["url"], "http://127.0.0.1:18092/mcp")
+        self.assertEqual(mcp["mcpServers"]["kenn-forge"]["exposure"], "direct")
+        self.assertTrue((self.state / "pi/extensions/forge-workspace.ts").is_file())
+        self.assertIn("[mcp]\nenabled = true", (self.state / "forge/config.toml").read_text())
         self.assertEqual((self.state / "pi/mcp.json").stat().st_mode & 0o777, 0o600)
+
+    def test_isolated_gitconfig_and_forge_runtime_env_passthrough(self):
+        (self.state / "home/.gitconfig").unlink(missing_ok=True)
+        host_gitconfig = self.root / "host.gitconfig"
+        host_gitconfig.write_text(
+            "[http]\n\tsslCAinfo = /etc/ssl/certs/ca-certificates.crt\n"
+            "[user]\n\tname = Test Engineer\n\temail = engineer@example.gov\n"
+        )
+        local_env.seed_isolated_gitconfig(self.state / "home", host_config=host_gitconfig)
+        gitconfig_text = (self.state / "home/.gitconfig").read_text()
+        self.assertIn("name = Test Engineer", gitconfig_text)
+        self.assertIn("email = engineer@example.gov", gitconfig_text)
+        self.assertIn("sslCAinfo = /etc/ssl/certs/ca-certificates.crt", gitconfig_text)
+        self.assertIn("auth git-credential", gitconfig_text)
+        ignore_text = (self.state / "home/.config/git/ignore").read_text()
+        self.assertIn("/AGENTS.override.md", ignore_text)
+        self.assertIn("/.superpowers/", ignore_text)
+
+        self.provider()
+        self.key()
+        with patch.dict(os.environ, {
+            "KENN_FORGE_RUNTIME_SESSION_KEY": "ws_runtime_123",
+            "KENN_FORGE_API_URL": "http://127.0.0.1:18091",
+        }):
+            _, env = local_env.pi_launch(["--no-session", "-p", "Synthetic test"])
+        self.assertEqual(env["KENN_FORGE_RUNTIME_SESSION_KEY"], "ws_runtime_123")
+        self.assertEqual(env["KENN_FORGE_API_URL"], "http://127.0.0.1:18091")
+        self.assertIn(str(local_env.JQ_BINARY.parent), env["PATH"].split(os.pathsep))
+        self.assertIn(str(local_env.PYDEPS_DIR / "bin"), env["PATH"].split(os.pathsep))
 
     def test_missing_usai_fails_without_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "no provider fallback"):
@@ -380,6 +474,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         path = self.state / "pi/settings.json"
         config = json.loads(path.read_text())
         config["theme"] = "retained"
+        config.pop("subagents", None)
         local_env.json_write(path, config, replace=True)
         before = config.copy()
 
@@ -393,22 +488,43 @@ class LocalEnvironmentTests(unittest.TestCase):
             self.assertEqual(kwargs["env"]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
             self.assertNotIn("USAI_API_KEY", kwargs["env"])
             self.assertTrue(kwargs["check"])
-            config["packages"] = list(dict.fromkeys([*config["packages"], command[2]]))
-            local_env.json_write(path, config, replace=True)
+            current = json.loads(path.read_text())
+            current["packages"] = list(dict.fromkeys([*current["packages"], command[2]]))
+            local_env.json_write(path, current, replace=True)
 
         with patch.object(local_env.subprocess, "run", side_effect=install) as run:
             with contextlib.redirect_stdout(io.StringIO()):
                 local_env.install_pi_extensions()
-                local_env.install_pi_extensions()
+                local_env.install_pi_review_extension()
+        saved = json.loads(path.read_text())
         self.assertEqual(run.call_count, 2 * len(local_env.PI_EXTENSIONS))
         self.assertEqual(installed, list(local_env.PI_EXTENSIONS) * 2)
-        self.assertEqual(config["theme"], before["theme"])
-        self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), config["packages"])
+        self.assertEqual(saved["theme"], before["theme"])
+        self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
         for extension in local_env.PI_EXTENSIONS:
-            self.assertEqual(config["packages"].count(extension), 1)
+            self.assertEqual(saved["packages"].count(extension), 1)
+        self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
+        self.assertEqual(saved["subagents"]["defaultModel"], "inherit")
+        self.assertEqual(saved["subagents"]["modelScope"]["allow"], ["inherit", "usai/*"])
+        for name in ("delegate", "oracle", "reviewer", "scout", "worker"):
+            self.assertEqual(saved["subagents"]["agentOverrides"][name]["model"], "inherit")
+            self.assertTrue(saved["subagents"]["agentOverrides"][name]["advertise"])
         self.assertEqual(list(self.global_pi.iterdir()), [])
 
-    def test_pi_extension_installation_reports_failure_and_wrong_profile(self):
+    def test_configure_provider_populates_usai_subagent_settings(self):
+        path = self.state / "pi/settings.json"
+        local_env.json_write(path, {"defaultThinkingLevel": "off"}, replace=True)
+        self.provider()
+        saved = json.loads(path.read_text())
+        self.assertEqual(saved["defaultProvider"], "usai")
+        self.assertEqual(saved["defaultModel"], "demo-model")
+        self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
+        self.assertEqual(saved["subagents"]["defaultModel"], "inherit")
+        self.assertEqual(saved["subagents"]["modelScope"]["allow"], ["inherit", "usai/*"])
+        for name in ("delegate", "oracle", "reviewer", "scout", "worker"):
+            self.assertEqual(saved["subagents"]["agentOverrides"][name]["model"], "inherit")
+
+    def test_review_extension_installation_reports_failure_and_wrong_profile(self):
         with patch.object(local_env.subprocess, "run", side_effect=local_env.subprocess.CalledProcessError(
                 1, ["pi", "install"])):
             with self.assertRaises(local_env.subprocess.CalledProcessError):
@@ -416,42 +532,6 @@ class LocalEnvironmentTests(unittest.TestCase):
         with patch.object(local_env.subprocess, "run"):
             with self.assertRaisesRegex(RuntimeError, "isolated profile"):
                 local_env.install_pi_extensions()
-
-    def test_scoped_roborev_pins_profile_endpoint_and_preserves_arguments(self):
-        binary = local_env.RUNTIME_ROOT / "roborev/bin/roborev"
-        with patch.object(local_env.os, "access", return_value=True):
-            with patch.object(Path, "is_file", return_value=True):
-                with patch.dict(os.environ, {
-                    "ROBOREV_DATA_DIR": "/wrong-profile", "USAI_API_KEY": "not-inherited",
-                    "OPENAI_API_KEY": "not-inherited",
-                }):
-                    for args in (["status"], ["post-commit", "--quiet"],
-                                 ["remap", "amend"], ["review", "--repo", "/path with spaces", "HEAD"]):
-                        command, env = local_env.roborev_launch(args)
-                        self.assertEqual(command, [str(binary), "--server", "127.0.0.1:17373", *args])
-                        self.assertEqual(env["ROBOREV_DATA_DIR"], str(self.state / "roborev"))
-                        self.assertNotIn("USAI_API_KEY", env)
-                        self.assertNotIn("OPENAI_API_KEY", env)
-
-    def test_scoped_roborev_rejects_server_overrides_and_missing_binary(self):
-        for args in (["--server", "remote", "status"], ["status", "--server=remote"]):
-            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "pins the private server"):
-                local_env.roborev_launch(args)
-        with patch.object(Path, "is_file", return_value=False):
-            with self.assertRaisesRegex(RuntimeError, "missing executable"):
-                local_env.roborev_launch(["status"])
-
-    def test_managed_roborev_refuses_native_lifecycle_and_update(self):
-        for args in (["daemon", "start"], ["daemon", "run"], ["daemon", "restart"],
-                     ["--verbose", "daemon", "stop"], ["update"],
-                     ["--from-skill", "daemon", "run"],
-                     ["--verbose=true", "daemon", "run"]):
-            with self.subTest(args=args), self.assertRaisesRegex(RuntimeError, "systemctl"):
-                local_env.roborev_launch(args)
-        with patch.object(Path, "is_file", return_value=True), \
-                patch.object(local_env.os, "access", return_value=True):
-            command, _ = local_env.roborev_launch(["review", "--repo", "daemon"])
-        self.assertEqual(command[-1], "daemon")
 
     def test_roborev_selected_native_binary_is_shared_by_commands_and_child_path(self):
         binary = self.root / "native/bin/roborev"
@@ -461,8 +541,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         local_env.json_write(self.state / "roborev-service.json",
                              {"unit": local_env.ROBOREV_UNIT, "binary": str(binary)})
         self.assertEqual(local_env.roborev_command()[0], str(binary))
-        command, env = local_env.roborev_launch(["status"])
-        self.assertEqual(command[0], str(binary))
+        env = local_env.base_environment()
         self.assertEqual(env["PATH"].split(os.pathsep)[1], str(binary.parent))
         self.assertEqual(env["KENN_KOPY_RUNTIME_ROOT"], str(local_env.RUNTIME_ROOT))
         binary.unlink()
@@ -501,27 +580,6 @@ class LocalEnvironmentTests(unittest.TestCase):
                 patch.object(local_env.socket, "socket") as socket:
             socket.return_value.__enter__.return_value.connect_ex.return_value = 1
             self.assertEqual(len(local_env.roborev_warnings(proc_root=proc)), 1)
-
-    def test_scoped_roborev_entrypoint_executes_without_changing_directory(self):
-        command = ["/native/roborev", "--server", "127.0.0.1:17373", "status"]
-        env = {"ROBOREV_DATA_DIR": "/private"}
-        with patch.object(local_env, "roborev_launch", return_value=(command, env)) as launch, \
-                patch.object(local_env, "roborev_warnings", return_value=[]):
-            with patch.object(os, "execve") as execute, patch.object(os, "chdir") as chdir:
-                with patch.object(os, "umask"), patch.object(local_env.sys, "argv", ["launcher", "status"]):
-                    runpy.run_path(str(local_env.ROOT / "scripts/roborev-local.py"))
-        launch.assert_called_once_with(["status"])
-        execute.assert_called_once_with(command[0], command, env)
-        chdir.assert_not_called()
-
-    def test_scoped_roborev_entrypoint_reports_errors(self):
-        output = io.StringIO()
-        with patch.object(local_env, "roborev_launch", side_effect=RuntimeError("not configured")):
-            with patch.object(os, "umask"), contextlib.redirect_stderr(output):
-                with self.assertRaises(SystemExit) as error:
-                    runpy.run_path(str(local_env.ROOT / "scripts/roborev-local.py"))
-        self.assertEqual(error.exception.code, 1)
-        self.assertIn("ERROR: not configured", output.getvalue())
 
     def test_permissive_key_is_rejected(self):
         self.provider()
@@ -1533,6 +1591,107 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.install_user_service(local_env.AGENTSVIEW_UNIT, "agentsview-run", "test",
                                                (18080,), readiness)
         self.assertEqual(readiness.call_count, 2)
+
+    def test_configure_provider_populates_usai_chat_models_and_excludes_embeddings(self):
+        local_env.json_write(
+            self.state / "usai-models.json",
+            {
+                "base_url": "https://usai.example.test/v1",
+                "fetched_at": "2026-04-16T00:00:00+00:00",
+                "models": [*local_env.USAI_CHAT_MODELS, "cohere_english_v3", "text-embedding-005"],
+            },
+            replace=True,
+        )
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5",
+            "openai-completions",
+        )
+        models = json.loads((self.state / "pi/models.json").read_text())
+        entries = models["providers"]["usai"]["models"]
+        ids = {entry["id"] for entry in entries}
+        for chat_model in local_env.USAI_CHAT_MODELS:
+            self.assertIn(chat_model, ids)
+        for embedding_model in local_env.USAI_EMBEDDING_MODELS:
+            self.assertNotIn(embedding_model, ids)
+        for entry in entries:
+            self.assertEqual(entry["compat"].get("supportsDeveloperRole"), False)
+
+    def test_configure_provider_supports_adversarial_coder_reviewer_pairings_and_rollback(self):
+        self.key()
+        for coder, reviewer, coder_family, reviewer_family in (
+            ("claude-opus-5.5", "gpt-6.1-sol-latest-guardrails-defaultv2", "claude", "openai"),
+            ("gpt-6.1-sol-latest-guardrails-defaultv2", "claude-opus-5.5", "openai", "claude"),
+            ("gemini-4-argon", "gpt-6.1-sol-latest-guardrails-defaultv2", "gemini", "openai"),
+        ):
+            with self.subTest(coder=coder, reviewer=reviewer):
+                local_env.configure_provider(
+                    "https://usai.example.test/v1",
+                    coder,
+                    "openai-completions",
+                    review_model=reviewer,
+                )
+                usai_cfg = json.loads((self.state / "usai.json").read_text())
+                self.assertEqual(usai_cfg, {"model": coder, "review_model": reviewer})
+                roborev_cfg = local_env.tomllib.loads((self.state / "roborev/config.toml").read_text())
+                self.assertEqual(roborev_cfg["default_model"], reviewer)
+                self.assertEqual(roborev_cfg["review_model"], reviewer)
+                local_env.validate_roborev_config()
+                coder_cmd, _ = local_env.pi_launch(["-p", "code"])
+                self.assertEqual(coder_cmd[1:5], ["--provider", "usai", "--model", coder])
+                reviewer_cmd, _ = local_env.pi_launch(["--model", reviewer, "-p", "--no-session"])
+                self.assertEqual(reviewer_cmd[1:5], ["--provider", "usai", "--model", reviewer])
+                self.assertEqual(reviewer_cmd[5:], ["-p", "--no-session"])
+                argon_cmd, _ = local_env.pi_launch(["--model", "gemini-4-argon", "-p", "--no-session"])
+                self.assertEqual(argon_cmd[1:5], ["--provider", "usai", "--model", "gemini-4-argon"])
+                routing = local_env.model_routing()
+                self.assertEqual(
+                    routing,
+                    {
+                        "coder_model": coder,
+                        "coder_family": coder_family,
+                        "reviewer_model": reviewer,
+                        "reviewer_family": reviewer_family,
+                        "paired_adversarial": True,
+                    },
+                )
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5.5",
+            "openai-completions",
+        )
+        self.assertEqual(json.loads((self.state / "usai.json").read_text()), {"model": "claude-opus-5.5"})
+        roborev_cfg = local_env.tomllib.loads((self.state / "roborev/config.toml").read_text())
+        self.assertNotIn("default_model", roborev_cfg)
+        self.assertNotIn("review_model", roborev_cfg)
+        local_env.validate_roborev_config()
+        with self.assertRaisesRegex(RuntimeError, "saved USAi model"):
+            local_env.pi_launch(["--model", "gpt-6.1-sol-latest-guardrails-defaultv2"])
+
+    def test_configure_provider_rejects_same_family_or_invalid_review_models(self):
+        for coder, reviewer in (
+            ("claude-opus-5.5", "claude-sonnet-5.5"),
+            ("gpt-6.1-sol-latest-guardrails-defaultv2", "gpt-5.6-sol-latest-guardrails-defaultv2"),
+            ("gemini-4-argon", "gemini-3.8-flash"),
+            ("claude-opus-5.5", "llama_4_maverick"),
+            ("claude-opus-5.5", "cohere_english_v3"),
+        ):
+            with self.subTest(coder=coder, reviewer=reviewer), self.assertRaises(RuntimeError):
+                local_env.configure_provider(
+                    "https://usai.example.test/v1",
+                    coder,
+                    "openai-completions",
+                    review_model=reviewer,
+                )
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5.5",
+            "openai-completions",
+            review_model="gpt-6.1-sol-latest-guardrails-defaultv2",
+        )
+        local_env.sync_roborev_review_model("gpt-5.6-sol-latest-guardrails-defaultv2")
+        with self.assertRaisesRegex(RuntimeError, "does not match"):
+            local_env.validate_roborev_config()
 
 
 if __name__ == "__main__":

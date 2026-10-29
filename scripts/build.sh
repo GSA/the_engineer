@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 root="$PWD"
-export PATH="$root/.local/tools/go-1.27.1/bin:$PATH"
+export PATH="$root/.local/tools/go-1.27.3/bin:$PATH"
 export GOPATH="$root/.local/cache/go"
 export GOCACHE="$root/.local/cache/go-build"
 export BUN_INSTALL_CACHE_DIR="$root/.local/cache/bun"
@@ -11,8 +11,8 @@ export npm_config_cache="$root/.local/cache/npm"
 export GOENV=off GOTOOLCHAIN=local GOTELEMETRY=off
 export GOMAXPROCS=2 GOFLAGS="-p=2" CGO_ENABLED=1
 
-if [[ "$(go version)" != "go version go1.27.1 linux/amd64" ]]; then
-    echo "Expected workspace-local Go 1.27.1 for Linux amd64; see context/tools.md." >&2
+if [[ "$(go version)" != "go version go1.27.3 linux/amd64" ]]; then
+    echo "Expected workspace-local Go 1.27.3 for Linux amd64; see context/tools.md." >&2
     exit 1
 fi
 
@@ -22,7 +22,7 @@ fi
 
 for project in "$@"; do
     case "$project" in
-        roborev|kata) bun_version=1.3.14 ;;
+        roborev|kata) bun_version=1.4.4 ;;
         forge|forge-local-kata) bun_version=1.4.0 ;;
         agentsview) bun_version= ;;
         *) echo "Unknown build target: $project" >&2; exit 2 ;;

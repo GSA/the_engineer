@@ -61,18 +61,117 @@ PI_VERSION = "1.4.0"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
 PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
+USAI_EMBEDDING_MODELS = frozenset({"cohere_english_v3", "text-embedding-005"})
+ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
+USAI_CHAT_MODELS = (
+    "claude-haiku-5.5",
+    "claude-opus-5",
+    "claude-opus-5.5",
+    "claude-sonnet-5",
+    "claude-sonnet-5.5",
+    "claude_4_5_haiku",
+    "claude_4_5_sonnet",
+    "claude_4_6_sonnet",
+    "claude_4_7_opus",
+    "claude_4_8_opus",
+    "gemini-3-7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-4-argon",
+    "gpt-5.6-luna",
+    "gpt-5.6-sol-latest-guardrails-defaultv2",
+    "gpt-5.6-terra",
+    "gpt-6-astra",
+    "gpt-6-luna",
+    "gpt-6-sol-latest-guardrails-defaultv2",
+    "gpt-6.1-sol-latest-guardrails-defaultv2",
+    "gpt_5_2_default_v2",
+    "gpt_5_4_default_v2",
+    "gpt_5_5_default_v2",
+    "llama_4_maverick",
+)
+PI_SUBAGENT_DESCRIPTIONS = {
+    "delegate": (
+        'Project-context-inheriting delegation subagent (USAi: omit model or pass model:"inherit" '
+        'to use the active usai/* session model; omit model on action:"resume").'
+    ),
+    "oracle": (
+        'Deep read-only architectural and debugging analysis subagent (USAi: omit model or pass model:"inherit" '
+        'to use the active usai/* session model; omit model on action:"resume").'
+    ),
+    "reviewer": (
+        'Independent read-only spec and code review subagent for Superpowers tasks (USAi: omit model or pass '
+        'model:"inherit"; omit model on action:"resume"; use native roborev CLI for commit/branch roborev reviews).'
+    ),
+    "scout": (
+        'Fast read-only codebase reconnaissance subagent (USAi: omit model or pass model:"inherit" '
+        'to use the active usai/* session model; omit model on action:"resume").'
+    ),
+    "worker": (
+        'General implementation and code-editing subagent (USAi: omit model or pass model:"inherit" '
+        'to use the active usai/* session model; omit model on action:"resume").'
+    ),
+}
 GH_VERSION = "2.102.0"
 GH_BINARY = RUNTIME_ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
-PORTS = (17373, 17374, 17777, 18080, 18091)
-FORGE_PORT = 18091
+JQ_VERSION = "1.7.1"
+JQ_BINARY = RUNTIME_ROOT / f".local/tools/jq-{JQ_VERSION}/bin/jq"
+PYDEPS_DIR = RUNTIME_ROOT / ".local/tools/pydeps"
+DEFAULT_PORTS = {"roborev": 17373, "roborev_web": 17374, "kata": 17777,
+                 "agentsview": 18080, "forge": 18091, "forge_mcp": 18092}
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
 KATA_UNIT = "kenn-kopy-kata.service"
-
-SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374),
-                 "kata": (17777,), "forge": (FORGE_PORT,)}
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def parse_port_offset(value, source="KENN_KOPY_PORT_OFFSET"):
+    if isinstance(value, str):
+        if not re.fullmatch(r"\d{1,5}", value.strip()):
+            raise RuntimeError(f"{source} must be a non-negative integer")
+        value = int(value.strip())
+    if type(value) is not int or value < 0:
+        raise RuntimeError(f"{source} must be a non-negative integer")
+    shifted = {port + value for port in DEFAULT_PORTS.values()}
+    if max(shifted) > 65535:
+        raise RuntimeError(f"{source} moves a service port above 65535")
+    # Distros on one WSL2 VM share 127.0.0.1, so a shifted stack must avoid every default port.
+    if value and shifted & set(DEFAULT_PORTS.values()):
+        raise RuntimeError(f"{source}={value} overlaps the default ports; use e.g. 1000")
+    return value
+
+
+def resolve_port_offset(environment=None, config_path=None):
+    """Use KENN_KOPY_PORT_OFFSET, else the offset saved by setup, else 0."""
+    environment = os.environ if environment is None else environment
+    if environment.get("KENN_KOPY_PORT_OFFSET", "").strip():
+        return parse_port_offset(environment["KENN_KOPY_PORT_OFFSET"])
+    config_path = STATE / "environment.json" if config_path is None else config_path
+    try:
+        saved = json.loads(Path(config_path).read_text())
+    except (OSError, ValueError):
+        return 0
+    return parse_port_offset(saved.get("port_offset", 0), "saved port_offset")
+
+
+def configure_ports(offset):
+    global PORT_OFFSET, ROBOREV_PORT, ROBOREV_WEB_PORT, KATA_PORT, AGENTSVIEW_PORT
+    global FORGE_PORT, FORGE_MCP_PORT, KATA_URL, PORTS, SERVICE_PORTS
+    PORT_OFFSET = parse_port_offset(offset)
+    ROBOREV_PORT = DEFAULT_PORTS["roborev"] + PORT_OFFSET
+    ROBOREV_WEB_PORT = DEFAULT_PORTS["roborev_web"] + PORT_OFFSET
+    KATA_PORT = DEFAULT_PORTS["kata"] + PORT_OFFSET
+    AGENTSVIEW_PORT = DEFAULT_PORTS["agentsview"] + PORT_OFFSET
+    FORGE_PORT = DEFAULT_PORTS["forge"] + PORT_OFFSET
+    FORGE_MCP_PORT = DEFAULT_PORTS["forge_mcp"] + PORT_OFFSET
+    KATA_URL = f"http://127.0.0.1:{KATA_PORT}"
+    PORTS = (ROBOREV_PORT, ROBOREV_WEB_PORT, KATA_PORT, AGENTSVIEW_PORT, FORGE_PORT)
+    SERVICE_PORTS = {"agentsview": (AGENTSVIEW_PORT,), "roborev": (ROBOREV_PORT, ROBOREV_WEB_PORT),
+                     "kata": (KATA_PORT,), "forge": (FORGE_PORT,)}
+
+
+configure_ports(resolve_port_offset())
 
 
 def private_dir(path):
@@ -117,15 +216,86 @@ def json_write(path, value, *, replace=False):
 
 def settings():
     private_dir(STATE)
-    return json.loads(private_read(STATE / "environment.json"))
+    config = json.loads(private_read(STATE / "environment.json"))
+    saved = parse_port_offset(config.get("port_offset", 0), "saved port_offset")
+    if saved != PORT_OFFSET:
+        raise RuntimeError(f"KENN_KOPY_PORT_OFFSET={PORT_OFFSET} differs from the saved "
+                           f"port_offset {saved}; unset it or rerun setup in a fresh environment")
+    return config
+
+
+def host_git_settings(host_config=None):
+    host_config = (Path.home() / ".gitconfig") if host_config is None else Path(host_config)
+    values = {}
+    if not host_config.is_file():
+        return values
+    try:
+        section = ""
+        for raw_line in host_config.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith(("#", ";")):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1].strip().split()[0].lower()
+                continue
+            if "=" in line and section in ("user", "http"):
+                key, value = (part.strip() for part in line.split("=", 1))
+                if value:
+                    values[f"{section}.{key.lower()}"] = value
+    except OSError:
+        return {}
+    return values
+
+
+def seed_isolated_gitconfig(home=None, *, host_config=None):
+    home = (STATE / "home") if home is None else Path(home)
+    private_dir(home)
+    path = home / ".gitconfig"
+    existing = private_read(path) if (path.exists() or path.is_symlink()) else ""
+    host = host_git_settings(host_config)
+    blocks = []
+    if "[http]" not in existing and host.get("http.sslcainfo"):
+        blocks.append(f"[http]\n\tsslCAinfo = {host['http.sslcainfo']}\n")
+    if "[user]" not in existing and host.get("user.name") and host.get("user.email"):
+        blocks.append(
+            f"[user]\n\tname = {host['user.name']}\n\temail = {host['user.email']}\n"
+        )
+    if '[credential "https://github.com"]' not in existing:
+        blocks.append(
+            '[credential "https://github.com"]\n'
+            "\thelper = \n"
+            f"\thelper = !{GH_BINARY} auth git-credential\n"
+            '[credential "https://gist.github.com"]\n'
+            "\thelper = \n"
+            f"\thelper = !{GH_BINARY} auth git-credential\n"
+        )
+    if blocks:
+        updated = existing + ("" if not existing or existing.endswith("\n") else "\n") + "".join(blocks)
+        private_write(path, updated, replace=True)
+    git_config_dir = home / ".config/git"
+    private_dir(home / ".config")
+    private_dir(git_config_dir)
+    ignore_path = git_config_dir / "ignore"
+    existing_ignore = private_read(ignore_path) if (ignore_path.exists() or ignore_path.is_symlink()) else ""
+    required_ignores = ("/AGENTS.override.md", "/.superpowers/", "/.local/", "/.roborev/")
+    missing_ignores = [entry for entry in required_ignores if entry not in existing_ignore.splitlines()]
+    if missing_ignores:
+        updated_ignore = (
+            existing_ignore
+            + ("" if not existing_ignore or existing_ignore.endswith("\n") else "\n")
+            + "\n".join(missing_ignores)
+            + "\n"
+        )
+        private_write(ignore_path, updated_ignore, replace=True)
 
 
 def base_environment(roborev_executable=None):
     home = STATE / "home"
     roborev_executable = roborev_binary() if roborev_executable is None else roborev_executable
-    return {
+    env = {
         "PATH": os.pathsep.join([str(GH_BINARY.parent), str(roborev_executable.parent),
                                 str(RUNTIME_ROOT / "kata"), str(RUNTIME_ROOT / "agentsview"),
+                                str(JQ_BINARY.parent), str(PYDEPS_DIR / "bin"),
                                 os.environ["PATH"]]),
         "KENN_KOPY_RUNTIME_ROOT": str(RUNTIME_ROOT),
         "HOME": str(home),
@@ -143,7 +313,8 @@ def base_environment(roborev_executable=None):
         "AGENTSVIEW_TELEMETRY_ENABLED": "0",
         "ROBOREV_DATA_DIR": str(STATE / "roborev"),
         "KATA_HOME": str(STATE / "kata"),
-        "KATA_SERVER": "http://127.0.0.1:17777",
+        "KATA_SERVER": KATA_URL,
+        "KENN_FORGE_API_URL": f"http://127.0.0.1:{FORGE_PORT}",
         "KENN_FORGE_HOME": str(STATE / "forge"),
         "AGENTSVIEW_DATA_DIR": str(STATE / "agentsview"),
         "AGENTSVIEW_NO_DAEMON": "1",
@@ -152,6 +323,10 @@ def base_environment(roborev_executable=None):
         "GH_CONFIG_DIR": str(STATE / "gh"),
         "GH_PROMPT_DISABLED": "1",
     }
+    if PYDEPS_DIR.is_dir():
+        existing_py = os.environ.get("PYTHONPATH", "").strip()
+        env["PYTHONPATH"] = f"{PYDEPS_DIR}{os.pathsep}{existing_py}" if existing_py else str(PYDEPS_DIR)
+    return env
 
 
 def verify_pi(config, *, env=None):
@@ -161,6 +336,49 @@ def verify_pi(config, *, env=None):
     if result.stdout.strip() != PI_VERSION:
         raise RuntimeError(f"expected Pi {PI_VERSION}; update the local setup deliberately")
     return executable
+
+
+def default_pi_subagents_settings():
+    return {
+        "defaultProvider": "usai",
+        "defaultModel": "inherit",
+        "modelScope": {
+            "enforce": True,
+            "strict": True,
+            "allow": ["inherit", "usai/*"],
+        },
+        "agentOverrides": {
+            name: {
+                "advertise": True,
+                "description": description,
+                "model": "inherit",
+            }
+            for name, description in PI_SUBAGENT_DESCRIPTIONS.items()
+        },
+    }
+
+
+def merge_pi_subagents_settings(existing):
+    defaults = default_pi_subagents_settings()
+    if not isinstance(existing, dict):
+        return defaults
+    merged = {**defaults, **existing}
+    scope = existing.get("modelScope")
+    merged["modelScope"] = {**defaults["modelScope"], **(scope if isinstance(scope, dict) else {})}
+    overrides = existing.get("agentOverrides")
+    merged_overrides = {
+        name: {
+            **default_override,
+            **(overrides.get(name) if isinstance(overrides, dict) and isinstance(overrides.get(name), dict) else {}),
+        }
+        for name, default_override in defaults["agentOverrides"].items()
+    }
+    if isinstance(overrides, dict):
+        for name, value in overrides.items():
+            if name not in merged_overrides and isinstance(value, dict):
+                merged_overrides[name] = dict(value)
+    merged["agentOverrides"] = merged_overrides
+    return merged
 
 
 def librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
@@ -208,6 +426,8 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
     config = {"corpus": str(corpus), "forge_binary": str(forge_binary),
               "pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    if PORT_OFFSET:
+        config["port_offset"] = PORT_OFFSET
     if librarian_executable is not None:
         config.update({
             "librarian_executable": str(server), "librarian_reader": str(reader),
@@ -218,34 +438,38 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     for name in ("home", "runtime", "tmp", "logs", "secrets", "pi", "forge",
                  "roborev", "kata", "agentsview"):
         private_dir(STATE / name)
+    seed_isolated_gitconfig(STATE / "home")
     verify_pi(config)
     config_path = STATE / "environment.json"
     if config_path.exists() and json.loads(private_read(config_path)) != config:
-        raise RuntimeError(f"setup differs from saved paths/version; inspect {config_path} first")
+        raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
     json_write(config_path, config)
     wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
     disabled = "".join(f'\n[[agents]]\nkey = "{key}"\nenabled = false\n'
                        for key in ("claude", "codex", "gemini", "opencode", "aider"))
     private_write(
         STATE / "forge/config.toml",
-        'host = "127.0.0.1"\nport = 18091\n'
-        '[roborev]\nendpoint = "http://127.0.0.1:17373"\ninit_managed_clones = false\n'
+        f'host = "127.0.0.1"\nport = {FORGE_PORT}\n'
+        f'[roborev]\nendpoint = "http://127.0.0.1:{ROBOREV_PORT}"\ninit_managed_clones = false\n'
         '[tmux]\ncommand = ["tmux", "-L", "kenn-kopy-local"]\n'
+        f'[mcp]\nenabled = true\nhost = "127.0.0.1"\nport = {FORGE_MCP_PORT}\n'
         '[[agents]]\nkey = "pi"\nlabel = "Pi (USAi)"\nenabled = true\n'
-        f'command = [{json.dumps(str(wrapper))}]\n' + disabled,
+        f'command = [{json.dumps(str(wrapper))}]\n'
+        '[[agents]]\nkey = "pi-argon"\nlabel = "Pi (Gemini 4 Argon)"\nenabled = true\n'
+        f'command = [{json.dumps(str(wrapper))}, "--model", "gemini-4-argon"]\n' + disabled,
     )
     private_write(
         STATE / "roborev/config.toml",
-        'server_addr = "127.0.0.1:17373"\nmax_workers = 1\ndefault_agent = "pi"\n'
+        f'server_addr = "127.0.0.1:{ROBOREV_PORT}"\nmax_workers = 1\ndefault_agent = "pi"\n'
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
-        '[web]\nlisten = "127.0.0.1:17374"\n',
+        f'[web]\nlisten = "127.0.0.1:{ROBOREV_WEB_PORT}"\n',
     )
     managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
     launcher_migrations = (
         (STATE / "forge/config.toml",
-         re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi"\n.*?^command = )'
-                    rf'\["{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"\]$'),
-         lambda match: match.group(1) + f'[{json.dumps(str(wrapper))}]'),
+         re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi(?:-argon)?"\n.*?^command = \[)'
+                    rf'"{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"'),
+         lambda match: match.group(1) + json.dumps(str(wrapper))),
         (STATE / "roborev/config.toml",
          re.compile(rf'(?m)^pi_cmd = "{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"$'),
          lambda _match: f'pi_cmd = {json.dumps(str(wrapper))}'),
@@ -253,35 +477,69 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     for path, pattern, replacement in launcher_migrations:
         if path.exists():
             content = private_read(path)
-            migrated, count = pattern.subn(replacement, content, count=1)
+            migrated, count = pattern.subn(replacement, content)
             if count and migrated != content:
                 private_write(path, migrated, replace=True)
     private_write(
         STATE / "kata/config.toml",
-        'listen = "127.0.0.1:17777"\nactive_daemon = "local"\n'
-        '[[daemon]]\nname = "local"\nurl = "http://127.0.0.1:17777"\n',
+        f'listen = "127.0.0.1:{KATA_PORT}"\nactive_daemon = "local"\n'
+        f'[[daemon]]\nname = "local"\nurl = "{KATA_URL}"\n',
     )
-    json_write(STATE / "pi/settings.json",
-               {"defaultThinkingLevel": "off", "packages": [str(RUNTIME_ROOT / "superpowers")]})
+    json_write(
+        STATE / "pi/settings.json",
+        {
+            "defaultThinkingLevel": "off",
+            "packages": [str(RUNTIME_ROOT / "superpowers")],
+            "lastChangelogVersion": PI_VERSION,
+            "subagents": default_pi_subagents_settings(),
+        },
+    )
     librarian_args = ["--root", str(root), "--reader", str(reader)]
     if selection is not None:
         librarian_args.extend(["--manifest", str(selection)])
-    librarian_mcp = {"command": str(server), "args": librarian_args,
-                     "exposure": "codemode", "timeout": 60}
+    servers = {
+        "falcon-context": {
+            "command": str(server),
+            "args": librarian_args,
+            "exposure": "codemode",
+            "timeout": 60,
+        },
+        "kata": {
+            "command": str(RUNTIME_ROOT / "kata/kata"),
+            "args": ["mcp", "serve"],
+            "exposure": "direct",
+            "timeout": 30,
+            "env": {"KATA_SERVER": KATA_URL},
+        },
+        "kenn-forge": {
+            "type": "http",
+            "url": f"http://127.0.0.1:{FORGE_MCP_PORT}/mcp",
+            "exposure": "direct",
+            "timeout": 60,
+        },
+    }
     mcp_path = STATE / "pi/mcp.json"
     if mcp_path.exists():
         mcp = json.loads(private_read(mcp_path))
-        servers = mcp.get("mcpServers")
-        if not isinstance(servers, dict):
+        saved = mcp.get("mcpServers")
+        if not isinstance(saved, dict):
             raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
-        saved_librarian = servers.get("falcon-context")
-        if saved_librarian is not None and saved_librarian != librarian_mcp:
+        saved_librarian = saved.get("falcon-context")
+        if saved_librarian is not None and saved_librarian != servers["falcon-context"]:
             raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
-        if saved_librarian is None:
-            servers["falcon-context"] = librarian_mcp
-            json_write(mcp_path, mcp, replace=True)
+        missing = {name: value for name, value in servers.items() if name not in saved}
+        if missing:
+            json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
     else:
-        json_write(mcp_path, {"mcpServers": {"falcon-context": librarian_mcp}})
+        json_write(mcp_path, {"mcpServers": servers})
+    private_dir(STATE / "pi/extensions")
+    forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
+    if forge_ext_src.is_file():
+        private_write(
+            STATE / "pi/extensions/forge-workspace.ts",
+            forge_ext_src.read_text(),
+            replace=True,
+        )
     print(f"Persistent local settings/data: {STATE}")
     print(f"Private USAi key destination: {STATE / 'secrets/usai-api-key'}")
     print("Existing settings were preserved. No service or model request was started.")
@@ -417,36 +675,201 @@ def list_models(base_url):
     return ids
 
 
-def configure_provider(base_url, model, api):
+def normalize_usai_model(model):
+    if not isinstance(model, str):
+        raise RuntimeError("supply the exact nonempty USAi model alias without whitespace")
+    cleaned = model.strip()
+    if cleaned.startswith("usai/"):
+        cleaned = cleaned[len("usai/"):]
+    if not cleaned or any(character.isspace() for character in cleaned) or "/" in cleaned:
+        raise RuntimeError("supply the exact nonempty USAi model alias without whitespace")
+    if cleaned in USAI_EMBEDDING_MODELS:
+        raise RuntimeError(f"USAi embedding model cannot be used as an agent or reviewer model: {cleaned}")
+    return cleaned
+
+
+def usai_model_family(model):
+    cleaned = normalize_usai_model(model)
+    if cleaned.startswith(("claude-", "claude_")):
+        return "claude"
+    if cleaned.startswith(("gpt-", "gpt_")):
+        return "openai"
+    if cleaned.startswith("gemini-"):
+        return "gemini"
+    if cleaned.startswith("llama_"):
+        return "llama"
+    return None
+
+
+def validate_paired_models(coder_model, review_model):
+    coder = normalize_usai_model(coder_model)
+    reviewer = normalize_usai_model(review_model)
+    coder_family = usai_model_family(coder)
+    reviewer_family = usai_model_family(reviewer)
+    if (coder_family not in ADVERSARIAL_MODEL_FAMILIES
+            or reviewer_family not in ADVERSARIAL_MODEL_FAMILIES
+            or coder_family == reviewer_family):
+        raise RuntimeError(
+            "paired coder and reviewer models must be distinct Claude, OpenAI, or Gemini families"
+        )
+    catalog_path = STATE / "usai-models.json"
+    if catalog_path.exists():
+        catalog = json.loads(private_read(catalog_path))
+        advertised = set(catalog.get("models", []))
+        if advertised and (coder not in advertised or reviewer not in advertised):
+            raise RuntimeError("paired coder and reviewer models must be present in advertised usai-models.json")
+    return coder, reviewer
+
+
+def discovered_usai_chat_models():
+    models = list(USAI_CHAT_MODELS)
+    catalog_path = STATE / "usai-models.json"
+    if catalog_path.exists():
+        catalog = json.loads(private_read(catalog_path))
+        for model_id in catalog.get("models", []):
+            if isinstance(model_id, str):
+                cleaned = model_id.strip()
+                if cleaned and cleaned not in USAI_EMBEDDING_MODELS and cleaned not in models:
+                    models.append(cleaned)
+    return tuple(models)
+
+
+def sync_roborev_review_model(review_model):
+    roborev_path = STATE / "roborev/config.toml"
+    if not roborev_path.exists():
+        return
+    raw = private_read(roborev_path)
+    tomllib.loads(raw)
+    lines = raw.splitlines()
+    top_lines = []
+    section_lines = []
+    in_section = False
+    for line in lines:
+        stripped = line.strip()
+        if not in_section and stripped.startswith("[") and stripped.endswith("]"):
+            in_section = True
+        if in_section:
+            section_lines.append(line)
+            continue
+        key = stripped.split("=", 1)[0].strip() if "=" in stripped else ""
+        if key in ("default_model", "review_model"):
+            continue
+        top_lines.append(line)
+    if review_model is not None:
+        top_lines.append(f"default_model = {json.dumps(review_model)}")
+        top_lines.append(f"review_model = {json.dumps(review_model)}")
+    rendered = "\n".join([*top_lines, *section_lines]) + "\n"
+    tomllib.loads(rendered)
+    private_write(roborev_path, rendered, replace=True)
+
+
+def configure_provider(base_url, model, api, *, review_model=None):
     settings()
     base_url = validate_base_url(base_url)
-    if not model.strip() or any(character.isspace() for character in model):
-        raise RuntimeError("supply the exact nonempty USAi model alias without whitespace")
+    model = normalize_usai_model(model)
+    if review_model is not None:
+        model, review_model = validate_paired_models(model, review_model)
     path = STATE / "pi/models.json"
     models = json.loads(private_read(path)) if path.exists() else {}
     providers = models.setdefault("providers", {})
     provider = providers.setdefault("usai", {})
     provider.update({"baseUrl": base_url, "api": api, "apiKey": "${USAI_API_KEY}"})
-    entries = provider.setdefault("models", [])
-    if not any(entry.get("id") == model for entry in entries):
-        entries.append({"id": model})
+    entries = [
+        entry for entry in provider.setdefault("models", [])
+        if not (isinstance(entry, dict) and entry.get("id") in USAI_EMBEDDING_MODELS)
+    ]
+    provider["models"] = entries
+    required_models = [model]
+    if review_model is not None and review_model not in required_models:
+        required_models.append(review_model)
+    for catalog_model in discovered_usai_chat_models():
+        if catalog_model not in required_models:
+            required_models.append(catalog_model)
+    for required_model in required_models:
+        if not any(entry.get("id") == required_model for entry in entries):
+            entries.append({"id": required_model, "compat": {"supportsDeveloperRole": False}})
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("id"):
+            compat = entry.get("compat")
+            entry["compat"] = {**(compat if isinstance(compat, dict) else {}), "supportsDeveloperRole": False}
     json_write(path, models, replace=True)
-    json_write(STATE / "usai.json", {"model": model}, replace=True)
+    settings_path = STATE / "pi/settings.json"
+    pi_settings = json.loads(private_read(settings_path)) if settings_path.exists() else {}
+    pi_settings.update({"defaultProvider": "usai", "defaultModel": model})
+    pi_settings["subagents"] = merge_pi_subagents_settings(pi_settings.get("subagents"))
+    json_write(settings_path, pi_settings, replace=True)
+    usai_state = {"model": model}
+    if review_model is not None:
+        usai_state["review_model"] = review_model
+    json_write(STATE / "usai.json", usai_state, replace=True)
+    sync_roborev_review_model(review_model)
     print("USAi provider configured without storing a key in model settings. No model call was made.")
 
 
 def pi_launch(args):
     config = settings()
+    seed_isolated_gitconfig(STATE / "home")
     executable = verify_pi(config)
     env = base_environment()
+    for forge_var in ("KENN_FORGE_RUNTIME_SESSION_KEY", "KENN_FORGE_API_URL"):
+        value = os.environ.get(forge_var, "").strip()
+        if value:
+            env[forge_var] = value
     if args and (args[0] == "mcp" or args == ["--version"] or args == ["--help"]):
         return [executable, *args], env
-    for arg in args:
-        if any(arg == flag or arg.startswith(flag + "=")
-               for flag in ("--api-key", "--provider", "--model")):
+    requested_model = None
+    cleaned_args = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == "--api-key" or arg.startswith("--api-key="):
             raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+        if arg == "--provider":
+            if index + 1 >= len(args) or args[index + 1] != "usai":
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            index += 2
+            continue
+        if arg.startswith("--provider="):
+            if arg.split("=", 1)[1] != "usai":
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            index += 1
+            continue
+        if arg == "--model":
+            if index + 1 >= len(args):
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            candidate = args[index + 1].strip()
+            if candidate.startswith("usai/"):
+                candidate = candidate[len("usai/"):]
+            if not candidate:
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            requested_model = candidate
+            index += 2
+            continue
+        if arg.startswith("--model="):
+            candidate = arg.split("=", 1)[1].strip()
+            if candidate.startswith("usai/"):
+                candidate = candidate[len("usai/"):]
+            if not candidate:
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            requested_model = candidate
+            index += 1
+            continue
+        cleaned_args.append(arg)
+        index += 1
+    if requested_model is not None and not (STATE / "usai.json").exists():
+        raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
     try:
-        model = json.loads(private_read(STATE / "usai.json"))["model"]
+        usai_cfg = json.loads(private_read(STATE / "usai.json"))
+        default_model = usai_cfg["model"]
+        review_model = usai_cfg.get("review_model")
+        if review_model is not None:
+            validate_paired_models(default_model, review_model)
+        allowed_models = {default_model, "gemini-4-argon"}
+        if review_model is not None:
+            allowed_models.add(review_model)
+        if requested_model is not None and requested_model not in allowed_models:
+            raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+        model = requested_model or default_model
         models = json.loads(private_read(STATE / "pi/models.json"))
         provider = models.get("providers", {}).get("usai", {})
         if not any(entry.get("id") == model for entry in provider.get("models", [])):
@@ -458,7 +881,11 @@ def pi_launch(args):
     except FileNotFoundError as error:
         raise RuntimeError("USAi is not ready: run configure-provider and set-key; no provider fallback") from error
     env["USAI_API_KEY"] = key
-    return [executable, "--provider", "usai", "--model", model, *args], env
+    if "--json-schema" in cleaned_args:
+        for flag in ("--no-mcp", "--no-skills"):
+            if flag not in cleaned_args:
+                cleaned_args.insert(0, flag)
+    return [executable, "--provider", "usai", "--model", model, *cleaned_args], env
 
 
 def install_pi_extensions():
@@ -473,7 +900,10 @@ def install_pi_extensions():
         config = json.loads(private_read(path))
         if extension not in config.get("packages", []):
             raise RuntimeError(f"Pi did not save {extension} in the isolated profile")
-        print(f"Installed {extension} in the isolated Pi profile; no model request was made.")
+    config = json.loads(private_read(path))
+    config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
+    json_write(path, config, replace=True)
+    print(f"Installed {', '.join(PI_EXTENSIONS)} in the isolated Pi profile; no model request was made.")
 
 
 def install_pi_review_extension():
@@ -489,7 +919,7 @@ def roborev_warnings(*, proc_root=Path("/proc")):
             with socket.socket(family, socket.SOCK_STREAM) as probe:
                 probe.settimeout(0.2)
                 if probe.connect_ex((host, 7373)) == 0:
-                    warnings.append(f"unexpected listener at {host}:7373; managed roborev uses 17373")
+                    warnings.append(f"unexpected listener at {host}:7373; managed roborev uses {ROBOREV_PORT}")
         except OSError:
             pass
     allowed = set()
@@ -513,25 +943,6 @@ def roborev_warnings(*, proc_root=Path("/proc")):
         except (OSError, ValueError):
             continue
     return warnings
-
-
-def roborev_launch(args):
-    settings()
-    validate_roborev_config()
-    for arg in args:
-        if arg == "--":
-            break
-        if arg == "--server" or arg.startswith("--server="):
-            raise RuntimeError("the scoped roborev launcher pins the private server at 127.0.0.1:17373")
-    command_args = [arg for arg in args if not arg.startswith("-")]
-    if command_args and command_args[0] in ("daemon", "update"):
-        raise RuntimeError(
-            "manage roborev with systemctl --user start|stop|restart kenn-kopy-roborev.service; "
-            "native daemon/update commands are disabled by the managed launcher"
-        )
-    binary = roborev_command()[0]
-    # An explicit server makes native CLI calls fail rather than auto-start another daemon.
-    return [str(binary), "--server", "127.0.0.1:17373", *args], base_environment()
 
 
 def github_cli_launch(args):
@@ -588,7 +999,7 @@ def terminal_launch(action, name="engi-platform"):
 
 def api(method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request("http://127.0.0.1:18091/api/v1" + path, data=data,
+    request = urllib.request.Request(f"http://127.0.0.1:{FORGE_PORT}/api/v1" + path, data=data,
                                      method=method, headers={"Content-Type": "application/json"})
     with HTTP.open(request, timeout=15) as response:
         return json.load(response) if response.status != 204 else None
@@ -631,8 +1042,8 @@ def supervisor():
     return saved
 
 
-def check_ports(ports=PORTS):
-    for port in ports:
+def check_ports(ports=None):
+    for port in PORTS if ports is None else ports:
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", port))
@@ -640,8 +1051,8 @@ def check_ports(ports=PORTS):
 
 def agentsview_request(method, path, body=None, timeout=30):
     data = json.dumps(body).encode() if body is not None else None
-    url = ("http://127.0.0.1:18080/api/ping" if path == "/ping"
-           else "http://127.0.0.1:18080/api/v1" + path)
+    base = f"http://127.0.0.1:{AGENTSVIEW_PORT}/api"
+    url = base + "/ping" if path == "/ping" else base + "/v1" + path
     request = urllib.request.Request(
         url, data=data, method=method,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
@@ -652,7 +1063,7 @@ def agentsview_request(method, path, body=None, timeout=30):
 
 def agentsview_command():
     args = [str(RUNTIME_ROOT / "agentsview/agentsview"), "serve", "--host", "127.0.0.1",
-            "--port", "18080", "--no-browser", "--no-update-check"]
+            "--port", str(AGENTSVIEW_PORT), "--no-browser", "--no-update-check"]
     if not (STATE / "agentsview-tracking.json").exists():
         args.append("--no-sync")
     return args
@@ -758,7 +1169,7 @@ def install_agentsview_service():
         SERVICE_PORTS["agentsview"], lambda: managed_agentsview(required=True),
     )
     json_write(STATE / "agentsview-service.json", {"unit": AGENTSVIEW_UNIT}, replace=True)
-    print("AgentsView user service enabled and responsive at http://127.0.0.1:18080/")
+    print(f"AgentsView user service enabled and responsive at http://127.0.0.1:{AGENTSVIEW_PORT}/")
 
 
 def install_user_service(unit_name, command, description, ports, readiness, args=(),
@@ -850,7 +1261,7 @@ def agentsview_run():
     config = tomllib.loads(private_read(STATE / "agentsview/config.toml"))
     if config.get("archive_content") != tracking["archive_content"]:
         raise RuntimeError("AgentsView archive policy differs from the configured tracking policy")
-    check_ports((18080,))
+    check_ports(SERVICE_PORTS["agentsview"])
     command = agentsview_command()
     os.chdir(STATE / "home")
     os.execve(command[0], command, agentsview_environment())
@@ -858,9 +1269,26 @@ def agentsview_run():
 
 def validate_roborev_config():
     config = tomllib.loads(private_read(STATE / "roborev/config.toml"))
-    if (config.get("server_addr") != "127.0.0.1:17373"
-            or config.get("web", {}).get("listen") != "127.0.0.1:17374"):
+    if (config.get("server_addr") != f"127.0.0.1:{ROBOREV_PORT}"
+            or config.get("web", {}).get("listen") != f"127.0.0.1:{ROBOREV_WEB_PORT}"):
         raise RuntimeError("roborev must retain the documented loopback API and UI ports")
+    usai_path = STATE / "usai.json"
+    if usai_path.exists():
+        usai_cfg = json.loads(private_read(usai_path))
+        coder_model = usai_cfg.get("model")
+        review_model = usai_cfg.get("review_model")
+        configured_review = config.get("review_model") or config.get("default_model")
+        if review_model is not None:
+            validate_paired_models(coder_model, review_model)
+            if (config.get("review_model") != review_model
+                    or config.get("default_model") != review_model):
+                raise RuntimeError(
+                    "roborev review_model/default_model does not match the configured USAi review_model"
+                )
+        elif configured_review is not None:
+            raise RuntimeError(
+                "roborev defines review_model/default_model without a paired USAi review_model in usai.json"
+            )
 
 
 def node_environment(node_executable, *, roborev_executable=None):
@@ -889,7 +1317,7 @@ def roborev_command(binary=None):
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError(f"missing executable roborev binary: {binary}")
     return [str(binary), "daemon", "run",
-            "--addr", "127.0.0.1:17373", "--config", str(STATE / "roborev/config.toml")]
+            "--addr", f"127.0.0.1:{ROBOREV_PORT}", "--config", str(STATE / "roborev/config.toml")]
 
 
 def install_roborev_service(binary=None):
@@ -912,7 +1340,7 @@ def install_roborev_service(binary=None):
         require_stopped=binary != previous_binary,
     )
     json_write(STATE / "roborev-service.json", {"unit": ROBOREV_UNIT, "binary": str(binary)}, replace=True)
-    print("roborev user service enabled and responsive at http://127.0.0.1:17374/reviews")
+    print(f"roborev user service enabled and responsive at http://127.0.0.1:{ROBOREV_WEB_PORT}/reviews")
 
 
 def managed_roborev(*, required=False, binary=None):
@@ -922,15 +1350,15 @@ def managed_roborev(*, required=False, binary=None):
     if binary is not None and not os.path.samefile(f"/proc/{pid}/exe", binary):
         raise RuntimeError("running roborev executable differs from the requested binary; "
                            "finish reviews, stop the service and reinstall before restarting")
-    with HTTP.open("http://127.0.0.1:17373/api/ping", timeout=3) as response:
+    with HTTP.open(f"http://127.0.0.1:{ROBOREV_PORT}/api/ping", timeout=3) as response:
         health = json.load(response)
     if health.get("pid") != pid or health.get("ok") is not True or not health.get("version"):
         raise RuntimeError("roborev health does not match the managed user service")
-    with HTTP.open("http://127.0.0.1:17373/api/status", timeout=3) as response:
+    with HTTP.open(f"http://127.0.0.1:{ROBOREV_PORT}/api/status", timeout=3) as response:
         status = json.load(response)
     if status.get("version") != health["version"]:
         raise RuntimeError("roborev database status does not match its health version")
-    request = urllib.request.Request("http://127.0.0.1:17374/reviews",
+    request = urllib.request.Request(f"http://127.0.0.1:{ROBOREV_WEB_PORT}/reviews",
                                      headers={"Accept": "text/html"})
     with HTTP.open(request, timeout=3) as response:
         if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
@@ -997,7 +1425,7 @@ def install_forge_service():
         args=("--node-executable", node),
     )
     json_write(STATE / "forge-service.json", {"unit": FORGE_UNIT}, replace=True)
-    print("Forge user service enabled and responsive at http://127.0.0.1:18091/")
+    print(f"Forge user service enabled and responsive at http://127.0.0.1:{FORGE_PORT}/")
 
 
 def managed_forge(*, required=False):
@@ -1041,7 +1469,7 @@ def forge_run(node_executable=None):
         node_executable = Path(node).resolve()
     env = node_environment(node_executable)
     verify_pi(config, env=env)
-    check_ports((FORGE_PORT,))
+    check_ports(SERVICE_PORTS["forge"])
     command = forge_command(config)
     private_dir(STATE / "gh")
     os.chdir(STATE / "home")
@@ -1050,7 +1478,7 @@ def forge_run(node_executable=None):
 
 def validate_kata_config():
     config = tomllib.loads(private_read(STATE / "kata/config.toml"))
-    if config.get("listen") != "127.0.0.1:17777" or config.get("web", {}).get("listen"):
+    if config.get("listen") != f"127.0.0.1:{KATA_PORT}" or config.get("web", {}).get("listen"):
         raise RuntimeError("Kata must retain the documented loopback API and shared UI port")
 
 
@@ -1059,7 +1487,7 @@ def kata_command():
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError("missing executable Kata binary; build it before starting the service")
     return [str(binary), "daemon", "start", "--foreground", "--no-auto-token",
-            "--listen", "127.0.0.1:17777"]
+            "--listen", f"127.0.0.1:{KATA_PORT}"]
 
 
 def kata_environment():
@@ -1091,26 +1519,26 @@ def install_kata_service():
         executable=kata_service_command(),
     )
     json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
-    print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
+    print(f"Kata user service enabled and responsive at {KATA_URL}/kata")
 
 
 def managed_kata(*, required=False):
     if not required and not (STATE / "kata-service.json").exists():
         return None
     pid = user_service_pid(KATA_UNIT)
-    with HTTP.open("http://127.0.0.1:17777/api/v1/ping", timeout=3) as response:
+    with HTTP.open(f"{KATA_URL}/api/v1/ping", timeout=3) as response:
         ping = json.load(response)
     if (ping.get("pid") != pid or ping.get("service") != "kata"
             or ping.get("ok") is not True or not ping.get("version")):
         raise RuntimeError("Kata health does not match the managed user service")
-    with HTTP.open("http://127.0.0.1:17777/api/v1/health", timeout=3) as response:
+    with HTTP.open(f"{KATA_URL}/api/v1/health", timeout=3) as response:
         health = json.load(response)
     if (health.get("ok") is not True or health.get("version") != ping["version"]
             or health.get("db_path") != str(STATE / "kata/kata.db")
             or type(health.get("schema_version")) is not int or health["schema_version"] <= 0
             or not health.get("api_schema_version")):
         raise RuntimeError("Kata database health does not match its private profile")
-    request = urllib.request.Request("http://127.0.0.1:17777/kata",
+    request = urllib.request.Request(f"{KATA_URL}/kata",
                                      headers={"Accept": "text/html"})
     with HTTP.open(request, timeout=3) as response:
         if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
@@ -1131,6 +1559,28 @@ def supervised_ports(external_services):
     return tuple(port for port in PORTS if port not in external_ports)
 
 
+def model_routing():
+    usai_path = STATE / "usai.json"
+    if not usai_path.exists():
+        return None
+    usai_cfg = json.loads(private_read(usai_path))
+    coder_model = usai_cfg.get("model")
+    review_model = usai_cfg.get("review_model") or coder_model
+    coder_family = usai_model_family(coder_model) if coder_model else None
+    reviewer_family = usai_model_family(review_model) if review_model else None
+    return {
+        "coder_model": coder_model,
+        "coder_family": coder_family,
+        "reviewer_model": review_model,
+        "reviewer_family": reviewer_family,
+        "paired_adversarial": bool(
+            coder_family in ADVERSARIAL_MODEL_FAMILIES
+            and reviewer_family in ADVERSARIAL_MODEL_FAMILIES
+            and coder_family != reviewer_family
+        ),
+    }
+
+
 def status():
     settings()
     external = managed_services()
@@ -1143,8 +1593,10 @@ def status():
             "roborev_service": external.get("roborev"),
             "roborev_warnings": roborev_warnings(),
             "forge_service": external.get("forge"),
+            "port_offset": PORT_OFFSET,
             "forge": forge,
             "kata_service": external.get("kata"),
+            "model_routing": model_routing(),
             "projects": api("GET", "/projects") if forge else None}
 
 
@@ -1169,11 +1621,11 @@ def serve():
         roborev = roborev_command()
         services = [
             ("roborev", Path(roborev[0]), roborev[1:],
-             "http://127.0.0.1:17373/api/status"),
+             f"http://127.0.0.1:{ROBOREV_PORT}/api/status"),
             ("kata", RUNTIME_ROOT / "kata/kata", kata_command()[1:],
-             "http://127.0.0.1:17777/api/v1/health"),
+             f"{KATA_URL}/api/v1/health"),
             ("agentsview", RUNTIME_ROOT / "agentsview/agentsview", agentsview_command()[1:],
-             "http://127.0.0.1:18080/api/ping"),
+             f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/ping"),
             ("forge", Path(forge[0]), forge[1:], f"http://127.0.0.1:{FORGE_PORT}/healthz"),
         ]
         services = [service for service in services if service[0] not in external]
@@ -1320,6 +1772,7 @@ def main():
     provider = commands.add_parser("configure-provider", help="set non-secret USAi connection details")
     provider.add_argument("--base-url", required=True)
     provider.add_argument("--model", required=True)
+    provider.add_argument("--review-model", help="optional opposite-family USAi model for roborev reviews")
     provider.add_argument("--api", required=True,
                           choices=("openai-completions", "openai-responses", "anthropic-messages"))
     register = commands.add_parser("register", help="register an existing local Git project without editing it")
@@ -1358,7 +1811,7 @@ def main():
         elif args.command == "install-kata-service":
             install_kata_service()
         elif args.command == "configure-provider":
-            configure_provider(args.base_url, args.model, args.api)
+            configure_provider(args.base_url, args.model, args.api, review_model=args.review_model)
         elif args.command == "list-models":
             list_models(args.base_url)
         elif args.command == "register":
