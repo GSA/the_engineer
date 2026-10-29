@@ -14,9 +14,15 @@
   section and rediscover tools.
 - Preserve upstream history, licenses, and local changes. Read a submodule's
   instructions before editing it.
-- Commit completed workspace work locally; keep credentials and private
-  assets out of Git. Require explicit owner approval before pushing, publishing,
-  or amending commits; use additive commits for fixes.
+- In Kenn Forge workspace sessions (`AGENTS.override.md` present or
+  `KENN_FORGE_RUNTIME_SESSION_KEY` set), finish verified work by pushing the
+  workspace branch (`git push -u origin HEAD`), creating or updating a GitHub
+  pull request (`gh pr create` / `gh pr edit`), and registering the PR and any
+  worked GitHub/Kata items in Forge via `kenn_forge_add_workspace_target` and
+  `kenn_forge_add_workspace_kata_target` (confirming with
+  `kenn_forge_list_workspace_targets`). Outside a Forge workspace, commit
+  completed work locally and require explicit owner approval before pushing or
+  amending commits; keep credentials and private assets out of Git.
 - Keep temporary specs/plans, including planning-skill output, in ignored
   `.local/plans/` or Kata. Before delivery, document shipped user-facing usage
   in `README.md` and reusable agent-facing usage in `context/`, then remove

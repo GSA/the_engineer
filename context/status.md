@@ -6,14 +6,37 @@
   - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`)
   - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`)
   - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`)
-- Registered Forge repositories: `the_engineer` (`kenn-kopy`), `the_librarian`,
-  `the_knowitall`, `falcon-docs`, `aos-spud`, and the four Falcon application
-  repositories under `~/falcon/`.
+  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`)
+- Registered Forge repositories and projects (`Engineer`, `Librarian`,
+  `Knowitall`, `SPUD`, `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
+  all 4 primary projects (`Engineer`, `Librarian`, `Knowitall`, `SPUD`) are
+  linked to their GitHub `platform_identity` and Kata project mappings.
 - Active USAi default model in `.local/environment/pi/settings.json`:
   `claude-opus-5` (`https://api.gsa.usai.gov/api/v1`, `openai-completions`).
 
 ## Recent completed milestones
+
+- **Forge workspace PR completion, MCP targets, and Pi lifecycle hooks (`24g8`)**:
+  - Enabled Forge MCP on `http://127.0.0.1:18092/mcp` in
+    `.local/environment/forge/config.toml` and `scripts/local_env.py`, and
+    patched `tools_workspace_targets.go` in `scripts/build-forge-local-kata.mjs`
+    so `kenn_forge_add_workspace_target`, `kenn_forge_add_workspace_kata_target`,
+    and `kenn_forge_list_workspace_targets` include `platform_repo_id` /
+    `bitbucket_repository_uuid` in their MCP output schema.
+  - Configured `kenn-forge` and `kata` with `"exposure": "direct"` in
+    `.local/environment/pi/mcp.json` and `.pi/mcp.json`, and seeded
+    `.local/environment/pi/trust.json` for `kenn-kopy`, `the_librarian`,
+    `the_knowitall`, and `aos-spud`.
+  - Added `scripts/pi-extensions/forge-workspace.ts` (installed to
+    `.local/environment/pi/extensions/forge-workspace.ts`) to load Forge's
+    `AGENTS.override.md` and `/api/v1/agent-hooks/claude` `SessionStart`
+    context, report live Pi lifecycle events via `KENN_FORGE_RUNTIME_SESSION_KEY`,
+    and override `superpowers:finishing-a-development-branch` in Forge
+    workspaces so agents automatically push, create/update the PR, and register
+    workspace targets instead of asking whether to merge locally to `main`.
+  - Linked `Engineer` and `Librarian` project `repo_id`s in `forge.db` and
+    registered `GSA/the_knowitall#2` and Kata tasks `knowitall#r9gz`,
+    `knowitall#7gv8`, and `knowitall#8jvw` on workspace `577f9f28aea5d6e2`.
 
 - **USAi subagent inheritance and review workflow simplification (`sb77`, `sc6x`, `qc96`)**:
   - Configured `pi-subagents` in `.local/environment/pi/settings.json` and
@@ -49,3 +72,24 @@
   (curate Superpowers skills in Pi), `zmzh` (curate installed Pi extensions),
   `025n` (verify Forge terminal click-to-type focus in live browser), and `pcrv`
   (harden USAi provider model discovery).
+
+## Knowitall Forge handoff (2026-10-29)
+
+- Forge workspace `577f9f28aea5d6e2`, branch `kenn-forge/work-577f9f28`, rebased
+  onto merged provider-contract PR #1 and pushed as PR #2:
+  https://github.com/GSA/the_knowitall/pull/2 (open and mergeable).
+- Closed `knowitall#r9gz` after fresh execution of all 29 Graphify tests against
+  the retained exact lock-built runtime, including real offline Python and
+  TypeScript extraction.
+- Closed `knowitall#7gv8`; rebased commit `414660e`: added explicit credential-free
+  remote clone/fetch intake, origin provenance, executable-mode preservation and
+  digest binding, interruption recovery, and immutable-upstream-removal tests.
+- Closed `knowitall#8jvw`; rebased commit `08e929d`: added a minimal local NDJSON stdio
+  adapter over the revision-bound query service with malformed-line isolation.
+- Final post-rebase verification at `08e929d`: 127 pytest tests passed with the pinned
+  Graphify runtime, all four contract examples validated, wheel/sdist built and
+  contained the new modules, compileall and `git diff --check` passed, and the
+  worktree was clean. PR #2 (`GSA/the_knowitall#2`) and Kata tasks
+  `knowitall#r9gz`, `knowitall#7gv8`, and `knowitall#8jvw` are registered on
+  workspace `577f9f28aea5d6e2`; the host-managed worktree remains for PR
+  feedback.

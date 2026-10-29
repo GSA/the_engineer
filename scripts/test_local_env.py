@@ -93,6 +93,11 @@ class LocalEnvironmentTests(unittest.TestCase):
         server = mcp["mcpServers"]["falcon-context"]
         self.assertIn(str(self.corpus), server["args"])
         self.assertEqual(server["exposure"], "codemode")
+        self.assertEqual(mcp["mcpServers"]["kata"]["exposure"], "direct")
+        self.assertEqual(mcp["mcpServers"]["kenn-forge"]["url"], "http://127.0.0.1:18092/mcp")
+        self.assertEqual(mcp["mcpServers"]["kenn-forge"]["exposure"], "direct")
+        self.assertTrue((self.state / "pi/extensions/forge-workspace.ts").is_file())
+        self.assertIn("[mcp]\nenabled = true", (self.state / "forge/config.toml").read_text())
         self.assertEqual((self.state / "pi/mcp.json").stat().st_mode & 0o777, 0o600)
 
     def test_missing_usai_fails_without_fallback(self):

@@ -9,7 +9,7 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 | Kata (`v0.19.1`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
 | roborev (`v0.73.0`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
 | AgentsView (`v0.26.0`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge | `http://127.0.0.1:18091/` | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Forge | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 Check live health across all four services with:
 
@@ -29,8 +29,11 @@ python3 scripts/local_env.py status
   `127.0.0.1:17373` daemon.
 - `python3 scripts/pi-local.py`: runs Pi with `PI_CODING_AGENT_DIR` set to
   `.local/environment/pi`, loading the isolated USAi models, MCP servers
-  (`falcon-context` and `kata`), Superpowers skills, and `pi-subagents`
-  extensions.
+  (`falcon-context`, `kata`, and `kenn-forge` on `127.0.0.1:18092/mcp`),
+  Superpowers skills, `pi-subagents`, and `extensions/forge-workspace.ts`
+  (which loads `AGENTS.override.md` / Forge `SessionStart` context, overrides
+  `finishing-a-development-branch` to push + create PR + register Forge targets,
+  and posts live agent activity hooks via `KENN_FORGE_RUNTIME_SESSION_KEY`).
 - `python3 scripts/gh-local.py`: runs `gh` with `GH_CONFIG_DIR` set to
   `.local/environment/gh` so Forge and operator GitHub checks share isolated
   authentication.

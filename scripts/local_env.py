@@ -57,6 +57,7 @@ GH_VERSION = "2.102.0"
 GH_BINARY = ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
 PORTS = (17373, 17374, 17777, 18080, 18091)
 FORGE_PORT = 18091
+FORGE_MCP_PORT = 18092
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
@@ -226,6 +227,7 @@ def setup(corpus, forge_binary):
         'host = "127.0.0.1"\nport = 18091\n'
         '[roborev]\nendpoint = "http://127.0.0.1:17373"\ninit_managed_clones = false\n'
         '[tmux]\ncommand = ["tmux", "-L", "kenn-kopy-local"]\n'
+        f'[mcp]\nenabled = true\nhost = "127.0.0.1"\nport = {FORGE_MCP_PORT}\n'
         '[[agents]]\nkey = "pi"\nlabel = "Pi (USAi)"\nenabled = true\n'
         f'command = [{json.dumps(str(wrapper))}]\n' + disabled,
     )
@@ -249,10 +251,41 @@ def setup(corpus, forge_binary):
             "subagents": default_pi_subagents_settings(),
         },
     )
-    json_write(STATE / "pi/mcp.json", {"mcpServers": {"falcon-context": {
-        "command": str(server), "args": ["--root", str(corpus), "--reader", str(reader)],
-        "exposure": "codemode", "timeout": 60,
-    }}})
+    json_write(
+        STATE / "pi/mcp.json",
+        {
+            "mcpServers": {
+                "falcon-context": {
+                    "command": str(server),
+                    "args": ["--root", str(corpus), "--reader", str(reader)],
+                    "exposure": "codemode",
+                    "timeout": 60,
+                },
+                "kata": {
+                    "command": str(ROOT / "kata/kata"),
+                    "args": ["mcp", "serve"],
+                    "cwd": str(ROOT),
+                    "exposure": "direct",
+                    "timeout": 30,
+                    "env": {"KATA_SERVER": "http://127.0.0.1:17777"},
+                },
+                "kenn-forge": {
+                    "type": "http",
+                    "url": f"http://127.0.0.1:{FORGE_MCP_PORT}/mcp",
+                    "exposure": "direct",
+                    "timeout": 60,
+                },
+            }
+        },
+    )
+    private_dir(STATE / "pi/extensions")
+    forge_ext_src = ROOT / "scripts/pi-extensions/forge-workspace.ts"
+    if forge_ext_src.is_file():
+        private_write(
+            STATE / "pi/extensions/forge-workspace.ts",
+            forge_ext_src.read_text(),
+            replace=True,
+        )
     print(f"Persistent local settings/data: {STATE}")
     print(f"Private USAi key destination: {STATE / 'secrets/usai-api-key'}")
     print("Existing settings were preserved. No service or model request was started.")
