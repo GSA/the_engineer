@@ -103,6 +103,11 @@
   memory and decision log.
 - `eb48` (`open`): Rename runtime identifiers from `kenn-kopy`/`engi-platform`
   to `engineer`.
+- `t592` (`open`): Isolated WSL2 `engineer-mvp` rehearsal. The plan uses a clean
+  `wsl --install Ubuntu-24.04 --name` base exported before secrets, treats
+  post-`set-key` snapshots as secrets, and runs with `KENN_KOPY_PORT_OFFSET=1000`
+  (`8k15`, branch `t592-configurable-ports`) beside the primary stack. Needs a
+  real WSL2 run; Knowitall MCP discovery waits on `the_knowitall#vz6q`.
 - Ready unblocked follow-ups (`kata ready --no-label blocked --no-label deferred --agent`):
   `t14m` (reconcile `dist/install.py` with systemd service topology), `k03a`
   (curate Superpowers skills in Pi), `zmzh` (curate installed Pi extensions),

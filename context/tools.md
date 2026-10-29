@@ -11,6 +11,13 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 | AgentsView (`v0.46.1-84-gc7f77ad0`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
 | Forge | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
+All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
+`KENN_KOPY_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
+`port_offset` in `environment.json`; every writer (Forge/roborev/Kata configs,
+`pi/mcp.json`, `KATA_SERVER`/`KENN_FORGE_API_URL`), unit, probe, `smoke.py`, and
+`dist/install.py` uses the shifted ports. A second WSL2 distro shares this
+`127.0.0.1`, so it uses offset `1000` (README "Isolated WSL2 instance").
+
 Check live health across all four services with:
 
 ```sh

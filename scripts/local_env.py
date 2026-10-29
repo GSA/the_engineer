@@ -117,17 +117,61 @@ GH_BINARY = RUNTIME_ROOT / f".local/tools/gh-{GH_VERSION}/bin/gh"
 JQ_VERSION = "1.7.1"
 JQ_BINARY = RUNTIME_ROOT / f".local/tools/jq-{JQ_VERSION}/bin/jq"
 PYDEPS_DIR = RUNTIME_ROOT / ".local/tools/pydeps"
-PORTS = (17373, 17374, 17777, 18080, 18091)
-FORGE_PORT = 18091
-FORGE_MCP_PORT = 18092
+DEFAULT_PORTS = {"roborev": 17373, "roborev_web": 17374, "kata": 17777,
+                 "agentsview": 18080, "forge": 18091, "forge_mcp": 18092}
 AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
 ROBOREV_UNIT = "kenn-kopy-roborev.service"
 FORGE_UNIT = "kenn-kopy-forge.service"
 KATA_UNIT = "kenn-kopy-kata.service"
-
-SERVICE_PORTS = {"agentsview": (18080,), "roborev": (17373, 17374),
-                 "kata": (17777,), "forge": (FORGE_PORT,)}
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def parse_port_offset(value, source="KENN_KOPY_PORT_OFFSET"):
+    if isinstance(value, str):
+        if not re.fullmatch(r"\d{1,5}", value.strip()):
+            raise RuntimeError(f"{source} must be a non-negative integer")
+        value = int(value.strip())
+    if type(value) is not int or value < 0:
+        raise RuntimeError(f"{source} must be a non-negative integer")
+    shifted = {port + value for port in DEFAULT_PORTS.values()}
+    if max(shifted) > 65535:
+        raise RuntimeError(f"{source} moves a service port above 65535")
+    # Distros on one WSL2 VM share 127.0.0.1, so a shifted stack must avoid every default port.
+    if value and shifted & set(DEFAULT_PORTS.values()):
+        raise RuntimeError(f"{source}={value} overlaps the default ports; use e.g. 1000")
+    return value
+
+
+def resolve_port_offset(environment=None, config_path=None):
+    """Use KENN_KOPY_PORT_OFFSET, else the offset saved by setup, else 0."""
+    environment = os.environ if environment is None else environment
+    if environment.get("KENN_KOPY_PORT_OFFSET", "").strip():
+        return parse_port_offset(environment["KENN_KOPY_PORT_OFFSET"])
+    config_path = STATE / "environment.json" if config_path is None else config_path
+    try:
+        saved = json.loads(Path(config_path).read_text())
+    except (OSError, ValueError):
+        return 0
+    return parse_port_offset(saved.get("port_offset", 0), "saved port_offset")
+
+
+def configure_ports(offset):
+    global PORT_OFFSET, ROBOREV_PORT, ROBOREV_WEB_PORT, KATA_PORT, AGENTSVIEW_PORT
+    global FORGE_PORT, FORGE_MCP_PORT, KATA_URL, PORTS, SERVICE_PORTS
+    PORT_OFFSET = parse_port_offset(offset)
+    ROBOREV_PORT = DEFAULT_PORTS["roborev"] + PORT_OFFSET
+    ROBOREV_WEB_PORT = DEFAULT_PORTS["roborev_web"] + PORT_OFFSET
+    KATA_PORT = DEFAULT_PORTS["kata"] + PORT_OFFSET
+    AGENTSVIEW_PORT = DEFAULT_PORTS["agentsview"] + PORT_OFFSET
+    FORGE_PORT = DEFAULT_PORTS["forge"] + PORT_OFFSET
+    FORGE_MCP_PORT = DEFAULT_PORTS["forge_mcp"] + PORT_OFFSET
+    KATA_URL = f"http://127.0.0.1:{KATA_PORT}"
+    PORTS = (ROBOREV_PORT, ROBOREV_WEB_PORT, KATA_PORT, AGENTSVIEW_PORT, FORGE_PORT)
+    SERVICE_PORTS = {"agentsview": (AGENTSVIEW_PORT,), "roborev": (ROBOREV_PORT, ROBOREV_WEB_PORT),
+                     "kata": (KATA_PORT,), "forge": (FORGE_PORT,)}
+
+
+configure_ports(resolve_port_offset())
 
 
 def private_dir(path):
@@ -172,7 +216,12 @@ def json_write(path, value, *, replace=False):
 
 def settings():
     private_dir(STATE)
-    return json.loads(private_read(STATE / "environment.json"))
+    config = json.loads(private_read(STATE / "environment.json"))
+    saved = parse_port_offset(config.get("port_offset", 0), "saved port_offset")
+    if saved != PORT_OFFSET:
+        raise RuntimeError(f"KENN_KOPY_PORT_OFFSET={PORT_OFFSET} differs from the saved "
+                           f"port_offset {saved}; unset it or rerun setup in a fresh environment")
+    return config
 
 
 def host_git_settings(host_config=None):
@@ -264,7 +313,8 @@ def base_environment(roborev_executable=None):
         "AGENTSVIEW_TELEMETRY_ENABLED": "0",
         "ROBOREV_DATA_DIR": str(STATE / "roborev"),
         "KATA_HOME": str(STATE / "kata"),
-        "KATA_SERVER": "http://127.0.0.1:17777",
+        "KATA_SERVER": KATA_URL,
+        "KENN_FORGE_API_URL": f"http://127.0.0.1:{FORGE_PORT}",
         "KENN_FORGE_HOME": str(STATE / "forge"),
         "AGENTSVIEW_DATA_DIR": str(STATE / "agentsview"),
         "AGENTSVIEW_NO_DAEMON": "1",
@@ -344,6 +394,8 @@ def setup(corpus, forge_binary):
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
     config = {"corpus": str(corpus), "forge_binary": str(forge_binary),
               "pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    if PORT_OFFSET:
+        config["port_offset"] = PORT_OFFSET
     private_dir(STATE)
     for name in ("home", "runtime", "tmp", "logs", "secrets", "pi", "forge",
                  "roborev", "kata", "agentsview"):
@@ -352,15 +404,15 @@ def setup(corpus, forge_binary):
     verify_pi(config)
     config_path = STATE / "environment.json"
     if config_path.exists() and json.loads(private_read(config_path)) != config:
-        raise RuntimeError(f"setup differs from saved paths/version; inspect {config_path} first")
+        raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
     json_write(config_path, config)
     wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
     disabled = "".join(f'\n[[agents]]\nkey = "{key}"\nenabled = false\n'
                        for key in ("claude", "codex", "gemini", "opencode", "aider"))
     private_write(
         STATE / "forge/config.toml",
-        'host = "127.0.0.1"\nport = 18091\n'
-        '[roborev]\nendpoint = "http://127.0.0.1:17373"\ninit_managed_clones = false\n'
+        f'host = "127.0.0.1"\nport = {FORGE_PORT}\n'
+        f'[roborev]\nendpoint = "http://127.0.0.1:{ROBOREV_PORT}"\ninit_managed_clones = false\n'
         '[tmux]\ncommand = ["tmux", "-L", "kenn-kopy-local"]\n'
         f'[mcp]\nenabled = true\nhost = "127.0.0.1"\nport = {FORGE_MCP_PORT}\n'
         '[[agents]]\nkey = "pi"\nlabel = "Pi (USAi)"\nenabled = true\n'
@@ -370,9 +422,9 @@ def setup(corpus, forge_binary):
     )
     private_write(
         STATE / "roborev/config.toml",
-        'server_addr = "127.0.0.1:17373"\nmax_workers = 1\ndefault_agent = "pi"\n'
+        f'server_addr = "127.0.0.1:{ROBOREV_PORT}"\nmax_workers = 1\ndefault_agent = "pi"\n'
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
-        '[web]\nlisten = "127.0.0.1:17374"\n',
+        f'[web]\nlisten = "127.0.0.1:{ROBOREV_WEB_PORT}"\n',
     )
     managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
     launcher_migrations = (
@@ -392,8 +444,8 @@ def setup(corpus, forge_binary):
                 private_write(path, migrated, replace=True)
     private_write(
         STATE / "kata/config.toml",
-        'listen = "127.0.0.1:17777"\nactive_daemon = "local"\n'
-        '[[daemon]]\nname = "local"\nurl = "http://127.0.0.1:17777"\n',
+        f'listen = "127.0.0.1:{KATA_PORT}"\nactive_daemon = "local"\n'
+        f'[[daemon]]\nname = "local"\nurl = "{KATA_URL}"\n',
     )
     json_write(
         STATE / "pi/settings.json",
@@ -419,7 +471,7 @@ def setup(corpus, forge_binary):
                     "args": ["mcp", "serve"],
                     "exposure": "direct",
                     "timeout": 30,
-                    "env": {"KATA_SERVER": "http://127.0.0.1:17777"},
+                    "env": {"KATA_SERVER": KATA_URL},
                 },
                 "kenn-forge": {
                     "type": "http",
@@ -817,7 +869,7 @@ def roborev_warnings(*, proc_root=Path("/proc")):
             with socket.socket(family, socket.SOCK_STREAM) as probe:
                 probe.settimeout(0.2)
                 if probe.connect_ex((host, 7373)) == 0:
-                    warnings.append(f"unexpected listener at {host}:7373; managed roborev uses 17373")
+                    warnings.append(f"unexpected listener at {host}:7373; managed roborev uses {ROBOREV_PORT}")
         except OSError:
             pass
     allowed = set()
@@ -897,7 +949,7 @@ def terminal_launch(action, name="engi-platform"):
 
 def api(method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request("http://127.0.0.1:18091/api/v1" + path, data=data,
+    request = urllib.request.Request(f"http://127.0.0.1:{FORGE_PORT}/api/v1" + path, data=data,
                                      method=method, headers={"Content-Type": "application/json"})
     with HTTP.open(request, timeout=15) as response:
         return json.load(response) if response.status != 204 else None
@@ -940,8 +992,8 @@ def supervisor():
     return saved
 
 
-def check_ports(ports=PORTS):
-    for port in ports:
+def check_ports(ports=None):
+    for port in PORTS if ports is None else ports:
         with socket.socket() as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", port))
@@ -949,8 +1001,8 @@ def check_ports(ports=PORTS):
 
 def agentsview_request(method, path, body=None, timeout=30):
     data = json.dumps(body).encode() if body is not None else None
-    url = ("http://127.0.0.1:18080/api/ping" if path == "/ping"
-           else "http://127.0.0.1:18080/api/v1" + path)
+    base = f"http://127.0.0.1:{AGENTSVIEW_PORT}/api"
+    url = base + "/ping" if path == "/ping" else base + "/v1" + path
     request = urllib.request.Request(
         url, data=data, method=method,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
@@ -961,7 +1013,7 @@ def agentsview_request(method, path, body=None, timeout=30):
 
 def agentsview_command():
     args = [str(RUNTIME_ROOT / "agentsview/agentsview"), "serve", "--host", "127.0.0.1",
-            "--port", "18080", "--no-browser", "--no-update-check"]
+            "--port", str(AGENTSVIEW_PORT), "--no-browser", "--no-update-check"]
     if not (STATE / "agentsview-tracking.json").exists():
         args.append("--no-sync")
     return args
@@ -1067,7 +1119,7 @@ def install_agentsview_service():
         SERVICE_PORTS["agentsview"], lambda: managed_agentsview(required=True),
     )
     json_write(STATE / "agentsview-service.json", {"unit": AGENTSVIEW_UNIT}, replace=True)
-    print("AgentsView user service enabled and responsive at http://127.0.0.1:18080/")
+    print(f"AgentsView user service enabled and responsive at http://127.0.0.1:{AGENTSVIEW_PORT}/")
 
 
 def install_user_service(unit_name, command, description, ports, readiness, args=(),
@@ -1159,7 +1211,7 @@ def agentsview_run():
     config = tomllib.loads(private_read(STATE / "agentsview/config.toml"))
     if config.get("archive_content") != tracking["archive_content"]:
         raise RuntimeError("AgentsView archive policy differs from the configured tracking policy")
-    check_ports((18080,))
+    check_ports(SERVICE_PORTS["agentsview"])
     command = agentsview_command()
     os.chdir(STATE / "home")
     os.execve(command[0], command, agentsview_environment())
@@ -1167,8 +1219,8 @@ def agentsview_run():
 
 def validate_roborev_config():
     config = tomllib.loads(private_read(STATE / "roborev/config.toml"))
-    if (config.get("server_addr") != "127.0.0.1:17373"
-            or config.get("web", {}).get("listen") != "127.0.0.1:17374"):
+    if (config.get("server_addr") != f"127.0.0.1:{ROBOREV_PORT}"
+            or config.get("web", {}).get("listen") != f"127.0.0.1:{ROBOREV_WEB_PORT}"):
         raise RuntimeError("roborev must retain the documented loopback API and UI ports")
     usai_path = STATE / "usai.json"
     if usai_path.exists():
@@ -1215,7 +1267,7 @@ def roborev_command(binary=None):
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError(f"missing executable roborev binary: {binary}")
     return [str(binary), "daemon", "run",
-            "--addr", "127.0.0.1:17373", "--config", str(STATE / "roborev/config.toml")]
+            "--addr", f"127.0.0.1:{ROBOREV_PORT}", "--config", str(STATE / "roborev/config.toml")]
 
 
 def install_roborev_service(binary=None):
@@ -1238,7 +1290,7 @@ def install_roborev_service(binary=None):
         require_stopped=binary != previous_binary,
     )
     json_write(STATE / "roborev-service.json", {"unit": ROBOREV_UNIT, "binary": str(binary)}, replace=True)
-    print("roborev user service enabled and responsive at http://127.0.0.1:17374/reviews")
+    print(f"roborev user service enabled and responsive at http://127.0.0.1:{ROBOREV_WEB_PORT}/reviews")
 
 
 def managed_roborev(*, required=False, binary=None):
@@ -1248,15 +1300,15 @@ def managed_roborev(*, required=False, binary=None):
     if binary is not None and not os.path.samefile(f"/proc/{pid}/exe", binary):
         raise RuntimeError("running roborev executable differs from the requested binary; "
                            "finish reviews, stop the service and reinstall before restarting")
-    with HTTP.open("http://127.0.0.1:17373/api/ping", timeout=3) as response:
+    with HTTP.open(f"http://127.0.0.1:{ROBOREV_PORT}/api/ping", timeout=3) as response:
         health = json.load(response)
     if health.get("pid") != pid or health.get("ok") is not True or not health.get("version"):
         raise RuntimeError("roborev health does not match the managed user service")
-    with HTTP.open("http://127.0.0.1:17373/api/status", timeout=3) as response:
+    with HTTP.open(f"http://127.0.0.1:{ROBOREV_PORT}/api/status", timeout=3) as response:
         status = json.load(response)
     if status.get("version") != health["version"]:
         raise RuntimeError("roborev database status does not match its health version")
-    request = urllib.request.Request("http://127.0.0.1:17374/reviews",
+    request = urllib.request.Request(f"http://127.0.0.1:{ROBOREV_WEB_PORT}/reviews",
                                      headers={"Accept": "text/html"})
     with HTTP.open(request, timeout=3) as response:
         if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
@@ -1323,7 +1375,7 @@ def install_forge_service():
         args=("--node-executable", node),
     )
     json_write(STATE / "forge-service.json", {"unit": FORGE_UNIT}, replace=True)
-    print("Forge user service enabled and responsive at http://127.0.0.1:18091/")
+    print(f"Forge user service enabled and responsive at http://127.0.0.1:{FORGE_PORT}/")
 
 
 def managed_forge(*, required=False):
@@ -1367,7 +1419,7 @@ def forge_run(node_executable=None):
         node_executable = Path(node).resolve()
     env = node_environment(node_executable)
     verify_pi(config, env=env)
-    check_ports((FORGE_PORT,))
+    check_ports(SERVICE_PORTS["forge"])
     command = forge_command(config)
     private_dir(STATE / "gh")
     os.chdir(STATE / "home")
@@ -1376,7 +1428,7 @@ def forge_run(node_executable=None):
 
 def validate_kata_config():
     config = tomllib.loads(private_read(STATE / "kata/config.toml"))
-    if config.get("listen") != "127.0.0.1:17777" or config.get("web", {}).get("listen"):
+    if config.get("listen") != f"127.0.0.1:{KATA_PORT}" or config.get("web", {}).get("listen"):
         raise RuntimeError("Kata must retain the documented loopback API and shared UI port")
 
 
@@ -1385,7 +1437,7 @@ def kata_command():
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError("missing executable Kata binary; build it before starting the service")
     return [str(binary), "daemon", "start", "--foreground", "--no-auto-token",
-            "--listen", "127.0.0.1:17777"]
+            "--listen", f"127.0.0.1:{KATA_PORT}"]
 
 
 def kata_environment():
@@ -1417,26 +1469,26 @@ def install_kata_service():
         executable=kata_service_command(),
     )
     json_write(STATE / "kata-service.json", {"unit": KATA_UNIT}, replace=True)
-    print("Kata user service enabled and responsive at http://127.0.0.1:17777/kata")
+    print(f"Kata user service enabled and responsive at {KATA_URL}/kata")
 
 
 def managed_kata(*, required=False):
     if not required and not (STATE / "kata-service.json").exists():
         return None
     pid = user_service_pid(KATA_UNIT)
-    with HTTP.open("http://127.0.0.1:17777/api/v1/ping", timeout=3) as response:
+    with HTTP.open(f"{KATA_URL}/api/v1/ping", timeout=3) as response:
         ping = json.load(response)
     if (ping.get("pid") != pid or ping.get("service") != "kata"
             or ping.get("ok") is not True or not ping.get("version")):
         raise RuntimeError("Kata health does not match the managed user service")
-    with HTTP.open("http://127.0.0.1:17777/api/v1/health", timeout=3) as response:
+    with HTTP.open(f"{KATA_URL}/api/v1/health", timeout=3) as response:
         health = json.load(response)
     if (health.get("ok") is not True or health.get("version") != ping["version"]
             or health.get("db_path") != str(STATE / "kata/kata.db")
             or type(health.get("schema_version")) is not int or health["schema_version"] <= 0
             or not health.get("api_schema_version")):
         raise RuntimeError("Kata database health does not match its private profile")
-    request = urllib.request.Request("http://127.0.0.1:17777/kata",
+    request = urllib.request.Request(f"{KATA_URL}/kata",
                                      headers={"Accept": "text/html"})
     with HTTP.open(request, timeout=3) as response:
         if response.status != 200 or "text/html" not in response.headers.get("Content-Type", ""):
@@ -1491,6 +1543,7 @@ def status():
             "roborev_service": external.get("roborev"),
             "roborev_warnings": roborev_warnings(),
             "forge_service": external.get("forge"),
+            "port_offset": PORT_OFFSET,
             "forge": forge,
             "kata_service": external.get("kata"),
             "model_routing": model_routing(),
@@ -1518,11 +1571,11 @@ def serve():
         roborev = roborev_command()
         services = [
             ("roborev", Path(roborev[0]), roborev[1:],
-             "http://127.0.0.1:17373/api/status"),
+             f"http://127.0.0.1:{ROBOREV_PORT}/api/status"),
             ("kata", RUNTIME_ROOT / "kata/kata", kata_command()[1:],
-             "http://127.0.0.1:17777/api/v1/health"),
+             f"{KATA_URL}/api/v1/health"),
             ("agentsview", RUNTIME_ROOT / "agentsview/agentsview", agentsview_command()[1:],
-             "http://127.0.0.1:18080/api/ping"),
+             f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/ping"),
             ("forge", Path(forge[0]), forge[1:], f"http://127.0.0.1:{FORGE_PORT}/healthz"),
         ]
         services = [service for service in services if service[0] not in external]
