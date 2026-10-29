@@ -21,6 +21,14 @@ class CliTests(unittest.TestCase):
             self.path.write_text('{}')
             self.assertEqual(main(['report','--packet',str(self.path)]),1)
 
+    def test_report_uses_the_configured_budget_for_large_packets(self):
+        value=packet_value()
+        value['business'][0]['response']['pieces'][0]['text']='x'*1200000
+        self.path.write_text(json.dumps(seal_packet(value)))
+        with redirect_stdout(io.StringIO()),redirect_stderr(io.StringIO()):
+            self.assertEqual(main(['report','--packet',str(self.path)]),1)
+            self.assertEqual(main(['report','--packet',str(self.path),'--max-bytes','2000000']),0)
+
     def test_report_does_not_contact_providers(self):
         self.path.write_text(json.dumps(seal_packet(packet_value())))
         with patch('engineer_context.cli.collect',side_effect=AssertionError('must not collect')),redirect_stdout(io.StringIO()):

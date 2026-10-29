@@ -20,12 +20,14 @@ def main(argv=None):
     collection.add_argument('--request',required=True,type=Path)
     collection.add_argument('--output',required=True,type=Path)
     report=commands.add_parser('report'); report.add_argument('--packet',required=True,type=Path); report.add_argument('--json',action='store_true')
+    report.add_argument('--max-bytes',type=int,default=1048576)
     validation=commands.add_parser('revalidate')
     for field in ['config','packet','task','output']: validation.add_argument('--'+field,required=True,type=Path)
     args=parser.parse_args(argv)
     try:
         if args.command=='report':
-            value=read_private_json(args.packet,1048576); validate_packet(value)
+            if args.max_bytes<=0: raise ValueError('invalid report budget')
+            value=read_private_json(args.packet,args.max_bytes); validate_packet(value)
             print(json.dumps(value,ensure_ascii=False) if args.json else render_report(value))
         else:
             config=load_config(args.config); maximum=config.limits.max_bytes

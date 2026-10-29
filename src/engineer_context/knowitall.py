@@ -26,12 +26,18 @@ def validate_response(request, response):
         raise ProviderError('invalid', 'Knowitall contract or identity validation failed') from None
 
 
+def published_store(root):
+    # The owning store constructor creates its layout, so an incomplete directory
+    # is refused here rather than written to by a read-only consumer.
+    return all((root / name).is_dir() for name in ('stages', 'generations', 'current'))
+
+
 class KnowitallClient:
     def __init__(self, binding, limits):
         self.binding, self.limits = binding, limits
 
     def _exchange(self, operation, request=None):
-        if not self.binding.store.is_dir():
+        if not published_store(self.binding.store):
             raise ProviderError('unavailable', 'published code store unavailable')
         payload = canonical_bytes({'operation': operation, 'request': request}) + b'\n'
         if len(payload) > self.limits.max_bytes:
@@ -42,17 +48,33 @@ class KnowitallClient:
             with subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   stderr=subprocess.DEVNULL) as process:
                 try:
-                    process.stdin.write(payload); process.stdin.close()
-                    output = bytearray(); deadline = time.monotonic() + self.limits.timeout_seconds
+                    deadline = time.monotonic() + self.limits.timeout_seconds
+                    output = bytearray()
+                    # Delivery shares the deadline: a runtime that never reads must not
+                    # block this consumer on a full pipe.
+                    os.set_blocking(process.stdin.fileno(), False)
                     with selectors.DefaultSelector() as selector:
+                        selector.register(process.stdin, selectors.EVENT_WRITE)
                         selector.register(process.stdout, selectors.EVENT_READ)
+                        sent = 0
                         while True:
                             remaining = deadline - time.monotonic()
-                            if remaining <= 0 or not selector.select(remaining): raise ValueError()
-                            part = os.read(process.stdout.fileno(), min(65536, self.limits.max_bytes + 1 - len(output)))
-                            if not part: break
-                            output.extend(part)
-                            if len(output) > self.limits.max_bytes: raise ValueError()
+                            ready = selector.select(remaining) if remaining > 0 else []
+                            if not ready: raise ValueError()
+                            for key, _ in ready:
+                                if key.fileobj is process.stdin:
+                                    sent += os.write(process.stdin.fileno(), payload[sent:])
+                                    if sent == len(payload):
+                                        selector.unregister(process.stdin); process.stdin.close()
+                                else:
+                                    part = os.read(process.stdout.fileno(),
+                                                   min(65536, self.limits.max_bytes + 1 - len(output)))
+                                    if not part:
+                                        if sent != len(payload): raise ValueError()
+                                        selector.unregister(process.stdout)
+                                    output.extend(part)
+                                    if len(output) > self.limits.max_bytes: raise ValueError()
+                            if not selector.get_map(): break
                     if process.wait(timeout=max(.01, deadline-time.monotonic())) != 0: raise ValueError()
                     value = json.loads(output)
                     if not isinstance(value, dict) or value.get('error'): raise ValueError()
@@ -83,7 +105,7 @@ def bridge_main(argv=None):
     parser.add_argument('--max-bytes', required=True, type=int)
     args = parser.parse_args(argv)
     try:
-        if version('knowitall-code-context') != '0.1.0' or not args.store.is_dir(): raise ValueError()
+        if version('knowitall-code-context') != '0.1.0' or not published_store(args.store): raise ValueError()
         line = sys.stdin.buffer.readline(args.max_bytes + 1)
         if len(line) > args.max_bytes or not line.endswith(b'\n'): raise ValueError()
         value = json.loads(line)

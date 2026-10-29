@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 from engineer_context.config import KnowitallBinding, Limits
 from engineer_context.knowitall import KnowitallClient, ProviderError, validate_response
@@ -41,9 +42,31 @@ class KnowitallTests(unittest.TestCase):
             binding = KnowitallBinding('p', 'r', Path(sys.executable), Path(temp)/'absent')
             with self.assertRaises(ProviderError): KnowitallClient(binding, Limits()).query(request())
 
+    def test_incomplete_store_is_refused_without_creating_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = Path(temp) / 'store'; store.mkdir()
+            binding = KnowitallBinding('project-synthetic', 'repo-python-service', Path(sys.executable), store)
+            with self.assertRaises(ProviderError):
+                KnowitallClient(binding, Limits(timeout_seconds=5)).query(request())
+            self.assertEqual(sorted(p.name for p in store.iterdir()), [])
+
+    def test_large_request_to_a_runtime_that_never_reads_is_bounded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ('stages', 'generations', 'current'): (root / name).mkdir()
+            exe = root / 'runtime'
+            exe.write_text(f'#!{sys.executable}\nimport time; time.sleep(60)\n'); exe.chmod(0o700)
+            binding = KnowitallBinding('project-synthetic', 'repo-python-service', exe, root)
+            query = request(); query['filler'] = 'x' * 400000
+            started = time.monotonic()
+            with self.assertRaises(ProviderError):
+                KnowitallClient(binding, Limits(timeout_seconds=.2)).query(query)
+            self.assertLess(time.monotonic() - started, 10)
+
     def test_bridge_timeout_and_malformed_json_are_bounded(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            for name in ('stages', 'generations', 'current'): (root / name).mkdir()
             for body in ['import time; time.sleep(60)', 'print("bad json")', 'print("x" * 10000)']:
                 exe = root / 'runtime'; exe.write_text(f'#!{sys.executable}\n{body}\n'); exe.chmod(0o700)
                 binding = KnowitallBinding('project-synthetic', 'repo-python-service', exe, root)

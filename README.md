@@ -939,6 +939,10 @@ an `engineer.context-config/v1` file naming the explicit providers:
 }
 ```
 
+The Knowitall store must already be a published store: an incomplete directory
+is refused rather than initialized, because collection never writes provider
+state.
+
 Relative paths resolve against the configuration file. Interpreter and server
 program paths keep the link you select, so a virtual environment's `bin/python`
 runs with that environment's prefix.
@@ -952,7 +956,8 @@ engineer-context revalidate --config binding.json --packet packet.json --task ta
 `collect` exits 0 only when every required business locator and code query
 returned evidence; it exits 2 when the packet is blocked and 1 on invalid input
 or I/O. `report` renders provenance, gaps and readiness; `--json` emits the
-machine form. `revalidate` rechecks the whole qualified response and current
+machine form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
+`revalidate` rechecks the whole qualified response and current
 required code identity against a sealed packet without changing it.
 
 Packets preserve full provider responses, exact passages, locators, source
