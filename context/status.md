@@ -10,9 +10,14 @@
 - Registered Forge repositories and projects (`Engineer`, `Librarian`,
   `Knowitall`, `SPUD`, `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
   all 4 primary projects (`Engineer`, `Librarian`, `Knowitall`, `SPUD`) are
-  linked to their GitHub `platform_identity` and Kata project mappings.
-- Active USAi default model in `.local/environment/pi/settings.json`:
-  `claude-opus-5` (`https://api.gsa.usai.gov/api/v1`, `openai-completions`).
+  linked to their GitHub `platform_identity` and Kata project mappings
+  (`the_engineer`, `the_librarian`, `the_knowitall`, `spud`).
+- Active USAi default model in `.local/environment/usai.json` and
+  `.local/environment/pi/settings.json`:
+  `gpt-6.1-sol-latest-guardrails-defaultv2` (`https://api.gsa.usai.gov/api/v1`,
+  `openai-completions`), with `gemini-4-argon` configured for concise PR body
+  summarization in `forge-workspace.ts` and `compat.supportsDeveloperRole = false`
+  across all USAi model definitions.
 
 ## Recent completed milestones
 
