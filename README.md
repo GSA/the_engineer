@@ -1,261 +1,236 @@
-# Engineer: local engineering environment
+# The Engineer (`kenn-kopy`)
 
-A persistent Linux environment for local engineering workflows and a
-human-directed three-product engineering demo. It combines Forge, Pi,
-Superpowers, roborev, Kata, and AgentsView with the Falcon Context MCP server
-and USAi LiteLLM as the required model provider.
+Local, loopback-only engineering workstation for agent-driven work. It bundles:
 
-The selected product name is **Engineer** (`engineer`), formerly Engi Platform
-and Kenn Kopy. Checkout paths (`~/kenn-kopy`), the `engi-platform` Kata
-project, and `kenn-kopy-*` systemd unit names remain in use until the planned
-identity migration (`eb48`).
+- **Forge**: workspaces, agent sessions, and PRs
+- **Kata**: task tracker
+- **roborev**: automated code review
+- **AgentsView**: session and usage history
+- **Pi**: coding agent, using GSA **USAi** models
+- **Superpowers**: Pi skills
 
-- Current service state and active priorities: [context/status.md](context/status.md)
-- Project objectives and product boundaries: [context/project.md](context/project.md)
-- Tooling, builds, and runtime configuration: [context/tools.md](context/tools.md)
-- Workflow and prompt boundaries: [context/engineering-workflow.md](context/engineering-workflow.md)
-- Cross-product system architecture: [context/system-architecture.md](context/system-architecture.md)
-- Selective engineering memory design: [context/engineering-memory.md](context/engineering-memory.md)
-- Simplification and refactoring slices: [context/refactoring.md](context/refactoring.md)
+It consumes context from **The Librarian** (business documents) and
+**The Knowitall** (code graphs).
 
-## Standalone agent terminals
+GitHub: `GSA/the_engineer`. Local checkout: `~/kenn-kopy`. Kata project: `the_engineer`.
+Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 
-Use existing Zed or any WSL terminal with `scripts/terminal-local.py` (backed by
-an isolated tmux socket under `.local/environment/runtime/terminal/tmux.sock`):
+## Requirements
+
+- Ubuntu 24.04+ on x86_64, or WSL2
+- Python 3.11+, Node.js 24.11+, Pi `1.4.0`
+- A USAi API key
+- A `falcon-docs` corpus checkout that contains `tools/context-mcp/.venv/bin/qualified-context-mcp`, passed as `--corpus`
 
 ```sh
-python3 scripts/terminal-local.py open pi
-python3 scripts/terminal-local.py open copilot
-python3 scripts/terminal-local.py list
-python3 scripts/terminal-local.py stop pi
+sudo apt-get install git curl ca-certificates build-essential libc6-dev \
+  tmux python3 python3-venv zstd tar coreutils diffutils ripgrep fd-find
+mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
+npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.4.0
+export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 ```
 
-Inside the `pi` session, run `python3 scripts/pi-local.py` to launch the
-isolated Pi/USAi profile with its Falcon and Kata MCP configuration. Inside the
-`copilot` session, run `copilot` with its native authentication and session
-store. Keep sensitive USAi model work in `pi-local.py`.
+## Stand it up
 
-## Start and access the environment
-
-On this WSL host, Forge, Kata, roborev, and AgentsView run as independent user
-systemd services bound to loopback:
-
-| Application | Local browser address | Unit |
-| --- | --- | --- |
-| Forge: repository/workspace console | http://127.0.0.1:18091/ | `kenn-kopy-forge.service` |
-| roborev: reviews | http://127.0.0.1:17374/reviews (API `17373`) | `kenn-kopy-roborev.service` |
-| Kata: tasks | http://127.0.0.1:17777/kata | `kenn-kopy-kata.service` |
-| AgentsView: sessions and usage | http://127.0.0.1:18080/ | `kenn-kopy-agentsview.service` |
-
-Check live service health and registered projects:
+Run these commands from `~/kenn-kopy`.
 
 ```sh
+# 1. Fetch pinned submodules, install pinned toolchains (Go, Bun, gh, jq) in .local/tools, and build.
+bash scripts/bootstrap-sources.sh
+bash scripts/bootstrap-toolchains.sh
+bash scripts/build.sh roborev kata agentsview forge-local-kata
+
+# 2. Create private state in .local/environment/.
+python3 scripts/local_env.py setup --corpus ~/falcon-docs \
+  --forge-binary .local/forge-local-kata/kenn-forge
+python3 scripts/local_env.py install-pi-extensions
+python3 scripts/local_env.py configure-tracking --copilot-dir ~/.copilot \
+  --pi-dir ~/.pi/agent/sessions --pi-dir "$PWD/.local/environment/pi/sessions" \
+  --archive-content transcripts
+
+# 3. Add the USAi key and load models. See the USAi sections below.
+python3 scripts/local_env.py set-key
+python3 scripts/local_env.py list-models --base-url https://api.gsa.usai.gov/api/v1
+python3 scripts/local_env.py configure-provider --base-url https://api.gsa.usai.gov/api/v1 \
+  --api openai-completions --model claude-opus-5.5 \
+  --review-model gpt-6.1-sol-latest-guardrails-defaultv2
+
+# 4. Install and start the systemd user services.
+for s in kata roborev agentsview forge; do python3 scripts/local_env.py install-$s-service; done
+
+# 5. Authenticate Forge's isolated GitHub CLI.
+./scripts/gh-local.py auth login --hostname github.com --web --git-protocol https --insecure-storage
+systemctl --user restart kenn-kopy-forge.service
+
+# 6. Register repos with Forge and install roborev Git hooks.
+for repo in ~/kenn-kopy ~/the_librarian ~/the_knowitall; do
+  python3 scripts/local_env.py register "$repo"
+  roborev init --no-daemon --repo "$repo"
+done
+
+# 7. Check the stack.
 python3 scripts/local_env.py status
 ```
 
-Manage the user services with `systemctl --user`:
+If the host has no systemd user services, run `python3 scripts/local_env.py run`
+in the foreground and use `python3 scripts/local_env.py stop` to stop it.
 
-```sh
-systemctl --user start kenn-kopy-kata.service kenn-kopy-roborev.service \
-  kenn-kopy-agentsview.service kenn-kopy-forge.service
-systemctl --user status kenn-kopy-forge.service --no-pager
+`dist/install.sh` is an alternate installer. It is not yet a complete fresh-host
+recipe; Kata `p4ke` tracks the gaps. See [dist/README.md](dist/README.md).
+
+## Isolated WSL2 instance and two-layer isolation
+
+For MVP reproduction, intake, and demo rehearsals (`the_engineer#n0vk` and
+`the_engineer#t592`), we use a **two-layer isolation strategy** rather than
+containerizing individual stdio MCP processes (which breaks `systemd --user`
+units, Forge worktree paths, and Librarian's absolute-path index bindings per
+`the_librarian` Decision 0004):
+
+1. **Layer 1 — Full-clone MVP instances (`the_engineer#n0vk`)**: Keep upstream
+   `~/the_librarian` and `~/the_knowitall` data-empty; unpack/clone dedicated
+   program instances (`~/falcon-librarian-mvp` and `~/falcon-knowitall-mvp`)
+   with private `.local/` stores pointing to `~/falcon-docs/INBOX/` and
+   `~/falcon/*`.
+2. **Layer 2 — Dedicated WSL2 Ubuntu 24.04 instance (`the_engineer#t592`)**:
+   Create a separate WSL2 distribution on the same Windows host to test clean
+   reproduction and run demos without touching your primary WSL environment.
+
+### Creating, snapshotting, and resetting an isolated WSL2 instance
+
+Run these commands in **Windows PowerShell**:
+
+```powershell
+# 1. Create a host directory and export a clean Ubuntu 24.04 base rootfs
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\wsl\engineer-mvp"
+wsl --export Ubuntu-24.04 "$env:USERPROFILE\wsl\ubuntu-24.04-base.tar"
+
+# 2. Import the isolated 'engineer-mvp' WSL2 instance
+wsl --import engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp" "$env:USERPROFILE\wsl\ubuntu-24.04-base.tar" --version 2
+
+# 3. Create the operator account and enable systemd
+wsl -d engineer-mvp -u root -- bash -c '
+  useradd -m -s /bin/bash -G sudo nkirrish &&
+  passwd -d nkirrish &&
+  printf "[boot]\nsystemd=true\n\n[user]\ndefault=nkirrish\n" > /etc/wsl.conf
+'
+
+# 4. Restart the instance so systemd --user initializes, then open a shell
+wsl --terminate engineer-mvp
+wsl -d engineer-mvp
 ```
 
-On hosts without user systemd units enabled, `python3 scripts/local_env.py run`
-starts any unmanaged services in the foreground, and
-`python3 scripts/local_env.py stop` stops only the foreground supervisor.
+After completing [Stand it up](#stand-it-up) inside `engineer-mvp`, export a
+verified pre-demo snapshot from PowerShell so you can reset to a clean baseline
+in under two minutes:
 
-## Kata tasks for Engineer
+```powershell
+# Save a verified pre-demo snapshot
+wsl --terminate engineer-mvp
+wsl --export engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp-ready.tar"
 
-Kata project `engi-platform` is the task authority for this repository
-(`.kata.toml` binds the checkout; data lives in `.local/environment/kata/kata.db`).
-
-```sh
-kata list --agent
-kata ready --no-label blocked --no-label deferred --agent
-kata show 5xrm
+# Reset to the clean pre-demo baseline at any time
+wsl --unregister engineer-mvp
+wsl --import engineer-mvp "$env:USERPROFILE\wsl\engineer-mvp" "$env:USERPROFILE\wsl\engineer-mvp-ready.tar" --version 2
 ```
 
-`dist/install.py` provisions `~/.local/bin/kata` and points `~/.kata/config.toml`
-at `http://127.0.0.1:17777`. Neighboring repositories bind to their own Kata
-projects (`librarian` in `~/the_librarian`, `knowitall` in `~/the_knowitall`,
-`falcon-docs` in `~/falcon-docs`, `spud` in `~/aos-spud`, and the four Falcon
-application projects under `~/falcon/`).
+## Services
 
-### From a Kata to a Forge agent
+| Service | URL | Unit |
+| --- | --- | --- |
+| Forge | http://127.0.0.1:18091/ (MCP `:18092/mcp`) | `kenn-kopy-forge.service` |
+| Kata | http://127.0.0.1:17777/kata | `kenn-kopy-kata.service` |
+| roborev | http://127.0.0.1:17374/reviews (API `:17373`) | `kenn-kopy-roborev.service` |
+| AgentsView | http://127.0.0.1:18080/ | `kenn-kopy-agentsview.service` |
 
-1. Claim ready work in Kata (`kata claim <id>`).
-2. Ensure the project is mapped in **Forge Settings > Kata mappings** (`local`
-   maps `engi-platform` to `GSA/the_engineer`, `librarian` to
-   `GSA/the_librarian`, `knowitall` to `GSA/the_knowitall`, and `spud` to
-   `GSA/aos-spud`).
-3. In **Forge > Workspaces > New workspace**, select the task and launch **Pi
-   (USAi)**.
-4. Record verification evidence and close the issue in native Kata when done.
+All services bind to `127.0.0.1`.
 
-See [Kata to Forge pickup](context/engineering-workflow.md#kata-to-forge-current-pickup-boundary-2026-10-26)
-and [provider onboarding](context/engineering-workflow.md#private-provider-onboarding-2026-10-26-1741-7943).
+## Configuration reference
 
-### Pi and Copilot task access
+All state is under `.local/environment/`. Git ignores that directory, and the
+files are private (`0600`/`0700`). Set `KENN_KOPY_RUNTIME_ROOT` to use a
+different root.
 
-Both `.pi/mcp.json` and `.github/mcp.json` invoke native `kata mcp serve`
-against `http://127.0.0.1:17777`. Use `kata.load_*` section loaders when MCP
-tools are needed, or run the `kata` CLI directly.
-
-## AgentsView session tracking
-
-Open **http://127.0.0.1:18080/**. AgentsView archives sessions from
-`~/.copilot`, `~/.pi/agent/sessions`, and `.local/environment/pi/sessions` under
-the `transcripts` policy (conversation text, session metadata, and token usage
-without raw tool payloads). Guarded USAi GPT aliases
-(`gpt-5.6-sol-latest-guardrails-defaultv2` and
-`gpt-6.1-sol-latest-guardrails-defaultv2`) reuse canonical base-model pricing.
-
-Configure or reinstall the service with:
-
-```sh
-python3 scripts/local_env.py configure-tracking \
-  --copilot-dir "$HOME/.copilot" \
-  --pi-dir "$HOME/.pi/agent/sessions" \
-  --pi-dir "$PWD/.local/environment/pi/sessions" \
-  --archive-content transcripts
-python3 scripts/local_env.py install-agentsview-service
-```
-
-## roborev code review
-
-`kenn-kopy-roborev.service` runs native `~/.local/bin/roborev` (`v0.73.0`) on
-`127.0.0.1:17373` (UI at `http://127.0.0.1:17374/reviews`). `~/.roborev` links
-to `.local/environment/roborev/`, so native `roborev` CLI commands and Git hooks
-use the same loopback daemon and SQLite store directly:
-
-```sh
-roborev status
-roborev tui
-roborev review --repo /absolute/path/to/repo --type default --agent pi --panel none --reasoning fast --wait
-```
-
-Install the Pi structured-output and subagent extensions in the isolated Pi
-profile with:
-
-```sh
-python3 scripts/local_env.py install-pi-extensions
-```
-
-### Native batched Git hooks
-
-Repositories use native `roborev init --no-daemon` hooks (`post-commit`,
-`post-rewrite`, and `pre-push` in `.git/hooks/`) paired with a machine-local
-`.roborev.toml` that sets `post_commit_batch_size = 5` and affirmative
-`review_guidelines`:
-
-```sh
-roborev init --no-daemon --repo /absolute/path/to/repo
-```
-
-Commits run without synchronous pre-commit review blocks, batch every 5 commits
-for background Pi/USAi review, and flush remaining unreviewed commits on
-`git push`. Copilot CLI's global `agenthook.json` stays disabled so review
-workers never re-enter active interactive sessions.
-
-## First-time setup and GSA GitHub authentication
-
-Use [`dist/install.sh`](dist/README.md) or run setup directly against an
-existing Librarian checkout and built Forge binary:
-
-```sh
-python3 scripts/local_env.py setup \
-  --corpus "$HOME/falcon-docs" \
-  --forge-binary .local/forge-local-kata/kenn-forge
-```
-
-Authenticate Forge's isolated GitHub CLI profile (`.local/environment/gh/`) in
-your own terminal:
-
-```sh
-./scripts/gh-local.py auth login --hostname github.com --web \
-  --git-protocol https --insecure-storage
-./scripts/gh-local.py api --hostname github.com user --jq .login
-systemctl --user restart kenn-kopy-forge.service
-```
-
-## Persistence and projects
-
-All local runtime state lives under ignored **`.local/environment/`**:
-
-| Path under `.local/environment/` | Contents |
+| File | Purpose |
 | --- | --- |
-| `environment.json` | Machine-local executable and corpus paths |
-| `forge/config.toml`, `forge/forge.db` | Forge settings and project/worktree records |
-| `pi/` | Isolated Pi settings, MCP/model configuration, and session files |
-| `roborev/`, `kata/`, `agentsview/` | Persistent service configurations and SQLite stores |
-| `systemd/`, `*-service.json` | Generated user units and ownership metadata |
-| `gh/` | Isolated GitHub CLI configuration used by Forge |
-| `secrets/usai-api-key` | Private USAi API key (`0600`) |
+| `environment.json` | Corpus path, Forge binary, Pi executable and version, written by `setup` |
+| `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
+| `usai.json` | Active coder `model` and `review_model` |
+| `usai-models.json` | Last model catalog fetched from USAi |
+| `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is the `${USAI_API_KEY}` placeholder. |
+| `pi/settings.json` | Pi default provider and model, Superpowers package, and subagent defaults (`model: inherit`) |
+| `pi/mcp.json` | Pi MCP servers: `falcon-context` (Librarian-style corpus), `kata`, and `kenn-forge` |
+| `forge/config.toml` | Forge host and port, MCP, and agent launchers `pi` (default model) and `pi-argon` (`gemini-4-argon`) |
+| `roborev/config.toml` | Daemon address, `pi` agent command, and reviewer model (linked from `~/.roborev`) |
+| `kata/config.toml` | Kata listen address |
+| `gh/` | Isolated GitHub CLI login used by Forge and `scripts/gh-local.py` |
+| `systemd/` | Generated user units |
 
-Create a verified workspace backup archive with:
+Each repo has its own `.roborev.toml` (agent `pi`, reviews every 5 commits) and
+`.kata.toml` (Kata project binding).
 
-```sh
-python3 scripts/backup_workspace.py \
-  '/mnt/c/Users/NKIRRISH/OneDrive - CGI Federal, Inc/EngiPlatformBackups'
-```
+## USAi key management and rotation
 
-Register an additional local Git repository in Forge with:
+- `set-key` prompts for the key with hidden input. It rejects keys passed as an
+  argument or piped in. The key is written only to `secrets/usai-api-key` (`0600`).
+- `scripts/pi-local.py` reads the key file on every launch and passes the key
+  only to that Pi process as `USAI_API_KEY`. Config files never contain the key.
+- `set-key` also points any existing global Pi USAi provider in `~/.pi/agent/`
+  to `scripts/usai-key.py`, so global Pi reads the same file. Pass
+  `--private-only` to skip that.
 
-```sh
-python3 scripts/local_env.py register /absolute/path/to/project
-```
-
-## Pi, subagents, and Falcon Context MCP
-
-Launch the isolated Pi/USAi agent from any project directory:
-
-```sh
-python3 /home/nkirrish/kenn-kopy/scripts/pi-local.py
-```
-
-Both `.local/environment/pi/settings.json` and `~/.pi/agent/settings.json`
-configure `pi-subagents` with `defaultProvider: "usai"`,
-`defaultModel: "inherit"`, `modelScope.allow: ["inherit", "usai/*"]`, and
-`model: "inherit"` across `delegate`, `oracle`, `reviewer`, `scout`, and
-`worker`.
-
-Verify the Falcon Context MCP connection from this checkout:
+To rotate the key:
 
 ```sh
-python3 scripts/pi-local.py mcp list
-node scripts/check-pi-mcp.mjs
+python3 scripts/local_env.py set-key        # paste the new key
+python3 scripts/local_env.py list-models --base-url https://api.gsa.usai.gov/api/v1   # verify that the key works
 ```
 
-## USAi credential and provider setup
+New Forge agent sessions and roborev reviews use the new key automatically, and
+no service restart is needed. Restart any Pi sessions that are already running,
+such as the tmux `pi` session or open Forge workspaces. A USAi HTTP `401` means
+the key is expired or revoked; rotate it as shown above.
 
-Store or rotate the USAi API key interactively (updates `.local/environment/secrets/usai-api-key`
-and links existing global `~/.pi/agent` USAi provider entries to `scripts/usai-key.py`):
+## Loading and changing USAi models
+
+1. `list-models` fetches `/models` from USAi into `usai-models.json`. It only
+   lists models; it does not test them.
+2. `configure-provider` writes every chat model (the built-in list plus the
+   fetched catalog) to `pi/models.json` and skips embedding models. It also sets
+   the coder default in `pi/settings.json` and `usai.json`, and syncs the
+   reviewer model to `roborev/config.toml`.
+3. The coder and the reviewer must come from different model families (Claude,
+   OpenAI, or Gemini), and both must appear in the fetched catalog.
+4. `pi-local.py --model` accepts only the coder model, the reviewer model, or
+   `gemini-4-argon`. To use another model, run `configure-provider` again.
+
+To add newly published models or switch the coder or reviewer, run steps 1 and
+2 again, then run `systemctl --user restart kenn-kopy-roborev.service`.
+
+## Daily use
 
 ```sh
-python3 scripts/local_env.py set-key
+python3 scripts/terminal-local.py open pi        # persistent tmux session; run scripts/pi-local.py inside it
+python3 scripts/terminal-local.py open copilot   # Copilot CLI, for non-sensitive work
+kata ready --no-label blocked --no-label deferred --agent && kata claim <id>
+roborev review --repo "$PWD" --branch --wait     # one branch review before opening a PR
 ```
 
-Refresh advertised model IDs and configure the active USAi model:
+In Forge, create a workspace from a Kata task and launch **Pi (USAi)** or
+**Pi (Gemini 4 Argon)**. The Forge workspace extension pushes the branch, opens
+the PR, and registers the PR and Kata task in Forge.
 
-```sh
-python3 scripts/local_env.py list-models --base-url 'https://api.gsa.usai.gov/api/v1'
-python3 scripts/local_env.py configure-provider \
-  --base-url 'https://api.gsa.usai.gov/api/v1' \
-  --model 'claude-opus-5' \
-  --api 'openai-completions'
-```
+## Maintenance
 
-## Disposable smoke checks
+- **Back up:** `python3 scripts/backup_workspace.py <dest-dir>` creates a
+  verified `.tar.zst` archive of the workspace, including SQLite snapshots.
+- **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'` and the
+  same command with `-s dist`.
+- **Run smoke tests:** stop the four services, run
+  `python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge`,
+  then start the services again. The smoke tests use the same ports.
+- **Keep secrets out of Git:** never put credentials in Git, logs, or command
+  arguments.
 
-Stop the four user services before running `scripts/smoke.py` (which binds the
-same loopback ports in a temporary `.local/smoke-*` directory), then restart
-them afterward:
-
-```sh
-systemctl --user stop kenn-kopy-kata.service kenn-kopy-roborev.service \
-  kenn-kopy-agentsview.service kenn-kopy-forge.service
-python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge
-systemctl --user start kenn-kopy-kata.service kenn-kopy-roborev.service \
-  kenn-kopy-agentsview.service kenn-kopy-forge.service
-```
+More detail: [context/tools.md](context/tools.md),
+[context/status.md](context/status.md), and
+[context/system-architecture.md](context/system-architecture.md).
