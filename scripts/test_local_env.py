@@ -99,7 +99,8 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.corpus = self.root / "corpus"
         server = self.corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp"
         server.parent.mkdir(parents=True)
-        server.touch()
+        server.write_text("#!/bin/sh\nexit 0\n")
+        server.chmod(0o755)
         reader = self.corpus / "tools/context-index/context_index.py"
         reader.parent.mkdir(parents=True)
         reader.touch()
@@ -165,6 +166,119 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.setup(self.corpus, self.binary)
         self.assertIn('command = ["/opt/company-agent/scripts/pi-local.py"]', forge.read_text())
         self.assertIn('pi_cmd = "/opt/review-agent/scripts/pi-local.py"', roborev.read_text())
+    def test_legacy_librarian_binding_keeps_saved_shape_and_command(self):
+        environment = json.loads((self.state / "environment.json").read_text())
+        self.assertEqual(environment, {
+            "corpus": str(self.corpus),
+            "forge_binary": str(self.binary),
+            "pi_executable": "/usr/bin/pi",
+            "pi_version": local_env.PI_VERSION,
+        })
+        server = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        self.assertEqual(server, {
+            "command": str(self.corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp"),
+            "args": ["--root", str(self.corpus), "--reader",
+                     str(self.corpus / "tools/context-index/context_index.py")],
+            "exposure": "codemode",
+            "timeout": 60,
+        })
+
+    def explicit_librarian(self):
+        executable = self.root / "toolkit/.venv/bin/librarian-mcp"
+        reader = self.root / "toolkit/tools/context-index/context_index.py"
+        selection = self.root / "toolkit/config/selection.local.json"
+        for path in (executable, reader, selection):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        executable.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o755)
+        return executable, reader, selection
+
+    def test_explicit_librarian_binding_and_selection_are_saved_and_reused(self):
+        executable, reader, selection = self.explicit_librarian()
+        state = self.root / "explicit-environment"
+        toolkit = executable.parents[2]
+        with patch.object(local_env, "STATE", state), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary, executable, reader, toolkit, selection)
+            mcp_path = state / "pi/mcp.json"
+            mcp = json.loads(mcp_path.read_text())
+            mcp["mcpServers"]["unrelated"] = {"command": "/retained/tool", "args": []}
+            local_env.json_write(mcp_path, mcp, replace=True)
+            local_env.setup(self.corpus, self.binary, executable, reader, toolkit, selection)
+        self.assertEqual(json.loads(mcp_path.read_text())["mcpServers"]["unrelated"]["command"],
+                         "/retained/tool")
+        binding = json.loads(mcp_path.read_text())["mcpServers"]["falcon-context"]
+        self.assertEqual(binding["command"], str(executable))
+        self.assertEqual(binding["args"], ["--root", str(toolkit), "--reader", str(reader),
+                                           "--manifest", str(selection)])
+        saved = json.loads((state / "environment.json").read_text())
+        self.assertEqual(saved["librarian_executable"], str(executable))
+        self.assertEqual(saved["librarian_reader"], str(reader))
+        self.assertEqual(saved["librarian_root"], str(toolkit))
+        self.assertEqual(saved["librarian_selection"], str(selection))
+
+    def test_setup_rejects_conflicting_saved_mcp_binding_without_mutation(self):
+        path = self.state / "pi/mcp.json"
+        config = json.loads(path.read_text())
+        config["mcpServers"]["falcon-context"]["command"] = "/different/provider"
+        local_env.json_write(path, config, replace=True)
+        before = path.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "Librarian binding differs"):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_explicit_librarian_binding_without_reader_omits_the_flag(self):
+        # The current toolkit rejects --reader and loads its reader module from
+        # --root, so a reader-free binding must not persist that flag.
+        executable, _, selection = self.explicit_librarian()
+        state = self.root / "current-toolkit-environment"
+        toolkit = executable.parents[2]
+        with patch.object(local_env, "STATE", state), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary, executable, None, toolkit, selection)
+        binding = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection)])
+        saved = json.loads((state / "environment.json").read_text())
+        self.assertIsNone(saved["librarian_reader"])
+
+    def test_explicit_librarian_tuple_and_prerequisites_are_required(self):
+        executable, reader, selection = self.explicit_librarian()
+        with self.assertRaisesRegex(RuntimeError, "together"):
+            local_env.setup(self.corpus, self.binary, None, reader, self.corpus, None)
+        toolkit = executable.parents[2]
+        executable.chmod(0o644)
+        with self.assertRaisesRegex(RuntimeError, "not executable"):
+            local_env.setup(self.corpus, self.binary, executable, reader, toolkit, selection)
+        executable.write_text("#!/bin/sh\necho missing dependency >&2\nexit 1\n")
+        executable.chmod(0o755)
+        with self.assertRaisesRegex(RuntimeError, "runtime/dependencies unavailable.*missing dependency"):
+            local_env.setup(self.corpus, self.binary, executable, reader, toolkit, selection)
+
+    def test_explicit_librarian_selection_outside_root_is_rejected_without_writes(self):
+        executable, reader, _ = self.explicit_librarian()
+        state = self.root / "outside-selection-environment"
+        outside = self.root / "outside-selection.json"
+        outside.touch()
+        with patch.object(local_env, "STATE", state), \
+                self.assertRaisesRegex(RuntimeError, "within --librarian-root"):
+            local_env.setup(self.corpus, self.binary, executable, reader,
+                            executable.parents[2], outside)
+        self.assertFalse(state.exists())
+
+    def test_explicit_librarian_root_must_be_readable_and_searchable(self):
+        executable, reader, _ = self.explicit_librarian()
+        toolkit = executable.parents[2]
+        real_access = os.access
+
+        def access(path, mode):
+            if Path(path) == toolkit and mode & os.X_OK:
+                return False
+            return real_access(path, mode)
+
+        state = self.root / "non-searchable-root-environment"
+        with patch.object(local_env, "STATE", state), \
+                patch.object(local_env.os, "access", side_effect=access), \
+                self.assertRaisesRegex(RuntimeError, "readable and searchable"):
+            local_env.setup(self.corpus, self.binary, executable, reader, toolkit)
 
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"

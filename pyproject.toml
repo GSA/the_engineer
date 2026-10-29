@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engineer-task-context"
+version = "0.1.0"
+description = "Task-bound qualified business and revision-bound code evidence consumer"
+requires-python = ">=3.12"
+dependencies = ["mcp==2.2.0"]
+
+[project.optional-dependencies]
+test = ["build>=1.2,<2"]
+
+[project.scripts]
+engineer-context = "engineer_context.cli:main"
+engineer-context-mcp = "engineer_context.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

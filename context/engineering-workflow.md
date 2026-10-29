@@ -29,6 +29,26 @@
     hook enqueue commit reviews automatically instead of running manual
     `roborev review --dirty --wait` loops before every commit.
 
+## Task-bound evidence before acting
+
+Before acting on a task that depends on business requirements and code, collect
+one `engineer.task-context/v1` packet with `engineer-context collect` and read
+its report. Treat the packet as an observation, not authorization: a ready
+packet records that required evidence was present at observation time, not that
+an assertion, review or approval exists.
+
+Recheck with `engineer-context revalidate` immediately before acting, and stop
+when it reports blocked. A corrected source passage or a newer published code
+generation must block, because a historical packet is never rewritten to follow
+current provider state. Required missing or partial scope, including
+pagination, blocks readiness; optional gaps are reported but do not.
+
+Packets and revalidation receipts can carry restricted source text and exact
+code locations. Keep them in private paths such as ignored `.local/`, never in
+Git, chat, logs or command arguments. Publishing restricted evidence, using a
+real corpus or ticket, or running model traffic against it needs separate owner
+authorization.
+
 ## Writing context and instructions
 
 - Write `AGENTS.md`, `README.md`, `context/*.md`, and `.roborev.toml`

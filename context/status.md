@@ -25,6 +25,45 @@
 
 ## Recent completed milestones
 
+- **Task-bound business and code evidence consumer (`k4mp`)**:
+  - Added `engineer-task-context` (`src/engineer_context/`, CLI
+    `engineer-context`, stdio MCP `engineer-context-mcp`), which composes
+    `engineer.task-context/v1` packets from the configured Librarian corpus and
+    a revision-bound Knowitall generation, reports provenance and readiness, and
+    rechecks a sealed packet with `revalidate`. Collection is read-only and
+    never writes provider state or mutates a task.
+  - Integrated preserved commit `dae66cd` (explicit Librarian binding) as merge
+    `b75210c`; branch review job 313 passed it with no findings.
+  - Required paged code queries are ready only with the whole page chain;
+    malformed requests and refused cursors are caller input (exit 1), while a
+    cursor refused during revalidation is reported as changed provider state.
+  - Interpreter and server program paths are absolutized lexically, because
+    resolving a virtual environment's `bin/python` symlink changed the child's
+    prefix and broke the Knowitall bridge.
+  - Verified with 58 consumer tests, 10 actual-provider integration tests
+    against the Librarian release and pinned Knowitall `81cc9b2` with the
+    offline Graphify runtime, 122 local-environment tests, 52 distribution tests
+    (4 expected skips), a Pi runtime receipt with `model_requests: 0` and
+    `configured_mcp_servers: 0`, plus
+    build, compile and whitespace checks. Branch review job 384 passed;
+    delivered as https://github.com/GSA/the_engineer/pull/4.
+  - Merged current `main` into the branch, keeping main's compacted docs,
+    configurable ports (`KENN_KOPY_PORT_OFFSET`) and roborev wrapper removal,
+    and re-applying the explicit Librarian binding so `setup` preserves the
+    other saved `pi/mcp.json` servers. Branch review job 399 passed.
+  - Upstream Librarian `f4c8500` dropped `--reader` from `librarian-mcp` and
+    moved the reader to the `tools.context_index` module under `--root`, so the
+    consumer binding and `setup --librarian-reader` now treat the reader as an
+    optional legacy argument and omit it by default. All 10 actual-provider
+    integration tests pass against the current checkout, and the Pi probe now
+    supplies the MCP extension an explicit empty configuration and private log
+    path, because its default loader reads the operator agent directory rather
+    than the session's.
+  - Assertions and contributions stay unavailable pending `the_librarian#923h`
+    and `the_librarian#rjr5`, so associations remain `unasserted` and `k4mp`
+    stays open. Public tests are non-identifying; real corpus/ticket use, model
+    traffic and restricted-evidence publication keep separate owner gates.
+
 - **USAi model catalog sync and adversarial coder/reviewer pairing (`zmzh`)**:
   - Refreshed `.local/environment/usai-models.json` from live
     `https://api.gsa.usai.gov/api/v1/models` (27 advertised models) and updated

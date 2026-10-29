@@ -222,6 +222,91 @@ different root.
 Each repo has its own `.roborev.toml` (agent `pi`, reviews every 5 commits) and
 `.kata.toml` (Kata project binding).
 
+## Task-bound business and code evidence
+
+`engineer-task-context` composes one task-bound evidence packet from the
+configured Librarian business corpus and a revision-bound Knowitall code
+generation. It is a read-only consumer: it never acquires sources, indexes,
+extracts, or publishes, and it never mutates a Kata task.
+
+Install it into a private virtual environment (Python 3.12 or newer) and write
+an `engineer.context-config/v1` file naming the explicit providers:
+
+```json
+{
+  "schema": "engineer.context-config/v1",
+  "librarian": {"project_id": "<business project>", "executable": "<librarian-mcp>",
+                "root": "<corpus root>", "reader": null, "selection": null},
+  "knowitall": {"project_id": "<code project>", "repository_id": "<repository>",
+                "python": "<venv>/bin/python", "store": "<publication store>"}
+}
+```
+
+The Knowitall store must already be a published store: an incomplete directory
+is refused rather than initialized, because collection never writes provider
+state. `knowitall.python` names the interpreter that owns
+`knowitall-code-context` 0.1.0; Engineer itself need not be installed there,
+because the provider-side bridge runs by path. A failing exchange reports which
+prerequisite is missing.
+
+Relative paths resolve against the configuration file. Interpreter and server
+program paths keep the link you select, so a virtual environment's `bin/python`
+runs with that environment's prefix. Paths may contain spaces; every provider
+launch uses an argument list, never a shell. Leave `librarian.reader` null for a
+current Librarian toolkit, which loads its reader module from `root` and refuses
+an explicit `--reader`; set it only for a legacy release that requires that
+argument.
+
+```sh
+engineer-context collect --config binding.json --request request.json --output packet.json
+engineer-context report --packet packet.json
+engineer-context revalidate --config binding.json --packet packet.json --task task.json --output recheck.json
+```
+
+`collect` exits 0 only when every required business locator and code query
+returned evidence; it exits 2 when the packet is blocked and 1 on invalid input
+or I/O. A code query that the owning contract would reject, such as one missing
+`query`, naming an unsupported match or carrying a cursor whose binding
+changed, is invalid caller input and exits 1 instead of becoming an optional
+availability gap. `report` renders provenance, gaps and readiness; `--json` emits the
+machine form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
+`revalidate` rechecks the whole qualified response and current
+required code identity against a sealed packet without changing it. A truncated
+code response's `continuation` token can be sent back in a later request to
+read the next page of the same generation. A single page is only partial
+evidence, so a required paged query is ready only when the packet holds the
+whole chain of pages for that query and generation; a lone page is reported as
+blocked with the other pages absent. Revalidating a paged request replays it
+unchanged and rechecks currency with a separate pinned probe, so held page
+tokens keep their own binding.
+
+Packets preserve full provider responses, exact passages, locators, source
+hashes, line ranges, snapshot/generation identities, coverage and handling
+restrictions. Rendition pieces report their original source location next to
+the indexed extraction range, so citations name the real location. Business/code
+pairs are only ever `unasserted`: a name or
+presentation match never establishes an assertion. Assertions and contributions
+are reported as unavailable capabilities pending `the_librarian#923h` and
+`the_librarian#rjr5`. Packets can carry restricted source text, so write them
+only to private paths and never paste them into shared channels.
+
+Agents reach the same three read-only operations through a stdio MCP server
+configured once at startup:
+
+```sh
+engineer-context-mcp --config binding.json
+```
+
+Verify an actual Pi session's discovery and qualified read without any model
+call, writing a private receipt. The probe connects only the server it
+registers, so your own `mcp.json` entries are neither launched nor able to
+shadow it:
+
+```sh
+node scripts/verify-context-runtime.mjs <pi-install> <private agent dir> \
+  <engineer-context-mcp> <config> <request> <receipt.json>
+```
+
 ## USAi key management and rotation
 
 - `set-key` prompts for the key with hidden input. It rejects keys passed as an
