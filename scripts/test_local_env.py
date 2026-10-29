@@ -14,6 +14,37 @@ import urllib.error
 import local_env
 
 
+class RuntimeRootTests(unittest.TestCase):
+    def test_normal_checkout_uses_source_root(self):
+        source = Path("/checkout")
+        with patch.object(local_env.subprocess, "run", return_value=MagicMock(
+                returncode=0, stdout=".git\n")):
+            self.assertEqual(local_env.resolve_runtime_root(source, {}), source)
+
+    def test_linked_worktree_uses_git_common_checkout(self):
+        source = Path("/checkout/.local/environment/forge/worktrees/repo/task")
+        common = Path("/checkout/.git")
+        with patch.object(local_env.subprocess, "run", return_value=MagicMock(
+                returncode=0, stdout=str(common) + "\n")):
+            self.assertEqual(local_env.resolve_runtime_root(source, {}), Path("/checkout"))
+
+    def test_explicit_runtime_root_must_be_absolute_and_existing(self):
+        with self.assertRaisesRegex(RuntimeError, "absolute"):
+            local_env.resolve_runtime_root(Path("/checkout"),
+                                           {"KENN_KOPY_RUNTIME_ROOT": "relative"})
+        with self.assertRaisesRegex(RuntimeError, "existing directory"):
+            local_env.resolve_runtime_root(
+                Path("/checkout"), {"KENN_KOPY_RUNTIME_ROOT": "/missing/runtime/root"})
+
+    def test_explicit_runtime_root_wins_without_git_lookup(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(local_env.subprocess, "run") as run:
+            root = Path(directory)
+            self.assertEqual(local_env.resolve_runtime_root(
+                Path("/worktree"), {"KENN_KOPY_RUNTIME_ROOT": str(root)}), root)
+        run.assert_not_called()
+
+
 class PiVersionTests(unittest.TestCase):
     def test_approved_runtime_is_accepted(self):
         config = {"pi_executable": "/test/pi"}
@@ -67,6 +98,51 @@ class LocalEnvironmentTests(unittest.TestCase):
 
     def key(self):
         local_env.private_write(self.state / "secrets/usai-api-key", "test-only-token\n", replace=True)
+
+    def test_setup_persists_launchers_from_canonical_runtime_checkout(self):
+        wrapper = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
+        self.assertIn(wrapper, (self.state / "forge/config.toml").read_text())
+        self.assertIn(wrapper, (self.state / "roborev/config.toml").read_text())
+        if local_env.RUNTIME_ROOT != local_env.ROOT:
+            source_wrapper = str(local_env.ROOT / "scripts/pi-local.py")
+            self.assertNotIn(source_wrapper, (self.state / "forge/config.toml").read_text())
+            self.assertNotIn(source_wrapper, (self.state / "roborev/config.toml").read_text())
+
+    def test_setup_migrates_managed_launcher_from_a_deleted_other_worktree(self):
+        stale = str(local_env.RUNTIME_ROOT / ".local/environment/forge/worktrees/host/repo/deleted/scripts/pi-local.py")
+        canonical = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
+        paths = (self.state / "forge/config.toml", self.state / "roborev/config.toml")
+        for path in paths:
+            local_env.private_write(
+                path, path.read_text().replace(canonical, stale) + "\n# retained edit\n",
+                replace=True,
+            )
+        with patch.object(local_env, "ROOT", local_env.RUNTIME_ROOT), \
+                contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        for path in paths:
+            content = path.read_text()
+            self.assertIn(canonical, content)
+            self.assertNotIn(stale, content)
+            self.assertIn("# retained edit", content)
+
+    def test_setup_preserves_custom_pi_launcher_commands(self):
+        forge = self.state / "forge/config.toml"
+        roborev = self.state / "roborev/config.toml"
+        forge_content = forge.read_text().replace(
+            f'command = [{json.dumps(str(local_env.RUNTIME_ROOT / "scripts/pi-local.py"))}]',
+            'command = ["/opt/company-agent/scripts/pi-local.py"]',
+        )
+        roborev_content = roborev.read_text().replace(
+            f'pi_cmd = {json.dumps(str(local_env.RUNTIME_ROOT / "scripts/pi-local.py"))}',
+            'pi_cmd = "/opt/review-agent/scripts/pi-local.py"',
+        )
+        local_env.private_write(forge, forge_content, replace=True)
+        local_env.private_write(roborev, roborev_content, replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertIn('command = ["/opt/company-agent/scripts/pi-local.py"]', forge.read_text())
+        self.assertIn('pi_cmd = "/opt/review-agent/scripts/pi-local.py"', roborev.read_text())
 
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"
@@ -234,7 +310,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                 runpy.run_path(str(local_env.ROOT / "scripts/terminal-local.py"), run_name="__main__")
         self.assertEqual(exit_result.exception.code, 2)
 
-    def test_review_extension_installation_is_private_pinned_and_preserves_settings(self):
+    def test_pi_extension_installation_is_private_pinned_and_preserves_settings(self):
         path = self.state / "pi/settings.json"
         config = json.loads(path.read_text())
         config["theme"] = "retained"
@@ -242,9 +318,12 @@ class LocalEnvironmentTests(unittest.TestCase):
         local_env.json_write(path, config, replace=True)
         before = config.copy()
 
+        installed = []
+
         def install(command, **kwargs):
             self.assertEqual(command[:2], ["/usr/bin/pi", "install"])
             self.assertIn(command[2], local_env.PI_EXTENSIONS)
+            installed.append(command[2])
             self.assertEqual(kwargs["cwd"], self.state / "home")
             self.assertEqual(kwargs["env"]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
             self.assertNotIn("USAI_API_KEY", kwargs["env"])
@@ -259,8 +338,9 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.install_pi_review_extension()
         saved = json.loads(path.read_text())
         self.assertEqual(run.call_count, 2 * len(local_env.PI_EXTENSIONS))
+        self.assertEqual(installed, list(local_env.PI_EXTENSIONS) * 2)
         self.assertEqual(saved["theme"], before["theme"])
-        self.assertIn(str(local_env.ROOT / "superpowers"), saved["packages"])
+        self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
         for extension in local_env.PI_EXTENSIONS:
             self.assertEqual(saved["packages"].count(extension), 1)
         self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
@@ -288,10 +368,10 @@ class LocalEnvironmentTests(unittest.TestCase):
         with patch.object(local_env.subprocess, "run", side_effect=local_env.subprocess.CalledProcessError(
                 1, ["pi", "install"])):
             with self.assertRaises(local_env.subprocess.CalledProcessError):
-                local_env.install_pi_review_extension()
+                local_env.install_pi_extensions()
         with patch.object(local_env.subprocess, "run"):
             with self.assertRaisesRegex(RuntimeError, "isolated profile"):
-                local_env.install_pi_review_extension()
+                local_env.install_pi_extensions()
 
     def test_roborev_selected_native_binary_is_shared_by_commands_and_child_path(self):
         binary = self.root / "native/bin/roborev"
@@ -303,6 +383,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(local_env.roborev_command()[0], str(binary))
         env = local_env.base_environment()
         self.assertEqual(env["PATH"].split(os.pathsep)[1], str(binary.parent))
+        self.assertEqual(env["KENN_KOPY_RUNTIME_ROOT"], str(local_env.RUNTIME_ROOT))
         binary.unlink()
         with self.assertRaisesRegex(RuntimeError, "missing executable"):
             local_env.roborev_command()
@@ -484,7 +565,9 @@ class LocalEnvironmentTests(unittest.TestCase):
             cli_settings = json.loads((self.global_pi / "settings.json").read_text())
             command = cli_models["providers"]["usai"]["apiKey"]
             self.assertTrue(command.startswith("!"))
-            self.assertIn(str(local_env.ROOT / "scripts/usai-key.py"), command)
+            self.assertIn(str(local_env.RUNTIME_ROOT / "scripts/usai-key.py"), command)
+            if local_env.RUNTIME_ROOT != local_env.ROOT:
+                self.assertNotIn(str(local_env.ROOT / "scripts/usai-key.py"), command)
             self.assertEqual(cli_settings["litellm"]["providers"]["litellm-usai"]["apiKey"], command)
             models["providers"]["usai"]["apiKey"] = command
             settings["litellm"]["providers"]["litellm-usai"]["apiKey"] = command
@@ -1033,6 +1116,11 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(database.read_bytes(), b"persistent-workspace-fixture")
         self.assertEqual((self.state / "systemd" / local_env.FORGE_UNIT).read_bytes(), first)
         self.assertIn('"forge-run" "--node-executable" ' + local_env.systemd_quote(node), first.decode())
+        self.assertIn(local_env.systemd_quote(local_env.RUNTIME_ROOT / "scripts/local_env.py"),
+                      first.decode())
+        if local_env.RUNTIME_ROOT != local_env.ROOT:
+            self.assertNotIn(local_env.systemd_quote(local_env.ROOT / "scripts/local_env.py"),
+                             first.decode())
         self.assertIn("WantedBy=default.target", first.decode())
         self.assertNotIn("USAI_API_KEY", first.decode())
         self.assertIn(unittest.mock.call(
@@ -1148,7 +1236,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIn(f'"KATA_HOME={self.state / "kata"}"', first.decode())
         self.assertIn(f'"KATA_DSN={database}"', first.decode())
         self.assertIn('"KATA_DB="', first.decode())
-        self.assertIn(f'"{local_env.ROOT / "kata/kata"}" "daemon" "start"', first.decode())
+        self.assertIn(f'"{local_env.RUNTIME_ROOT / "kata/kata"}" "daemon" "start"', first.decode())
         self.assertNotIn("Environment=", first.decode())
         self.assertNotIn("local_env.py", first.decode())
         self.assertIn("WantedBy=default.target", first.decode())
