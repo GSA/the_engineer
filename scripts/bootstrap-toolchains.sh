@@ -68,7 +68,7 @@ if [[ "$(.local/tools/go-1.27.3/bin/go version)" != "go version go1.27.3 linux/a
     exit 1
 fi
 
-for version in 1.3.14 1.4.0 1.4.4; do
+for version in 1.3.14 1.4.4; do
     binary=".local/tools/bun-$version/node_modules/@oven/bun-linux-x64/bin/bun"
     if [[ ! -x "$binary" ]]; then
         npm install --prefix ".local/tools/bun-$version" --ignore-scripts \

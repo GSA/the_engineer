@@ -23,7 +23,7 @@ fi
 for project in "$@"; do
     case "$project" in
         roborev|kata) bun_version=1.4.4 ;;
-        forge|forge-local-kata) bun_version=1.4.0 ;;
+        forge|forge-local-kata) bun_version=1.4.4 ;;
         agentsview) bun_version= ;;
         *) echo "Unknown build target: $project" >&2; exit 2 ;;
     esac

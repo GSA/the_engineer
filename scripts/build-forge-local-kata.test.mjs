@@ -1,17 +1,6 @@
 import { test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
-import { patchWorkspaceTargetOutputSchema, verifyLocalLock } from "./build-forge-local-kata.mjs";
-
-test("patches tools_workspace_targets.go output types to expose repository key fields in MCP schema", () => {
-    const source = readFileSync(
-        new URL("../forge/internal/mcpserver/tools_workspace_targets.go", import.meta.url),
-        "utf8",
-    );
-    const patched = patchWorkspaceTargetOutputSchema(source);
-    expect(patched).toContain("type workspaceTargetRepoOut struct");
-    expect(patched).toContain('PlatformRepoID          int64  `json:"platform_repo_id,omitempty"`');
-    expect(patched).toContain("func toWorkspaceTargetOut(target WorkspaceTarget) workspaceTargetOut");
-});
+import { verifyLocalLock } from "./build-forge-local-kata.mjs";
 
 function locks() {
     const original = Bun.JSONC.parse(readFileSync(

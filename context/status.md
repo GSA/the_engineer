@@ -6,7 +6,7 @@
   - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.20.0-37-g14844737`, schema 34, API `0.34.0`)
   - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.74.0-23-gd53ecfca`)
   - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.46.1-84-gc7f77ad0`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.3.0-136-gd6b14b9f-local-kata`)
+  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.5.1-118-gbf025d22-local-kata`)
 - Registered Forge repositories and projects (`Engineer`, `Librarian`,
   `Knowitall`, `SPUD`, `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
   all 4 primary projects (`Engineer`, `Librarian`, `Knowitall`, `SPUD`) are
@@ -24,6 +24,19 @@
   across all USAi model definitions.
 
 ## Recent completed milestones
+
+- **Forge pin `bf025d22` (`v0.5.1-118`)**:
+  - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
+    local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
+    empty `POSTHOG_PROJECT_KEY` so the binary carries no telemetry destination;
+    the service environment also keeps `TELEMETRY_ENABLED=0`.
+  - Upstream fixed the workspace-target MCP output schemas, so the local
+    `tools_workspace_targets.go` patch is removed. Config, `serve` flags, the
+    MCP listener on `18092`, and the agent-hook/agent-sessions APIs are unchanged.
+  - Verified with the build script's Bun tests, 177 script and 52 distribution
+    unit tests, `smoke.py --only-forge`, a live MCP `tools/list` and
+    `kenn_forge_list_workspace_targets` call, and a clean GitHub sync. Forge's
+    hot spares were re-prepared at the rewritten `origin/HEAD` commits.
 
 - **Task-bound business and code evidence consumer (`k4mp`)**:
   - Added `engineer-task-context` (`src/engineer_context/`, CLI
@@ -85,11 +98,11 @@
 
 - **Forge workspace PR completion, MCP targets, and Pi lifecycle hooks (`24g8`)**:
   - Enabled Forge MCP on `http://127.0.0.1:18092/mcp` in
-    `.local/environment/forge/config.toml` and `scripts/local_env.py`, and
-    patched `tools_workspace_targets.go` in `scripts/build-forge-local-kata.mjs`
-    so `kenn_forge_add_workspace_target`, `kenn_forge_add_workspace_kata_target`,
-    and `kenn_forge_list_workspace_targets` include `platform_repo_id` /
-    `bitbucket_repository_uuid` in their MCP output schema.
+    `.local/environment/forge/config.toml` and `scripts/local_env.py`. Forge
+    `bf025d22` declares open MCP output schemas for
+    `kenn_forge_add_workspace_target`, `kenn_forge_add_workspace_kata_target`,
+    and `kenn_forge_list_workspace_targets`, so their `platform_repo_id` /
+    `bitbucket_repository_uuid` fields validate without a local patch.
   - Configured `kenn-forge` and `kata` with `"exposure": "direct"` in
     `.local/environment/pi/mcp.json` and `.pi/mcp.json`, and seeded
     `.local/environment/pi/trust.json` for `kenn-kopy`, `the_librarian`,

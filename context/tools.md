@@ -9,7 +9,7 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 | Kata (`v0.20.0-37-g14844737`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
 | roborev (`v0.74.0-23-gd53ecfca`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
 | AgentsView (`v0.46.1-84-gc7f77ad0`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Forge (`v0.5.1-118-gbf025d22-local-kata`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `KENN_KOPY_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
@@ -186,7 +186,7 @@ evidence.
 
 ## Build and test commands
 
-- Toolchain bootstrap and submodule builds (`Go 1.27.3`, `Bun 1.3.14 / 1.4.0 / 1.4.4`, `gh 2.102.0`, `jq 1.7.1`):
+- Toolchain bootstrap and submodule builds (`Go 1.27.3`, `Bun 1.3.14 / 1.4.4`, `gh 2.102.0`, `jq 1.7.1`):
   ```sh
   bash scripts/bootstrap-toolchains.sh
   bash scripts/build.sh agentsview kata
