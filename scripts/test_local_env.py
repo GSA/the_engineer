@@ -1344,6 +1344,103 @@ class LocalEnvironmentTests(unittest.TestCase):
                                                (18080,), readiness)
         self.assertEqual(readiness.call_count, 2)
 
+    def test_configure_provider_populates_usai_chat_models_and_excludes_embeddings(self):
+        local_env.json_write(
+            self.state / "usai-models.json",
+            {
+                "base_url": "https://usai.example.test/v1",
+                "fetched_at": "2026-04-16T00:00:00+00:00",
+                "models": [*local_env.USAI_CHAT_MODELS, "cohere_english_v3", "text-embedding-005"],
+            },
+            replace=True,
+        )
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5",
+            "openai-completions",
+        )
+        models = json.loads((self.state / "pi/models.json").read_text())
+        entries = models["providers"]["usai"]["models"]
+        ids = {entry["id"] for entry in entries}
+        for chat_model in local_env.USAI_CHAT_MODELS:
+            self.assertIn(chat_model, ids)
+        for embedding_model in local_env.USAI_EMBEDDING_MODELS:
+            self.assertNotIn(embedding_model, ids)
+        for entry in entries:
+            self.assertEqual(entry["compat"].get("supportsDeveloperRole"), False)
+
+    def test_configure_provider_supports_adversarial_coder_reviewer_pairings_and_rollback(self):
+        self.key()
+        for coder, reviewer, coder_family, reviewer_family in (
+            ("claude-opus-5", "gpt-6.1-sol-latest-guardrails-defaultv2", "claude", "openai"),
+            ("gpt-6.1-sol-latest-guardrails-defaultv2", "claude-opus-5", "openai", "claude"),
+        ):
+            with self.subTest(coder=coder, reviewer=reviewer):
+                local_env.configure_provider(
+                    "https://usai.example.test/v1",
+                    coder,
+                    "openai-completions",
+                    review_model=reviewer,
+                )
+                usai_cfg = json.loads((self.state / "usai.json").read_text())
+                self.assertEqual(usai_cfg, {"model": coder, "review_model": reviewer})
+                roborev_cfg = local_env.tomllib.loads((self.state / "roborev/config.toml").read_text())
+                self.assertEqual(roborev_cfg["default_model"], reviewer)
+                self.assertEqual(roborev_cfg["review_model"], reviewer)
+                local_env.validate_roborev_config()
+                coder_cmd, _ = local_env.pi_launch(["-p", "code"])
+                self.assertEqual(coder_cmd[1:5], ["--provider", "usai", "--model", coder])
+                reviewer_cmd, _ = local_env.pi_launch(["--model", reviewer, "-p", "--no-session"])
+                self.assertEqual(reviewer_cmd[1:5], ["--provider", "usai", "--model", reviewer])
+                self.assertEqual(reviewer_cmd[5:], ["-p", "--no-session"])
+                routing = local_env.model_routing()
+                self.assertEqual(
+                    routing,
+                    {
+                        "coder_model": coder,
+                        "coder_family": coder_family,
+                        "reviewer_model": reviewer,
+                        "reviewer_family": reviewer_family,
+                        "paired_adversarial": True,
+                    },
+                )
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5",
+            "openai-completions",
+        )
+        self.assertEqual(json.loads((self.state / "usai.json").read_text()), {"model": "claude-opus-5"})
+        roborev_cfg = local_env.tomllib.loads((self.state / "roborev/config.toml").read_text())
+        self.assertNotIn("default_model", roborev_cfg)
+        self.assertNotIn("review_model", roborev_cfg)
+        local_env.validate_roborev_config()
+        with self.assertRaisesRegex(RuntimeError, "saved USAi model"):
+            local_env.pi_launch(["--model", "gpt-6.1-sol-latest-guardrails-defaultv2"])
+
+    def test_configure_provider_rejects_same_family_or_invalid_review_models(self):
+        for coder, reviewer in (
+            ("claude-opus-5", "claude-sonnet-5.5"),
+            ("gpt-6.1-sol-latest-guardrails-defaultv2", "gpt-5.6-sol-latest-guardrails-defaultv2"),
+            ("claude-opus-5", "gemini-4-argon"),
+            ("claude-opus-5", "cohere_english_v3"),
+        ):
+            with self.subTest(coder=coder, reviewer=reviewer), self.assertRaises(RuntimeError):
+                local_env.configure_provider(
+                    "https://usai.example.test/v1",
+                    coder,
+                    "openai-completions",
+                    review_model=reviewer,
+                )
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5",
+            "openai-completions",
+            review_model="gpt-6.1-sol-latest-guardrails-defaultv2",
+        )
+        local_env.sync_roborev_review_model("gpt-5.6-sol-latest-guardrails-defaultv2")
+        with self.assertRaisesRegex(RuntimeError, "does not match"):
+            local_env.validate_roborev_config()
+
 
 if __name__ == "__main__":
     unittest.main()
