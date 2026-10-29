@@ -6,3 +6,7 @@ class ProviderError(ValueError):
         self.status = status
         self.reason = reason
         super().__init__(reason)
+
+
+class InvalidCodeRequest(ValueError):
+    """The owning contract rejected the request: caller input, not a gap."""

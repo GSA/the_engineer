@@ -13,6 +13,35 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+# Minimal shape of the owning request contract, so an incomplete query is a
+# caller error here instead of a provider round trip. The owning validator in
+# the bridge remains authoritative.
+CODE_FIELDS = (['contract','request_id','project_id','repository_id','selector','query'],['continuation'])
+CODE_SELECTORS = {'exact':['mode','snapshot_id','generation_id','freshness'],'current':['mode']}
+CODE_QUERIES = {'symbol':['kind','name','match'],'dependencies':['kind','symbol_id','direction','relationship_kinds'],
+                'path':['kind','path'],'source_range':['kind','path','start','end']}
+
+
+def validate_code_request(config, query):
+    if not isinstance(query,dict): raise ValueError('invalid code request')
+    exact_fields(query,*CODE_FIELDS)
+    if query['contract']!='knowitall.code-context/v1': raise ValueError('unexpected code contract')
+    identity(query['request_id'])
+    if query['project_id']!=config.knowitall.project_id or query['repository_id']!=config.knowitall.repository_id:
+        raise ValueError('code binding mismatch')
+    if 'continuation' in query: identity(query['continuation'])
+    selector=query['selector']
+    if not isinstance(selector,dict) or selector.get('mode') not in CODE_SELECTORS:
+        raise ValueError('invalid code selector')
+    exact_fields(selector,CODE_SELECTORS[selector['mode']])
+    if selector['mode']=='exact':
+        for field in ['snapshot_id','generation_id']: identity(selector[field])
+        if selector['freshness'] not in ('allow_historical','require_current'): raise ValueError('invalid code freshness')
+    scope=query['query']
+    if not isinstance(scope,dict) or scope.get('kind') not in CODE_QUERIES: raise ValueError('invalid code query')
+    exact_fields(scope,CODE_QUERIES[scope['kind']])
+
+
 def validate_collection(config, request):
     exact_fields(request, ['task', 'business', 'code'], ['run_ref'])
     parse_task(request['task'])
@@ -26,23 +55,23 @@ def validate_collection(config, request):
             exact_fields(item, ['locator' if name=='business' else 'request','required'])
             if type(item['required']) is not bool: raise ValueError('required must be boolean')
             if name=='business': identity(item['locator'])
-            else:
-                query=item['request']
-                if not isinstance(query,dict) or query.get('project_id')!=config.knowitall.project_id or query.get('repository_id')!=config.knowitall.repository_id:
-                    raise ValueError('code binding mismatch')
-                selector=query.get('selector')
-                if not isinstance(selector,dict) or selector.get('mode') not in ('exact','current'):
-                    raise ValueError('invalid code selector')
+            else: validate_code_request(config,item['request'])
 
 
-def incomplete_code(response):
-    return (response.get('status')!='ok' or bool(response.get('truncated')) or bool(response.get('continuation'))
-            or bool(response.get('ambiguities')) or bool(response.get('missing_evidence'))
+def page_scope(response):
+    """Incompleteness other than pagination, which a packet's chain covers."""
+    return (response.get('status')!='ok' or bool(response.get('ambiguities'))
+            or bool(response.get('missing_evidence'))
             or response.get('coverage',{}).get('relevant_scope')!='complete')
 
 
 def pin_selector(resolved):
     return dict(mode='exact', snapshot_id=resolved['snapshot_id'], generation_id=resolved['generation_id'], freshness='require_current')
+
+
+def page_shape(query):
+    """Identify the paged query: a page differs only by token and request id."""
+    return canonical_bytes({k:v for k,v in query.items() if k not in ('continuation','request_id')})
 
 
 class UnavailableClient:
@@ -99,13 +128,13 @@ async def collect_with_clients(config, request, librarian, knowitall):
         packet['providers']['knowitall']={'description':await asyncio.to_thread(knowitall.describe)}
     except ProviderError as error:
         code_error=error; packet['providers']['knowitall']={'description':None,'status':error.status}
-    pinned=None
+    pinned=None; pages={}
     for index,item in enumerate(request['code']):
         query=item['request']
-        held='continuation' in query
+        held=query.get('continuation')
         # A held page token is bound to the selector that issued it, so it is
         # replayed unchanged and its identity is compared after the response.
-        if query['selector']['mode']=='current' and pinned is not None and not held:
+        if query['selector']['mode']=='current' and pinned is not None and held is None:
             query['selector']=pin_selector(pinned)
         entry=dict(request=query,required=item['required'],response=None)
         try:
@@ -117,14 +146,36 @@ async def collect_with_clients(config, request, librarian, knowitall):
             if resolved is not None and query['selector']['mode']=='exact':
                 if any(resolved.get(field)!=query['selector'].get(field) for field in ('snapshot_id','generation_id')):
                     raise ProviderError('stale','exact code identity changed')
-            if held and resolved is not None and pinned is not None:
+            if held is not None and resolved is not None and pinned is not None:
                 if any(resolved.get(field)!=pinned.get(field) for field in ('snapshot_id','generation_id')):
                     raise ProviderError('stale','continuation page left the pinned code generation')
             if query['selector']['mode']=='current' and resolved is not None and pinned is None: pinned=copy.deepcopy(resolved)
             entry['response']=response
-            if incomplete_code(response): issue('knowitall',index,item['required'],ProviderError('partial','code scope incomplete'))
+            pages[index]=dict(held=held,issued=response.get('continuation'),resolved=resolved,shape=page_shape(query))
         except ProviderError as error: issue('knowitall',index,item['required'],error)
         packet['code'].append(entry)
+    # A single page is partial evidence: the whole requested scope is only
+    # present when this packet also holds the pages before and after it.
+    issuer={page['issued']:index for index,page in pages.items() if page['issued'] is not None}
+    consumer={page['held']:index for index,page in pages.items() if page['held'] is not None}
+
+    def walk(index, key, neighbours):
+        """Follow one page direction while tokens remain, same query and generation."""
+        seen=set()
+        while True:
+            page=pages[index]; token=page[key]
+            if token is None: return True
+            other=neighbours.get(token)
+            if other is None or other in seen: return False
+            if pages[other]['shape']!=page['shape'] or pages[other]['resolved']!=page['resolved']: return False
+            seen.add(index); index=other
+
+    for index,page in pages.items():
+        required=packet['code'][index]['required']
+        if not (walk(index,'held',issuer) and walk(index,'issued',consumer)):
+            issue('knowitall',index,required,ProviderError('partial','other pages of this code query are absent'))
+        elif page_scope(packet['code'][index]['response']):
+            issue('knowitall',index,required,ProviderError('partial','code scope incomplete'))
     packet['associations']=[dict(business=b,code=c,status='unasserted')
                             for b,entry in enumerate(packet['business']) if entry['response'] is not None
                             for c,other in enumerate(packet['code']) if other['response'] is not None]

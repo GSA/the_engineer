@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 from engineer_context.config import ConsumerConfig, LibrarianBinding, KnowitallBinding, Limits
 from engineer_context.collect import collect_with_clients
+from engineer_context.errors import InvalidCodeRequest
 from engineer_context.librarian import ProviderError
 from engineer_context.packet import validate_packet
 from test_context_config import TASK
@@ -34,11 +35,22 @@ class CodeClient:
         return result
 
 class PagingClient(CodeClient):
-    """Binds a page token to its selector, as the owning provider does."""
+    """Two real pages: a token is bound to the selector that issued it."""
     def query(self, req):
         held=req.get('continuation')
         if held is not None and held!=f"token:{req['selector']['mode']}": raise ProviderError('invalid','request rejected')
-        result=super().query(req); result['continuation']=f"token:{req['selector']['mode']}"; return result
+        result=super().query(req)
+        if held is None: result['continuation']=f"token:{req['selector']['mode']}"; result['truncated']=True
+        return result
+
+class RejectingClient(CodeClient):
+    """Stands in for the owning contract refusing a malformed request."""
+    def query(self, req): raise InvalidCodeRequest('code request rejected by the owning contract')
+
+class Unreachable(CodeClient):
+    """Proves the consumer refuses invalid scope without contacting a provider."""
+    def describe(self): raise AssertionError('provider contacted for an invalid request')
+    def query(self, req): raise AssertionError('provider contacted for an invalid request')
 
 class CollectTests(unittest.IsolatedAsyncioTestCase):
     async def test_collection_keeps_original_responses(self):
@@ -73,8 +85,45 @@ class CollectTests(unittest.IsolatedAsyncioTestCase):
         packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient())
         self.assertEqual(packet['code'][1]['request']['selector'],{'mode':'current'})
         self.assertIsNotNone(packet['code'][1]['response'])
-        self.assertEqual([issue for issue in packet['issues'] if issue['provider']=='knowitall'
-                          and issue['status'] not in ('partial','truncated')],[])
+        self.assertEqual(packet['readiness'],'ready')
+        self.assertEqual([issue for issue in packet['issues'] if issue['provider']=='knowitall'],[])
+
+    async def test_page_without_the_rest_of_its_chain_blocks(self):
+        req=collection_request(); req['code'][0]['request']['selector']={'mode':'current'}
+        req['code'][0]['request']['continuation']='token:current'
+        packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient())
+        self.assertEqual(packet['readiness'],'blocked')
+        self.assertIsNotNone(packet['code'][0]['response'])
+        self.assertEqual([issue['reason'] for issue in packet['issues'] if issue['provider']=='knowitall'],
+                         ['other pages of this code query are absent'])
+
+    async def test_outgoing_page_without_its_successor_blocks(self):
+        req=collection_request(); req['code'][0]['request']['selector']={'mode':'current'}
+        packet=await collect_with_clients(CONFIG,req,BusinessClient(),PagingClient())
+        self.assertEqual(packet['readiness'],'blocked')
+        self.assertEqual([issue['reason'] for issue in packet['issues'] if issue['provider']=='knowitall'],
+                         ['other pages of this code query are absent'])
+
+    async def test_rejected_request_is_caller_input_not_a_provider_gap(self):
+        for required in [True,False]:
+            req=collection_request(); req['code'][0]['required']=required
+            with self.assertRaises(InvalidCodeRequest):
+                await collect_with_clients(CONFIG,req,BusinessClient(),RejectingClient())
+
+    async def test_incomplete_code_request_is_refused_before_any_provider_call(self):
+        cases={'missing query':lambda q:q.pop('query'),'missing contract':lambda q:q.pop('contract'),
+               'wrong contract':lambda q:q.__setitem__('contract','other/v1'),
+               'missing request_id':lambda q:q.pop('request_id'),
+               'unknown field':lambda q:q.__setitem__('extra',1),
+               'exact without generation':lambda q:q['selector'].pop('generation_id'),
+               'query without kind':lambda q:q.__setitem__('query',{'name':'submit_order'}),
+               'empty continuation':lambda q:q.__setitem__('continuation','')}
+        for name,break_it in cases.items():
+            for required in [True,False]:
+                with self.subTest(case=name,required=required):
+                    req=collection_request(); req['code'][0]['required']=required; break_it(req['code'][0]['request'])
+                    with self.assertRaises(ValueError):
+                        await collect_with_clients(CONFIG,req,BusinessClient(),Unreachable())
 
     async def test_name_match_never_creates_assertion(self):
         packet=await collect_with_clients(CONFIG,collection_request(),BusinessClient(),CodeClient())

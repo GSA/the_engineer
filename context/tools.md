@@ -33,12 +33,25 @@ Because each exchange is a fresh process, the bridge passes the owning
 store path; a random per-process key would reject every page token the previous
 response issued, and the token only selects an offset inside a binding the
 holder can already query. A continuation token is bound to the whole selector
-that issued it, so revalidation replays a held page with its original selector
-and checks currency with a separate pinned probe instead of repinning the
-token. Collection pins the first `current` resolution onto later `current`
-queries, except a query that already carries a page token: that request is
-replayed unchanged and its resolved identity is compared with the pinned
-generation afterwards.
+that issued it, so collection and revalidation replay a paged request unchanged
+and verify generation identity separately: revalidation uses a pinned probe,
+and collection compares the resolved identity with the pinned generation after
+the response. Collection otherwise pins the first `current` resolution onto
+later `current` queries.
+
+A page is partial evidence by itself, so readiness requires the packet to hold
+the whole page chain for that query and generation: every carried token must
+match a page in the packet, and every issued token must have its successor
+there too. Missing neighbours are reported as absent pages rather than treated
+as a complete observation. Pagination therefore no longer blocks an individual
+page during revalidation, where the digest comparison already proves the page
+is unchanged.
+
+The consumer also checks a code request against the owning request shape
+(required fields, selector variant and query kind) before any provider
+exchange, and treats a contract rejection as caller input rather than a scoped
+provider gap, so an incomplete optional query can never be hidden inside a
+ready packet. The owning validator in the bridge remains authoritative.
 
 Actual-provider verification lives in `tests/integration/` and fails rather
 than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or

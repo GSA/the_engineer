@@ -7,7 +7,7 @@ import selectors
 import subprocess
 import time
 from .bridge import REASONS, canonical, check_response, published_store
-from .errors import ProviderError
+from .errors import InvalidCodeRequest, ProviderError
 
 BRIDGE = Path(__file__).with_name('bridge.py')
 
@@ -68,14 +68,19 @@ class KnowitallClient:
                     value = json.loads(output)
                     if not isinstance(value, dict): raise ValueError()
                     if status != 0 or value.get('error'):
-                        raise ProviderError('unavailable', REASONS.get(value.get('error'),
-                                                                       'Knowitall exchange failed'))
+                        reason = value.get('error')
+                        # A rejected request is a caller mistake, not a provider gap, so it
+                        # must not be recorded as a scoped availability observation.
+                        if reason == 'request-invalid': raise InvalidCodeRequest(REASONS[reason])
+                        raise ProviderError('unavailable', REASONS.get(reason, 'Knowitall exchange failed'))
                     canonical(value)
                     return value
                 finally:
                     if process.poll() is None:
                         process.kill(); process.wait()
         except ProviderError:
+            raise
+        except InvalidCodeRequest:
             raise
         except Exception:
             raise ProviderError('unavailable', 'Knowitall transport failed or exceeded budget') from None

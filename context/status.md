@@ -33,6 +33,17 @@
   tests, 51 distribution tests (4 expected skips), build, compile and whitespace
   checks pass. No probe child remains. Whole-branch review and PR delivery are
   the remaining steps; assertions/contributions stay unavailable upstream.
+- Whole-branch review rounds 346, 350, 356, 362, 363 and 364 are resolved. The
+  latest round added two evidence-honesty corrections: a required paged code
+  query is ready only when the packet holds the whole page chain for that query
+  and generation (a lone page reports its absent neighbours), and the consumer
+  checks a code request against the owning request shape before any exchange,
+  treating a contract rejection as caller input rather than a scoped provider
+  gap. Revalidation now replays any paged request unchanged with a separate
+  pinned currency probe. 52 consumer tests, 8 actual-provider integration tests,
+  116 local-environment tests, 51 distribution tests (4 expected skips), the Pi
+  runtime probe with `model_requests: 0`, build, compile and whitespace checks
+  pass; no probe child remains.
 - Provider prerequisites are Python >=3.12, Librarian MCP SDK 2.2.0, and the
   owning Knowitall 0.1.0 package. The uncommitted `.kata.toml` rename already
   present during planning is preserved separately until ownership is confirmed.

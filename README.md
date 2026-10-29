@@ -959,13 +959,19 @@ engineer-context revalidate --config binding.json --packet packet.json --task ta
 
 `collect` exits 0 only when every required business locator and code query
 returned evidence; it exits 2 when the packet is blocked and 1 on invalid input
-or I/O. `report` renders provenance, gaps and readiness; `--json` emits the
+or I/O. A code query that the owning contract would reject, such as one missing
+`query` or `selector`, is invalid caller input and exits 1 instead of becoming
+an optional availability gap. `report` renders provenance, gaps and readiness; `--json` emits the
 machine form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
 `revalidate` rechecks the whole qualified response and current
 required code identity against a sealed packet without changing it. A truncated
 code response's `continuation` token can be sent back in a later request to
-read the next page of the same generation; revalidating a packet that holds a
-token rechecks currency separately, so the held page keeps its own binding.
+read the next page of the same generation. A single page is only partial
+evidence, so a required paged query is ready only when the packet holds the
+whole chain of pages for that query and generation; a lone page is reported as
+blocked with the other pages absent. Revalidating a paged request replays it
+unchanged and rechecks currency with a separate pinned probe, so held page
+tokens keep their own binding.
 
 Packets preserve full provider responses, exact passages, locators, source
 hashes, line ranges, snapshot/generation identities, coverage and handling

@@ -2,7 +2,7 @@
 import asyncio
 import copy
 from contextlib import AsyncExitStack
-from .collect import UnavailableClient, incomplete_code, now, pin_selector
+from .collect import UnavailableClient, now, page_scope, pin_selector
 from .knowitall import KnowitallClient
 from .librarian import LibrarianClient, ProviderError
 from .packet import canonical_bytes, canonical_digest, validate_packet
@@ -53,11 +53,12 @@ async def revalidate_with_clients(config, packet, task, librarian, knowitall):
                     query=copy.deepcopy(entry['request'])
                     resolved=entry['response'].get('resolved')
                     if resolved is None: raise ProviderError('missing','historical code identity missing')
-                    if 'continuation' in query:
-                        # The owning provider binds a page token to the whole selector, so
-                        # repinning it here would invalidate an otherwise valid page.
-                        # Currency is checked separately against the same generation.
-                        probe=copy.deepcopy(query); probe.pop('continuation'); probe['selector']=pin_selector(resolved)
+                    if 'continuation' in query or entry['response'].get('continuation') is not None:
+                        # Page tokens are bound to the whole selector, both the one a
+                        # request carries and the one its response issues, so a paged
+                        # request is replayed unchanged and currency is checked
+                        # separately against the same generation.
+                        probe=copy.deepcopy(query); probe.pop('continuation',None); probe['selector']=pin_selector(resolved)
                         current=await asyncio.to_thread(knowitall.query,probe)
                         if current.get('status')=='stale' or canonical_digest(current.get('resolved'))!=canonical_digest(resolved):
                             raise ProviderError('stale','pinned code generation is no longer current')
@@ -66,7 +67,10 @@ async def revalidate_with_clients(config, packet, task, librarian, knowitall):
                     observed=await asyncio.to_thread(knowitall.query,query)
                     for field in ('contract','request_id','project_id','repository_id'):
                         if observed.get(field)!=query.get(field): raise ProviderError('invalid','code response identity mismatch')
-                    if incomplete_code(observed): raise ProviderError('partial','required code scope incomplete')
+                    # Pagination itself is not a gap here: the packet's page chain was
+                    # checked at collection, and the digest comparison below proves this
+                    # page is unchanged.
+                    if page_scope(observed): raise ProviderError('partial','required code scope incomplete')
                 if canonical_digest(observed)!=canonical_digest(entry['response']):
                     raise ProviderError('changed','qualified evidence or immutable identity changed')
                 check(provider,index,entry['required'])

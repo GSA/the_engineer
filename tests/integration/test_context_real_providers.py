@@ -98,6 +98,17 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(pages,1)
         return packet
 
+    async def page_chain(self,selector):
+        """Collect every page of one real paged query into a single packet."""
+        scope=[{'request':dict(self.wide,selector=selector),'required':True}]
+        while True:
+            packet=await collect(self.config,{'task':TASK.copy(),'business':[],'code':scope})
+            page=packet['code'][-1]['response']
+            self.assertEqual(page['status'],'ok')
+            if not page['truncated']: return packet
+            scope=[{'request':dict(entry['request']),'required':True} for entry in packet['code']]
+            scope.append({'request':dict(self.wide,selector=selector,continuation=page['continuation']),'required':True})
+
     async def test_real_held_page_follows_a_current_query_in_one_collection(self):
         first=await self.collect_code(dict(self.wide,selector={'mode':'current'}))
         token=first['code'][0]['response']['continuation']
@@ -111,20 +122,41 @@ class RealProviders(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(held['response']['status'],'ok')
         self.assertEqual(held['response']['resolved']['generation_id'],self.generation.generation_id)
 
-    async def test_real_final_page_revalidates_under_any_selector(self):
+    async def test_real_malformed_code_request_is_invalid_input(self):
+        # The owning contract rejects it, so it is caller input, never an
+        # optional availability gap that a ready packet could hide.
+        broken=dict(self.wide); broken.pop('query')
+        for required in [True,False]:
+            with self.subTest(required=required):
+                with self.assertRaises(ValueError):
+                    await collect(self.config,{'task':TASK.copy(),'business':[],
+                                               'code':[{'request':broken,'required':required}]})
+
+    async def test_real_complete_page_chain_is_ready(self):
+        packet=await self.page_chain({'mode':'current'})
+        self.assertEqual(packet['readiness'],'ready')
+        self.assertGreater(len(packet['code']),1)
+        self.assertTrue(all(entry['response']['status']=='ok' for entry in packet['code']))
+        result=await revalidate(self.config,packet,parse_task(TASK))
+        self.assertEqual(result['readiness'],'ready')
+
+    async def test_real_final_page_alone_is_blocked_but_revalidates(self):
         # A page token is bound to the selector that issued it, so revalidation
-        # must recheck currency without rebinding the held token.
+        # must recheck currency without rebinding the held token, and a packet
+        # holding only the last page stays honest about the pages it lacks.
         for selector in [{'mode':'current'},dict(self.wide['selector'],freshness='allow_historical')]:
             with self.subTest(mode=selector['mode'],freshness=selector.get('freshness')):
                 packet=await self.final_page(selector)
-                self.assertEqual(packet['readiness'],'ready')
+                self.assertEqual(packet['readiness'],'blocked')
+                self.assertIn('other pages of this code query are absent',
+                              [issue['reason'] for issue in packet['issues']])
+                self.assertTrue(packet['code'][0]['response']['evidence'])
                 self.assertIn('continuation',packet['code'][0]['request'])
                 result=await revalidate(self.config,packet,parse_task(TASK))
-                self.assertEqual(result['readiness'],'ready')
                 self.assertTrue(all(c['status']=='unchanged' for c in result['checks']))
 
-    async def test_real_newer_publication_blocks_a_held_final_page(self):
-        packet=await self.final_page({'mode':'current'})
+    async def test_real_newer_publication_blocks_a_held_page_chain(self):
+        packet=await self.page_chain({'mode':'current'})
         self.assertEqual(packet['readiness'],'ready')
         await asyncio.to_thread(self.publish_second_generation)
         result=await revalidate(self.config,packet,parse_task(TASK))
