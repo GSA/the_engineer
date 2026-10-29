@@ -31,6 +31,34 @@ PI_VERSION = "1.4.0"
 PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
 PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
+USAI_EMBEDDING_MODELS = frozenset({"cohere_english_v3", "text-embedding-005"})
+USAI_CHAT_MODELS = (
+    "claude-haiku-5.5",
+    "claude-opus-5",
+    "claude-opus-5.5",
+    "claude-sonnet-5",
+    "claude-sonnet-5.5",
+    "claude_4_5_haiku",
+    "claude_4_5_sonnet",
+    "claude_4_6_sonnet",
+    "claude_4_7_opus",
+    "claude_4_8_opus",
+    "gemini-3-7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-4-argon",
+    "gpt-5.6-luna",
+    "gpt-5.6-sol-latest-guardrails-defaultv2",
+    "gpt-5.6-terra",
+    "gpt-6-astra",
+    "gpt-6-luna",
+    "gpt-6-sol-latest-guardrails-defaultv2",
+    "gpt-6.1-sol-latest-guardrails-defaultv2",
+    "gpt_5_2_default_v2",
+    "gpt_5_4_default_v2",
+    "gpt_5_5_default_v2",
+    "llama_4_maverick",
+)
 PI_SUBAGENT_DESCRIPTIONS = {
     "delegate": (
         'Project-context-inheriting delegation subagent (USAi: omit model or pass model:"inherit" '
@@ -495,18 +523,113 @@ def list_models(base_url):
     return ids
 
 
-def configure_provider(base_url, model, api):
+def normalize_usai_model(model):
+    if not isinstance(model, str):
+        raise RuntimeError("supply the exact nonempty USAi model alias without whitespace")
+    cleaned = model.strip()
+    if cleaned.startswith("usai/"):
+        cleaned = cleaned[len("usai/"):]
+    if not cleaned or any(character.isspace() for character in cleaned) or "/" in cleaned:
+        raise RuntimeError("supply the exact nonempty USAi model alias without whitespace")
+    if cleaned in USAI_EMBEDDING_MODELS:
+        raise RuntimeError(f"USAi embedding model cannot be used as an agent or reviewer model: {cleaned}")
+    return cleaned
+
+
+def usai_model_family(model):
+    cleaned = normalize_usai_model(model)
+    if cleaned.startswith(("claude-", "claude_")):
+        return "claude"
+    if cleaned.startswith(("gpt-", "gpt_")):
+        return "openai"
+    if cleaned.startswith("gemini-"):
+        return "gemini"
+    if cleaned.startswith("llama_"):
+        return "llama"
+    return None
+
+
+def validate_paired_models(coder_model, review_model):
+    coder = normalize_usai_model(coder_model)
+    reviewer = normalize_usai_model(review_model)
+    coder_family = usai_model_family(coder)
+    reviewer_family = usai_model_family(reviewer)
+    if {coder_family, reviewer_family} != {"claude", "openai"}:
+        raise RuntimeError("paired coder and reviewer models must be opposite Claude and OpenAI families")
+    catalog_path = STATE / "usai-models.json"
+    if catalog_path.exists():
+        catalog = json.loads(private_read(catalog_path))
+        advertised = set(catalog.get("models", []))
+        if advertised and (coder not in advertised or reviewer not in advertised):
+            raise RuntimeError("paired coder and reviewer models must be present in advertised usai-models.json")
+    return coder, reviewer
+
+
+def discovered_usai_chat_models():
+    models = list(USAI_CHAT_MODELS)
+    catalog_path = STATE / "usai-models.json"
+    if catalog_path.exists():
+        catalog = json.loads(private_read(catalog_path))
+        for model_id in catalog.get("models", []):
+            if isinstance(model_id, str):
+                cleaned = model_id.strip()
+                if cleaned and cleaned not in USAI_EMBEDDING_MODELS and cleaned not in models:
+                    models.append(cleaned)
+    return tuple(models)
+
+
+def sync_roborev_review_model(review_model):
+    roborev_path = STATE / "roborev/config.toml"
+    if not roborev_path.exists():
+        return
+    raw = private_read(roborev_path)
+    tomllib.loads(raw)
+    lines = raw.splitlines()
+    top_lines = []
+    section_lines = []
+    in_section = False
+    for line in lines:
+        stripped = line.strip()
+        if not in_section and stripped.startswith("[") and stripped.endswith("]"):
+            in_section = True
+        if in_section:
+            section_lines.append(line)
+            continue
+        key = stripped.split("=", 1)[0].strip() if "=" in stripped else ""
+        if key in ("default_model", "review_model"):
+            continue
+        top_lines.append(line)
+    if review_model is not None:
+        top_lines.append(f"default_model = {json.dumps(review_model)}")
+        top_lines.append(f"review_model = {json.dumps(review_model)}")
+    rendered = "\n".join([*top_lines, *section_lines]) + "\n"
+    tomllib.loads(rendered)
+    private_write(roborev_path, rendered, replace=True)
+
+
+def configure_provider(base_url, model, api, *, review_model=None):
     settings()
     base_url = validate_base_url(base_url)
-    if not model.strip() or any(character.isspace() for character in model):
-        raise RuntimeError("supply the exact nonempty USAi model alias without whitespace")
+    model = normalize_usai_model(model)
+    if review_model is not None:
+        model, review_model = validate_paired_models(model, review_model)
     path = STATE / "pi/models.json"
     models = json.loads(private_read(path)) if path.exists() else {}
     providers = models.setdefault("providers", {})
     provider = providers.setdefault("usai", {})
     provider.update({"baseUrl": base_url, "api": api, "apiKey": "${USAI_API_KEY}"})
-    entries = provider.setdefault("models", [])
-    for required_model in (model, "gemini-4-argon"):
+    entries = [
+        entry for entry in provider.setdefault("models", [])
+        if not (isinstance(entry, dict) and entry.get("id") in USAI_EMBEDDING_MODELS)
+    ]
+    provider["models"] = entries
+    required_models = [model]
+    if review_model is not None and review_model not in required_models:
+        required_models.append(review_model)
+    for catalog_model in discovered_usai_chat_models():
+        if catalog_model not in required_models:
+            required_models.append(catalog_model)
+    for required_model in required_models:
         if not any(entry.get("id") == required_model for entry in entries):
             entries.append({"id": required_model, "compat": {"supportsDeveloperRole": False}})
     for entry in entries:
@@ -519,7 +642,11 @@ def configure_provider(base_url, model, api):
     pi_settings.update({"defaultProvider": "usai", "defaultModel": model})
     pi_settings["subagents"] = merge_pi_subagents_settings(pi_settings.get("subagents"))
     json_write(settings_path, pi_settings, replace=True)
-    json_write(STATE / "usai.json", {"model": model}, replace=True)
+    usai_state = {"model": model}
+    if review_model is not None:
+        usai_state["review_model"] = review_model
+    json_write(STATE / "usai.json", usai_state, replace=True)
+    sync_roborev_review_model(review_model)
     print("USAi provider configured without storing a key in model settings. No model call was made.")
 
 
@@ -534,12 +661,59 @@ def pi_launch(args):
             env[forge_var] = value
     if args and (args[0] == "mcp" or args == ["--version"] or args == ["--help"]):
         return [executable, *args], env
-    for arg in args:
-        if any(arg == flag or arg.startswith(flag + "=")
-               for flag in ("--api-key", "--provider", "--model")):
+    requested_model = None
+    cleaned_args = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == "--api-key" or arg.startswith("--api-key="):
             raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+        if arg == "--provider":
+            if index + 1 >= len(args) or args[index + 1] != "usai":
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            index += 2
+            continue
+        if arg.startswith("--provider="):
+            if arg.split("=", 1)[1] != "usai":
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            index += 1
+            continue
+        if arg == "--model":
+            if index + 1 >= len(args):
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            candidate = args[index + 1].strip()
+            if candidate.startswith("usai/"):
+                candidate = candidate[len("usai/"):]
+            if not candidate:
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            requested_model = candidate
+            index += 2
+            continue
+        if arg.startswith("--model="):
+            candidate = arg.split("=", 1)[1].strip()
+            if candidate.startswith("usai/"):
+                candidate = candidate[len("usai/"):]
+            if not candidate:
+                raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+            requested_model = candidate
+            index += 1
+            continue
+        cleaned_args.append(arg)
+        index += 1
+    if requested_model is not None and not (STATE / "usai.json").exists():
+        raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
     try:
-        model = json.loads(private_read(STATE / "usai.json"))["model"]
+        usai_cfg = json.loads(private_read(STATE / "usai.json"))
+        default_model = usai_cfg["model"]
+        review_model = usai_cfg.get("review_model")
+        if review_model is not None:
+            validate_paired_models(default_model, review_model)
+        allowed_models = {default_model}
+        if review_model is not None:
+            allowed_models.add(review_model)
+        if requested_model is not None and requested_model not in allowed_models:
+            raise RuntimeError("the local agent uses the saved USAi model; configure-provider to change it")
+        model = requested_model or default_model
         models = json.loads(private_read(STATE / "pi/models.json"))
         provider = models.get("providers", {}).get("usai", {})
         if not any(entry.get("id") == model for entry in provider.get("models", [])):
@@ -551,7 +725,7 @@ def pi_launch(args):
     except FileNotFoundError as error:
         raise RuntimeError("USAi is not ready: run configure-provider and set-key; no provider fallback") from error
     env["USAI_API_KEY"] = key
-    return [executable, "--provider", "usai", "--model", model, *args], env
+    return [executable, "--provider", "usai", "--model", model, *cleaned_args], env
 
 
 def install_pi_extensions():
@@ -937,6 +1111,23 @@ def validate_roborev_config():
     if (config.get("server_addr") != "127.0.0.1:17373"
             or config.get("web", {}).get("listen") != "127.0.0.1:17374"):
         raise RuntimeError("roborev must retain the documented loopback API and UI ports")
+    usai_path = STATE / "usai.json"
+    if usai_path.exists():
+        usai_cfg = json.loads(private_read(usai_path))
+        coder_model = usai_cfg.get("model")
+        review_model = usai_cfg.get("review_model")
+        configured_review = config.get("review_model") or config.get("default_model")
+        if review_model is not None:
+            validate_paired_models(coder_model, review_model)
+            if (config.get("review_model") != review_model
+                    or config.get("default_model") != review_model):
+                raise RuntimeError(
+                    "roborev review_model/default_model does not match the configured USAi review_model"
+                )
+        elif configured_review is not None:
+            raise RuntimeError(
+                "roborev defines review_model/default_model without a paired USAi review_model in usai.json"
+            )
 
 
 def node_environment(node_executable, *, roborev_executable=None):
@@ -1207,6 +1398,24 @@ def supervised_ports(external_services):
     return tuple(port for port in PORTS if port not in external_ports)
 
 
+def model_routing():
+    usai_path = STATE / "usai.json"
+    if not usai_path.exists():
+        return None
+    usai_cfg = json.loads(private_read(usai_path))
+    coder_model = usai_cfg.get("model")
+    review_model = usai_cfg.get("review_model") or coder_model
+    coder_family = usai_model_family(coder_model) if coder_model else None
+    reviewer_family = usai_model_family(review_model) if review_model else None
+    return {
+        "coder_model": coder_model,
+        "coder_family": coder_family,
+        "reviewer_model": review_model,
+        "reviewer_family": reviewer_family,
+        "paired_adversarial": {coder_family, reviewer_family} == {"claude", "openai"},
+    }
+
+
 def status():
     settings()
     external = managed_services()
@@ -1221,6 +1430,7 @@ def status():
             "forge_service": external.get("forge"),
             "forge": forge,
             "kata_service": external.get("kata"),
+            "model_routing": model_routing(),
             "projects": api("GET", "/projects") if forge else None}
 
 
@@ -1392,6 +1602,7 @@ def main():
     provider = commands.add_parser("configure-provider", help="set non-secret USAi connection details")
     provider.add_argument("--base-url", required=True)
     provider.add_argument("--model", required=True)
+    provider.add_argument("--review-model", help="optional opposite-family USAi model for roborev reviews")
     provider.add_argument("--api", required=True,
                           choices=("openai-completions", "openai-responses", "anthropic-messages"))
     register = commands.add_parser("register", help="register an existing local Git project without editing it")
@@ -1429,7 +1640,7 @@ def main():
         elif args.command == "install-kata-service":
             install_kata_service()
         elif args.command == "configure-provider":
-            configure_provider(args.base_url, args.model, args.api)
+            configure_provider(args.base_url, args.model, args.api, review_model=args.review_model)
         elif args.command == "list-models":
             list_models(args.base_url)
         elif args.command == "register":
