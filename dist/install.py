@@ -228,7 +228,8 @@ def _write_native_kata_config(path, contents, mode):
             os.unlink(temporary)
 
 
-def provision_native_kata_client(checkout, home=None, url=KATA_DAEMON_URL):
+def provision_native_kata_client(checkout, home=None, url=None):
+    url = KATA_DAEMON_URL if url is None else url
     checkout = Path(checkout).resolve()
     home = Path(home or Path.home()).expanduser().resolve()
     binary = checkout / "kata/kata"
