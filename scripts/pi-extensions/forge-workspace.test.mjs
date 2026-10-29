@@ -10,6 +10,7 @@ let hookKeys;
 let runtimeSessions;
 let reportedSessions;
 const saved = { ...process.env };
+const savedArgv = [...process.argv];
 
 beforeEach(() => {
     hookKeys = [];
@@ -43,6 +44,7 @@ afterEach(() => {
     server.stop(true);
     rmSync(cwd, { recursive: true, force: true });
     process.env = { ...saved };
+    process.argv = [...savedArgv];
 });
 
 async function fireToolStart() {
@@ -68,4 +70,29 @@ test("ambiguous live pi sessions are not guessed", async () => {
     ];
     await fireToolStart();
     expect(hookKeys).toEqual([]);
+});
+
+const siblings = [
+    { key: "pi-key", target_key: "pi", kind: "agent", status: "running" },
+    { key: "argon-key", target_key: "pi-argon", kind: "agent", status: "running" },
+];
+
+test("pi-argon alongside pi resolves its own key", async () => {
+    process.argv = [...savedArgv.slice(0, 2), "--model", "gemini-4-argon"];
+    runtimeSessions = siblings;
+    await fireToolStart();
+    expect(hookKeys).toEqual(["argon-key"]);
+});
+
+test("pi-argon alone resolves its key and pi alongside argon keeps its own", async () => {
+    process.argv = [...savedArgv.slice(0, 2), "--model=gemini-4-argon"];
+    runtimeSessions = [siblings[1]];
+    await fireToolStart();
+    expect(hookKeys).toEqual(["argon-key"]);
+
+    hookKeys = [];
+    process.argv = [...savedArgv.slice(0, 2)];
+    runtimeSessions = siblings;
+    await fireToolStart();
+    expect(hookKeys).toEqual(["pi-key"]);
 });

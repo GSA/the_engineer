@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const RUNTIME_KEY_LOOKUP_COOLDOWN_MS = 5000;
+// Forge launches pi-argon as pi-local.py --model gemini-4-argon; the launch
+// arguments are the only per-session signal when the env key is missing.
+const PI_ARGON_MODEL = "gemini-4-argon";
 const FORGE_HOOK_SOURCE = "kenn-forge-agent-activity";
 const FORGE_HOOK_TIMEOUT_MS = 1500;
 const GEMINI_SUMMARY_MODEL = process.env.KENN_FORGE_PR_SUMMARY_MODEL?.trim() || "gemini-4-argon";
@@ -56,6 +59,17 @@ const FINISHING_BRANCH_OVERRIDE = [
 
 function isSubagentProcess(): boolean {
 	return Boolean(process.env.PI_SUBAGENT_EXTENSION_BINDINGS?.trim());
+}
+
+function ownForgeTargetKey(): string {
+	const args = process.argv.slice(2);
+	for (let i = 0; i < args.length; i++) {
+		const model = args[i] === "--model" ? args[i + 1] : args[i].startsWith("--model=") ? args[i].slice(8) : undefined;
+		if (model !== undefined) {
+			return model.trim() === PI_ARGON_MODEL ? "pi-argon" : "pi";
+		}
+	}
+	return "pi";
 }
 
 function forgeApiBaseUrl(): string {
@@ -247,16 +261,17 @@ export default function forgeWorkspaceExtension(pi: any): void {
 				typeof item?.key === "string" &&
 				item.key.trim(),
 		);
-		const livePi = live.filter((item: any) => item?.target_key === "pi");
+		const targetKey = ownForgeTargetKey();
+		const liveOwn = live.filter((item: any) => item?.target_key === targetKey);
 		// Only trust an unambiguous match so a sibling agent's key is never adopted.
-		if (livePi.length === 1) {
-			resolvedRuntimeKey = livePi[0].key.trim();
+		if (liveOwn.length === 1) {
+			resolvedRuntimeKey = liveOwn[0].key.trim();
 			return resolvedRuntimeKey;
 		}
-		if (livePi.length === 0) {
+		if (liveOwn.length === 0) {
 			const reported = await fetchJson("/agent-sessions");
 			const sessions = (Array.isArray(reported?.sessions) ? reported.sessions : []).filter(
-				(item: any) => item?.target_key === "pi" && typeof item?.runtime_session_key === "string",
+				(item: any) => item?.target_key === targetKey && typeof item?.runtime_session_key === "string",
 			);
 			const active = sessions.find((item: any) => item?.state !== "done") || sessions[0];
 			if (active?.runtime_session_key?.trim()) {

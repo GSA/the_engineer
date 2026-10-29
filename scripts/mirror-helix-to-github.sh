@@ -398,6 +398,12 @@ for spec in "${REPO_ARGS[@]}"; do
             repo_failed "refreshing retained clone from source failed"
             continue
         fi
+        # remote update does not move a mirror's symbolic HEAD, so follow the
+        # source's current default branch explicitly.
+        src_head="$(git ls-remote --symref "$src_url" HEAD 2>>"$repo_log" | awk '/^ref:/ {print $2; exit}')"
+        if [ -n "$src_head" ]; then
+            git --git-dir="$mirror_dir" symbolic-ref HEAD "$src_head" >>"$repo_log" 2>&1 || true
+        fi
     else
         log "    cloning $src_url"
         if ! git clone --mirror "$src_url" "$mirror_dir" >>"$repo_log" 2>&1; then
