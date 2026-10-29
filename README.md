@@ -44,9 +44,7 @@ bash scripts/build.sh roborev kata agentsview forge-local-kata
 python3 scripts/local_env.py setup --corpus ~/falcon-docs \
   --forge-binary .local/forge-local-kata/kenn-forge
 python3 scripts/local_env.py install-pi-extensions
-python3 scripts/local_env.py configure-tracking --copilot-dir ~/.copilot \
-  --pi-dir ~/.pi/agent/sessions --pi-dir "$PWD/.local/environment/pi/sessions" \
-  --archive-content transcripts
+python3 scripts/local_env.py configure-private-pi-tracking
 
 # 3. Add the USAi key and load models. See the USAi sections below.
 python3 scripts/local_env.py set-key
@@ -62,15 +60,24 @@ for s in kata roborev agentsview forge; do python3 scripts/local_env.py install-
 ./scripts/gh-local.py auth login --hostname github.com --web --git-protocol https --insecure-storage
 systemctl --user restart kenn-kopy-forge.service
 
-# 6. Register repos with Forge and install roborev Git hooks.
+# 6. Expose the native roborev and Kata CLIs. ~/.roborev routes roborev to this install.
+ln -s "$PWD/roborev/bin/roborev" "$PWD/kata/kata" ~/.local/bin/
+ln -s "$PWD/.local/environment/roborev" ~/.roborev
+export PATH="$HOME/.local/bin:$PATH" KATA_SERVER="${KATA_SERVER:-http://127.0.0.1:17777}"
+
+# 7. Register repos with Forge and install roborev Git hooks.
 for repo in ~/kenn-kopy ~/the_librarian ~/the_knowitall; do
   python3 scripts/local_env.py register "$repo"
   roborev init --no-daemon --repo "$repo"
 done
 
-# 7. Check the stack.
+# 8. Check the stack.
 python3 scripts/local_env.py status
 ```
+
+Add the step 6 `export` to `~/.bashrc`. Step 2 tracks only Pi sessions in this
+install. To also track Copilot and other Pi transcripts, run `configure-tracking`
+after AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
 
 If the host has no systemd user services, run `python3 scripts/local_env.py run`
 in the foreground and use `python3 scripts/local_env.py stop` to stop it.
