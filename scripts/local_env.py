@@ -32,6 +32,7 @@ PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
 PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
 USAI_EMBEDDING_MODELS = frozenset({"cohere_english_v3", "text-embedding-005"})
+ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
 USAI_CHAT_MODELS = (
     "claude-haiku-5.5",
     "claude-opus-5",
@@ -332,7 +333,9 @@ def setup(corpus, forge_binary):
         '[tmux]\ncommand = ["tmux", "-L", "kenn-kopy-local"]\n'
         f'[mcp]\nenabled = true\nhost = "127.0.0.1"\nport = {FORGE_MCP_PORT}\n'
         '[[agents]]\nkey = "pi"\nlabel = "Pi (USAi)"\nenabled = true\n'
-        f'command = [{json.dumps(str(wrapper))}]\n' + disabled,
+        f'command = [{json.dumps(str(wrapper))}]\n'
+        '[[agents]]\nkey = "pi-argon"\nlabel = "Pi (Gemini 4 Argon)"\nenabled = true\n'
+        f'command = [{json.dumps(str(wrapper))}, "--model", "gemini-4-argon"]\n' + disabled,
     )
     private_write(
         STATE / "roborev/config.toml",
@@ -554,8 +557,12 @@ def validate_paired_models(coder_model, review_model):
     reviewer = normalize_usai_model(review_model)
     coder_family = usai_model_family(coder)
     reviewer_family = usai_model_family(reviewer)
-    if {coder_family, reviewer_family} != {"claude", "openai"}:
-        raise RuntimeError("paired coder and reviewer models must be opposite Claude and OpenAI families")
+    if (coder_family not in ADVERSARIAL_MODEL_FAMILIES
+            or reviewer_family not in ADVERSARIAL_MODEL_FAMILIES
+            or coder_family == reviewer_family):
+        raise RuntimeError(
+            "paired coder and reviewer models must be distinct Claude, OpenAI, or Gemini families"
+        )
     catalog_path = STATE / "usai-models.json"
     if catalog_path.exists():
         catalog = json.loads(private_read(catalog_path))
@@ -708,7 +715,7 @@ def pi_launch(args):
         review_model = usai_cfg.get("review_model")
         if review_model is not None:
             validate_paired_models(default_model, review_model)
-        allowed_models = {default_model}
+        allowed_models = {default_model, "gemini-4-argon"}
         if review_model is not None:
             allowed_models.add(review_model)
         if requested_model is not None and requested_model not in allowed_models:
@@ -725,6 +732,10 @@ def pi_launch(args):
     except FileNotFoundError as error:
         raise RuntimeError("USAi is not ready: run configure-provider and set-key; no provider fallback") from error
     env["USAI_API_KEY"] = key
+    if "--json-schema" in cleaned_args:
+        for flag in ("--no-mcp", "--no-skills"):
+            if flag not in cleaned_args:
+                cleaned_args.insert(0, flag)
     return [executable, "--provider", "usai", "--model", model, *cleaned_args], env
 
 
@@ -1412,7 +1423,11 @@ def model_routing():
         "coder_family": coder_family,
         "reviewer_model": review_model,
         "reviewer_family": reviewer_family,
-        "paired_adversarial": {coder_family, reviewer_family} == {"claude", "openai"},
+        "paired_adversarial": bool(
+            coder_family in ADVERSARIAL_MODEL_FAMILIES
+            and reviewer_family in ADVERSARIAL_MODEL_FAMILIES
+            and coder_family != reviewer_family
+        ),
     }
 
 

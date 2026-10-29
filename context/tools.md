@@ -7,7 +7,7 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 | Service | Loopback endpoint | Systemd unit | Persistent data under `.local/environment/` |
 | --- | --- | --- | --- |
 | Kata (`v0.20.0-37-g14844737`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
-| roborev (`v0.73.0`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
+| roborev (`v0.74.0-23-gd53ecfca`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
 | AgentsView (`v0.46.1-84-gc7f77ad0`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
 | Forge | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
@@ -50,7 +50,8 @@ into `.local/environment/pi/models.json` (excluding embedding models
 adversarial pairing via `--review-model`:
 
 - `defaultProvider`: `"usai"`
-- Coder default (`usai.json.model` / `pi/settings.json.defaultModel`): `"claude-opus-5"`
+- Coder default (`usai.json.model` / `pi/settings.json.defaultModel`): `"claude-opus-5.5"`
+- Alternate Forge coder launch target (`forge/config.toml` `key = "pi-argon"`): `"gemini-4-argon"` (`Pi (Gemini 4 Argon)`)
 - Reviewer default (`usai.json.review_model` / `roborev/config.toml`): `"gpt-6.1-sol-latest-guardrails-defaultv2"`
 - Subagent `defaultModel`: `"inherit"`
 - `modelScope.allow`: `["inherit", "usai/*"]`

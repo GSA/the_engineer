@@ -4,7 +4,7 @@
 
 - All four user systemd units are running on loopback:
   - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.20.0-37-g14844737`, schema 34, API `0.34.0`)
-  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.73.0`)
+  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.74.0-23-gd53ecfca`)
   - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.46.1-84-gc7f77ad0`)
   - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.3.0-136-gd6b14b9f-local-kata`)
 - Registered Forge repositories and projects (`Engineer`, `Librarian`,
@@ -14,12 +14,14 @@
   (`the_engineer`, `the_librarian`, `the_knowitall`, `spud`).
 - Active USAi paired coder/reviewer models in `.local/environment/usai.json`,
   `.local/environment/pi/settings.json`, and `.local/environment/roborev/config.toml`:
-  coder = `claude-opus-5`, reviewer = `gpt-6.1-sol-latest-guardrails-defaultv2`
-  (`https://api.gsa.usai.gov/api/v1`, `openai-completions`), with all 25 advertised
-  USAi chat models synced into `.local/environment/pi/models.json` (excluding
-  `cohere_english_v3` and `text-embedding-005`), `gemini-4-argon` configured for
-  concise PR body summarization in `forge-workspace.ts`, and
-  `compat.supportsDeveloperRole = false` across all USAi model definitions.
+  coder = `claude-opus-5.5` (with `pi-argon` / `gemini-4-argon` also enabled as a
+  first-class Forge workspace agent target), reviewer =
+  `gpt-6.1-sol-latest-guardrails-defaultv2` (`https://api.gsa.usai.gov/api/v1`,
+  `openai-completions`), with all 25 advertised USAi chat models synced into
+  `.local/environment/pi/models.json` (excluding `cohere_english_v3` and
+  `text-embedding-005`), `gemini-4-argon` configured for concise PR body
+  summarization in `forge-workspace.ts`, and `compat.supportsDeveloperRole = false`
+  across all USAi model definitions.
 
 ## Recent completed milestones
 
@@ -29,12 +31,14 @@
     `scripts/local_env.py:configure_provider()` to populate all 25 USAi chat
     models into `.local/environment/pi/models.json` while excluding embedding
     models (`cohere_english_v3`, `text-embedding-005`).
-  - Added `--review-model` to `configure-provider`, opposite-family (`claude` <->
-    `openai`) validation in `validate_paired_models()` and
+  - Added `--review-model` to `configure-provider`, opposite-family (`claude` /
+    `openai` / `gemini`) validation in `validate_paired_models()` and
     `validate_roborev_config()`, `roborev/config.toml` `default_model` /
     `review_model` synchronization, `pi_launch()` support for the configured
-    `review_model`, and `model_routing` reporting in `local_env.py status`.
-  - Configured live environment with `claude-opus-5` on Forge coders and
+    `review_model` and `gemini-4-argon`, and `model_routing` reporting in
+    `local_env.py status`.
+  - Configured live environment with `claude-opus-5.5` on default Forge coders,
+    `pi-argon` (`gemini-4-argon`) as an enabled alternate Forge coder target, and
     `gpt-6.1-sol-latest-guardrails-defaultv2` on Roborev reviewers, and simplified
     the over-engineered snapshot acquisition/materialization code in
     `the_knowitall` (`src/knowitall_snapshot/acquire.py` and `materialize.py`,
