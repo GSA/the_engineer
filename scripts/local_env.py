@@ -444,8 +444,15 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     seed_isolated_gitconfig(STATE / "home")
     verify_pi(config)
     config_path = STATE / "environment.json"
-    if config_path.exists() and json.loads(private_read(config_path)) != config:
-        raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
+    if config_path.exists():
+        saved = json.loads(private_read(config_path))
+        # verify_pi() proved the saved executable now runs PI_VERSION, so an
+        # older recorded pi_version is the only difference setup migrates.
+        if dict(saved, pi_version=PI_VERSION) != config:
+            raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
+        if saved != config:
+            print(f"Migrating saved pi_version {saved.get('pi_version')!r} -> {PI_VERSION}")
+            json_write(config_path, config, replace=True)
     json_write(config_path, config)
     wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
     disabled = "".join(f'\n[[agents]]\nkey = "{key}"\nenabled = false\n'

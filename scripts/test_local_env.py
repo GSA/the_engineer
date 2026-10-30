@@ -298,6 +298,32 @@ class LocalEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "differs"):
             local_env.setup(self.corpus, other)
 
+    def test_setup_migrates_only_stale_saved_pi_version(self):
+        path = self.state / "environment.json"
+        saved = json.loads(path.read_text())
+        local_env.private_write(path, json.dumps(dict(saved, pi_version="1.0.3")), replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads(path.read_text()), saved)
+
+    def test_setup_rejects_stale_pi_version_with_other_differences(self):
+        path = self.state / "environment.json"
+        stale = dict(json.loads(path.read_text()), pi_version="1.0.3",
+                     pi_executable="/old/pi")
+        local_env.private_write(path, json.dumps(stale), replace=True)
+        with self.assertRaisesRegex(RuntimeError, "differs"):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads(path.read_text()), stale)
+
+    def test_setup_does_not_migrate_version_when_pi_check_fails(self):
+        path = self.state / "environment.json"
+        stale = dict(json.loads(path.read_text()), pi_version="1.0.3")
+        local_env.private_write(path, json.dumps(stale), replace=True)
+        with patch.object(local_env, "verify_pi", side_effect=RuntimeError("expected Pi")), \
+                self.assertRaisesRegex(RuntimeError, "expected Pi"):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads(path.read_text()), stale)
+
     def test_default_offset_keeps_existing_ports_and_saved_settings(self):
         self.assertNotIn("port_offset", json.loads((self.state / "environment.json").read_text()))
         self.assertIn("port = 18091\n", (self.state / "forge/config.toml").read_text())

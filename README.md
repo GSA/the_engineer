@@ -206,7 +206,7 @@ different root.
 
 | File | Purpose |
 | --- | --- |
-| `environment.json` | Corpus path, Forge binary, Pi executable and version, and any `port_offset`, written by `setup` |
+| `environment.json` | Corpus path, Forge binary, Pi executable and version, and any `port_offset`, written by `setup`; rerunning `setup` after upgrading the saved Pi executable in place updates only an older `pi_version` |
 | `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
 | `usai.json` | Active coder `model` and `review_model` |
 | `usai-models.json` | Last model catalog fetched from USAi |
