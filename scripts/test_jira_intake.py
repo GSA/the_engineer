@@ -174,6 +174,23 @@ class IntakeFlowTests(unittest.TestCase):
         self.assertIn("T2: A1 is not an approved refinement", err)
         self.assertIn("T1: missing approved_by", err)
 
+    def test_check_rejects_scalar_acceptance(self):
+        bad = APPROVED_TASKS.replace(
+            'acceptance = ["Flag is true for retired widgets."]',
+            'acceptance = "Flag is true for retired widgets."',
+        )
+        path = self.write_tasks(self.init(), bad)
+        code, _, err = run_main("record", str(path), "--apply")
+        self.assertEqual(code, 1)
+        self.assertIn("T1: acceptance must be a nonempty list", err)
+
+    def test_check_reports_missing_task_id(self):
+        bad = APPROVED_TASKS.replace('id = "T1"\n', "", 1).replace('depends_on = ["T1"]', "")
+        path = self.write_tasks(self.init(), bad)
+        code, _, err = run_main("check", str(path))
+        self.assertEqual(code, 1)
+        self.assertIn("every task needs a nonempty string id", err)
+
     def test_check_rejects_dependency_cycle(self):
         cyclic = APPROVED_TASKS.replace(
             'outcome = "API reports', 'depends_on = ["T2"]\noutcome = "API reports'
@@ -203,6 +220,8 @@ class IntakeFlowTests(unittest.TestCase):
         self.assertIn("--idempotency-key jira-DEMO-7-T2", out)
         self.assertIn("--blocked-by '<T1>'", out)
         self.assertFalse((path.parent / "recorded.json").exists())
+        self.assertNotIn("Replacement widget is retired", out)
+        self.assertNotIn("edit form only", out)
 
     def test_record_apply_creates_tasks_with_traceability(self):
         path = self.write_tasks(self.init(), APPROVED_TASKS)
@@ -229,7 +248,9 @@ class IntakeFlowTests(unittest.TestCase):
         self.assertEqual(code, 0, err)
         calls = [json.loads(line) for line in log.read_text().splitlines()]
         self.assertEqual(len(calls), 2)
-        body = calls[1][calls[1].index("--body") + 1]
+        body_path = Path(calls[1][calls[1].index("--body-file") + 1])
+        self.assertEqual(stat.S_IMODE(body_path.stat().st_mode), 0o600)
+        body = body_path.read_text()
         self.assertIn("DEMO-7", body)
         self.assertIn("https://jira.example.invalid/browse/DEMO-7", body)
         self.assertIn("- Warning is non-blocking.", body)

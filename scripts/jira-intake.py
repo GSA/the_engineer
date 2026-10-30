@@ -273,15 +273,21 @@ def load_intake(path):
     if not tasks:
         problems.append("no tasks: record the human-approved decomposition in intake.toml")
     ids = [task.get("id") for task in tasks]
-    if len(set(ids)) != len(ids):
+    ids_valid = all(isinstance(tid, str) and tid.strip() for tid in ids)
+    if not ids_valid:
+        problems.append("every task needs a nonempty string id")
+    elif len(set(ids)) != len(ids):
+        ids_valid = False
         problems.append("task ids must be unique")
     for task in tasks:
         tid = task.get("id", "?")
         for field in ("project", "title", "outcome"):
             if not str(task.get(field, "")).strip():
                 problems.append(f"{tid}: missing {field}")
-        if not task.get("acceptance"):
-            problems.append(f"{tid}: missing acceptance")
+        acceptance = task.get("acceptance")
+        if not (isinstance(acceptance, list) and acceptance
+                and all(isinstance(item, str) and item.strip() for item in acceptance)):
+            problems.append(f"{tid}: acceptance must be a nonempty list of nonempty strings")
         problems += [f"{tid}: {p}" for p in _approved(task)]
         for dep in task.get("depends_on", []):
             if dep not in ids:
@@ -289,7 +295,7 @@ def load_intake(path):
         for ref in task.get("refinements", []):
             if ref not in refinements:
                 problems.append(f"{tid}: {ref} is not an approved refinement")
-    if not any("unknown dependency" in p for p in problems) and tasks:
+    if ids_valid and tasks and not any("unknown dependency" in p for p in problems):
         try:
             ordered(tasks)
         except IntakeError as exc:
@@ -357,12 +363,23 @@ def task_body(task, intake, source):
     return "\n".join(lines) + "\n"
 
 
-def create_args(task, intake, source, recorded):
+def write_body(path, task, intake, source):
+    """Write the task body to a private file; ticket text never reaches argv or stdout."""
+    body_dir = path.parent / "bodies"
+    body_dir.mkdir(mode=0o700, exist_ok=True)
+    body_path = body_dir / f"{task['id']}.md"
+    fd = os.open(body_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as handle:
+        handle.write(task_body(task, intake, source))
+    return body_path
+
+
+def create_args(task, source, recorded, body_path):
     key = source["ticket"]["key"]
     args = [
         "kata", "create", task["title"],
         "--project", task["project"],
-        "--body", task_body(task, intake, source),
+        "--body-file", str(body_path),
         "--idempotency-key", f"jira-{key}-{task['id']}",
         "--meta", f"jira.key={key}",
         "--meta", f"jira.url={source['ticket']['url']}",
@@ -390,7 +407,8 @@ def cmd_record(args):
         if task["id"] in recorded:
             print(f"{task['id']}: already recorded as {recorded[task['id']]}")
             continue
-        argv = create_args(task, intake, source, recorded)
+        body_path = write_body(path, task, intake, source)
+        argv = create_args(task, source, recorded, body_path)
         if not args.apply:
             print(shlex.join(argv))
             continue

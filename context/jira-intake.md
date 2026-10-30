@@ -52,7 +52,9 @@ assumptions live beside them.
 - `record` prints the `kata create` commands in dependency order; `--apply`
   runs them. Each task gets `jira.key`, `jira.url`, `jira.source_sha256` and
   `jira.intake_task` metadata, an idempotency key `jira-<KEY>-<task id>`, and
-  `--blocked-by` links to its dependencies. `recorded.json` maps intake task
+  `--blocked-by` links to its dependencies. Task bodies go to private
+  `bodies/<task id>.md` files passed with `--body-file`, so previews print no
+  ticket text. `recorded.json` maps intake task
   ids to Kata refs, so a rerun skips tasks already created.
 
 ## Grounding and launch
