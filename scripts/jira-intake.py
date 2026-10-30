@@ -395,10 +395,12 @@ def jira_meta(task, source):
     return meta
 
 
-def adopt_commands(task, source, body_path):
+def adopt_commands(task, source, body_path, deps):
     """Attach intake traceability to an existing Kata task instead of creating one."""
     ref = task["adopt"]
     commands = [["kata", "meta", "set", ref, k, v] for k, v in jira_meta(task, source).items()]
+    if deps:
+        commands.append(["kata", "edit", ref, *[a for dep in deps for a in ("--blocked-by", dep)]])
     return commands + [["kata", "comment", ref, "--body-file", str(body_path)]]
 
 
@@ -436,7 +438,7 @@ def cmd_record(args):
         if task.get("adopt"):
             deps = [recorded.get(dep, f"<{dep}>") for dep in task.get("depends_on", [])]
             body_path = write_body(path, task, intake, source, deps)
-            commands = adopt_commands(task, source, body_path)
+            commands = adopt_commands(task, source, body_path, deps)
             if not args.apply:
                 for argv in commands:
                     print(shlex.join(argv))

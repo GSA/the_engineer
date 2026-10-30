@@ -293,7 +293,8 @@ class IntakeFlowTests(unittest.TestCase):
             os.environ["PATH"] = old_path
         self.assertEqual(code, 0, err)
         calls = [json.loads(line) for line in log.read_text().splitlines()]
-        self.assertEqual([c[0] for c in calls], ["create", "meta", "meta", "meta", "meta", "meta", "comment"])
+        self.assertEqual([c[0] for c in calls], ["create", "meta", "meta", "meta", "meta", "meta", "edit", "comment"])
+        self.assertEqual(calls[6], ["edit", "demo-frontend#zz99", "--blocked-by", "demo-backend#ab01"])
         meta = {c[3]: c[4] for c in calls if c[0] == "meta"}
         self.assertEqual(meta["jira.key"], "DEMO-7")
         self.assertEqual(meta["jira.intake_task"], "T2")
