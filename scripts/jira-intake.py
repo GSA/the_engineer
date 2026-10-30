@@ -201,6 +201,8 @@ source_sha256 = {_toml_str(digest)}
 # depends_on = []        # task ids that must finish first
 # refinements = []       # refinement ids this task implements
 # grounding = []         # Librarian qualified references, e.g. "D123#section"
+# adopt = "project#abcd" # attach to an existing Kata task instead of creating one
+# pull_request = "..."   # existing PR implementing this task
 # approved_by = "owner"
 # approved_at = "YYYY-MM-DD"
 """
@@ -289,6 +291,9 @@ def load_intake(path):
                 and all(isinstance(item, str) and item.strip() for item in acceptance)):
             problems.append(f"{tid}: acceptance must be a nonempty list of nonempty strings")
         problems += [f"{tid}: {p}" for p in _approved(task)]
+        adopt = task.get("adopt")
+        if adopt is not None and not re.fullmatch(rf"{re.escape(str(task.get('project', '')))}#\w+", str(adopt)):
+            problems.append(f"{tid}: adopt must be {task.get('project', '?')}#<short id>")
         for dep in task.get("depends_on", []):
             if dep not in ids:
                 problems.append(f"{tid}: unknown dependency {dep}")
@@ -327,7 +332,7 @@ def cmd_check(args):
     return 0
 
 
-def task_body(task, intake, source):
+def task_body(task, intake, source, blocked_by=()):
     ticket = source["ticket"]
     refinements = {r["id"]: r for r in intake.get("refinement", [])}
     lines = [
@@ -360,18 +365,41 @@ def task_body(task, intake, source):
         lines += [f"- {a['id']}: {a['text']}" for a in intake["assumption"]]
     if task.get("grounding"):
         lines += ["", "## Librarian grounding", *[f"- {ref}" for ref in task["grounding"]]]
+    if task.get("pull_request"):
+        lines += ["", "## Pull request", f"- {task['pull_request']}"]
+    if blocked_by:
+        lines += ["", f"Blocked by: {', '.join(blocked_by)}"]
     return "\n".join(lines) + "\n"
 
 
-def write_body(path, task, intake, source):
+def write_body(path, task, intake, source, blocked_by=()):
     """Write the task body to a private file; ticket text never reaches argv or stdout."""
     body_dir = path.parent / "bodies"
     body_dir.mkdir(mode=0o700, exist_ok=True)
     body_path = body_dir / f"{task['id']}.md"
     fd = os.open(body_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as handle:
-        handle.write(task_body(task, intake, source))
+        handle.write(task_body(task, intake, source, blocked_by))
     return body_path
+
+
+def jira_meta(task, source):
+    meta = {
+        "jira.key": source["ticket"]["key"],
+        "jira.url": source["ticket"]["url"],
+        "jira.source_sha256": source["provenance"]["sha256"],
+        "jira.intake_task": task["id"],
+    }
+    if task.get("pull_request"):
+        meta["jira.pull_request"] = task["pull_request"]
+    return meta
+
+
+def adopt_commands(task, source, body_path):
+    """Attach intake traceability to an existing Kata task instead of creating one."""
+    ref = task["adopt"]
+    commands = [["kata", "meta", "set", ref, k, v] for k, v in jira_meta(task, source).items()]
+    return commands + [["kata", "comment", ref, "--body-file", str(body_path)]]
 
 
 def create_args(task, source, recorded, body_path):
@@ -381,11 +409,9 @@ def create_args(task, source, recorded, body_path):
         "--project", task["project"],
         "--body-file", str(body_path),
         "--idempotency-key", f"jira-{key}-{task['id']}",
-        "--meta", f"jira.key={key}",
-        "--meta", f"jira.url={source['ticket']['url']}",
-        "--meta", f"jira.source_sha256={source['provenance']['sha256']}",
-        "--meta", f"jira.intake_task={task['id']}",
     ]
+    for k, v in jira_meta(task, source).items():
+        args += ["--meta", f"{k}={v}"]
     if "priority" in task:
         args += ["--priority", str(task["priority"])]
     for dep in task.get("depends_on", []):
@@ -406,6 +432,23 @@ def cmd_record(args):
     for task in ordered(intake["task"]):
         if task["id"] in recorded:
             print(f"{task['id']}: already recorded as {recorded[task['id']]}")
+            continue
+        if task.get("adopt"):
+            deps = [recorded.get(dep, f"<{dep}>") for dep in task.get("depends_on", [])]
+            body_path = write_body(path, task, intake, source, deps)
+            commands = adopt_commands(task, source, body_path)
+            if not args.apply:
+                for argv in commands:
+                    print(shlex.join(argv))
+                continue
+            for argv in commands:
+                result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if result.returncode != 0:
+                    print(f"error: {task['id']}: {shlex.join(argv[:3])} failed: {result.stderr.strip()}", file=sys.stderr)
+                    return 1
+            recorded[task["id"]] = task["adopt"]
+            log_path.write_text(json.dumps({"ticket": source["ticket"]["key"], "tasks": recorded}, indent=2) + "\n")
+            print(f"{task['id']}: adopted {task['adopt']}")
             continue
         body_path = write_body(path, task, intake, source)
         argv = create_args(task, source, recorded, body_path)

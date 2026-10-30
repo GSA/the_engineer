@@ -260,6 +260,60 @@ class IntakeFlowTests(unittest.TestCase):
         self.assertEqual(recorded["tasks"], {"T1": "demo-backend#ab01", "T2": "demo-frontend#ab02"})
         self.assertIn("demo-frontend#ab02", out)
 
+    def test_record_adopts_existing_task(self):
+        adopted = APPROVED_TASKS.replace(
+            'title = "Show retired warning"',
+            'title = "Show retired warning"\nadopt = "demo-frontend#zz99"\n'
+            'pull_request = "https://github.example.invalid/demo/frontend/pull/1"',
+        )
+        path = self.write_tasks(self.init(), adopted)
+        code, out, err = run_main("record", str(path))
+        self.assertEqual(code, 0, err)
+        self.assertIn("kata meta set 'demo-frontend#zz99' jira.key DEMO-7", out)
+        self.assertIn("kata comment 'demo-frontend#zz99' --body-file", out)
+        self.assertNotIn("Show retired warning", out)
+
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        log = self.root / "kata.log"
+        fake = bin_dir / "kata"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            f"open({str(log)!r}, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            "if sys.argv[1] == 'create':\n"
+            "    print(json.dumps({'issue': {'short_id': 'ab01'}}))\n"
+        )
+        fake.chmod(0o755)
+        old_path = os.environ["PATH"]
+        os.environ["PATH"] = f"{bin_dir}{os.pathsep}{old_path}"
+        try:
+            code, out, err = run_main("record", str(path), "--apply")
+        finally:
+            os.environ["PATH"] = old_path
+        self.assertEqual(code, 0, err)
+        calls = [json.loads(line) for line in log.read_text().splitlines()]
+        self.assertEqual([c[0] for c in calls], ["create", "meta", "meta", "meta", "meta", "meta", "comment"])
+        meta = {c[3]: c[4] for c in calls if c[0] == "meta"}
+        self.assertEqual(meta["jira.key"], "DEMO-7")
+        self.assertEqual(meta["jira.intake_task"], "T2")
+        self.assertEqual(meta["jira.pull_request"], "https://github.example.invalid/demo/frontend/pull/1")
+        body = Path(calls[-1][calls[-1].index("--body-file") + 1]).read_text()
+        self.assertIn("R1: The warning appears on the edit form only.", body)
+        self.assertIn("Blocked by: demo-backend#ab01", body)
+        recorded = json.loads((path.parent / "recorded.json").read_text())
+        self.assertEqual(recorded["tasks"], {"T1": "demo-backend#ab01", "T2": "demo-frontend#zz99"})
+        self.assertIn("T2: adopted demo-frontend#zz99", out)
+
+    def test_check_rejects_adopt_in_other_project(self):
+        bad = APPROVED_TASKS.replace(
+            'title = "Show retired warning"', 'title = "Show retired warning"\nadopt = "other#zz99"'
+        )
+        path = self.write_tasks(self.init(), bad)
+        code, _, err = run_main("check", str(path))
+        self.assertEqual(code, 1)
+        self.assertIn("T2: adopt must be demo-frontend#<short id>", err)
+
     def test_record_refuses_failing_check(self):
         ticket_dir = self.init()
         code, _, err = run_main("record", str(ticket_dir / "intake.toml"), "--apply")
