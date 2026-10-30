@@ -181,7 +181,8 @@ class SeamScannerTests(unittest.TestCase):
             "acme-order-service/lib/stack.ts",
             "const orderCancel = createLambda('order-cancel');\n"
             "const orderAudit = createLambda('order-audit');\n"
-            "const cancelRes = api.root.addResource('orders').addResource('cancel');\n"
+            "const ordersRes = api.root.addResource('orders')\n"
+            "const cancelRes = ordersRes.addResource('cancel')\n"
             "cancelRes.addMethod('DELETE', new LambdaIntegration(orderCancel));\n"
             "orderCancel.addEventSource(new SqsEventSource(q, { batchSize: 5 }));\n",
         )

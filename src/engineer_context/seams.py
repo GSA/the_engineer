@@ -148,7 +148,7 @@ def _discover_handlers(repo_map: dict[str, Path]) -> list[dict]:
 def _resource_paths(c_text: str) -> dict[str, str]:
     """Map CDK resource variables to full paths, following chained and parent-variable addResource calls."""
     paths: dict[str, str] = {}
-    for m in re.finditer(r'(?:const|let|var|this\.)\s*(\w+)\s*=\s*([^;]+)', c_text):
+    for m in re.finditer(r'(?:const|let|var|this\.)\s*(\w+)\s*=\s*((?:(?!\n\s*(?:const|let|var|this\.)\b)[^;])+)', c_text):
         rhs = m.group(2)
         segs = re.findall(r'\.addResource\(\s*["\']([^"\']+)["\']\s*\)', rhs)
         if not segs:
