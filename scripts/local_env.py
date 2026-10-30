@@ -297,7 +297,7 @@ def base_environment(roborev_executable=None):
         "PATH": os.pathsep.join([str(GH_BINARY.parent), str(roborev_executable.parent),
                                 str(RUNTIME_ROOT / "kata"), str(RUNTIME_ROOT / "agentsview"),
                                 str(JQ_BINARY.parent), str(PYDEPS_DIR / "bin"),
-                                os.environ["PATH"]]),
+                                os.environ["PATH"], str(Path.home() / ".local/bin")]),
         "KENN_KOPY_RUNTIME_ROOT": str(RUNTIME_ROOT),
         "HOME": str(home),
         "USER": getpass.getuser(),
@@ -617,6 +617,52 @@ def configure_librarian(librarian_root, librarian_executable=None,
     print(f"Librarian MCP provider bound to {root}")
 
 
+def _candidate_offline_site_packages(source: Path, py_ver: str) -> list[Path]:
+    candidates: list[Path] = []
+    env_override = os.environ.get("LIBRARIAN_OFFLINE_SITE_PACKAGES")
+    if env_override:
+        candidates.append(Path(env_override).expanduser())
+    candidates.extend([
+        source / ".venv/lib" / py_ver / "site-packages",
+        source / "tools/context-mcp/.venv/lib" / py_ver / "site-packages",
+    ])
+    candidates.extend(sorted(source.glob(".venv/lib/python*/site-packages")))
+    candidates.extend(sorted(source.glob("tools/context-mcp/.venv/lib/python*/site-packages")))
+    env_file = STATE / "environment.json"
+    if env_file.is_file():
+        try:
+            env = json.loads(env_file.read_text())
+            for key in ("corpus", "librarian_root"):
+                val = env.get(key)
+                if val:
+                    p = Path(val).expanduser()
+                    candidates.extend([
+                        p / ".venv/lib" / py_ver / "site-packages",
+                        p / "tools/context-mcp/.venv/lib" / py_ver / "site-packages",
+                        p.parent / "the_librarian/.venv/lib" / py_ver / "site-packages",
+                    ])
+        except (OSError, json.JSONDecodeError):
+            pass
+    candidates.extend([
+        Path.home() / "the_librarian/.venv/lib" / py_ver / "site-packages",
+        Path.home() / "falcon-docs/tools/context-mcp/.venv/lib" / py_ver / "site-packages",
+    ])
+    for entry in sys.path:
+        if entry and "site-packages" in entry:
+            candidates.append(Path(entry))
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for cand in candidates:
+        try:
+            resolved = cand.resolve()
+        except OSError:
+            continue
+        if resolved not in seen and cand.is_dir():
+            seen.add(resolved)
+            unique.append(cand)
+    return unique
+
+
 def _write_librarian_entrypoint(path, python_executable, module_name):
     script = (
         f"#!{python_executable}\n"
@@ -673,9 +719,13 @@ def provision_librarian_mvp(source, dest, *, inbox=None, repos_root=None, bind_m
     py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
     dest_site = venv_dir / "lib" / py_ver / "site-packages"
     dest_site.mkdir(parents=True, exist_ok=True)
-    source_site = source / ".venv/lib" / py_ver / "site-packages"
-    if source_site.is_dir():
-        shutil.copytree(source_site, dest_site, dirs_exist_ok=True)
+    candidate_sites = _candidate_offline_site_packages(source, py_ver)
+    selected_site = next(
+        (c for c in candidate_sites if (c / "mcp").exists() and (c / "jsonschema").exists()),
+        candidate_sites[0] if candidate_sites else None,
+    )
+    if selected_site is not None and selected_site.resolve() != dest_site.resolve():
+        shutil.copytree(selected_site, dest_site, dirs_exist_ok=True)
     mcp_pkg_src = dest / "tools/context-mcp/src/the_librarian_mcp"
     if mcp_pkg_src.is_dir():
         shutil.copytree(mcp_pkg_src, dest_site / "the_librarian_mcp", dirs_exist_ok=True)
@@ -704,10 +754,23 @@ def provision_librarian_mvp(source, dest, *, inbox=None, repos_root=None, bind_m
             "context_rules": {},
             "renditions": [],
         })
-    subprocess.run(
+    init_proc = subprocess.run(
         [str(venv_python), str(dest / "tools/initialize.py"), "--root", str(dest)],
-        cwd=dest, text=True, capture_output=True, check=True, timeout=60,
+        cwd=dest, text=True, capture_output=True, timeout=60,
     )
+    if init_proc.returncode != 0 and "Index is stale; run build" in (init_proc.stderr or ""):
+        subprocess.run(
+            [str(venv_python), "-m", "tools.context_index.context_index", "--root", str(dest), "build"],
+            cwd=dest, text=True, capture_output=True, check=True, timeout=60,
+        )
+        subprocess.run(
+            [str(venv_python), str(dest / "tools/initialize.py"), "--root", str(dest)],
+            cwd=dest, text=True, capture_output=True, check=True, timeout=60,
+        )
+    elif init_proc.returncode != 0:
+        raise subprocess.CalledProcessError(
+            init_proc.returncode, init_proc.args, output=init_proc.stdout, stderr=init_proc.stderr
+        )
     subprocess.run(
         [str(venv_python), "-m", "tools.context_index.context_index", "--root", str(dest), "status"],
         cwd=dest, text=True, capture_output=True, check=True, timeout=60,

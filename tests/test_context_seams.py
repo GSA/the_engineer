@@ -67,7 +67,9 @@ class SeamScannerTests(unittest.TestCase):
             "standard-acquisition-interface/lib/apigateway.ts",
             "export class SaiApi {\n"
             "  wire() {\n"
-            "    const p = 'pocorrection';\n"
+            "    const p = addResource('list');\n"
+            "    purchaseOrderListResource.addMethod('GET', fn);\n"
+            "    purchaseOrderResource.addMethod('DELETE', delFn);\n"
             "    const s = 'serviceauth';\n"
             "    const k = 'PutRecord';\n"
             "    return [p, s, k];\n"
@@ -124,3 +126,95 @@ class SeamScannerTests(unittest.TestCase):
 
         compact = render_seams(repo_map, seams, fmt="compact", max_chars=800)
         self.assertLessEqual(len(compact), 800)
+
+        with self.assertRaises(ValueError):
+            render_seams(repo_map, seams, fmt="json", max_chars=10)
+
+    def test_content_driven_extraction_avoids_false_positives_and_supports_generic_repos(self):
+        # 1. S206 with DELETE handled and reportBatchItemFailures: true emits no false mismatch
+        self._write(
+            "standard-acquisition-interface/lib/functions.ts",
+            "const fn = createLambda('sai-delete-purchase-order');\n"
+            "const proc = createLambda('sai-purchase-order-processor');\n"
+            "const peg = createLambda('sai-pegasys-io-data-processor');\n"
+            "peg.addEventSource(new SqsEventSource(queue, { batchSize: 10, reportBatchItemFailures: true }));\n",
+        )
+        self._write(
+            "standard-acquisition-interface/lib/apigateway.ts",
+            "purchaseOrderResource.addMethod('DELETE', new LambdaIntegration(deletePurchaseOrderFn));\n",
+        )
+        self._write(
+            "standard-acquisition-interface/assets/lambda/sai-delete-purchase-order/index.ts",
+            "export const handler = async (event: any) => {\n"
+            "  if (event.httpMethod === 'DELETE') return { statusCode: 200 };\n"
+            "  return { statusCode: 404 };\n"
+            "};\n",
+        )
+        self._write(
+            "standard-acquisition-interface/assets/lambda/sai-purchase-order-processor/index.ts",
+            "export const handler = async () => { await sqs.sendMessage({}); };\n",
+        )
+        self._write(
+            "standard-acquisition-interface/assets/lambda/sai-pegasys-io-data-processor/processor/pegasysIOCreateUpdateProcessor.ts",
+            "export const process = async () => ({ batchItemFailures: [] });\n",
+        )
+        self._write(
+            "standard-acquisition-interface/assets/lambda/polines-file-processor/index.ts",
+            "export const handler = async () => {\n"
+            "  return { statusCode: 200, body: JSON.stringify('polinesFileProcessor not in use anymore') };\n"
+            "};\n",
+        )
+        # Ensure SKIP_DIRS (node_modules) are pruned during walk
+        self._write(
+            "standard-acquisition-interface/node_modules/pkg/ignored.ts",
+            "Fn.importValue('should-never-be-scanned');\n",
+        )
+        # 2. Arbitrarily named repos + CrossStackImporter.ts in a non-infrastructure repo
+        self._write(
+            "acme-portal-ui/src/services/orders.service.ts",
+            "export class OrdersService {\n"
+            "  cancel() { return this.http.delete('/orders/cancel'); }\n"
+            "}\n",
+        )
+        self._write(
+            "acme-order-service/lib/stack.ts",
+            "const cancelRes = api.root.addResource('orders').addResource('cancel');\n"
+            "cancelRes.addMethod('DELETE', new LambdaIntegration(orderCancel));\n"
+            "orderCancel.addEventSource(new SqsEventSource(q, { batchSize: 5 }));\n",
+        )
+        self._write(
+            "acme-order-service/lib/helper/CrossStackImporter.ts",
+            "export const bucket = Fn.importValue('shared-bucket-export');\n",
+        )
+        self._write(
+            "acme-order-service/functions/order-cancel/index.ts",
+            "export const handler = async (event: any) => {\n"
+            "  if (event.httpMethod === 'GET') return { statusCode: 200, batchItemFailures: [] };\n"
+            "  return { statusCode: 404, batchItemFailures: [] };\n"
+            "};\n",
+        )
+
+        repo_map = resolve_repositories(workspace_root=str(self.root))
+        seams = scan_seams(repo_map)
+        sai_seams = [s for s in seams if s["source_repo"] == "standard-acquisition-interface"]
+        sai_md = render_seams(repo_map, sai_seams, fmt="markdown", max_chars=20000)
+        self.assertNotIn("ROUTE_MISMATCH", sai_md)
+        self.assertNotIn("BATCH_FAILURE_MISMATCH", sai_md)
+        self.assertNotIn("GET /pocorrection/list", sai_md)
+        self.assertNotIn("should-never-be-scanned", sai_md)
+
+        orphans = [s for s in sai_seams if s["seam_kind"] == "orphan_lambda_directory"]
+        self.assertEqual(len(orphans), 1)
+        self.assertIn("[STUB]", orphans[0]["source_symbol"])
+        self.assertIn("DEPRECATED/NO-OP STUB", orphans[0]["detail"])
+
+        acme_seams = [s for s in seams if s["source_repo"].startswith("acme-")]
+        acme_kinds = {s["seam_kind"] for s in acme_seams}
+        self.assertIn("ui_to_apigw_route", acme_kinds)
+        self.assertIn("apigw_to_lambda", acme_kinds)
+        self.assertIn("async_event_flow", acme_kinds)
+        self.assertIn("cfn_cross_stack_import", acme_kinds)
+        acme_md = render_seams(repo_map, acme_seams, fmt="markdown", max_chars=20000)
+        self.assertIn("ROUTE_MISMATCH", acme_md)
+        self.assertIn("BATCH_FAILURE_MISMATCH", acme_md)
+        self.assertIn("CrossStackImporter.importValue", acme_md)

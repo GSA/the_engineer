@@ -319,9 +319,19 @@ class LocalEnvironmentTests(unittest.TestCase):
         (source / "tools/initialize.py").write_text("import sys\nsys.exit(0)\n")
         (source / "tools/context_index/context_index.py").write_text("import sys\nsys.exit(0)\n")
         (source / "tools/context-mcp/src/the_librarian_mcp/__init__.py").write_text("")
-        (source / "tools/context-mcp/src/the_librarian_mcp/server.py").write_text("def main(): return 0\n")
+        (source / "tools/context-mcp/src/the_librarian_mcp/server.py").write_text(
+            "import jsonschema, mcp\n"
+            "def main():\n"
+            "    assert mcp.MCP_READY and jsonschema.JSONSCHEMA_READY\n"
+            "    return 0\n"
+        )
         (source / "tools/context-mcp/src/the_librarian_mcp/preflight.py").write_text("def main(): return 0\n")
         (source / "config/policy.json").write_text('{"schema_version": 1}\n')
+        offline_site = self.root / "offline-site-packages"
+        (offline_site / "mcp").mkdir(parents=True)
+        (offline_site / "jsonschema").mkdir(parents=True)
+        (offline_site / "mcp/__init__.py").write_text("MCP_READY = True\n")
+        (offline_site / "jsonschema/__init__.py").write_text("JSONSCHEMA_READY = True\n")
         dest = self.root / "falcon-librarian-mvp"
         inbox = self.root / "inbox"
         repos = self.root / "repos"
@@ -329,7 +339,10 @@ class LocalEnvironmentTests(unittest.TestCase):
         repos.mkdir()
         with self.assertRaisesRegex(RuntimeError, "isolated directory outside --source"):
             local_env.provision_librarian_mvp(source, source)
-        with contextlib.redirect_stdout(io.StringIO()):
+        with (
+            patch.dict(os.environ, {"LIBRARIAN_OFFLINE_SITE_PACKAGES": str(offline_site)}),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
             summary = local_env.provision_librarian_mvp(
                 source, dest, inbox=inbox, repos_root=repos, bind_mcp=True,
             )
@@ -441,6 +454,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["KENN_FORGE_API_URL"], "http://127.0.0.1:18091")
         self.assertIn(str(local_env.JQ_BINARY.parent), env["PATH"].split(os.pathsep))
         self.assertIn(str(local_env.PYDEPS_DIR / "bin"), env["PATH"].split(os.pathsep))
+        self.assertEqual(env["PATH"].split(os.pathsep)[-1], str(Path.home() / ".local/bin"))
 
     def test_missing_usai_fails_without_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "no provider fallback"):

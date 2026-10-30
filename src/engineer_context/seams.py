@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -34,26 +35,35 @@ def _read_text(path: Path) -> str:
         return ''
 
 
-def _find_line(path: Path, pattern: str, default: int = 1) -> int:
+def _find_line_optional(path: Path, pattern: str) -> int | None:
     text = _read_text(path)
     if not text:
-        return default
+        return None
     rx = re.compile(pattern)
     for idx, line in enumerate(text.splitlines(), start=1):
         if rx.search(line):
             return idx
-    return default
+    return None
+
+
+def _find_line(path: Path, pattern: str, default: int = 1) -> int:
+    found = _find_line_optional(path, pattern)
+    return found if found is not None else default
 
 
 def _iter_source_files(root: Path, suffixes: tuple[str, ...] = ('.ts', '.js', '.py', '.json')):
-    for path in sorted(root.rglob('*')):
-        if any(part in SKIP_DIRS for part in path.parts):
-            continue
-        if path.is_file() and path.suffix in suffixes:
-            name = path.name
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        base = Path(dirpath)
+        dirnames[:] = sorted(
+            d for d in dirnames
+            if d not in SKIP_DIRS and not d.startswith('.') and not (base / d).is_symlink()
+        )
+        for name in sorted(filenames):
             if name.endswith(('.spec.ts', '.test.ts', '.spec.js', '.test.js', '.d.ts')):
                 continue
-            yield path
+            path = base / name
+            if path.suffix in suffixes and path.is_file() and not path.is_symlink():
+                yield path
 
 
 def resolve_repositories(repos: list[str | Path] | None = None, workspace_root: str | Path | None = None) -> dict[str, Path]:
@@ -213,9 +223,19 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                 notes.append(h['stub_note'])
             if h_name == 'sai-delete-purchase-order':
                 del_entry = h['root'] / h['entry_rel']
-                if del_entry.is_file() and '"DELETE"' not in _read_text(del_entry) and "'DELETE'" not in _read_text(del_entry):
+                apigw_file = h['root'] / 'lib/apigateway.ts'
+                apigw_has_delete = (
+                    apigw_file.is_file()
+                    and _find_line_optional(apigw_file, r'addMethod\(\s*["\']DELETE["\']') is not None
+                )
+                if (
+                    apigw_has_delete
+                    and del_entry.is_file()
+                    and '"DELETE"' not in _read_text(del_entry)
+                    and "'DELETE'" not in _read_text(del_entry)
+                ):
                     notes.append(
-                        'ROUTE_MISMATCH: lib/apigateway.ts:L157 wires DELETE /pocorrection/{poNumber} to '
+                        'ROUTE_MISMATCH: lib/apigateway.ts wires DELETE /pocorrection/{poNumber} to '
                         'deletePurchaseOrderFn (sai-delete-purchase-order/index.ts), but sai-delete-purchase-order/index.ts '
                         'only checks method === "GET" and method === "PUT" and has NO DELETE branch (returns 404).'
                     )
@@ -234,19 +254,29 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
             )
         else:
             default_cdk = 'lib/functions.ts' if (h['root'] / 'lib/functions.ts').is_file() else 'CDK'
+            orphan_notes = [
+                f"{h['dir_rel']} exists in {h['repo']} source tree but is NEVER referenced in any CDK construct or infrastructure stack."
+            ]
+            if h['stub_note']:
+                orphan_notes.append(h['stub_note'])
             add_seam(
                 'orphan_lambda_directory',
                 h['repo'],
                 h['entry_rel'],
                 1,
-                f"{h_name}.handler",
+                f"{h_name}.handler [STUB]" if h['stub_note'] else f"{h_name}.handler",
                 h['repo'],
                 default_cdk,
                 1,
                 'UNWIRED_IN_CDK',
                 f"orphan:{h_name}",
-                f"{h['dir_rel']} exists in {h['repo']} source tree but is NEVER referenced in any CDK construct or infrastructure stack.",
+                ' | '.join(orphan_notes),
             )
+
+    seen_route_keys: set[tuple[str, str, str]] = set()
+    seen_apigw_keys: set[tuple[str, str, str]] = set()
+    seen_async_keys: set[tuple[str, str, str]] = set()
+    seen_cfn_files: set[tuple[str, str]] = set()
 
     # 2. Cross-Repo UI HTTP Service <-> Backend API Gateway <-> Lambda Handlers
     sai_root = repo_map.get('standard-acquisition-interface')
@@ -260,26 +290,31 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
             sai_svc_rel = 'angular/fss-ui/src/app/sai-workspace/sai.service.ts'
             sai_svc_path = ui_root / sai_svc_rel
             for method_name, route_str, apigw_pat, target_lam in [
-                ('searchRejectedPurchaseOrders', 'GET /pocorrection/list', r"addResource\('list'\)", 'sai-get-purchase-order'),
-                ('getCorrectionByPoNumber', 'GET /pocorrection/{poNumber}', r"poCorrectionPoNumberResource\.addMethod\('GET'", 'sai-get-purchase-order'),
-                ('submitCorrection', 'PUT /pocorrection/{poNumber}', r"poCorrectionPoNumberResource\.addMethod\('PUT'", 'sai-update-purchase-order'),
+                ('searchRejectedPurchaseOrders', 'GET /pocorrection/list', r"addResource\(['\"]list['\"]\)|pocorrection", 'sai-get-purchase-order'),
+                ('getCorrectionByPoNumber', 'GET /pocorrection/{poNumber}', r"poCorrectionPoNumberResource\.addMethod\(['\"]GET['\"]|purchaseOrderResource\.addMethod\(\s*['\"]GET['\"]", 'sai-get-purchase-order'),
+                ('submitCorrection', 'PUT /pocorrection/{poNumber}', r"poCorrectionPoNumberResource\.addMethod\(['\"]PUT['\"]|purchaseOrderResource\.addMethod\(\s*['\"]PUT['\"]", 'sai-update-purchase-order'),
             ]:
-                add_seam(
-                    'ui_to_apigw_route',
-                    'supply-chain-user-interface',
-                    sai_svc_rel,
-                    _find_line(sai_svc_path, method_name),
-                    f'SAIService.{method_name}',
-                    'standard-acquisition-interface',
-                    'lib/apigateway.ts',
-                    _find_line(sai_apigw_path, apigw_pat),
-                    f'SaiApiGateway:{route_str}',
-                    route_str,
-                    f'Angular SAIService.{method_name} -> S206 API Gateway {route_str} -> {target_lam}',
-                )
+                ui_line = _find_line_optional(sai_svc_path, rf'\b{re.escape(method_name)}\b')
+                apigw_line = _find_line_optional(sai_apigw_path, apigw_pat)
+                if ui_line is not None and apigw_line is not None:
+                    seen_route_keys.add(('supply-chain-user-interface', sai_svc_rel, route_str))
+                    add_seam(
+                        'ui_to_apigw_route',
+                        'supply-chain-user-interface',
+                        sai_svc_rel,
+                        ui_line,
+                        f'SAIService.{method_name}',
+                        'standard-acquisition-interface',
+                        'lib/apigateway.ts',
+                        apigw_line,
+                        f'SaiApiGateway:{route_str}',
+                        route_str,
+                        f'Angular SAIService.{method_name} -> S206 API Gateway {route_str} -> {target_lam}',
+                    )
 
-        for route_str, apigw_pat, lam_rel, sym, detail in [
+        for verb, route_str, apigw_pat, lam_rel, base_sym, base_detail in [
             (
+                'GET',
                 'GET /pocorrection/list',
                 r'purchaseOrderListResource\.addMethod',
                 'assets/lambda/sai-get-purchase-order/index.ts',
@@ -287,34 +322,51 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                 'API Gateway GET /pocorrection/list invokes sai-get-purchase-order/index.ts',
             ),
             (
+                'GET',
                 'GET /pocorrection/{poNumber}',
-                r'purchaseOrderResource\.addMethod\(\s*["\']GET["\']',
+                r'(?:purchaseOrderResource|poCorrectionPoNumberResource)\.addMethod\(\s*["\']GET["\']',
                 'assets/lambda/sai-get-purchase-order/index.ts',
                 'sai-get-purchase-order.handler',
                 'API Gateway GET /pocorrection/{poNumber} (and /serviceauth/pocorrection/{poNumber}) invokes sai-get-purchase-order/index.ts',
             ),
             (
+                'PUT',
                 'PUT /pocorrection/{poNumber}',
-                r'purchaseOrderResource\.addMethod\(\s*["\']PUT["\']',
+                r'(?:purchaseOrderResource|poCorrectionPoNumberResource)\.addMethod\(\s*["\']PUT["\']',
                 'assets/lambda/sai-update-purchase-order/index.ts',
                 'sai-update-purchase-order.handler',
                 'API Gateway PUT /pocorrection/{poNumber} invokes sai-update-purchase-order/index.ts (sets status B1, clears errors, sends SQS message)',
             ),
             (
+                'DELETE',
                 'DELETE /pocorrection/{poNumber}',
-                r'purchaseOrderResource\.addMethod\(\s*["\']DELETE["\']',
+                r'(?:purchaseOrderResource|poCorrectionPoNumberResource)\.addMethod\(\s*["\']DELETE["\']',
                 'assets/lambda/sai-delete-purchase-order/index.ts',
-                'sai-delete-purchase-order.handler [ROUTE_MISMATCH]',
-                'DEFECT/INCONSISTENCY: lib/apigateway.ts:L157 wires DELETE /pocorrection/{poNumber} to deletePurchaseOrderFn (sai-delete-purchase-order/index.ts:L21-63), which only has GET and PUT branches and NO DELETE branch (always returns 404).',
+                'sai-delete-purchase-order.handler',
+                'API Gateway DELETE /pocorrection/{poNumber} invokes sai-delete-purchase-order/index.ts',
             ),
         ]:
+            apigw_line = _find_line_optional(sai_apigw_path, apigw_pat)
             lam_path = sai_root / lam_rel
-            if lam_path.is_file():
+            if apigw_line is not None and lam_path.is_file():
+                lam_text = _read_text(lam_path)
+                sym = base_sym
+                detail = base_detail
+                if (
+                    re.search(r'httpMethod', lam_text)
+                    and not re.search(rf"""['"]{verb}['"]""", lam_text)
+                ):
+                    sym = f'{base_sym} [ROUTE_MISMATCH]'
+                    detail = (
+                        f'DEFECT/INCONSISTENCY: lib/apigateway.ts:L{apigw_line} wires {route_str} to '
+                        f'{lam_rel}, which checks httpMethod for other verbs but has NO {verb} branch (returns 404).'
+                    )
+                seen_apigw_keys.add(('standard-acquisition-interface', 'lib/apigateway.ts', route_str))
                 add_seam(
                     'apigw_to_lambda',
                     'standard-acquisition-interface',
                     'lib/apigateway.ts',
-                    _find_line(sai_apigw_path, apigw_pat),
+                    apigw_line,
                     f'SaiApiGateway:{route_str}',
                     'standard-acquisition-interface',
                     lam_rel,
@@ -327,12 +379,14 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
         # Async Kinesis & SQS seams in S206
         proc_rel = 'assets/lambda/sai-purchase-order-processor/index.ts'
         peg_rel = 'assets/lambda/sai-pegasys-io-data-processor/processor/pegasysIOCreateUpdateProcessor.ts'
-        if (sai_root / proc_rel).is_file():
+        put_record_line = _find_line_optional(sai_apigw_path, r'PutRecord')
+        if put_record_line is not None and (sai_root / proc_rel).is_file():
+            seen_async_keys.add(('standard-acquisition-interface', 'lib/apigateway.ts', proc_rel))
             add_seam(
                 'async_event_flow',
                 'standard-acquisition-interface',
                 'lib/apigateway.ts',
-                _find_line(sai_apigw_path, r'PutRecord'),
+                put_record_line,
                 'SaiApiGateway:/po:POST (Kinesis PutRecord)',
                 'standard-acquisition-interface',
                 proc_rel,
@@ -342,19 +396,33 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                 'API Gateway /po integrates with Kinesis PutRecord (lib/stream.ts: on-demand, TRIM_HORIZON, batchSize 100, retryAttempts 3, onFailure destination in lib/functions.ts without bisectBatchOnError/reportBatchItemFailures) -> sai-purchase-order-processor writes DynamoDB and sends SQS message.',
             )
         if (sai_root / proc_rel).is_file() and (sai_root / peg_rel).is_file():
-            add_seam(
-                'async_event_flow',
-                'standard-acquisition-interface',
-                proc_rel,
-                _find_line(sai_root / proc_rel, r'sendMessage|sqs'),
-                'sai-purchase-order-processor.handler',
-                'standard-acquisition-interface',
-                peg_rel,
-                _find_line(sai_root / peg_rel, r'batchItemFailures'),
-                'sai-pegasys-io-data-processor [BATCH_FAILURE_MISMATCH]',
-                'SQS:pegasysIOQueue -> sai-pegasys-io-data-processor',
-                'SQS queue (lib/functions.ts SqsEventSource batchSize 10) triggers sai-pegasys-io-data-processor. MISMATCH: pegasysIOCreateUpdateProcessor.ts returns { batchItemFailures }, but lib/functions.ts SqsEventSource omits reportBatchItemFailures: true.',
-            )
+            send_line = _find_line_optional(sai_root / proc_rel, r'sendMessage|sqs')
+            peg_line = _find_line_optional(sai_root / peg_rel, r'batchItemFailures|export')
+            fns_text = _read_text(sai_root / 'lib/functions.ts')
+            has_batch_failures = 'batchItemFailures' in _read_text(sai_root / peg_rel)
+            reports_batch_failures = bool(re.search(r'reportBatchItemFailures\s*:\s*true', fns_text))
+            if send_line is not None and peg_line is not None:
+                seen_async_keys.add(('standard-acquisition-interface', proc_rel, peg_rel))
+                mismatch = has_batch_failures and not reports_batch_failures
+                add_seam(
+                    'async_event_flow',
+                    'standard-acquisition-interface',
+                    proc_rel,
+                    send_line,
+                    'sai-purchase-order-processor.handler',
+                    'standard-acquisition-interface',
+                    peg_rel,
+                    peg_line,
+                    'sai-pegasys-io-data-processor [BATCH_FAILURE_MISMATCH]' if mismatch else 'sai-pegasys-io-data-processor',
+                    'SQS:pegasysIOQueue -> sai-pegasys-io-data-processor',
+                    (
+                        'SQS queue (lib/functions.ts SqsEventSource batchSize 10) triggers sai-pegasys-io-data-processor. '
+                        'MISMATCH: pegasysIOCreateUpdateProcessor.ts returns { batchItemFailures }, '
+                        'but lib/functions.ts SqsEventSource omits reportBatchItemFailures: true.'
+                        if mismatch
+                        else 'SQS queue (lib/functions.ts SqsEventSource) triggers sai-pegasys-io-data-processor with reportBatchItemFailures enabled.'
+                    ),
+                )
 
     # 3. Cross-Repo S207 (UI) <-> S204 (Infrastructure CDK) <-> S205 (NIF Lambdas)
     if infra_root:
@@ -375,26 +443,32 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
         ]
         if s204_nif_stack_path.is_file():
             for ui_method, route_str, pkg_name, s205_target_rel, desc in nif_routes:
+                stack_pat = rf'{pkg_name.replace("-", "_").upper()}|{re.escape(pkg_name)}'
+                stack_line = _find_line_optional(s204_nif_stack_path, stack_pat)
                 if nif_svc_path and nif_svc_path.is_file():
-                    add_seam(
-                        'ui_to_apigw_route',
-                        'supply-chain-user-interface',
-                        nif_svc_rel,
-                        _find_line(nif_svc_path, ui_method),
-                        f'NIFService.{ui_method}',
-                        'infrastructure',
-                        s204_nif_stack_rel,
-                        _find_line(s204_nif_stack_path, pkg_name.replace('-', '_').upper()),
-                        f'NsnServiceStack:{route_str}',
-                        route_str,
-                        f'Cross-repo UI -> Infra CDK: S207 NIFService.{ui_method} calls {route_str} defined in S204 {s204_nif_stack_rel}',
-                    )
-                if nif_root and (nif_root / s205_target_rel).is_file():
+                    ui_line = _find_line_optional(nif_svc_path, rf'\b{re.escape(ui_method)}\b')
+                    if ui_line is not None and stack_line is not None:
+                        seen_route_keys.add(('supply-chain-user-interface', nif_svc_rel, route_str))
+                        add_seam(
+                            'ui_to_apigw_route',
+                            'supply-chain-user-interface',
+                            nif_svc_rel,
+                            ui_line,
+                            f'NIFService.{ui_method}',
+                            'infrastructure',
+                            s204_nif_stack_rel,
+                            stack_line,
+                            f'NsnServiceStack:{route_str}',
+                            route_str,
+                            f'Cross-repo UI -> Infra CDK: S207 NIFService.{ui_method} calls {route_str} defined in S204 {s204_nif_stack_rel}',
+                        )
+                if stack_line is not None and nif_root and (nif_root / s205_target_rel).is_file():
+                    seen_apigw_keys.add(('infrastructure', s204_nif_stack_rel, route_str))
                     add_seam(
                         'apigw_to_lambda',
                         'infrastructure',
                         s204_nif_stack_rel,
-                        _find_line(s204_nif_stack_path, r'createLambda|NodejsFunction|Function'),
+                        stack_line,
                         f'NsnServiceStack:{route_str}',
                         'national-item-file-maintenance',
                         s205_target_rel,
@@ -405,25 +479,163 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                     )
 
         if s204_nif_importer_path.is_file():
-            target_repo = 'national-item-file-maintenance' if nif_root else 'infrastructure'
-            target_path = 'functions/nif-file-processor/src/index.ts' if nif_root else s204_nif_stack_rel
-            add_seam(
-                'cfn_cross_stack_import',
-                'infrastructure',
-                s204_nif_importer_rel,
-                _find_line(s204_nif_importer_path, r'importValue|valueForStringParameter'),
-                'CrossStackImporter',
-                target_repo,
-                target_path,
-                1,
-                'S205_File_And_Export_Processors',
-                'Fn.importValue+SSM:ScannedCleanInputBucket+StateMachine+VPC+Transfer',
-                'S204 CrossStackImporter.ts imports Fn.importValue(${env}-falcon-infra-stack:ExportsOutputRefFalconScannedCleanInputS3Bucket78388202819115CA), Step Functions state machine, artifact bucket, API Gateway, VPC, and transfer references for S205 processors.',
-            )
+            imp_line = _find_line_optional(s204_nif_importer_path, r'importValue|valueForStringParameter')
+            if imp_line is not None:
+                seen_cfn_files.add(('infrastructure', s204_nif_importer_rel))
+                target_repo = 'national-item-file-maintenance' if nif_root else 'infrastructure'
+                target_path = 'functions/nif-file-processor/src/index.ts' if nif_root else s204_nif_stack_rel
+                add_seam(
+                    'cfn_cross_stack_import',
+                    'infrastructure',
+                    s204_nif_importer_rel,
+                    imp_line,
+                    'CrossStackImporter',
+                    target_repo,
+                    target_path,
+                    1,
+                    'S205_File_And_Export_Processors',
+                    'Fn.importValue+SSM:ScannedCleanInputBucket+StateMachine+VPC+Transfer',
+                    'S204 CrossStackImporter.ts imports Fn.importValue(${env}-falcon-infra-stack:ExportsOutputRefFalconScannedCleanInputS3Bucket78388202819115CA), Step Functions state machine, artifact bucket, API Gateway, VPC, and transfer references for S205 processors.',
+                )
 
-    # 4. Generic CloudFormation Fn.importValue / CrossStackImporter & Canary Pattern Seams across any other supplied repos
+    # 4. Generic content-driven UI -> API Gateway, API Gateway -> Lambda, Async SQS, and CloudFormation seams across ANY repositories
+    generic_apigw_routes: list[dict] = []
     for c_repo, c_path, c_rel, c_text in cdk_files:
-        if 'CrossStackImporter.ts' not in c_rel and 'Fn.importValue' in c_text:
+        for match in re.finditer(
+            r'([a-zA-Z0-9_.]*)\.addMethod\(\s*["\'](GET|POST|PUT|DELETE|PATCH)["\']([^\n;]*)',
+            c_text,
+        ):
+            res_expr, verb, rest = match.group(1), match.group(2), match.group(3)
+            line_no = c_text[:match.start()].count('\n') + 1
+            # Infer resource path token from addResource('<seg>') or variable name
+            res_seg = None
+            var_name = res_expr.split('.')[-1]
+            res_def = re.search(
+                rf'{re.escape(var_name)}\s*=\s*[^\n]*addResource\(\s*["\']([^"\']+)["\']',
+                c_text,
+            )
+            if res_def:
+                res_seg = res_def.group(1)
+            else:
+                all_res = re.findall(r'addResource\(\s*["\']([^"\']+)["\']', c_text[:match.start()])
+                if all_res:
+                    res_seg = '/' + '/'.join(all_res[-2:])
+            route_str = f"{verb} {res_seg if res_seg and res_seg.startswith('/') else '/' + (res_seg or var_name)}"
+            generic_apigw_routes.append({
+                'repo': c_repo,
+                'path': c_rel,
+                'line': line_no,
+                'verb': verb,
+                'route': route_str,
+                'segment': (res_seg or var_name).strip('/'),
+                'rest': rest,
+                'text': c_text,
+            })
+            # Match to a discovered handler if referenced on the addMethod line or in the same CDK file
+            for h in handlers:
+                h_token = h['name']
+                h_camel = re.sub(r'-([a-z])', lambda m: m.group(1).upper(), h_token)
+                if h_token in rest or h_camel in rest or (h_token in c_text and len(handlers) == 1):
+                    key = (c_repo, c_rel, route_str)
+                    if key in seen_apigw_keys:
+                        continue
+                    seen_apigw_keys.add(key)
+                    lam_abs = h['root'] / h['entry_rel']
+                    lam_text = _read_text(lam_abs)
+                    sym = f"{h['name']}.handler"
+                    detail = f"API Gateway {route_str} in {c_repo}:{c_rel} invokes {h['repo']}:{h['entry_rel']}."
+                    if (
+                        re.search(r'httpMethod', lam_text)
+                        and not re.search(rf"""['"]{verb}['"]""", lam_text)
+                    ):
+                        sym = f"{sym} [ROUTE_MISMATCH]"
+                        detail = (
+                            f"DEFECT/INCONSISTENCY: {c_repo}:{c_rel}:L{line_no} wires {route_str} to "
+                            f"{h['repo']}:{h['entry_rel']}, which checks httpMethod for other verbs "
+                            f"but has NO {verb} branch."
+                        )
+                    add_seam(
+                        'apigw_to_lambda',
+                        c_repo,
+                        c_rel,
+                        line_no,
+                        f"{Path(c_rel).stem}:{route_str}",
+                        h['repo'],
+                        h['entry_rel'],
+                        _find_line(lam_abs, r'export|handler|httpMethod'),
+                        sym,
+                        route_str,
+                        detail,
+                    )
+
+        # Generic SqsEventSource -> handler batch failure check
+        for sqs_match in re.finditer(r'new\s+[a-zA-Z0-9_.]*SqsEventSource\(([^)]*)\)', c_text):
+            sqs_args = sqs_match.group(1)
+            line_no = c_text[:sqs_match.start()].count('\n') + 1
+            reports_failures = bool(re.search(r'reportBatchItemFailures\s*:\s*true', sqs_args))
+            for h in handlers:
+                if h['repo'] == c_repo and (h['name'] in c_text or len([x for x in handlers if x['repo'] == c_repo]) == 1):
+                    key = (c_repo, c_rel, h['entry_rel'])
+                    if key in seen_async_keys or ('standard-acquisition-interface', 'assets/lambda/sai-purchase-order-processor/index.ts', 'assets/lambda/sai-pegasys-io-data-processor/processor/pegasysIOCreateUpdateProcessor.ts') in seen_async_keys and c_repo == 'standard-acquisition-interface':
+                        continue
+                    seen_async_keys.add(key)
+                    mismatch = h['returns_batch_failures'] and not reports_failures
+                    add_seam(
+                        'async_event_flow',
+                        c_repo,
+                        c_rel,
+                        line_no,
+                        f"{Path(c_rel).stem}:SqsEventSource",
+                        h['repo'],
+                        h['entry_rel'],
+                        1,
+                        f"{h['name']}.handler [BATCH_FAILURE_MISMATCH]" if mismatch else f"{h['name']}.handler",
+                        f"SQS -> {h['name']}",
+                        (
+                            f"MISMATCH: {h['repo']}:{h['entry_rel']} returns batchItemFailures, "
+                            f"but {c_repo}:{c_rel}:L{line_no} SqsEventSource omits reportBatchItemFailures: true."
+                            if mismatch
+                            else f"{c_repo}:{c_rel}:L{line_no} SqsEventSource triggers {h['repo']}:{h['entry_rel']}."
+                        ),
+                    )
+
+    # Generic UI HTTP calls -> discovered API Gateway routes across any repository names
+    for repo_name, root in sorted(repo_map.items()):
+        for path in _iter_source_files(root, ('.ts', '.js')):
+            rel = path.relative_to(root).as_posix()
+            if not any(tok in rel.lower() for tok in ('service', 'client', 'api')):
+                continue
+            text = _read_text(path)
+            for http_match in re.finditer(
+                r'\bhttp\.(get|post|put|delete|patch)\b[^\n;]*?["\'`](/[a-zA-Z0-9_{}/-]+)["\'`]',
+                text,
+            ):
+                verb = http_match.group(1).upper()
+                url_path = http_match.group(2)
+                ui_line = text[:http_match.start()].count('\n') + 1
+                for gw in generic_apigw_routes:
+                    if gw['verb'] == verb and gw['segment'] and gw['segment'] in url_path:
+                        key = (repo_name, rel, gw['route'])
+                        if key in seen_route_keys:
+                            continue
+                        seen_route_keys.add(key)
+                        add_seam(
+                            'ui_to_apigw_route',
+                            repo_name,
+                            rel,
+                            ui_line,
+                            f"{Path(rel).stem}:{verb} {url_path}",
+                            gw['repo'],
+                            gw['path'],
+                            gw['line'],
+                            f"{Path(gw['path']).stem}:{gw['route']}",
+                            gw['route'],
+                            f"UI HTTP {verb} {url_path} in {repo_name}:{rel} -> API Gateway {gw['route']} in {gw['repo']}:{gw['path']}",
+                        )
+
+    # 5. Generic CloudFormation Fn.importValue & Canary Pattern Seams across any supplied repos
+    for c_repo, c_path, c_rel, c_text in cdk_files:
+        if (c_repo, c_rel) not in seen_cfn_files and 'Fn.importValue' in c_text:
             line_no = _find_line(c_path, r'Fn\.importValue')
             add_seam(
                 'cfn_cross_stack_import',
@@ -508,6 +720,10 @@ def render_seams(repo_map: dict[str, Path], seams: list[dict], fmt: str = 'compa
             payload['seams'] = kept
             payload['truncated'] = True
             raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        if len(raw) > max_chars:
+            raise ValueError(
+                f'max_chars ({max_chars}) is too small for the minimum JSON seam envelope ({len(raw)} chars)'
+            )
         return raw
 
     if fmt == 'markdown':
