@@ -32,6 +32,11 @@
   `action: "resume"`. Use `reviewer` subagents only for Superpowers per-task
   spec/code review; use the native `roborev` CLI and batched post-commit hooks
   for commit and branch reviews.
+- Treat roborev findings as unverified claims, not tasks. Inspect the cited
+  code, confirm the problem is present, reachable, and within the current task,
+  then fix only confirmed findings. Close stale or invalid findings with
+  evidence and no code change, leave valid out-of-scope findings open and ask
+  the owner, and justify every skipped finding in the review comment.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Require explicit approval before changing global settings or exposing
