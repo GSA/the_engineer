@@ -25,6 +25,17 @@
 
 ## Recent completed milestones
 
+- **Model-selected qualified read in a real Forge Pi session (`6hce`)**:
+  - In Forge workspace `08ac211978ff4ac3` (Pi on `usai/claude-opus-5.5`), the
+    model chose `mcp__falcon_context` `status` (fresh, 69 documents), discovery
+    `search`, then `get` on a verbatim returned locator. The result kept
+    source hashes, roles, line ranges, inheritance reasons and outbound-link
+    index status; a compound query with no hits was recorded as absent evidence.
+  - Body-free evidence lives in the private
+    `.local/environment/runtime/6hce-qualified-read-20261030.json`. No corpus,
+    index or provider configuration changed. Compaction (`8vhd`) and the shared
+    Librarian+Knowitall run (`hk33`) are tracked separately.
+
 - **Forge pin `bf025d22` (`v0.5.1-118`)**:
   - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
     local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
