@@ -57,9 +57,18 @@ python3 scripts/local_env.py set-key
 ./scripts/gh-local.py auth login --hostname github.com --web --git-protocol https --insecure-storage
 systemctl --user restart kenn-kopy-forge.service
 
-# 4. Check the stack.
+# 4. Accept the host: read-only PASS/FAIL per check, nonzero exit until done.
+python3 scripts/local_env.py accept --repo ~/kenn-kopy --repo ~/the_librarian
 python3 scripts/local_env.py status
 ```
+
+`accept` checks the Pi pin and extensions, built executables, pinned
+submodule gitlinks, the native `kata`/`roborev` links, Pi MCP connections, all
+four user services, the saved USAi provider, the presence of the private USAi
+key and GitHub login (values are never printed), and, for each `--repo`, the
+Forge registration and roborev post-commit hook. It makes no model call and
+changes no service. Run it from a login shell so `systemctl --user` can reach
+the user manager.
 
 Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
 not edit shell files. The install tracks only Pi sessions from this install. To

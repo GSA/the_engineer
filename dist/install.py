@@ -492,7 +492,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
         run(provider_command, cwd=checkout)
     run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
     node = Path(shutil.which("node")).resolve()
-    instructions(checkout, node, service_ports(environment), provider is not None)
+    instructions(checkout, node, service_ports(environment), provider is not None, repos)
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
         for name in MANAGED_SERVICES:
@@ -530,7 +530,7 @@ def manual_kata_command(checkout, kata_port=DEFAULT_PORTS["kata"]):
     ]
 
 
-def instructions(checkout, node, ports=None, provider_configured=False):
+def instructions(checkout, node, ports=None, provider_configured=False, repos=()):
     ports = DEFAULT_PORTS if ports is None else ports
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print(f"\nNative Kata CLI: {Path.home() / '.local/bin/kata'}")
@@ -566,6 +566,9 @@ def instructions(checkout, node, ports=None, provider_configured=False):
     print("  systemctl --user restart kenn-kopy-forge.service")
     print("Optional isolated Librarian (Layer 1):")
     print("  " + shlex.join([*command, "provision-librarian-mvp", "--bind-mcp"]))
+    print("Then verify the host (read-only; exits nonzero listing each remaining step):")
+    print("  " + shlex.join([*command, "accept",
+                             *(arg for repo in repos for arg in ("--repo", str(repo)))]))
 
 
 def main(argv=None):
