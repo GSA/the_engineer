@@ -25,6 +25,12 @@
 
 ## Recent completed milestones
 
+- **Verified Pi policy loading by surface (`k03a`)**:
+  - roborev structured reviews run isolated (no AGENTS files, Forge extension,
+    Superpowers, prompt templates or MCP; schema extension by path), and
+    `local_env.py verify-pi-policy` checks private, Forge and review surfaces
+    without a model call.
+
 - **Manual Jira-to-Kata intake contract (`99gr`)**:
   - Added `scripts/jira-intake.py` (`init`, `check`, `record [--apply]`) and
     `context/jira-intake.md`. It retains one owner-supplied Jira XML export

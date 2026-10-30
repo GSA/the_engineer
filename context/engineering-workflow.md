@@ -29,6 +29,26 @@
     hook enqueue commit reviews automatically instead of running manual
     `roborev review --dirty --wait` loops before every commit.
 
+## Loaded policy by surface
+
+Each Pi surface loads one policy set; check it with
+`python3 scripts/local_env.py verify-pi-policy [--cwd PATH]` (no model call).
+
+| Surface | Loaded policy |
+|---|---|
+| Private Pi (`scripts/pi-local.py` in a checkout) | private `.local/environment/pi/AGENTS.md` (the canonical coder contract), the repository `AGENTS.md`, Superpowers skills and bootstrap, `pi-subagents` |
+| Forge-launched Pi (`pi`, `pi-argon`) | the same coder policy with the Forge-generated `AGENTS.override.md` in place of the root `AGENTS.md`, plus the `forge_workspace` section and skill overrides from `forge-workspace.ts` |
+| roborev structured review (`--json-schema`) | Pi's base prompt, the roborev prompt with `.roborev.toml` `review_guidelines`, read-only tools and the pinned schema extension only |
+
+`pi_launch()` isolates every structured review with `--no-context-files
+--no-extensions --no-skills --no-prompt-templates --no-mcp` and loads the
+installed `@nqbao/pi-json-schema` package by path, so reviewers stay
+independent and read-only and never inherit coder commit, fix, push or planning
+duties. Coder responsibilities (clarifying, checkpoint commits, evaluating
+task-scoped roborev findings, removing temporary plans) live once in the coder
+contract and repository `AGENTS.md`; Superpowers supplies TDD, design,
+planning and verification discipline.
+
 ## Task-bound evidence before acting
 
 Before acting on a task that depends on business requirements and code, collect

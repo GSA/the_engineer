@@ -70,6 +70,11 @@ Forge registration and roborev post-commit hook. It makes no model call and
 changes no service. Run it from a login shell so `systemctl --user` can reach
 the user manager.
 
+`python3 scripts/local_env.py verify-pi-policy [--cwd PATH]` shows the
+instructions, skills and Forge policy that coder Pi and roborev's structured
+review Pi load at `PATH`, failing if a review would inherit coder policy. It
+exits before any model request.
+
 Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
 not edit shell files. The install tracks only Pi sessions from this install. To
 also track Copilot and other Pi transcripts, run `configure-tracking` after
