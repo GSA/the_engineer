@@ -92,10 +92,18 @@ use two layers instead of containers. Containers would break `systemd --user`
 units, Forge worktree paths, and Librarian's absolute index paths
 (`the_librarian` Decision 0004).
 
-1. **Layer 1 (`n0vk`)**: Keep `~/the_librarian` and `~/the_knowitall` free of
-   data. Clone separate instances (`~/falcon-librarian-mvp`,
-   `~/falcon-knowitall-mvp`) with private `.local/` stores for
-   `~/falcon-docs/INBOX/` and `~/falcon/*`.
+1. **Layer 1 (`n0vk`)**: Keep `~/the_librarian` free of customer or corpus
+   data. Package and initialize a separate MVP instance (`~/falcon-librarian-mvp`)
+   with private `.local/` stores (`LCAT`, `LREV`, `LCTX`) and ignored
+   `config/policy.local.json` and `config/selection.local.json` for
+   `~/falcon-docs/INBOX/` and `~/falcon/*`:
+   ```sh
+   python3 scripts/local_env.py provision-librarian-mvp \
+     --source ~/the_librarian --dest ~/falcon-librarian-mvp \
+     --inbox ~/falcon-docs/INBOX --repos-root ~/falcon
+   ```
+   Pass `--bind-mcp` (or run `python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-librarian-mvp`)
+   when routing `scripts/pi-local.py` (`falcon-context` MCP) to the isolated MVP instance.
 2. **Layer 2 (`t592`)**: A second WSL2 Ubuntu 24.04 distro, `engineer-mvp`, on
    the same Windows host. It has its own files, users, and services.
 
