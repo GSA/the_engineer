@@ -148,8 +148,17 @@ After checks, the installer:
 5. Configures **fresh** AgentsView for private Pi **usage metadata only** and
    installs the pinned Pi structured-review extension. Existing configured
    tracking/settings are preserved; incompatible unconfigured settings fail.
-6. Reports Pi MCP discovery and prints manual startup/stop instructions.
-7. Registers and starts user services only when explicitly selected.
+6. Links the native `~/.local/bin/roborev` CLI and `~/.roborev` (this
+   install's roborev state). Exact existing links are reused; any other file,
+   directory or link at either path stops installation before builds.
+7. Optionally saves the non-secret USAi connection (`--usai-base-url`,
+   `--usai-model`, optional `--usai-review-model`, `--usai-api`) through
+   `configure-provider`. No key is read and no model call is made.
+8. Reports Pi MCP discovery and prints manual startup/stop instructions.
+9. Registers and starts user services only when explicitly selected. With
+   `--services user`, each repeatable `--register-repo PATH` (an existing Git
+   checkout) is registered with Forge and receives roborev Git hooks
+   (`roborev init --no-daemon`), then `local_env.py status` runs.
 
 The normal Forge build is the default. If its known dependency-download path
 is blocked, `--forge-build local-kata` explicitly selects the existing temporary
@@ -193,8 +202,8 @@ Dashboards listen on **loopback only**:
 
 Export `KENN_KOPY_PORT_OFFSET` (for example `1000`) before installing to shift
 every port, including the `~/.kata/config.toml` client URL. A second WSL2
-distro needs this because it shares `127.0.0.1` with the first; see the
-repository README.
+distro needs this because it shares `127.0.0.1` with the first; see
+[docs/wsl2-rehearsal.md](../docs/wsl2-rehearsal.md).
 
 Opt-in service registration requires a working `systemctl --user` manager and
 `systemd-analyze`. Existing unit names remain `kenn-kopy-*.service`; a unit from
@@ -215,7 +224,8 @@ modify WSL/system settings. `local_env.py stop` does not stop independent units.
 If registration fails partway, previously enabled units may remain running.
 
 Dashboards need no model credential. Agents need each engineer's approved
-USAi connection and a private key handoff:
+USAi connection and a private key handoff. Pass the `--usai-*` installer
+options, or configure the connection afterwards; then enter the key:
 
 ```sh
 python3 scripts/local_env.py configure-provider \
@@ -228,8 +238,8 @@ argument. `--private-only` leaves global Pi credentials unchanged. Do not
 distribute `.local/`, credentials, sessions, databases or the confidential
 Falcon corpus.
 
-Git provider authentication/sync, repository/Kata project onboarding, active
-engineering prompts and automated intake are separate work. This installer
+Git provider authentication (`scripts/gh-local.py auth login`), Kata project
+onboarding, active engineering prompts and automated intake are separate work. This installer
 does not authorize them or establish a multi-user/cloud security boundary.
 Clean-host Ubuntu acceptance remains outstanding; prerequisite checks and
 isolated regressions are not a full deployment demonstration.
