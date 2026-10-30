@@ -25,6 +25,16 @@
 
 ## Recent completed milestones
 
+- **Manual Jira-to-Kata intake contract (`99gr`)**:
+  - Added `scripts/jira-intake.py` (`init`, `check`, `record [--apply]`) and
+    `context/jira-intake.md`. It retains one owner-supplied Jira XML export
+    privately under `.local/jira-intake/<KEY>/` with SHA-256 provenance,
+    separates approved refinements, assumptions and blocking questions, and
+    creates dependency-ordered Kata tasks carrying `jira.*` metadata.
+  - `CCSMFSSM-1290` parses cleanly; its decomposition awaits owner answers on
+    the NIF/supersession and behavior questions, so `99gr` stays open until
+    the approved tasks are recorded.
+
 - **Forge pin `bf025d22` (`v0.5.1-118`)**:
   - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
     local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
