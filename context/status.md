@@ -178,7 +178,7 @@
 - List current work with `kata ready --no-label blocked --no-label deferred --agent`.
 - MVP (`pyzt`) is Librarian plus Engineer plus the cross-repo seam scanner;
   `z6jw`, `k4mp`, `n0vk`, `6hce` and `h28d` are closed.
-- Open MVP work: `d8v5` (Jira-to-PR demo via `jwn4`), `gamy` (PR #6 merged; close after
+- Open MVP work: `d8v5` (uninterrupted Jira-to-PR demo on a fresh owner-selected ticket; awaits the export), `gamy` (PR #6 merged; close after
   verification), `p4ke` (fresh-host installer plus read-only
   `local_env.py accept`; awaits an owner-run clean Ubuntu install), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
