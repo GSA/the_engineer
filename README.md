@@ -213,6 +213,31 @@ node scripts/verify-context-runtime.mjs <pi-install> <private agent dir> \
   <engineer-context-mcp> <config> <request> <receipt.json>
 ```
 
+## Manual Jira-to-Kata intake
+
+`scripts/jira-intake.py` turns one owner-supplied Jira XML export (Jira's
+"Export > XML" for a single issue) into human-approved Kata tasks. The full
+contract is in `context/jira-intake.md`.
+
+```sh
+# 1. Retain the export privately (.local/jira-intake/<KEY>/, mode 0600).
+scripts/jira-intake.py init ~/Downloads/CCSMFSSM-1290.xml \
+  --access-path "owner-supplied XML export"
+
+# 2. Record approved refinements, assumptions, questions and tasks.
+$EDITOR .local/jira-intake/CCSMFSSM-1290/intake.toml
+
+# 3. Validate, review the kata commands, then create the tasks.
+scripts/jira-intake.py check  .local/jira-intake/CCSMFSSM-1290/intake.toml
+scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml
+scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml --apply
+```
+
+Each created task carries the ticket key, URL, export SHA-256, original
+description and acceptance criteria, approved refinements, assumptions,
+Librarian grounding and `jira.*` metadata. Launch work on a task from
+**Forge > Workspaces > New workspace**.
+
 ## USAi key management and rotation
 
 - `set-key` prompts for the key with hidden input. It rejects keys passed as an

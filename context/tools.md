@@ -44,6 +44,8 @@ python3 scripts/local_env.py status
 - `python3 scripts/gh-local.py`: runs `gh` with `GH_CONFIG_DIR` set to
   `.local/environment/gh` so Forge and operator GitHub checks share isolated
   authentication.
+- `scripts/jira-intake.py`: manual one-ticket Jira XML export to approved Kata
+  tasks (`init`, `check`, `record --apply`); contract in `context/jira-intake.md`.
 - `python3 scripts/terminal-local.py`: manages persistent local `pi` and
   `copilot` tmux sessions via `.local/environment/runtime/terminal/tmux.sock`.
 
