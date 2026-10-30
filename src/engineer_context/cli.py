@@ -9,6 +9,7 @@ from .config import load_config, parse_task
 from .packet import validate_packet
 from .report import render_report
 from .revalidate import revalidate
+from .seams import SEAM_KINDS, filter_seams, render_seams, resolve_repositories, scan_seams
 from .storage import read_private_json,write_private_json
 
 
@@ -23,8 +24,20 @@ def main(argv=None):
     report.add_argument('--max-bytes',type=int,default=1048576)
     validation=commands.add_parser('revalidate')
     for field in ['config','packet','task','output']: validation.add_argument('--'+field,required=True,type=Path)
+    seams=commands.add_parser('seams')
+    seams.add_argument('--repos',nargs='*',default=[])
+    seams.add_argument('--workspace-root',type=Path,default=None)
+    seams.add_argument('--query',default='')
+    seams.add_argument('--kind',default='',choices=['',*SEAM_KINDS])
+    seams.add_argument('--format',default='compact',choices=['compact','markdown','json'])
+    seams.add_argument('--max-chars',type=int,default=4000)
     args=parser.parse_args(argv)
     try:
+        if args.command=='seams':
+            repo_map=resolve_repositories(args.repos,args.workspace_root)
+            matched=filter_seams(scan_seams(repo_map),query=args.query,kind=args.kind)
+            print(render_seams(repo_map,matched,fmt=args.format,max_chars=args.max_chars))
+            return 0
         if args.command=='report':
             if args.max_bytes<=0: raise ValueError('invalid report budget')
             value=read_private_json(args.packet,args.max_bytes); validate_packet(value)

@@ -11,14 +11,15 @@ from .packet import canonical_bytes, canonical_digest, validate_packet
 
 async def revalidate(config, packet, task):
     validate_packet(packet,task)
+    code=KnowitallClient(config.knowitall,config.limits) if config.knowitall is not None else None
     async with AsyncExitStack() as stack:
         try:
             business=await stack.enter_async_context(LibrarianClient.open(config.librarian,config.limits))
         except ProviderError as error: business=UnavailableClient(error)
-        return await revalidate_with_clients(config,packet,task,business,KnowitallClient(config.knowitall,config.limits))
+        return await revalidate_with_clients(config,packet,task,business,code)
 
 
-async def revalidate_with_clients(config, packet, task, librarian, knowitall):
+async def revalidate_with_clients(config, packet, task, librarian, knowitall=None):
     validate_packet(packet,task)
     if len(canonical_bytes(packet))>config.limits.max_bytes: raise ValueError('packet exceeded budget')
     result=dict(schema='engineer.context-revalidation/v1',packet_digest=packet['digest'],task=copy.deepcopy(packet['task']),
@@ -37,11 +38,13 @@ async def revalidate_with_clients(config, packet, task, librarian, knowitall):
         if canonical_digest(description)!=canonical_digest(packet['providers'].get('librarian',{}).get('description')):
             raise ProviderError('changed','business binding changed')
     except ProviderError as error: errors['librarian']=error
-    try:
-        description=await asyncio.to_thread(knowitall.describe)
-        if canonical_digest(description)!=canonical_digest(packet['providers'].get('knowitall',{}).get('description')):
-            raise ProviderError('changed','code binding changed')
-    except ProviderError as error: errors['knowitall']=error
+    if knowitall is not None or 'knowitall' in packet.get('providers',{}) or packet.get('code'):
+        try:
+            if knowitall is None: raise ProviderError('unavailable','code provider not configured')
+            description=await asyncio.to_thread(knowitall.describe)
+            if canonical_digest(description)!=canonical_digest(packet['providers'].get('knowitall',{}).get('description')):
+                raise ProviderError('changed','code binding changed')
+        except ProviderError as error: errors['knowitall']=error
 
     for provider,key in [('librarian','business'),('knowitall','code')]:
         for index,entry in enumerate(packet[key]):

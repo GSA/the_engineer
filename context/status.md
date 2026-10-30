@@ -143,8 +143,7 @@
     and provisioned `jq-1.7.1` and shared Python test deps (`.local/tools/pydeps`).
 - **Selective engineering memory and workspace backup (`5xrm`, `bc20`)**:
   - Documented the selective engineering memory architecture (`context/engineering-memory.md`)
-    and added `dist/hindsight.compose.yaml` (`5xrm` awaits owner approval of the
-    Phase 1 contract).
+    using repo-local `context/*.md`, Kata, and Librarian without sidecar memory containers.
   - Verified `scripts/backup_workspace.py` archive generation (`bc20`).
 
 ## Active Kata queue (`engi-platform`)
