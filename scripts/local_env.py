@@ -1884,7 +1884,7 @@ def accept_command_output(name):
     if name == "submodule":
         command, env = ["git", "-C", str(RUNTIME_ROOT), "submodule", "status"], None
     else:
-        command, env = pi_launch(["mcp", "list"])
+        command, env = [verify_pi(settings()), "mcp", "list"], base_environment()
     return subprocess.run(command, env=env, text=True, capture_output=True,
                           check=True, timeout=180).stdout
 
@@ -1904,7 +1904,8 @@ def accept_repo(repo):
     hook = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute",
                            "--git-path", "hooks/post-commit"],
                           text=True, capture_output=True, check=True, timeout=15).stdout.strip()
-    if "roborev" not in Path(hook).read_text(errors="replace"):
+    hook = Path(hook)
+    if not os.access(hook, os.X_OK) or "roborev" not in hook.read_text(errors="replace"):
         raise RuntimeError("post-commit hook does not run roborev; run roborev init --no-daemon")
 
 
@@ -1947,9 +1948,13 @@ def accept(home=None, repos=()):
                                "inspect scripts/pi-local.py mcp list")
 
     def provider():
-        routing = model_routing()
-        if not routing or not routing["coder_model"]:
-            raise RuntimeError(f"run {command} configure-provider")
+        try:
+            model = json.loads(private_read(STATE / "usai.json"))["model"]
+            entries = json.loads(private_read(STATE / "pi/models.json"))["providers"]["usai"]["models"]
+        except (FileNotFoundError, KeyError, TypeError) as error:
+            raise RuntimeError(f"run {command} configure-provider") from error
+        if not any(isinstance(entry, dict) and entry.get("id") == model for entry in entries):
+            raise RuntimeError(f"saved model is missing from pi/models.json; run {command} configure-provider")
 
     def key():
         try:

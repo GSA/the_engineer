@@ -1879,9 +1879,34 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(failures, [f"repo:{repo.resolve()}"])
         hook = repo / ".git/hooks/post-commit"
         hook.write_text("#!/bin/sh\nroborev post-commit\n")
-        with patch.object(local_env, "api", return_value={"projects": [{"local_path": str(repo)}]}):
+        registered = {"projects": [{"local_path": str(repo)}]}
+        with patch.object(local_env, "api", return_value=registered):
+            failures, _ = self.run_accept(home, [repo])
+        self.assertEqual(failures, [f"repo:{repo.resolve()}"])
+        hook.chmod(0o755)
+        with patch.object(local_env, "api", return_value=registered):
             failures, output = self.run_accept(home, [repo])
         self.assertEqual(failures, [], output)
+
+    def test_provider_requires_saved_model_entry(self):
+        home = self.accepted_host()
+        models = json.loads(local_env.private_read(self.state / "pi/models.json"))
+        models["providers"]["usai"]["models"] = []
+        local_env.json_write(self.state / "pi/models.json", models, replace=True)
+        failures, _ = self.run_accept(home)
+        self.assertEqual(failures, ["usai-provider"])
+
+    def test_mcp_probe_does_not_seed_isolated_git_config(self):
+        self.accepted_host()
+        patch.stopall()
+        patch.object(local_env, "STATE", self.state).start()
+        patch.object(local_env, "verify_pi", return_value="/usr/bin/pi").start()
+        with patch.object(local_env, "seed_isolated_gitconfig") as seed, \
+                patch.object(local_env.subprocess, "run") as run:
+            run.return_value.stdout = ""
+            local_env.accept_command_output("mcp")
+        seed.assert_not_called()
+        self.assertEqual(run.call_args.args[0], ["/usr/bin/pi", "mcp", "list"])
 
 
 if __name__ == "__main__":
