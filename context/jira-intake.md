@@ -54,7 +54,11 @@ assumptions live beside them.
   `jira.intake_task` metadata, an idempotency key `jira-<KEY>-<task id>`, and
   `--blocked-by` links to its dependencies. Task bodies go to private
   `bodies/<task id>.md` files passed with `--body-file`, so previews print no
-  ticket text. `recorded.json` maps intake task
+  ticket text.
+- A task with `adopt = "<project>#<short id>"` attaches the intake to an
+  existing Kata task instead of creating one: `record` sets the same `jira.*`
+  metadata on it and appends the approved body as a comment. An optional
+  `pull_request` URL is recorded as `jira.pull_request` and in the body. `recorded.json` maps intake task
   ids to Kata refs, so a rerun skips tasks already created.
 
 ## Grounding and launch

@@ -31,9 +31,11 @@
     privately under `.local/jira-intake/<KEY>/` with SHA-256 provenance,
     separates approved refinements, assumptions and blocking questions, and
     creates dependency-ordered Kata tasks carrying `jira.*` metadata.
-  - `CCSMFSSM-1290` parses cleanly; its decomposition awaits owner answers on
-    the NIF/supersession and behavior questions, so `99gr` stays open until
-    the approved tasks are recorded.
+  - `CCSMFSSM-1290` is recorded: the owner-approved single task adopts
+    `supply-chain-user-interface#jwn4` and its PR
+    (GSA/supply-chain-user-interface#1, client-side AAC lookup, verified by a
+    dev smoke test). `record` supports `adopt` for existing tasks. `d8v5`
+    (demonstrate the Jira-to-PR workflow) is unblocked.
 
 - **Managed Pi 1.4.0 (`gamy`)**:
   - Launcher and installer pins are `1.4.0`; the private launcher reports
@@ -176,7 +178,7 @@
 - List current work with `kata ready --no-label blocked --no-label deferred --agent`.
 - MVP (`pyzt`) is Librarian plus Engineer plus the cross-repo seam scanner;
   `z6jw`, `k4mp`, `n0vk`, `6hce` and `h28d` are closed.
-- Open MVP work: `99gr` (PR #7, manual Jira intake), `gamy` (PR #6 merged; close after
+- Open MVP work: `d8v5` (Jira-to-PR demo via `jwn4`), `gamy` (PR #6 merged; close after
   verification), `p4ke` (fresh-host installer plus read-only
   `local_env.py accept`; awaits an owner-run clean Ubuntu install), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred

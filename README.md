@@ -244,7 +244,9 @@ scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml --app
 
 Each created task carries the ticket key, URL, export SHA-256, original
 description and acceptance criteria, approved refinements, assumptions,
-Librarian grounding and `jira.*` metadata. Launch work on a task from
+Librarian grounding and `jira.*` metadata. A task with
+`adopt = "<project>#<id>"` (and optional `pull_request`) attaches that
+traceability to an existing Kata task instead of creating one. Launch work on a task from
 **Forge > Workspaces > New workspace**.
 
 ## USAi key management and rotation
