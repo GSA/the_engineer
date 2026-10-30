@@ -25,6 +25,11 @@
 
 ## Recent completed milestones
 
+- **Managed Pi 1.4.0 (`gamy`)**:
+  - Launcher and installer pins are `1.4.0`; the private launcher reports
+    `1.4.0`. `setup` now migrates a saved older `pi_version` after `verify_pi()`
+    passes, so an in-place executable upgrade is repeatable on other hosts
+    without manual `environment.json` edits; other differences still abort.
 - **Forge pin `bf025d22` (`v0.5.1-118`)**:
   - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
     local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
@@ -151,8 +156,8 @@
 
 - List current work with `kata ready --no-label blocked --no-label deferred --agent`.
 - Open priority-1 items include `k4mp` (assertions/contributions wait on
-  `the_librarian#923h` and `#rjr5`), `pyzt`, `p4ke`, `99gr`, `86ey`, `n0vk`,
-  `gamy` and `h28d`.
+  `the_librarian#923h` and `#rjr5`), `pyzt`, `p4ke`, `99gr`, `86ey`, `n0vk`
+  and `h28d`.
 - `5xrm` (reproducible redeployment script), `eb48` (legacy identity/path
   migration during planned downtime) and `t592` (isolated WSL2 Ubuntu 24.04
   reproduction with `KENN_KOPY_PORT_OFFSET=1000`) remain open.

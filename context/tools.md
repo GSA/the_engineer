@@ -49,6 +49,12 @@ python3 scripts/local_env.py status
 
 ## Pi and subagent configuration
 
+Pi is pinned to `PI_VERSION = "1.4.0"` in both `scripts/local_env.py` and
+`dist/install.py`; `verify_pi()` rejects any other `--version`. When the saved
+`pi_executable` is upgraded in place, rerunning `setup` with the same arguments
+rewrites only the stale `pi_version` in `environment.json` after `verify_pi()`
+passes; any other saved difference still aborts without mutation.
+
 `scripts/local_env.py` writes `default_pi_subagents_settings()` into
 `.local/environment/pi/settings.json` (and mirrors it in `~/.pi/agent/settings.json`
 for standalone `pi` invocations), populates all 25 advertised USAi chat models
