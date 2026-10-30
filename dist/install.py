@@ -493,7 +493,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
         if provider.get("review_model"):
             provider_command.extend(["--review-model", provider["review_model"]])
         run(provider_command, cwd=checkout)
-    run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
+    mcp_list = [sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"]
     node = Path(shutil.which("node")).resolve()
     instructions(checkout, node, service_ports(environment), provider is not None, repos)
     if choice == "user":
@@ -507,9 +507,13 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             print(f"\nRegistering {repo} with Forge and installing roborev Git hooks...")
             run([*command, "register", str(repo)], cwd=checkout)
             run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
+        # The kata and kenn-forge MCP servers connect only once their services run.
+        run(mcp_list, cwd=checkout)
         run([*command, "status"], cwd=checkout)
     else:
         print("\nInstallation configured for manual startup; no services were started or registered.")
+        print("After starting the services, check Pi's MCP servers with:")
+        print("  " + shlex.join(mcp_list))
 
 
 def manual_kata_command(checkout, kata_port=DEFAULT_PORTS["kata"]):

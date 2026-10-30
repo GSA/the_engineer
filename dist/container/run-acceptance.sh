@@ -4,6 +4,8 @@
 # Credentials are optional: with KEEP=1 the container stays up so you can run
 #   podman exec -it -u engineer engi-accept bash -lc 'cd ~/kenn-kopy && python3 scripts/local_env.py set-key'
 # and gh-local.py auth login, then rerun accept. Otherwise it is removed on exit.
+# GOPROXY is forwarded (for example GOPROXY='https://proxy.golang.org|direct' when a
+# TLS proxy blocks some module downloads, so Go falls back to the source repository).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
@@ -33,6 +35,7 @@ user_exec() {
     podman exec -u engineer -w /home/engineer \
         -e XDG_RUNTIME_DIR=/run/user/1000 \
         -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+        -e GOPROXY="${GOPROXY:-https://proxy.golang.org,direct}" \
         -e PATH=/home/engineer/.local/engi-pi/node_modules/.bin:/home/engineer/.local/bin:/usr/local/bin:/usr/bin:/bin \
         "$name" bash -lc "$1"
 }
