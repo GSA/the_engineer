@@ -649,7 +649,8 @@ class InstallerTests(unittest.TestCase):
         repo.mkdir()
         provider = {"base_url": "https://usai.example.invalid/api/v1", "model": "coder",
                     "review_model": "reviewer", "api": "openai-completions"}
-        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+        output = io.StringIO()
+        with patch.object(installer, "run") as run, contextlib.redirect_stdout(output):
             installer.install(self.root, self.corpus, "normal", "user",
                               provider=provider, repos=[repo])
         calls = [(call.args[0], call.kwargs.get("cwd")) for call in run.call_args_list]
@@ -665,6 +666,8 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(calls[services + 2],
                          ([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], repo))
         self.assertEqual(commands[-1][-1], "status")
+        self.assertIn(shlex.join([sys.executable, str(self.root / "scripts/local_env.py"),
+                                  "accept", "--repo", str(repo)]), output.getvalue())
         home = self.root / "installer-home"
         self.assertEqual((home / ".local/bin/roborev").resolve(), roborev.resolve())
         self.assertEqual((home / ".roborev").resolve(),

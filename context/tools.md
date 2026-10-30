@@ -24,6 +24,10 @@ Check live health across all four services with:
 python3 scripts/local_env.py status
 ```
 
+Verify a whole host read-only with `python3 scripts/local_env.py accept
+[--repo PATH ...]` (PASS/FAIL per check, nonzero until every check passes;
+needs a login shell for `systemctl --user`).
+
 ## CLI binaries and wrappers
 
 - `kata` (`~/.local/bin/kata` -> `/home/nkirrish/kenn-kopy/kata/kata`):

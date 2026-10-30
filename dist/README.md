@@ -12,8 +12,9 @@ deployment or confidential-data bundle.
 **Known gaps (2026-10-29):** omitted Librarian options retain the legacy Falcon
 layout described below. The data-empty Librarian toolkit is available through
 an explicit opt-in binding; it is not selected or migrated automatically.
-The installer provisions the native Kata CLI and client target; full-host
-reproduction remains part of Kata `p4ke`. See the
+The installer provisions the native Kata CLI and client target, and
+`local_env.py accept` verifies a finished host read-only; a clean Ubuntu
+full-host run remains part of Kata `p4ke`. See the
 [architecture gap inventory](../context/system-architecture.md#concrete-reproduction-gaps).
 Forge's `install-forge-service` command is restored; keep all four services.
 Forge is required for agent execution, not an optional packaging branch.
@@ -159,6 +160,8 @@ After checks, the installer:
    `--services user`, each repeatable `--register-repo PATH` (an existing Git
    checkout) is registered with Forge and receives roborev Git hooks
    (`roborev init --no-daemon`), then `local_env.py status` runs.
+10. Prints the `local_env.py accept` command (with each `--register-repo` as
+    `--repo`) to run after the interactive credential steps.
 
 The normal Forge build is the default. If its known dependency-download path
 is blocked, `--forge-build local-kata` explicitly selects the existing temporary
@@ -241,8 +244,21 @@ Falcon corpus.
 Git provider authentication (`scripts/gh-local.py auth login`), Kata project
 onboarding, active engineering prompts and automated intake are separate work. This installer
 does not authorize them or establish a multi-user/cloud security boundary.
-Clean-host Ubuntu acceptance remains outstanding; prerequisite checks and
-isolated regressions are not a full deployment demonstration.
+## Host acceptance
+
+After installation and the credential steps, run the read-only check:
+
+```sh
+python3 scripts/local_env.py accept --repo ~/kenn-kopy
+```
+
+It prints `PASS`/`FAIL` for the Pi pin and extensions, executables, pinned
+submodules, native links, Pi MCP connections, each user service, the USAi
+provider, USAi key and GitHub login presence, and each `--repo`'s Forge
+registration and roborev hook, with the next command for each failure. It
+exits nonzero while any check fails and never prints credential values.
+A clean-host Ubuntu run of the installer plus `accept` remains outstanding;
+synthetic regressions are not a full deployment demonstration.
 
 ## Maintainer checks
 

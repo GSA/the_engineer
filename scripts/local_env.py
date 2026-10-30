@@ -1876,6 +1876,125 @@ def status():
             "projects": api("GET", "/projects") if forge else None}
 
 
+ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
+
+
+def accept_command_output(name):
+    """Read-only probes used by accept; isolated so tests can replace them."""
+    if name == "submodule":
+        command, env = ["git", "-C", str(RUNTIME_ROOT), "submodule", "status"], None
+    else:
+        command, env = pi_launch(["mcp", "list"])
+    return subprocess.run(command, env=env, text=True, capture_output=True,
+                          check=True, timeout=180).stdout
+
+
+def accept_binaries():
+    config = settings()
+    binaries = (RUNTIME_ROOT / "kata/kata", RUNTIME_ROOT / "roborev/bin/roborev",
+                RUNTIME_ROOT / "agentsview/agentsview", Path(config["forge_binary"]), GH_BINARY)
+    return [str(path) for path in binaries if not (path.is_file() and os.access(path, os.X_OK))]
+
+
+def accept_repo(repo):
+    repo = repo.expanduser().resolve()
+    if not any(Path(project["local_path"]).resolve() == repo
+               for project in api("GET", "/projects")["projects"]):
+        raise RuntimeError(f"not registered with Forge; run register {repo}")
+    hook = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute",
+                           "--git-path", "hooks/post-commit"],
+                          text=True, capture_output=True, check=True, timeout=15).stdout.strip()
+    if "roborev" not in Path(hook).read_text(errors="replace"):
+        raise RuntimeError("post-commit hook does not run roborev; run roborev init --no-daemon")
+
+
+def accept(home=None, repos=()):
+    """Read-only fresh-host acceptance: report each check, never print secret values."""
+    home = Path.home() if home is None else Path(home)
+    command = f"{sys.executable} {RUNTIME_ROOT / 'scripts/local_env.py'}"
+
+    def links():
+        for link, target in ((home / ".local/bin/kata", RUNTIME_ROOT / "kata/kata"),
+                             (home / ".local/bin/roborev", RUNTIME_ROOT / "roborev/bin/roborev"),
+                             (home / ".roborev", STATE / "roborev")):
+            if not link.is_symlink() or link.resolve() != target.resolve():
+                raise RuntimeError(f"{link} must link to {target}; rerun dist/install.sh")
+
+    def extensions():
+        packages = json.loads(private_read(STATE / "pi/settings.json")).get("packages", [])
+        missing = [name for name in PI_EXTENSIONS if name not in packages]
+        if missing:
+            raise RuntimeError(f"missing {', '.join(missing)}; run {command} install-pi-extensions")
+
+    def binaries():
+        missing = accept_binaries()
+        if missing:
+            raise RuntimeError(f"missing executables {', '.join(missing)}; rerun dist/install.sh")
+
+    def submodules():
+        drift = [line.split()[1] for line in accept_command_output("submodule").splitlines()
+                 if line and line[0] != " "]
+        if drift:
+            raise RuntimeError(f"not at pinned gitlinks: {', '.join(drift)}; "
+                               "run scripts/bootstrap-sources.sh after preserving local changes")
+
+    def mcp():
+        servers = json.loads(private_read(STATE / "pi/mcp.json"))["mcpServers"]
+        output = accept_command_output("mcp")
+        missing = [name for name in servers if f"{name}: connected" not in output]
+        if missing:
+            raise RuntimeError(f"not connected: {', '.join(missing)}; "
+                               "inspect scripts/pi-local.py mcp list")
+
+    def provider():
+        routing = model_routing()
+        if not routing or not routing["coder_model"]:
+            raise RuntimeError(f"run {command} configure-provider")
+
+    def key():
+        try:
+            load_usai_key()
+        except FileNotFoundError:
+            raise RuntimeError(f"no private key; run {command} set-key") from None
+
+    def github():
+        try:
+            hosts = private_read(STATE / "gh/hosts.yml")
+        except FileNotFoundError:
+            hosts = ""
+        if not any(line.rstrip() == "github.com:" for line in hosts.splitlines()):
+            raise RuntimeError(f"no GitHub login; run {RUNTIME_ROOT / 'scripts/gh-local.py'} auth login "
+                               "--hostname github.com --web --git-protocol https --insecure-storage")
+
+    def pi():
+        config = settings()
+        verify_pi(config)
+        if config.get("pi_version") != PI_VERSION:
+            raise RuntimeError(f"saved pi_version differs from {PI_VERSION}; rerun setup")
+
+    def service(name):
+        return lambda: globals()[f"managed_{name}"](required=True)
+
+    checks = [("pi", pi), ("pi-extensions", extensions), ("binaries", binaries),
+              ("submodules", submodules), ("native-links", links), ("mcp", mcp),
+              *((f"service:{name}", service(name)) for name in ACCEPT_SERVICES),
+              ("usai-provider", provider), ("usai-key", key), ("github-login", github),
+              *((f"repo:{Path(repo).expanduser().resolve()}", lambda repo=repo: accept_repo(Path(repo)))
+                for repo in repos)]
+    failures = []
+    for name, check in checks:
+        try:
+            check()
+        except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+            failures.append(name)
+            print(f"FAIL {name}: {error}", flush=True)
+        else:
+            print(f"PASS {name}", flush=True)
+    print(f"Acceptance: {len(checks) - len(failures)}/{len(checks)} checks passed; "
+          "no model call, service change or credential output was made.")
+    return failures
+
+
 def serve():
     config = settings()
     verify_pi(config)
@@ -2022,6 +2141,10 @@ def main():
     commands.add_parser("run", help="run supervised services; retain independent services and saved state")
     commands.add_parser("stop", help="signal only the verified local supervisor")
     commands.add_parser("status", help="show the verified supervisor and persistent project registry")
+    acceptance = commands.add_parser(
+        "accept", help="read-only fresh-host acceptance of toolchains, Pi, MCP, services and credentials")
+    acceptance.add_argument("--repo", type=Path, action="append", default=[],
+                            help="also require Forge registration and roborev hooks (repeatable)")
     key = commands.add_parser("set-key", help="prompt privately for the USAi key; never supply it on the command line")
     key.add_argument("--private-only", action="store_true", help="do not link/change existing global Pi credentials")
     commands.add_parser("configure-private-pi-tracking",
@@ -2084,6 +2207,9 @@ def main():
             stop()
         elif args.command == "status":
             print(json.dumps(status(), indent=2))
+        elif args.command == "accept":
+            if accept(repos=args.repo):
+                return 1
         elif args.command == "set-key":
             set_key(private_only=args.private_only)
         elif args.command == "configure-private-pi-tracking":

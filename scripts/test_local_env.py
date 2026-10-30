@@ -1810,5 +1810,79 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.validate_roborev_config()
 
 
+class AcceptanceTests(unittest.TestCase):
+    setUp = LocalEnvironmentTests.setUp
+    provider = LocalEnvironmentTests.provider
+    key = LocalEnvironmentTests.key
+
+    def accepted_host(self):
+        home = self.root / "home"
+        (home / ".local/bin").mkdir(parents=True)
+        for name in ("kata", "roborev"):
+            (home / ".local/bin" / name).symlink_to(local_env.RUNTIME_ROOT / {
+                "kata": "kata/kata", "roborev": "roborev/bin/roborev"}[name])
+        (home / ".roborev").symlink_to(self.state / "roborev")
+        settings = json.loads(local_env.private_read(self.state / "pi/settings.json"))
+        settings["packages"] = [*settings.get("packages", []), *local_env.PI_EXTENSIONS]
+        local_env.json_write(self.state / "pi/settings.json", settings, replace=True)
+        self.provider()
+        self.key()
+        local_env.private_dir(self.state / "gh")
+        local_env.private_write(self.state / "gh/hosts.yml", "github.com:\n    user: synthetic\n")
+        servers = json.loads(local_env.private_read(self.state / "pi/mcp.json"))["mcpServers"]
+        mcp = "".join(f"{name}: connected, 1 tools (direct)\n" for name in servers)
+        patch.object(local_env, "accept_command_output", side_effect=lambda command: {
+            "submodule": " abc forge (v1)\n abc kata (v1)\n",
+            "mcp": mcp}[command]).start()
+        patch.object(local_env, "accept_binaries", return_value=[]).start()
+        for name in ("managed_kata", "managed_agentsview", "managed_roborev", "managed_forge"):
+            patch.object(local_env, name, return_value={"pid": 1}).start()
+        return home
+
+    def run_accept(self, home, repos=()):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            failures = local_env.accept(home=home, repos=repos)
+        return failures, output.getvalue()
+
+    def test_complete_host_passes_without_logging_credentials(self):
+        home = self.accepted_host()
+        failures, output = self.run_accept(home)
+        self.assertEqual(failures, [], output)
+        self.assertNotIn("test-only-token", output)
+        self.assertNotIn("synthetic", output)
+        for name in ("pi", "pi-extensions", "submodules", "native-links", "mcp",
+                     "service:kata", "service:forge", "usai-provider", "usai-key", "github-login"):
+            self.assertIn(f"PASS {name}", output)
+
+    def test_missing_credentials_services_and_drift_are_each_reported(self):
+        home = self.accepted_host()
+        (self.state / "secrets/usai-api-key").unlink()
+        (self.state / "gh/hosts.yml").unlink()
+        (home / ".roborev").unlink()
+        patch.object(local_env, "managed_forge", side_effect=RuntimeError("not active")).start()
+        patch.object(local_env, "accept_command_output", side_effect=lambda command: {
+            "submodule": "+abc forge (v1)\n",
+            "mcp": "kata: failed\n"}[command]).start()
+        failures, output = self.run_accept(home)
+        self.assertEqual(set(failures), {"submodules", "native-links", "mcp", "service:forge",
+                                         "usai-key", "github-login"})
+        self.assertIn("set-key", output)
+        self.assertIn("gh-local.py auth login", output)
+
+    def test_registered_repo_needs_forge_project_and_roborev_hook(self):
+        home = self.accepted_host()
+        repo = self.root / "repo"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        with patch.object(local_env, "api", return_value={"projects": []}):
+            failures, _ = self.run_accept(home, [repo])
+        self.assertEqual(failures, [f"repo:{repo.resolve()}"])
+        hook = repo / ".git/hooks/post-commit"
+        hook.write_text("#!/bin/sh\nroborev post-commit\n")
+        with patch.object(local_env, "api", return_value={"projects": [{"local_path": str(repo)}]}):
+            failures, output = self.run_accept(home, [repo])
+        self.assertEqual(failures, [], output)
+
+
 if __name__ == "__main__":
     unittest.main()

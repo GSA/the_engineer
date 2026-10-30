@@ -167,8 +167,8 @@
 - MVP (`pyzt`) is Librarian plus Engineer plus the cross-repo seam scanner;
   `z6jw`, `k4mp`, `n0vk`, `6hce` and `h28d` are closed.
 - Open MVP work: `99gr` (PR #7, manual Jira intake), `gamy` (PR #6 merged; close after
-  verification), `p4ke` (fresh-host installer; `dist/install.sh` now covers
-  the README setup), `hk33` and `86ey`.
+  verification), `p4ke` (fresh-host installer plus read-only
+  `local_env.py accept`; awaits an owner-run clean Ubuntu install), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
   post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy
   identity/path migration during planned downtime) remain open.
