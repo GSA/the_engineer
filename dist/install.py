@@ -53,9 +53,10 @@ TOOLS = {
 }
 
 
-def capture(command, *, cwd=None, timeout=30):
+def capture(command, *, cwd=None, timeout=30, empty_failure_ok=False):
     result = subprocess.run(command, cwd=cwd, text=True, capture_output=True, timeout=timeout)
-    if result.returncode:
+    silent = not (result.stdout.strip() or result.stderr.strip())
+    if result.returncode and not (empty_failure_ok and result.returncode == 1 and silent):
         raise RuntimeError(f"{command[0]} failed (exit {result.returncode}): {result.stderr.strip()}")
     return result.stdout.strip()
 
@@ -423,7 +424,9 @@ def check_user_services(checkout):
     capture(["systemctl", "--user", "show-environment"])
     for project in MANAGED_SERVICES:
         unit = f"kenn-kopy-{project}.service"
-        listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit])
+        # systemctl exits 1 with no output when no unit file matches (a fresh host).
+        listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit],
+                         empty_failure_ok=True)
         if not listed:
             continue
         fragment = capture(["systemctl", "--user", "show", unit, "--property=FragmentPath", "--value"])

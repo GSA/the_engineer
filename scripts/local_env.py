@@ -175,8 +175,9 @@ def configure_ports(offset):
 configure_ports(resolve_port_offset())
 
 
-def private_dir(path):
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+def private_dir(path, *, create=True):
+    if create:
+        path.mkdir(mode=0o700, parents=True, exist_ok=True)
     info = path.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise RuntimeError(f"expected an owned private directory (0700): {path}")
@@ -215,8 +216,8 @@ def json_write(path, value, *, replace=False):
     private_write(path, json.dumps(value, indent=2) + "\n", replace=replace)
 
 
-def settings():
-    private_dir(STATE)
+def settings(*, create=True):
+    private_dir(STATE, create=create)
     config = json.loads(private_read(STATE / "environment.json"))
     saved = parse_port_offset(config.get("port_offset", 0), "saved port_offset")
     if saved != PORT_OFFSET:
@@ -1708,7 +1709,7 @@ def managed_forge(*, required=False):
     if not required and not (STATE / "forge-service.json").exists():
         return None
     pid = user_service_pid(FORGE_UNIT)
-    private_dir(STATE / "forge")
+    private_dir(STATE / "forge", create=False)
     path = STATE / "forge" / f"daemon.{pid}.json"
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(fd, "r") as stream:
@@ -1877,6 +1878,7 @@ def status():
 
 
 ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
+ACCEPT_MCP_SERVERS = ("falcon-context", "kata", "kenn-forge")
 
 
 def accept_command_output(name):
@@ -1884,13 +1886,13 @@ def accept_command_output(name):
     if name == "submodule":
         command, env = ["git", "-C", str(RUNTIME_ROOT), "submodule", "status"], None
     else:
-        command, env = [verify_pi(settings()), "mcp", "list"], base_environment()
+        command, env = [verify_pi(settings(create=False)), "mcp", "list"], base_environment()
     return subprocess.run(command, env=env, text=True, capture_output=True,
                           check=True, timeout=180).stdout
 
 
 def accept_binaries():
-    config = settings()
+    config = settings(create=False)
     binaries = (RUNTIME_ROOT / "kata/kata", RUNTIME_ROOT / "roborev/bin/roborev",
                 RUNTIME_ROOT / "agentsview/agentsview", Path(config["forge_binary"]), GH_BINARY)
     return [str(path) for path in binaries if not (path.is_file() and os.access(path, os.X_OK))]
@@ -1942,6 +1944,9 @@ def accept(home=None, repos=()):
     def mcp():
         servers = json.loads(private_read(STATE / "pi/mcp.json"))["mcpServers"]
         output = accept_command_output("mcp")
+        absent = [name for name in ACCEPT_MCP_SERVERS if name not in servers]
+        if absent:
+            raise RuntimeError(f"not configured: {', '.join(absent)}; rerun {command} setup")
         missing = [name for name in servers if f"{name}: connected" not in output]
         if missing:
             raise RuntimeError(f"not connected: {', '.join(missing)}; "
@@ -1958,7 +1963,9 @@ def accept(home=None, repos=()):
 
     def key():
         try:
-            load_usai_key()
+            validate_key(private_read(STATE / "secrets/usai-api-key"))
+        except UnicodeError:
+            raise RuntimeError("USAi key file must contain a UTF-8 token; its value was not logged") from None
         except FileNotFoundError:
             raise RuntimeError(f"no private key; run {command} set-key") from None
 
@@ -1972,7 +1979,7 @@ def accept(home=None, repos=()):
                                "--hostname github.com --web --git-protocol https --insecure-storage")
 
     def pi():
-        config = settings()
+        config = settings(create=False)
         verify_pi(config)
         if config.get("pi_version") != PI_VERSION:
             raise RuntimeError(f"saved pi_version differs from {PI_VERSION}; rerun setup")

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import runpy
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1895,6 +1896,30 @@ class AcceptanceTests(unittest.TestCase):
         local_env.json_write(self.state / "pi/models.json", models, replace=True)
         failures, _ = self.run_accept(home)
         self.assertEqual(failures, ["usai-provider"])
+
+    def test_mcp_requires_every_stack_server_entry(self):
+        home = self.accepted_host()
+        mcp_path = self.state / "pi/mcp.json"
+        for removed in ({"kenn-forge"}, {"kata", "kenn-forge", "falcon-context"}):
+            with self.subTest(removed=removed):
+                mcp = json.loads(local_env.private_read(mcp_path))
+                servers = {name: value for name, value in mcp["mcpServers"].items()
+                           if name not in removed}
+                local_env.json_write(mcp_path, {**mcp, "mcpServers": servers}, replace=True)
+                connected = "".join(f"{name}: connected\n" for name in servers)
+                patch.object(local_env, "accept_command_output", side_effect=lambda command: {
+                    "submodule": " abc kata (v1)\n", "mcp": connected}[command]).start()
+                failures, output = self.run_accept(home)
+                self.assertEqual(failures, ["mcp"], output)
+                self.assertIn("kenn-forge", output)
+
+    def test_accept_does_not_create_missing_state_directories(self):
+        home = self.accepted_host()
+        shutil.rmtree(self.state / "secrets")
+        before = sorted(path for path in self.root.rglob("*"))
+        failures, output = self.run_accept(home)
+        self.assertEqual(failures, ["usai-key"], output)
+        self.assertEqual(sorted(self.root.rglob("*")), before)
 
     def test_mcp_probe_does_not_seed_isolated_git_config(self):
         self.accepted_host()

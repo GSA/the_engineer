@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Synthetic stand-in for the Falcon MCP server: answers MCP handshakes, holds no data."""
+import json
+import sys
+
+if "--help" in sys.argv:
+    print("usage: qualified-context-mcp --root PATH (synthetic acceptance stub)")
+    sys.exit(0)
+for line in sys.stdin:
+    message = json.loads(line)
+    if "id" not in message:
+        continue
+    method = message.get("method")
+    if method == "initialize":
+        result = {"protocolVersion": message["params"].get("protocolVersion", "2025-06-18"),
+                  "capabilities": {"tools": {}},
+                  "serverInfo": {"name": "synthetic-context", "version": "0"}}
+    elif method == "tools/list":
+        result = {"tools": [{"name": "status", "description": "synthetic",
+                             "inputSchema": {"type": "object", "properties": {}}}]}
+    elif method == "tools/call":
+        result = {"content": [{"type": "text", "text": "synthetic corpus: no documents"}]}
+    else:
+        result = {}
+    print(json.dumps({"jsonrpc": "2.0", "id": message["id"], "result": result}), flush=True)

@@ -1,0 +1,25 @@
+# Clean Ubuntu host with systemd for fresh-host acceptance (Kata p4ke).
+FROM docker.io/library/ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      systemd systemd-sysv dbus-user-session ca-certificates git curl xz-utils \
+      build-essential libc6-dev tmux python3 python3-venv zstd tar coreutils \
+      diffutils ripgrep fd-find \
+    && rm -rf /var/lib/apt/lists/*
+# Trust host-local CAs (TLS-intercepting proxies) mounted at build time; none are stored in Git.
+RUN --mount=type=bind,source=extra-ca,target=/usr/local/share/ca-certificates/extra \
+    update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+ARG NODE_VERSION=24.11.1
+ARG NODE_SHA256=60e3b0a8500819514aca603487c254298cd776de0698d3cd08f11dba5b8289a8
+RUN curl -fsSLo /tmp/node.tar.xz https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
+    && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum -c - \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && rm /tmp/node.tar.xz
+# Lingering lets the user manager run without an interactive login.
+RUN userdel -r ubuntu 2>/dev/null; useradd -m -u 1000 -s /bin/bash engineer \
+    && mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/engineer
+COPY --chmod=755 fake-corpus/tools /opt/fake-corpus/tools
+COPY --chmod=755 fake-corpus/qualified-context-mcp /opt/fake-corpus/tools/context-mcp/.venv/bin/qualified-context-mcp
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

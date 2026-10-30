@@ -242,7 +242,7 @@ class InstallerTests(unittest.TestCase):
         for name in installer.MANAGED_SERVICES:
             unit = f"kenn-kopy-{name}.service"
 
-            def capture(command):
+            def capture(command, **kwargs):
                 if "list-unit-files" in command and command[-1] == unit:
                     return f"{unit} enabled"
                 if "--property=FragmentPath" in command:
@@ -254,6 +254,16 @@ class InstallerTests(unittest.TestCase):
                     patch.object(installer, "capture", side_effect=capture), \
                     self.assertRaisesRegex(RuntimeError, "another installation"):
                 installer.check_user_services(self.root)
+
+    def test_fresh_host_without_units_passes_user_service_check(self):
+        def fake_run(command, **kwargs):
+            # systemctl exits 1 when list-unit-files matches nothing, as on a clean host.
+            missing = "list-unit-files" in command
+            return subprocess.CompletedProcess(command, 1 if missing else 0, "" if missing else "PATH=/usr/bin\n", "")
+
+        with patch.object(installer.shutil, "which", return_value="/usr/bin/tool"), \
+                patch.object(installer.subprocess, "run", side_effect=fake_run):
+            installer.check_user_services(self.root)
 
     def test_managed_services_match_runtime_and_supported_install_commands(self):
         environment = installer.load_environment(installer.ROOT)
