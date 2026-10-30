@@ -174,13 +174,20 @@ class SeamScannerTests(unittest.TestCase):
             "acme-portal-ui/src/services/orders.service.ts",
             "export class OrdersService {\n"
             "  cancel() { return this.http.delete('/orders/cancel'); }\n"
+            "  list() { return this.http.get('/preorders'); }\n"
             "}\n",
         )
         self._write(
             "acme-order-service/lib/stack.ts",
+            "const orderCancel = createLambda('order-cancel');\n"
+            "const orderAudit = createLambda('order-audit');\n"
             "const cancelRes = api.root.addResource('orders').addResource('cancel');\n"
             "cancelRes.addMethod('DELETE', new LambdaIntegration(orderCancel));\n"
             "orderCancel.addEventSource(new SqsEventSource(q, { batchSize: 5 }));\n",
+        )
+        self._write(
+            "acme-order-service/functions/order-audit/index.ts",
+            "export const handler = async () => ({ statusCode: 200, batchItemFailures: [] });\n",
         )
         self._write(
             "acme-order-service/lib/helper/CrossStackImporter.ts",
@@ -218,3 +225,8 @@ class SeamScannerTests(unittest.TestCase):
         self.assertIn("ROUTE_MISMATCH", acme_md)
         self.assertIn("BATCH_FAILURE_MISMATCH", acme_md)
         self.assertIn("CrossStackImporter.importValue", acme_md)
+
+        ui_routes = {s["route_or_resource"] for s in acme_seams if s["seam_kind"] == "ui_to_apigw_route"}
+        self.assertEqual(ui_routes, {"DELETE /orders/cancel"})
+        sqs_targets = {s["target_path"] for s in acme_seams if s["seam_kind"] == "async_event_flow"}
+        self.assertEqual(sqs_targets, {"functions/order-cancel/index.ts"})

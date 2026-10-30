@@ -145,6 +145,41 @@ def _discover_handlers(repo_map: dict[str, Path]) -> list[dict]:
     return handlers
 
 
+def _resource_paths(c_text: str) -> dict[str, str]:
+    """Map CDK resource variables to full paths, following chained and parent-variable addResource calls."""
+    paths: dict[str, str] = {}
+    for m in re.finditer(r'(?:const|let|var|this\.)\s*(\w+)\s*=\s*([^;]+)', c_text):
+        rhs = m.group(2)
+        segs = re.findall(r'\.addResource\(\s*["\']([^"\']+)["\']\s*\)', rhs)
+        if not segs:
+            continue
+        base = rhs.split('.addResource(', 1)[0].strip().split('.')[-1]
+        parent = paths.get(base, '')
+        paths[m.group(1)] = '/'.join(p for p in [parent.strip('/'), *(x.strip('/') for x in segs)] if p)
+    return paths
+
+
+def _receiver_path(receiver: str, paths: dict[str, str]) -> str | None:
+    segs = re.findall(r'\.addResource\(\s*["\']([^"\']+)["\']\s*\)', receiver)
+    if segs:
+        base = receiver.split('.addResource(', 1)[0].strip().split('.')[-1]
+        return '/'.join(p for p in [paths.get(base, '').strip('/'), *(x.strip('/') for x in segs)] if p)
+    return paths.get(receiver.split('.')[-1])
+
+
+def _route_segments(path: str) -> list[str]:
+    cleaned = re.sub(r'\$\{[^}]+\}', '{}', path)
+    return ['{}' if (x.startswith('{') or x.startswith(':')) else x for x in cleaned.strip('/').split('/') if x]
+
+
+def _routes_match(ui_path: str, api_path: str) -> bool:
+    """Whole-segment match; the UI path may carry an API base prefix before the API route."""
+    ui, api = _route_segments(ui_path), _route_segments(api_path)
+    if not api or len(ui) < len(api):
+        return False
+    return all(a == b or '{}' in (a, b) for a, b in zip(ui[-len(api):], api))
+
+
 def _discover_cdk_files(repo_map: dict[str, Path]) -> list[tuple[str, Path, str, str]]:
     """Return (repo_name, abs_path, rel_path, text) for CDK/infrastructure files."""
     cdk_files: list[tuple[str, Path, str, str]] = []
@@ -501,33 +536,22 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
     # 4. Generic content-driven UI -> API Gateway, API Gateway -> Lambda, Async SQS, and CloudFormation seams across ANY repositories
     generic_apigw_routes: list[dict] = []
     for c_repo, c_path, c_rel, c_text in cdk_files:
+        resource_paths = _resource_paths(c_text)
         for match in re.finditer(
-            r'([a-zA-Z0-9_.]*)\.addMethod\(\s*["\'](GET|POST|PUT|DELETE|PATCH)["\']([^\n;]*)',
+            r'([\w.]*(?:\([^()]*\)[\w.]*)*)\.addMethod\(\s*["\'](GET|POST|PUT|DELETE|PATCH)["\']([^\n;]*)',
             c_text,
         ):
             res_expr, verb, rest = match.group(1), match.group(2), match.group(3)
             line_no = c_text[:match.start()].count('\n') + 1
-            # Infer resource path token from addResource('<seg>') or variable name
-            res_seg = None
-            var_name = res_expr.split('.')[-1]
-            res_def = re.search(
-                rf'{re.escape(var_name)}\s*=\s*[^\n]*addResource\(\s*["\']([^"\']+)["\']',
-                c_text,
-            )
-            if res_def:
-                res_seg = res_def.group(1)
-            else:
-                all_res = re.findall(r'addResource\(\s*["\']([^"\']+)["\']', c_text[:match.start()])
-                if all_res:
-                    res_seg = '/' + '/'.join(all_res[-2:])
-            route_str = f"{verb} {res_seg if res_seg and res_seg.startswith('/') else '/' + (res_seg or var_name)}"
+            res_seg = _receiver_path(res_expr, resource_paths) or res_expr.split('.')[-1]
+            route_str = f"{verb} /{res_seg.strip('/')}"
             generic_apigw_routes.append({
                 'repo': c_repo,
                 'path': c_rel,
                 'line': line_no,
                 'verb': verb,
                 'route': route_str,
-                'segment': (res_seg or var_name).strip('/'),
+                'segment': res_seg.strip('/'),
                 'rest': rest,
                 'text': c_text,
             })
@@ -569,12 +593,18 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                     )
 
         # Generic SqsEventSource -> handler batch failure check
-        for sqs_match in re.finditer(r'new\s+[a-zA-Z0-9_.]*SqsEventSource\(([^)]*)\)', c_text):
-            sqs_args = sqs_match.group(1)
+        for sqs_match in re.finditer(r'(?:(\w+)\s*\.addEventSource\(\s*)?new\s+[a-zA-Z0-9_.]*SqsEventSource\(([^)]*)\)', c_text):
+            sqs_args = sqs_match.group(2)
             line_no = c_text[:sqs_match.start()].count('\n') + 1
             reports_failures = bool(re.search(r'reportBatchItemFailures\s*:\s*true', sqs_args))
-            for h in handlers:
-                if h['repo'] == c_repo and (h['name'] in c_text or len([x for x in handlers if x['repo'] == c_repo]) == 1):
+            repo_handlers = [x for x in handlers if x['repo'] == c_repo]
+            receiver = sqs_match.group(1)
+            if receiver:
+                decl = re.search(rf'\b{re.escape(receiver)}\s*=\s*([^;]*)', c_text)
+                scoped = [x for x in repo_handlers if decl and x['name'] in decl.group(1)]
+                repo_handlers = scoped or repo_handlers
+            for h in repo_handlers:
+                if h['name'] in c_text or len(repo_handlers) == 1:
                     key = (c_repo, c_rel, h['entry_rel'])
                     if key in seen_async_keys or ('standard-acquisition-interface', 'assets/lambda/sai-purchase-order-processor/index.ts', 'assets/lambda/sai-pegasys-io-data-processor/processor/pegasysIOCreateUpdateProcessor.ts') in seen_async_keys and c_repo == 'standard-acquisition-interface':
                         continue
@@ -614,7 +644,7 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                 url_path = http_match.group(2)
                 ui_line = text[:http_match.start()].count('\n') + 1
                 for gw in generic_apigw_routes:
-                    if gw['verb'] == verb and gw['segment'] and gw['segment'] in url_path:
+                    if gw['verb'] == verb and gw['segment'] and _routes_match(url_path, gw['segment']):
                         key = (repo_name, rel, gw['route'])
                         if key in seen_route_keys:
                             continue
