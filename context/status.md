@@ -172,6 +172,15 @@
   - Documented the selective engineering memory architecture (`context/engineering-memory.md`)
     using repo-local `context/*.md`, Kata, and Librarian without sidecar memory containers.
   - Verified `scripts/backup_workspace.py` archive generation (`bc20`).
+- **Synthetic prompt, temporary-plan, and publication gate verification (`mpew`)**:
+  - Added `scripts/workflow-gates.py` and `scripts/test_workflow_gates.py` (13
+    unit tests) to verify prompt and tool isolation across `private_pi`,
+    `forge_workspace`, and `roborev_review`, enforce non-model temporary plan
+    checks across `.local/plans/` and `docs/superpowers/`, validate additive
+    review fixes and human-controlled `main` merge/push gates, and run an
+    end-to-end synthetic Red -> Green -> Refactor -> Review -> Publication task
+    demonstration with a private `0600` receipt at
+    `.local/environment/runtime/mpew-synthetic-gates-20261030.json`.
 
 ## Active Kata queue (`engi-platform`)
 

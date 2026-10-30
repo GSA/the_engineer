@@ -306,6 +306,12 @@ the PR, and registers the PR and Kata task in Forge.
   verified `.tar.zst` archive of the workspace, including SQLite snapshots.
 - **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'` and the
   same command with `-s dist`.
+- **Verify prompt, temporary-plan, and publication gates:** run
+  `python3 scripts/workflow-gates.py check-plans --repo . --base main` to verify
+  no temporary working plans/specs remain under `.local/plans/` or
+  `docs/superpowers/`, or `python3 scripts/workflow-gates.py demo` to run the
+  non-model synthetic task demonstration across `private_pi`, `forge_workspace`,
+  and `roborev_review`.
 - **Run smoke tests:** stop the four services, run
   `python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge`,
   then start the services again. The smoke tests use the same ports.

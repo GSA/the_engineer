@@ -84,3 +84,31 @@ authorization.
   `./scripts/gh-local.py auth login`.
 - **Copilot CLI**: runs in standalone terminals (`scripts/terminal-local.py open copilot`)
   using the user's native GitHub Copilot authentication for non-sensitive work.
+
+<a id="prompt-and-publication-gate-verification-mpew"></a>
+## Prompt, temporary-plan, and publication gate verification (`mpew`)
+
+- `python3 scripts/workflow-gates.py` verifies prompt isolation, temporary-plan
+  hygiene, review-finding dispositions, and publication/merge boundaries without
+  live model traffic or external source access:
+  - `check-prompts --surface <private_pi|forge_workspace|roborev_review>`:
+    exercises `scripts/pi-extensions/forge-workspace.ts` and
+    `scripts/local_env.py:validate_paired_models()` to confirm that `private_pi`
+    loads repo policy without Forge overrides, `forge_workspace` filters
+    ancestor `AGENTS.md` and applies autonomous skill overrides, and
+    `roborev_review` enforces `--no-mcp --no-skills`, read-only tools, and
+    distinct model families (`claude`, `openai`, `gemini`).
+  - `check-plans --repo . --base main`: inspects staged changes, branch diffs
+    against `main`, and the working tree for temporary planning artifacts under
+    `.local/plans/`, `docs/superpowers/plans/`, and `docs/superpowers/specs/`
+    while preserving durable documentation (`README.md`, `context/*.md`, and
+    `context/prompt-drafts/jira-refinement.example.md`).
+  - `check-publication`: enforces read-only `roborev_review`, additive fix
+    commits instead of amending reviewed commits, owner approval for pushes/PRs
+    outside Forge workspaces, and explicit human control (`--human-operator`)
+    for `push_main` and `pr_merge`.
+  - `demo [--receipt <private-path>]`: executes an end-to-end synthetic task
+    through Red -> Green -> Refactor -> Review -> Plan Cleanup -> Publication
+    gates in an isolated temporary Git repository and writes a mode `0600`
+    receipt when requested.
+
