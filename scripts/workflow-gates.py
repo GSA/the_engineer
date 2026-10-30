@@ -2,6 +2,7 @@
 """Prompt, temporary-plan, review, and publication gate verifier and synthetic task demo."""
 
 import argparse
+from dataclasses import dataclass
 import importlib.util
 import json
 import os
@@ -23,6 +24,25 @@ TEMPORARY_PLAN_PREFIXES = (
     "docs/superpowers/plans/",
     "docs/superpowers/specs/",
 )
+VALID_SURFACES = ("private_pi", "forge_workspace", "roborev_review")
+BRANCH_PUBLICATION_ACTIONS = ("push_branch", "pr_create", "pr_edit")
+HUMAN_ONLY_ACTIONS = ("push_main", "pr_merge")
+
+
+@dataclass(frozen=True)
+class GateDecision:
+    allowed: bool
+    action: str
+    surface: str
+    reason: str
+
+    def to_dict(self) -> dict:
+        return {
+            "allowed": self.allowed,
+            "action": self.action,
+            "surface": self.surface,
+            "reason": self.reason,
+        }
 
 
 class GateError(ValueError):
@@ -251,6 +271,39 @@ def check_temporary_plans(repo_root: Path, *, base_ref: str = "main") -> dict:
     }
 
 
+def _validate_review_findings(action: str, surface: str, findings: list[dict] | tuple[dict, ...]) -> GateDecision | None:
+    """Return a blocking GateDecision if any review finding is unresolved or lacks required evidence."""
+    for finding in findings:
+        fid = finding.get("id", "unknown")
+        in_scope = bool(finding.get("in_scope"))
+        confirmed = bool(finding.get("confirmed"))
+        disposition = str(finding.get("disposition", "")).strip()
+        if in_scope and confirmed:
+            if disposition != "fixed" or not str(finding.get("fix_commit", "")).strip():
+                return GateDecision(
+                    False,
+                    action,
+                    surface,
+                    f"Confirmed in-scope finding {fid} must be fixed by an additive commit before publication",
+                )
+        elif disposition in ("skipped_invalid", "escalated_out_of_scope"):
+            if not str(finding.get("evidence", "")).strip():
+                return GateDecision(
+                    False,
+                    action,
+                    surface,
+                    f"Skipped or out-of-scope finding {fid} requires explicit evidence/justification",
+                )
+        else:
+            return GateDecision(
+                False,
+                action,
+                surface,
+                f"Finding {fid} has unresolved disposition {disposition!r}",
+            )
+    return None
+
+
 def evaluate_publication_gate(
     action: str,
     *,
@@ -265,106 +318,80 @@ def evaluate_publication_gate(
     human_operator: bool = False,
 ) -> dict:
     if surface == "roborev_review":
-        return {
-            "allowed": False,
-            "action": action,
-            "surface": surface,
-            "reason": "roborev_review is read-only and cannot commit, push, create PRs, or merge",
-        }
-    if surface not in ("private_pi", "forge_workspace"):
+        return GateDecision(
+            False,
+            action,
+            surface,
+            "roborev_review is read-only and cannot commit, push, create PRs, or merge",
+        ).to_dict()
+    if surface not in VALID_SURFACES:
         raise GateError(f"Unknown surface: {surface!r}")
 
     if action == "amend":
         if commit_sha and commit_sha in set(reviewed_commits) and not owner_approved:
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": f"Commit {commit_sha} was already reviewed; make an additive fix commit instead of amending",
-            }
+            return GateDecision(
+                False,
+                action,
+                surface,
+                f"Commit {commit_sha} was already reviewed; make an additive fix commit instead of amending",
+            ).to_dict()
         if not owner_approved and surface == "private_pi":
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": "Amending commits in private_pi requires explicit owner approval",
-            }
-        return {"allowed": True, "action": action, "surface": surface, "reason": "amend allowed"}
+            return GateDecision(
+                False,
+                action,
+                surface,
+                "Amending commits in private_pi requires explicit owner approval",
+            ).to_dict()
+        return GateDecision(True, action, surface, "amend allowed").to_dict()
 
     if not plans_clean:
-        return {
-            "allowed": False,
-            "action": action,
-            "surface": surface,
-            "reason": "Temporary working plans/specs must be removed before commit or publication",
-        }
+        return GateDecision(
+            False,
+            action,
+            surface,
+            "Temporary working plans/specs must be removed before commit or publication",
+        ).to_dict()
 
     if action == "commit":
-        return {"allowed": True, "action": action, "surface": surface, "reason": "local commit allowed"}
+        return GateDecision(True, action, surface, "local commit allowed").to_dict()
 
-    # Evaluate review findings before any push/PR/merge action
-    for finding in findings:
-        fid = finding.get("id", "unknown")
-        in_scope = bool(finding.get("in_scope"))
-        confirmed = bool(finding.get("confirmed"))
-        disposition = str(finding.get("disposition", "")).strip()
-        if in_scope and confirmed:
-            if disposition != "fixed" or not str(finding.get("fix_commit", "")).strip():
-                return {
-                    "allowed": False,
-                    "action": action,
-                    "surface": surface,
-                    "reason": f"Confirmed in-scope finding {fid} must be fixed by an additive commit before publication",
-                }
-        elif disposition in ("skipped_invalid", "escalated_out_of_scope"):
-            if not str(finding.get("evidence", "")).strip():
-                return {
-                    "allowed": False,
-                    "action": action,
-                    "surface": surface,
-                    "reason": f"Skipped or out-of-scope finding {fid} requires explicit evidence/justification",
-                }
-        else:
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": f"Finding {fid} has unresolved disposition {disposition!r}",
-            }
+    finding_block = _validate_review_findings(action, surface, findings)
+    if finding_block is not None:
+        return finding_block.to_dict()
 
-    if action in ("push_main", "pr_merge"):
+    if action in HUMAN_ONLY_ACTIONS:
         if not human_operator:
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": f"Action {action} requires explicit human publication/merge control (human_operator=True)",
-            }
+            return GateDecision(
+                False,
+                action,
+                surface,
+                f"Action {action} requires explicit human publication/merge control (human_operator=True)",
+            ).to_dict()
         if action == "pr_merge" and not targets_registered and surface == "forge_workspace":
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": "Workspace PR and Kata targets must be registered before merge",
-            }
-        return {"allowed": True, "action": action, "surface": surface, "reason": "human operator authorized"}
+            return GateDecision(
+                False,
+                action,
+                surface,
+                "Workspace PR and Kata targets must be registered before merge",
+            ).to_dict()
+        return GateDecision(True, action, surface, "human operator authorized").to_dict()
 
-    if action in ("push_branch", "pr_create", "pr_edit"):
+    if action in BRANCH_PUBLICATION_ACTIONS:
         if branch in ("main", "master"):
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": "Direct branch push/PR from main is blocked; use a task or workspace branch",
-            }
+            return GateDecision(
+                False,
+                action,
+                surface,
+                "Direct branch push/PR from main is blocked; use a task or workspace branch",
+            ).to_dict()
         if surface == "private_pi" and not owner_approved:
-            return {
-                "allowed": False,
-                "action": action,
-                "surface": surface,
-                "reason": f"Action {action} outside a Forge workspace requires explicit owner approval",
-            }
-        return {"allowed": True, "action": action, "surface": surface, "reason": f"{action} allowed"}
+            return GateDecision(
+                False,
+                action,
+                surface,
+                f"Action {action} outside a Forge workspace requires explicit owner approval",
+            ).to_dict()
+        return GateDecision(True, action, surface, f"{action} allowed").to_dict()
 
     raise GateError(f"Unknown publication action: {action!r}")
 
