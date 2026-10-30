@@ -35,6 +35,13 @@ class ConfigTests(unittest.TestCase):
         self.assertIsNone(conf.librarian.reader)
         self.assertEqual(self.load(config_value()).librarian.reader, self.path.parent / 'reader.py')
 
+    def test_knowitall_binding_is_optional(self):
+        value = config_value(); del value['knowitall']
+        conf = self.load(value)
+        self.assertIsNone(conf.knowitall)
+        value2 = config_value(); value2['knowitall'] = None
+        self.assertIsNone(self.load(value2).knowitall)
+
     def test_config_rejects_incomplete_binding_and_bad_limits(self):
         for value in [dict(config_value(), unexpected=True), dict(config_value(), limits={'max_bytes': True}),
                       dict(config_value(), limits={'timeout_seconds': float('inf')}),

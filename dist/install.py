@@ -372,6 +372,34 @@ def provision_native_kata_client(checkout, home=None, url=None):
     print(f"Native Kata client config: {config_path}")
 
 
+def _roborev_links(checkout, home):
+    checkout = Path(checkout).resolve()
+    home = Path(home or Path.home()).expanduser().resolve()
+    return ((home / ".local/bin/roborev", checkout / "roborev/bin/roborev"),
+            (home / ".roborev", checkout / ".local/environment/roborev"))
+
+
+def check_native_roborev_client(checkout, home=None):
+    """Refuse a foreign roborev CLI or data directory before any change."""
+    for link, target in _roborev_links(checkout, home):
+        if link.is_symlink():
+            if link.resolve() != target.resolve():
+                raise RuntimeError(f"A different roborev link already owns {link}; resolve it explicitly.")
+        elif link.exists():
+            raise RuntimeError(f"A different roborev path already exists at {link}; resolve it explicitly.")
+
+
+def provision_native_roborev_client(checkout, home=None):
+    check_native_roborev_client(checkout, home)
+    for link, target in _roborev_links(checkout, home):
+        if not target.exists():
+            raise RuntimeError(f"Missing roborev install target: {target}")
+        link.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+        if not link.is_symlink():
+            link.symlink_to(target)
+        print(f"Native roborev link: {link} -> {target}")
+
+
 def service_choice(choice):
     if choice != "ask":
         return choice
@@ -418,13 +446,15 @@ def load_environment(checkout):
 
 
 def install(checkout, corpus, forge_build, choice, librarian_executable=None,
-            librarian_reader=None, librarian_root=None, librarian_selection=None):
+            librarian_reader=None, librarian_root=None, librarian_selection=None,
+            provider=None, repos=()):
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
         raise RuntimeError("Installer/runtime Pi pins differ; use dist from the selected platform revision.")
     if set(environment.SERVICE_PORTS) != set(MANAGED_SERVICES):
         raise RuntimeError("Installer/runtime services differ; use dist from the selected platform revision.")
     environment.check_ports()
+    check_native_roborev_client(checkout)
     check_submodules(checkout)
     print("\nInitializing repositories at the platform's exact gitlink revisions...")
     run(["bash", "scripts/bootstrap-sources.sh"], cwd=checkout)
@@ -453,15 +483,28 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
     run(setup_command, cwd=checkout)
     run([*command, "configure-private-pi-tracking"], cwd=checkout)
     run([*command, "install-pi-extensions"], cwd=checkout)
+    provision_native_roborev_client(checkout)
+    if provider is not None:
+        provider_command = [*command, "configure-provider", "--base-url", provider["base_url"],
+                            "--api", provider["api"], "--model", provider["model"]]
+        if provider.get("review_model"):
+            provider_command.extend(["--review-model", provider["review_model"]])
+        run(provider_command, cwd=checkout)
     run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
     node = Path(shutil.which("node")).resolve()
-    instructions(checkout, node, service_ports(environment))
+    instructions(checkout, node, service_ports(environment), provider is not None)
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
         for name in MANAGED_SERVICES:
             run([*command, f"install-{name}-service"], cwd=checkout)
         print("User services are enabled and responsive. They start with your user manager/login.")
         print("Boot without login requires administrator-approved lingering; it was NOT enabled here.")
+        roborev = checkout / "roborev/bin/roborev"
+        for repo in repos:
+            print(f"\nRegistering {repo} with Forge and installing roborev Git hooks...")
+            run([*command, "register", str(repo)], cwd=checkout)
+            run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
+        run([*command, "status"], cwd=checkout)
     else:
         print("\nInstallation configured for manual startup; no services were started or registered.")
 
@@ -487,7 +530,7 @@ def manual_kata_command(checkout, kata_port=DEFAULT_PORTS["kata"]):
     ]
 
 
-def instructions(checkout, node, ports=None):
+def instructions(checkout, node, ports=None, provider_configured=False):
     ports = DEFAULT_PORTS if ports is None else ports
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print(f"\nNative Kata CLI: {Path.home() / '.local/bin/kata'}")
@@ -511,13 +554,18 @@ def instructions(checkout, node, ports=None):
     print(f"\nDashboards: Forge http://127.0.0.1:{ports['forge']}/ | Kata {kata_url}/kata")
     print(f"roborev http://127.0.0.1:{ports['roborev_web']}/reviews | "
           f"AgentsView http://127.0.0.1:{ports['agentsview']}/")
-    print("\nAgents are not model-ready until you configure your approved USAi endpoint/model and key.")
-    print("  " + shlex.join([*command, "configure-provider",
-                             "--base-url", "APPROVED_URL", "--model", "APPROVED_MODEL",
-                             "--api", "openai-completions"]))
-    print("Use a private-only key prompt (set-key also links existing global USAi credentials):")
+    print("\nInteractive per-machine steps (credentials are never passed as arguments):")
     print("  " + shlex.join([*command, "set-key", "--private-only"]))
-    print("Git authentication, repository/Kata bindings and active engineering policy are separate onboarding.")
+    if not provider_configured:
+        print("  " + shlex.join([*command, "configure-provider",
+                                 "--base-url", "APPROVED_URL", "--model", "APPROVED_MODEL",
+                                 "--api", "openai-completions"]))
+    print("  " + shlex.join([str(checkout / "scripts/gh-local.py"), "auth", "login",
+                             "--hostname", "github.com", "--web", "--git-protocol", "https",
+                             "--insecure-storage"]))
+    print("  systemctl --user restart kenn-kopy-forge.service")
+    print("Optional isolated Librarian (Layer 1):")
+    print("  " + shlex.join([*command, "provision-librarian-mvp", "--bind-mcp"]))
 
 
 def main(argv=None):
@@ -536,12 +584,32 @@ def main(argv=None):
                         help="optional selection manifest for the explicit Librarian binding")
     parser.add_argument("--check", action="store_true", help="check prerequisites; no downloads/config/service changes")
     parser.add_argument("--services", choices=("ask", "manual", "user"), default="ask")
+    parser.add_argument("--register-repo", type=Path, action="append", default=[],
+                        help="existing Git checkout to register with Forge and roborev "
+                             "(repeatable; requires --services user)")
+    parser.add_argument("--usai-base-url", help="approved USAi base URL (non-secret)")
+    parser.add_argument("--usai-model", help="approved USAi coder model (requires --usai-base-url)")
+    parser.add_argument("--usai-review-model", help="optional opposite-family roborev model")
+    parser.add_argument("--usai-api", default="openai-completions",
+                        choices=("openai-completions", "openai-responses", "anthropic-messages"))
     parser.add_argument("--forge-build", choices=("normal", "local-kata"), default="normal",
                         help="explicitly select the temporary local-Kata workaround if normal downloads are blocked")
     args = parser.parse_args(argv)
     checkout = args.checkout.expanduser().resolve()
     corpus = args.corpus.expanduser().resolve()
     try:
+        repos = [repo.expanduser().resolve() for repo in args.register_repo]
+        for repo in repos:
+            if not (repo / ".git").exists():
+                raise RuntimeError(f"--register-repo must be an existing Git checkout: {repo}")
+        if (args.usai_base_url is None) != (args.usai_model is None) or (
+                args.usai_review_model and args.usai_model is None):
+            raise RuntimeError("--usai-base-url and --usai-model must be supplied together")
+        if repos and args.services == "manual":
+            raise RuntimeError("--register-repo needs running services; use --services user.")
+        provider = None if args.usai_model is None else {
+            "base_url": args.usai_base_url, "model": args.usai_model,
+            "review_model": args.usai_review_model, "api": args.usai_api}
         server, reader, root, selection = librarian_binding(
             corpus, args.librarian_executable, args.librarian_reader,
             args.librarian_root, args.librarian_selection)
@@ -558,6 +626,8 @@ def main(argv=None):
             print("Check only: source downloads, builds, configuration and services were not changed.")
             return 0
         choice = service_choice(args.services)
+        if repos and choice != "user":
+            raise RuntimeError("--register-repo needs running services; use --services user.")
         if choice == "user":
             check_user_services(checkout)
         acquire_checkout(checkout, args.source, args.revision)
@@ -580,7 +650,8 @@ def main(argv=None):
                     server if args.librarian_executable else None,
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,
-                    selection if args.librarian_executable else None)
+                    selection if args.librarian_executable else None,
+                    provider, repos)
         return 0
     except (OSError, RuntimeError, ValueError, EOFError, subprocess.SubprocessError) as error:
         print(f"ERROR: Installation stopped: {error}", file=sys.stderr)

@@ -15,6 +15,7 @@ test = ["build>=1.2,<2"]
 [project.scripts]
 engineer-context = "engineer_context.cli:main"
 engineer-context-mcp = "engineer_context.mcp_server:main"
+engineer-seams = "engineer_context.seams:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -158,19 +158,20 @@
     and provisioned `jq-1.7.1` and shared Python test deps (`.local/tools/pydeps`).
 - **Selective engineering memory and workspace backup (`5xrm`, `bc20`)**:
   - Documented the selective engineering memory architecture (`context/engineering-memory.md`)
-    and added `dist/hindsight.compose.yaml` (`5xrm` awaits owner approval of the
-    Phase 1 contract).
+    using repo-local `context/*.md`, Kata, and Librarian without sidecar memory containers.
   - Verified `scripts/backup_workspace.py` archive generation (`bc20`).
 
 ## Active Kata queue (`engi-platform`)
 
 - List current work with `kata ready --no-label blocked --no-label deferred --agent`.
-- Open priority-1 items include `k4mp` (assertions/contributions wait on
-  `the_librarian#923h` and `#rjr5`), `pyzt`, `p4ke`, `99gr`, `86ey`, `n0vk`
-  and `h28d`.
-- `5xrm` (reproducible redeployment script), `eb48` (legacy identity/path
-  migration during planned downtime) and `t592` (isolated WSL2 Ubuntu 24.04
-  reproduction with `KENN_KOPY_PORT_OFFSET=1000`) remain open.
+- MVP (`pyzt`) is Librarian plus Engineer plus the cross-repo seam scanner;
+  `z6jw`, `k4mp`, `n0vk`, `6hce` and `h28d` are closed.
+- Open MVP work: `99gr` (PR #7, manual Jira intake), `gamy` (PR #6 merged; close after
+  verification), `p4ke` (fresh-host installer; `dist/install.sh` now covers
+  the README setup), `hk33` and `86ey`.
+- `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
+  post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy
+  identity/path migration during planned downtime) remain open.
 
 ## Repository history
 

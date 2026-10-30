@@ -32,159 +32,65 @@ export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 
 ## Stand it up
 
-Run these commands from `~/kenn-kopy`.
+Run these commands from `~/kenn-kopy`. `dist/install.sh` fetches the pinned
+submodules and toolchains (Go, Bun, gh, jq in `.local/tools`), builds the four
+services, creates private state in `.local/environment/`, links the native
+`kata` and `roborev` CLIs (`~/.local/bin`, `~/.kata/config.toml`, `~/.roborev`),
+saves the USAi connection, starts the systemd user services, registers repos
+with Forge, and installs roborev Git hooks. It stops rather than replace links
+or settings that belong to another install, and reruns keep existing state.
+See [dist/README.md](dist/README.md) for every option.
 
 ```sh
-# 1. Fetch pinned submodules, install pinned toolchains (Go, Bun, gh, jq) in .local/tools, and build.
-bash scripts/bootstrap-sources.sh
-bash scripts/bootstrap-toolchains.sh
-bash scripts/build.sh roborev kata agentsview forge-local-kata
+# 1. Check prerequisites, then install.
+bash dist/install.sh --check --corpus ~/falcon-docs
+bash dist/install.sh --corpus ~/falcon-docs --forge-build local-kata --services user \
+  --usai-base-url https://api.gsa.usai.gov/api/v1 --usai-model claude-opus-5.5 \
+  --usai-review-model gpt-6.1-sol-latest-guardrails-defaultv2 \
+  --register-repo ~/kenn-kopy --register-repo ~/the_librarian
 
-# 2. Create private state in .local/environment/.
-python3 scripts/local_env.py setup --corpus ~/falcon-docs \
-  --forge-binary .local/forge-local-kata/kenn-forge
-python3 scripts/local_env.py install-pi-extensions
-python3 scripts/local_env.py configure-private-pi-tracking
-
-# 3. Add the USAi key and load models. See the USAi sections below.
+# 2. Enter the USAi key (hidden prompt). To add models beyond the built-in list,
+#    see "Loading and changing USAi models" below.
 python3 scripts/local_env.py set-key
-python3 scripts/local_env.py list-models --base-url https://api.gsa.usai.gov/api/v1
-python3 scripts/local_env.py configure-provider --base-url https://api.gsa.usai.gov/api/v1 \
-  --api openai-completions --model claude-opus-5.5 \
-  --review-model gpt-6.1-sol-latest-guardrails-defaultv2
 
-# 4. Install and start the systemd user services.
-for s in kata roborev agentsview forge; do python3 scripts/local_env.py install-$s-service; done
-
-# 5. Authenticate Forge's isolated GitHub CLI.
+# 3. Authenticate Forge's isolated GitHub CLI.
 ./scripts/gh-local.py auth login --hostname github.com --web --git-protocol https --insecure-storage
 systemctl --user restart kenn-kopy-forge.service
 
-# 6. Expose the native roborev and Kata CLIs. ~/.roborev routes roborev to this install.
-ln -s "$PWD/roborev/bin/roborev" "$PWD/kata/kata" ~/.local/bin/
-ln -s "$PWD/.local/environment/roborev" ~/.roborev
-export PATH="$HOME/.local/bin:$PATH" KATA_SERVER="${KATA_SERVER:-http://127.0.0.1:17777}"
-
-# 7. Register repos with Forge and install roborev Git hooks.
-for repo in ~/kenn-kopy ~/the_librarian ~/the_knowitall; do
-  python3 scripts/local_env.py register "$repo"
-  roborev init --no-daemon --repo "$repo"
-done
-
-# 8. Check the stack.
+# 4. Check the stack.
 python3 scripts/local_env.py status
 ```
 
-Add the step 6 `export` to `~/.bashrc`. Step 2 tracks only Pi sessions in this
-install. To also track Copilot and other Pi transcripts, run `configure-tracking`
-after AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
+Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
+not edit shell files. The install tracks only Pi sessions from this install. To
+also track Copilot and other Pi transcripts, run `configure-tracking` after
+AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
 
-If the host has no systemd user services, run `python3 scripts/local_env.py run`
-in the foreground and use `python3 scripts/local_env.py stop` to stop it.
+If the host has no systemd user services, install with `--services manual`, run
+`python3 scripts/local_env.py run` in the foreground, and use
+`python3 scripts/local_env.py stop` to stop it. Register each repo afterwards
+with `python3 scripts/local_env.py register <repo>` and
+`(cd <repo> && roborev init --no-daemon)`.
 
-`dist/install.sh` is an alternate installer. It is not yet a complete fresh-host
-recipe; Kata `p4ke` tracks the gaps. See [dist/README.md](dist/README.md).
+## Isolated Librarian MVP instance (Layer 1)
 
-## Isolated WSL2 instance and two-layer isolation
-
-MVP reproduction and demo rehearsals (`the_engineer#n0vk`, `the_engineer#t592`)
-use two layers instead of containers. Containers would break `systemd --user`
-units, Forge worktree paths, and Librarian's absolute index paths
-(`the_librarian` Decision 0004).
-
-1. **Layer 1 (`n0vk`)**: Keep `~/the_librarian` and `~/the_knowitall` free of
-   data. Clone separate instances (`~/falcon-librarian-mvp`,
-   `~/falcon-knowitall-mvp`) with private `.local/` stores for
-   `~/falcon-docs/INBOX/` and `~/falcon/*`.
-2. **Layer 2 (`t592`)**: A second WSL2 Ubuntu 24.04 distro, `engineer-mvp`, on
-   the same Windows host. It has its own files, users, and services.
-
-### Ports are shared with your primary distro
-
-All WSL2 distros run in one VM and share one network namespace
-([Microsoft: What is WSL](https://learn.microsoft.com/windows/wsl/about)).
-`127.0.0.1` in `engineer-mvp` is the same `127.0.0.1` as in your primary distro.
-The default ports would collide, or silently reach your primary services.
-
-Set `KENN_KOPY_PORT_OFFSET=1000` in `engineer-mvp` before `setup` or
-`dist/install.sh`. `setup` saves it in `environment.json`, so services and later
-commands use it. A different value later is an error. The offset must be a
-non-negative integer that does not overlap the default ports.
-
-| Service | Primary distro | `engineer-mvp` (offset 1000) |
-| --- | --- | --- |
-| Forge (MCP) | 18091 (18092) | 19091 (19092) |
-| Kata | 17777 | 18777 |
-| roborev API, UI | 17373, 17374 | 18373, 18374 |
-| AgentsView | 18080 | 19080 |
-
-Both stacks can run at once. Do not stop the primary services.
-
-### Create a clean instance
-
-This needs WSL 2.4.10 or later for Ubuntu's image format. Check with
-`wsl --version`. Run in PowerShell. Keep the files under `%LOCALAPPDATA%`,
-which OneDrive does not sync.
-
-```powershell
-$dir = "$env:LOCALAPPDATA\engineer-wsl"
-New-Item -ItemType Directory -Force -Path $dir
-wsl --install Ubuntu-24.04 --name engineer-mvp --location "$dir\engineer-mvp"
-```
-
-The first launch asks for a user name and password. Set a real password;
-`sudo` needs it. Without Microsoft Store access, download the
-`ubuntu-24.04.*-wsl-amd64.wsl` image and `SHA256SUMS` from
-https://releases.ubuntu.com/noble/, check the hash, and use
-`wsl --install --from-file <image>.wsl --name engineer-mvp --location "$dir\engineer-mvp"`.
-
-Inside `engineer-mvp`, enable systemd and keep your user as the default after
-an import:
+Keep `~/the_librarian` free of customer or corpus data. MVP demos use a separate
+instance (`~/falcon-librarian-mvp`) with private `.local/` stores (`LCAT`,
+`LREV`, `LCTX`) and ignored `config/policy.local.json` and
+`config/selection.local.json` for `~/falcon-docs/INBOX/` and `~/falcon/*`:
 
 ```sh
-printf '[boot]\nsystemd=true\n[user]\ndefault=%s\n' "$USER" | sudo tee /etc/wsl.conf
+python3 scripts/local_env.py provision-librarian-mvp \
+  --source ~/the_librarian --dest ~/falcon-librarian-mvp \
+  --inbox ~/falcon-docs/INBOX --repos-root ~/falcon --bind-mcp
 ```
 
-Then save the clean baseline from PowerShell. It holds only the stock image and
-your account. No repos, keys, or logins.
+`--bind-mcp` routes the `falcon-context` MCP server in `scripts/pi-local.py` to
+that instance. To bind later, run
+`python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-librarian-mvp`.
 
-```powershell
-wsl --terminate engineer-mvp
-wsl --export engineer-mvp "$dir\engineer-mvp-base.tar"
-```
-
-### Stand it up inside `engineer-mvp`
-
-```sh
-export KENN_KOPY_PORT_OFFSET=1000
-export KATA_SERVER=http://127.0.0.1:18777
-```
-
-Add both lines to `~/.bashrc` in `engineer-mvp`. Then follow
-[Requirements](#requirements) and [Stand it up](#stand-it-up). `KATA_SERVER` keeps the native `kata` CLI off the primary Kata. Check that
-`python3 scripts/local_env.py status` shows `"port_offset": 1000`.
-Knowitall has no MCP server yet (`the_knowitall#vz6q`).
-
-### Snapshots and reset
-
-A snapshot taken after `set-key` and `gh-local.py auth login` contains the USAi
-key and the GitHub token. Treat it as a secret. Keep it only under
-`%LOCALAPPDATA%`. Never copy it to OneDrive, shared drives, Git, or chat.
-Delete it when the rehearsal is over.
-
-```powershell
-# $dir is "$env:LOCALAPPDATA\engineer-wsl", as above. Save the ready (secret) snapshot:
-wsl --terminate engineer-mvp
-wsl --export engineer-mvp "$dir\engineer-mvp-ready.tar"
-
-# Reset to it. Use engineer-mvp-base.tar instead to start clean.
-wsl --unregister engineer-mvp
-wsl --import engineer-mvp "$dir\engineer-mvp" "$dir\engineer-mvp-ready.tar" --version 2
-```
-
-After a reset, open `engineer-mvp` and run `python3 scripts/local_env.py status`.
-Use the offset URLs in the demo: Forge http://127.0.0.1:19091/ and Kata
-http://127.0.0.1:18777/kata.
+A second WSL2 distro for rehearsals (Layer 2, `the_engineer#t592`) is deferred
+until after the MVP; see [docs/wsl2-rehearsal.md](docs/wsl2-rehearsal.md).
 
 ## Services
 
@@ -196,7 +102,7 @@ http://127.0.0.1:18777/kata.
 | AgentsView | http://127.0.0.1:18080/ | `kenn-kopy-agentsview.service` |
 
 All services bind to `127.0.0.1`. `KENN_KOPY_PORT_OFFSET` shifts every port; see
-[Ports are shared with your primary distro](#ports-are-shared-with-your-primary-distro).
+[docs/wsl2-rehearsal.md](docs/wsl2-rehearsal.md#ports-are-shared-with-your-primary-distro).
 
 ## Configuration reference
 
