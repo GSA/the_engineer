@@ -2051,7 +2051,9 @@ def policy_failures(surface, report, cwd):
     failures = []
     if not report["superpowers_bootstrap"] or "using-superpowers" not in report["skills"]:
         failures.append("Superpowers is not loaded")
-    if Path(private).is_file() and private not in files:
+    if not Path(private).is_file():
+        failures.append(f"private Pi coder contract {private} is missing")
+    elif private not in files:
         failures.append("private Pi AGENTS.md is not loaded")
     if surface == "forge":
         if override not in files:

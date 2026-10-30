@@ -549,6 +549,9 @@ class LocalEnvironmentTests(unittest.TestCase):
                     "superpowers_bootstrap": False}
         self.assertEqual(local_env.policy_failures("review", isolated, cwd), [])
         self.assertIn("Superpowers is not loaded", local_env.policy_failures("private", isolated, cwd))
+        Path(private).unlink()
+        self.assertIn(f"private Pi coder contract {private} is missing",
+                      local_env.policy_failures("forge", coder, cwd))
 
     def test_credential_free_mcp_command(self):
         command, env = local_env.pi_launch(["mcp", "list"])
