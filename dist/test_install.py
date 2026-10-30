@@ -387,6 +387,7 @@ class InstallerTests(unittest.TestCase):
             binary.parent.mkdir(parents=True, exist_ok=True)
             binary.touch()
             binary.chmod(0o755)
+        (self.root / ".local/environment/roborev").mkdir(parents=True, exist_ok=True)
         environment = MagicMock(PI_VERSION=installer.PI_VERSION,
                                 SERVICE_PORTS=dict.fromkeys(installer.MANAGED_SERVICES),
                                 KATA_PORT=18777, KATA_URL="http://127.0.0.1:18777",
@@ -613,10 +614,92 @@ class InstallerTests(unittest.TestCase):
             installer.install(self.root, self.corpus, "local-kata", "user")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(commands[2][-1], "forge-local-kata")
-        self.assertEqual([command[-1] for command in commands[-4:]], [
+        self.assertEqual([command[-1] for command in commands[-5:]], [
             "install-kata-service", "install-agentsview-service",
-            "install-roborev-service", "install-forge-service",
+            "install-roborev-service", "install-forge-service", "status",
         ])
+        self.assertFalse(any("configure-provider" in command for command in commands))
+
+    def test_native_roborev_links_are_repeatable_and_refuse_conflicts(self):
+        checkout, _ = self.native_kata_binary()
+        binary = checkout / "roborev/bin/roborev"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("#!/bin/sh\nexit 0\n")
+        binary.chmod(0o755)
+        (checkout / ".local/environment/roborev").mkdir(parents=True)
+        home = self.root / "home"
+        installer.provision_native_roborev_client(checkout, home)
+        installer.provision_native_roborev_client(checkout, home)
+        self.assertEqual((home / ".local/bin/roborev").resolve(), binary.resolve())
+        self.assertEqual((home / ".roborev").resolve(),
+                         (checkout / ".local/environment/roborev").resolve())
+        other = self.root / "other-home"
+        (other / ".roborev").mkdir(parents=True)
+        (other / ".roborev/config.toml").write_text("synthetic = true\n")
+        with self.assertRaisesRegex(RuntimeError, "already exists"):
+            installer.check_native_roborev_client(checkout, other)
+        with self.assertRaisesRegex(RuntimeError, "already exists"):
+            installer.provision_native_roborev_client(checkout, other)
+        self.assertEqual((other / ".roborev/config.toml").read_text(), "synthetic = true\n")
+        self.assertFalse((other / ".local/bin/roborev").exists())
+
+    def test_install_links_roborev_configures_provider_and_registers_repos(self):
+        self.installation()
+        repo = self.root / "my repo"
+        repo.mkdir()
+        provider = {"base_url": "https://usai.example.invalid/api/v1", "model": "coder",
+                    "review_model": "reviewer", "api": "openai-completions"}
+        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+            installer.install(self.root, self.corpus, "normal", "user",
+                              provider=provider, repos=[repo])
+        calls = [(call.args[0], call.kwargs.get("cwd")) for call in run.call_args_list]
+        commands = [command for command, _ in calls]
+        configure = next(command for command in commands if "configure-provider" in command)
+        self.assertEqual(configure[-8:], ["--base-url", provider["base_url"], "--api",
+                                          "openai-completions", "--model", "coder",
+                                          "--review-model", "reviewer"])
+        services = max(i for i, c in enumerate(commands) if c[-1] == "install-forge-service")
+        self.assertLess(commands.index(configure), services)
+        self.assertEqual(commands[services + 1][-2:], ["register", str(repo)])
+        roborev = self.root / "roborev/bin/roborev"
+        self.assertEqual(calls[services + 2],
+                         ([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], repo))
+        self.assertEqual(commands[-1][-1], "status")
+        home = self.root / "installer-home"
+        self.assertEqual((home / ".local/bin/roborev").resolve(), roborev.resolve())
+        self.assertEqual((home / ".roborev").resolve(),
+                         (self.root / ".local/environment/roborev").resolve())
+
+    def test_roborev_link_conflict_aborts_before_builds(self):
+        self.installation()
+        home = self.root / "installer-home"
+        (home / ".roborev").mkdir(parents=True)
+        with patch.object(installer, "run") as run, \
+                self.assertRaisesRegex(RuntimeError, "already exists"):
+            installer.install(self.root, self.corpus, "normal", "manual")
+        run.assert_not_called()
+
+    def test_register_repo_and_provider_options_are_validated_before_changes(self):
+        repo = self.root / "repo"
+        repo.mkdir()
+        (repo / ".git").mkdir()
+        cases = (
+            (["--services", "manual", "--register-repo", str(repo)], "--services user"),
+            (["--services", "user", "--register-repo", str(self.root / "absent")], "Git checkout"),
+            (["--services", "manual", "--usai-base-url", "https://x.invalid"], "together"),
+            (["--check", "--services", "manual", "--register-repo", str(repo)], "--services user"),
+        )
+        for extra, message in cases:
+            with self.subTest(extra=extra), \
+                    patch.object(installer, "prerequisites", return_value=[]), \
+                    patch.object(installer, "acquire_checkout") as acquire, \
+                    patch.object(installer, "install") as install, \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(installer.main(["--corpus", str(self.corpus), *extra]), 1)
+            self.assertIn(message, errors.getvalue())
+            acquire.assert_not_called()
+            install.assert_not_called()
 
     def test_occupied_ports_abort_before_source_or_package_changes(self):
         environment = self.installation()

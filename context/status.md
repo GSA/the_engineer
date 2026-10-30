@@ -35,6 +35,21 @@
     the NIF/supersession and behavior questions, so `99gr` stays open until
     the approved tasks are recorded.
 
+- **Managed Pi 1.4.0 (`gamy`)**:
+  - Launcher and installer pins are `1.4.0`; the private launcher reports
+    `1.4.0`. `setup` now migrates a saved older `pi_version` after `verify_pi()`
+    passes, so an in-place executable upgrade is repeatable on other hosts
+    without manual `environment.json` edits; other differences still abort.
+- **Model-selected qualified read in a real Forge Pi session (`6hce`)**:
+  - In Forge workspace `08ac211978ff4ac3` (Pi on `usai/claude-opus-5.5`), the
+    model chose `mcp__falcon_context` `status` (fresh, 69 documents), discovery
+    `search`, then `get` on a verbatim returned locator. The result kept
+    source hashes, roles, line ranges, inheritance reasons and outbound-link
+    index status; a compound query with no hits was recorded as absent evidence.
+  - Body-free evidence lives in the private
+    `.local/environment/runtime/6hce-qualified-read-20261030.json`. No corpus,
+    index or provider configuration changed. Compaction (`8vhd`) and the shared
+    Librarian+Knowitall run (`hk33`) are tracked separately.
 - **Forge pin `bf025d22` (`v0.5.1-118`)**:
   - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
     local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
@@ -153,19 +168,20 @@
     and provisioned `jq-1.7.1` and shared Python test deps (`.local/tools/pydeps`).
 - **Selective engineering memory and workspace backup (`5xrm`, `bc20`)**:
   - Documented the selective engineering memory architecture (`context/engineering-memory.md`)
-    and added `dist/hindsight.compose.yaml` (`5xrm` awaits owner approval of the
-    Phase 1 contract).
+    using repo-local `context/*.md`, Kata, and Librarian without sidecar memory containers.
   - Verified `scripts/backup_workspace.py` archive generation (`bc20`).
 
 ## Active Kata queue (`engi-platform`)
 
 - List current work with `kata ready --no-label blocked --no-label deferred --agent`.
-- Open priority-1 items include `k4mp` (assertions/contributions wait on
-  `the_librarian#923h` and `#rjr5`), `pyzt`, `p4ke`, `99gr`, `86ey`, `n0vk`,
-  `gamy` and `h28d`.
-- `5xrm` (reproducible redeployment script), `eb48` (legacy identity/path
-  migration during planned downtime) and `t592` (isolated WSL2 Ubuntu 24.04
-  reproduction with `KENN_KOPY_PORT_OFFSET=1000`) remain open.
+- MVP (`pyzt`) is Librarian plus Engineer plus the cross-repo seam scanner;
+  `z6jw`, `k4mp`, `n0vk`, `6hce` and `h28d` are closed.
+- Open MVP work: `99gr` (PR #7, manual Jira intake), `gamy` (PR #6 merged; close after
+  verification), `p4ke` (fresh-host installer; `dist/install.sh` now covers
+  the README setup), `hk33` and `86ey`.
+- `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
+  post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy
+  identity/path migration during planned downtime) remain open.
 
 ## Repository history
 

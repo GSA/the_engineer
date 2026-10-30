@@ -61,8 +61,8 @@ class KnowitallBinding:
 @dataclass(frozen=True)
 class ConsumerConfig:
     librarian: LibrarianBinding
-    knowitall: KnowitallBinding
-    limits: Limits
+    knowitall: KnowitallBinding | None = None
+    limits: Limits = Limits()
 
 
 def load_config(path: Path) -> ConsumerConfig:
@@ -70,7 +70,7 @@ def load_config(path: Path) -> ConsumerConfig:
     if path.stat().st_size > 1048576:
         raise ValueError('configuration too large')
     value = json.loads(path.read_text(encoding='utf-8'))
-    exact_fields(value, ['schema', 'librarian', 'knowitall'], ['limits'])
+    exact_fields(value, ['schema', 'librarian'], ['knowitall', 'limits'])
     if value['schema'] != 'engineer.context-config/v1':
         raise ValueError('unsupported configuration schema')
 
@@ -89,9 +89,13 @@ def load_config(path: Path) -> ConsumerConfig:
             raise ValueError('invalid path')
         return Path(os.path.normpath(path.parent / raw))
 
-    lib = value['librarian']; code = value['knowitall']
+    lib = value['librarian']; code = value.get('knowitall')
     exact_fields(lib, ['project_id', 'executable', 'root'], ['reader', 'selection'])
-    exact_fields(code, ['project_id', 'repository_id', 'python', 'store'])
+    knowitall = None
+    if code is not None:
+        exact_fields(code, ['project_id', 'repository_id', 'python', 'store'])
+        knowitall = KnowitallBinding(identity(code['project_id']), identity(code['repository_id']),
+                                     program_path(code['python']), local_path(code['store']))
     librarian = LibrarianBinding(identity(lib['project_id']), program_path(lib['executable']),
                                  local_path(lib['root']),
                                  local_path(lib['reader']) if lib.get('reader') is not None else None,
@@ -105,5 +109,4 @@ def load_config(path: Path) -> ConsumerConfig:
             raise ValueError('invalid resource limit')
         if name != 'timeout_seconds' and not isinstance(number, int):
             raise ValueError('integer resource limit required')
-    return ConsumerConfig(librarian, KnowitallBinding(identity(code['project_id']), identity(code['repository_id']),
-                                                    program_path(code['python']), local_path(code['store'])), Limits(**limits))
+    return ConsumerConfig(librarian, knowitall, Limits(**limits))

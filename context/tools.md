@@ -16,7 +16,7 @@ All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `port_offset` in `environment.json`; every writer (Forge/roborev/Kata configs,
 `pi/mcp.json`, `KATA_SERVER`/`KENN_FORGE_API_URL`), unit, probe, `smoke.py`, and
 `dist/install.py` uses the shifted ports. A second WSL2 distro shares this
-`127.0.0.1`, so it uses offset `1000` (README "Isolated WSL2 instance").
+`127.0.0.1`, so it uses offset `1000` (`docs/wsl2-rehearsal.md`, deferred `t592`).
 
 Check live health across all four services with:
 
@@ -50,6 +50,12 @@ python3 scripts/local_env.py status
   `copilot` tmux sessions via `.local/environment/runtime/terminal/tmux.sock`.
 
 ## Pi and subagent configuration
+
+Pi is pinned to `PI_VERSION = "1.4.0"` in both `scripts/local_env.py` and
+`dist/install.py`; `verify_pi()` rejects any other `--version`. When the saved
+`pi_executable` is upgraded in place, rerunning `setup` with the same arguments
+rewrites only the stale `pi_version` in `environment.json` after `verify_pi()`
+passes; any other saved difference still aborts without mutation.
 
 `scripts/local_env.py` writes `default_pi_subagents_settings()` into
 `.local/environment/pi/settings.json` (and mirrors it in `~/.pi/agent/settings.json`

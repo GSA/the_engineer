@@ -62,6 +62,7 @@ def code_scope(scope):
 
 
 def validate_code_request(config, query):
+    if config.knowitall is None: raise ValueError('code provider not configured')
     if not isinstance(query,dict): raise ValueError('invalid code request')
     exact_fields(query,*CODE_FIELDS)
     if query['contract']!='knowitall.code-context/v1': raise ValueError('unexpected code contract')
@@ -120,7 +121,7 @@ class UnavailableClient:
 
 async def collect(config, request):
     validate_collection(config,request)
-    code=KnowitallClient(config.knowitall,config.limits)
+    code=KnowitallClient(config.knowitall,config.limits) if config.knowitall is not None else None
     # Only initialization errors may become scoped observations; caller errors
     # or composition failures must not cause a second provider collection.
     from contextlib import AsyncExitStack
@@ -132,7 +133,7 @@ async def collect(config, request):
         return await collect_with_clients(config,request,business,code)
 
 
-async def collect_with_clients(config, request, librarian, knowitall):
+async def collect_with_clients(config, request, librarian, knowitall=None):
     validate_collection(config,request)
     request=copy.deepcopy(request)
     packet=dict(schema='engineer.task-context/v1', packet_id=str(uuid.uuid4()), observed_at=now(),
@@ -161,10 +162,13 @@ async def collect_with_clients(config, request, librarian, knowitall):
         packet['business'].append(entry)
 
     code_error=None
-    try:
-        packet['providers']['knowitall']={'description':await asyncio.to_thread(knowitall.describe)}
-    except ProviderError as error:
-        code_error=error; packet['providers']['knowitall']={'description':None,'status':error.status}
+    if knowitall is not None:
+        try:
+            packet['providers']['knowitall']={'description':await asyncio.to_thread(knowitall.describe)}
+        except ProviderError as error:
+            code_error=error; packet['providers']['knowitall']={'description':None,'status':error.status}
+    elif request['code']:
+        code_error=ProviderError('unavailable','code provider not configured')
     pinned=None; pages={}
     # Every page of a supplied chain keeps the selector that bound its tokens:
     # repinning one page would make the provider issue different tokens and

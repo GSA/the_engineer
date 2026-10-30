@@ -22,6 +22,7 @@ import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -296,7 +297,7 @@ def base_environment(roborev_executable=None):
         "PATH": os.pathsep.join([str(GH_BINARY.parent), str(roborev_executable.parent),
                                 str(RUNTIME_ROOT / "kata"), str(RUNTIME_ROOT / "agentsview"),
                                 str(JQ_BINARY.parent), str(PYDEPS_DIR / "bin"),
-                                os.environ["PATH"]]),
+                                os.environ["PATH"], str(Path.home() / ".local/bin")]),
         "KENN_KOPY_RUNTIME_ROOT": str(RUNTIME_ROOT),
         "HOME": str(home),
         "USER": getpass.getuser(),
@@ -444,8 +445,15 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     seed_isolated_gitconfig(STATE / "home")
     verify_pi(config)
     config_path = STATE / "environment.json"
-    if config_path.exists() and json.loads(private_read(config_path)) != config:
-        raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
+    if config_path.exists():
+        saved = json.loads(private_read(config_path))
+        # verify_pi() proved the saved executable now runs PI_VERSION, so an
+        # older recorded pi_version is the only difference setup migrates.
+        if dict(saved, pi_version=PI_VERSION) != config:
+            raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
+        if saved != config:
+            print(f"Migrating saved pi_version {saved.get('pi_version')!r} -> {PI_VERSION}")
+            json_write(config_path, config, replace=True)
     json_write(config_path, config)
     wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
     disabled = "".join(f'\n[[agents]]\nkey = "{key}"\nenabled = false\n'
@@ -548,6 +556,269 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     print(f"Persistent local settings/data: {STATE}")
     print(f"Private USAi key destination: {STATE / 'secrets/usai-api-key'}")
     print("Existing settings were preserved. No service or model request was started.")
+
+
+def configure_librarian(librarian_root, librarian_executable=None,
+                        librarian_reader=None, librarian_selection=None):
+    config = settings()
+    root = librarian_root.expanduser().resolve()
+    executable = (
+        (root / ".venv/bin/librarian-mcp")
+        if librarian_executable is None else librarian_executable
+    )
+    selection = librarian_selection
+    if selection is None and (root / "config/selection.local.json").is_file():
+        selection = root / "config/selection.local.json"
+    server, reader, root, selection = librarian_binding(
+        Path(config["corpus"]), executable, librarian_reader, root, selection,
+    )
+    for path in (server,) + ((reader,) if reader is not None else ()):
+        if not path.is_file() or not os.access(path, os.R_OK):
+            raise RuntimeError(f"missing readable prerequisite: {path}")
+    if not os.access(server, os.X_OK):
+        raise RuntimeError(f"Librarian executable is not executable: {server}")
+    if not root.is_dir() or not os.access(root, os.R_OK | os.X_OK):
+        raise RuntimeError(f"missing readable and searchable Librarian root: {root}")
+    if selection is not None and (not selection.is_file() or not os.access(selection, os.R_OK)):
+        raise RuntimeError(f"missing readable Librarian selection: {selection}")
+    try:
+        subprocess.run([str(server), "--help"], text=True, capture_output=True,
+                       check=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as error:
+        detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
+        raise RuntimeError(f"Librarian runtime/dependencies unavailable: {detail}") from error
+    updated_config = {
+        **config,
+        "librarian_executable": str(server),
+        "librarian_reader": str(reader) if reader is not None else None,
+        "librarian_root": str(root),
+        "librarian_selection": str(selection) if selection is not None else None,
+    }
+    librarian_args = ["--root", str(root)]
+    if reader is not None:
+        librarian_args.extend(["--reader", str(reader)])
+    if selection is not None:
+        librarian_args.extend(["--manifest", str(selection)])
+    mcp_path = STATE / "pi/mcp.json"
+    mcp = json.loads(private_read(mcp_path)) if mcp_path.exists() else {}
+    saved = mcp.get("mcpServers") if mcp else {}
+    if not isinstance(saved, dict):
+        raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
+    json_write(STATE / "environment.json", updated_config, replace=True)
+    json_write(
+        mcp_path,
+        {
+            **mcp,
+            "mcpServers": {
+                **saved,
+                "falcon-context": {
+                    "command": str(server),
+                    "args": librarian_args,
+                    "exposure": "codemode",
+                    "timeout": 60,
+                },
+            },
+        },
+        replace=True,
+    )
+    print(f"Librarian MCP provider bound to {root}")
+
+
+def _candidate_offline_site_packages(source: Path, py_ver: str) -> list[Path]:
+    candidates: list[Path] = []
+    env_override = os.environ.get("LIBRARIAN_OFFLINE_SITE_PACKAGES")
+    if env_override:
+        candidates.append(Path(env_override).expanduser())
+    candidates.extend([
+        source / ".venv/lib" / py_ver / "site-packages",
+        source / "tools/context-mcp/.venv/lib" / py_ver / "site-packages",
+    ])
+    candidates.extend(sorted(source.glob(".venv/lib/python*/site-packages")))
+    candidates.extend(sorted(source.glob("tools/context-mcp/.venv/lib/python*/site-packages")))
+    env_file = STATE / "environment.json"
+    if env_file.is_file():
+        try:
+            env = json.loads(env_file.read_text())
+            for key in ("corpus", "librarian_root"):
+                val = env.get(key)
+                if val:
+                    p = Path(val).expanduser()
+                    candidates.extend([
+                        p / ".venv/lib" / py_ver / "site-packages",
+                        p / "tools/context-mcp/.venv/lib" / py_ver / "site-packages",
+                        p.parent / "the_librarian/.venv/lib" / py_ver / "site-packages",
+                    ])
+        except (OSError, json.JSONDecodeError):
+            pass
+    candidates.extend([
+        Path.home() / "the_librarian/.venv/lib" / py_ver / "site-packages",
+        Path.home() / "falcon-docs/tools/context-mcp/.venv/lib" / py_ver / "site-packages",
+    ])
+    for entry in sys.path:
+        if entry and "site-packages" in entry:
+            candidates.append(Path(entry))
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for cand in candidates:
+        try:
+            resolved = cand.resolve()
+        except OSError:
+            continue
+        if resolved not in seen and cand.is_dir():
+            seen.add(resolved)
+            unique.append(cand)
+    return unique
+
+
+def _write_librarian_entrypoint(path, python_executable, module_name):
+    script = (
+        f"#!{python_executable}\n"
+        "# -*- coding: utf-8 -*-\n"
+        "import re\n"
+        "import sys\n"
+        f"from {module_name} import main\n"
+        "if __name__ == '__main__':\n"
+        "    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])\n"
+        "    sys.exit(main())\n"
+    )
+    path.write_text(script, encoding="utf-8")
+    path.chmod(0o755)
+
+
+def provision_librarian_mvp(source, dest, *, inbox=None, repos_root=None, bind_mcp=False):
+    source = source.expanduser().resolve()
+    dest = dest.expanduser().resolve()
+    if not source.is_dir() or not (source / "tools/package.py").is_file() or not (source / "tools/initialize.py").is_file():
+        raise RuntimeError(f"missing Librarian toolkit source checkout: {source}")
+    if dest == source or dest.is_relative_to(source) or source.is_relative_to(dest):
+        raise RuntimeError("--dest must be an isolated directory outside --source")
+    resolved_inbox = None
+    if inbox is not None:
+        resolved_inbox = inbox.expanduser().resolve()
+        if not resolved_inbox.is_dir() or not os.access(resolved_inbox, os.R_OK | os.X_OK):
+            raise RuntimeError(f"missing readable and searchable inbox directory: {resolved_inbox}")
+    resolved_repos = None
+    if repos_root is not None:
+        resolved_repos = repos_root.expanduser().resolve()
+        if not resolved_repos.is_dir() or not os.access(resolved_repos, os.R_OK | os.X_OK):
+            raise RuntimeError(f"missing readable and searchable repos root: {resolved_repos}")
+    with tempfile.TemporaryDirectory(prefix="librarian-mvp-pkg-") as temp_dir:
+        archive_path = Path(temp_dir) / "librarian-release.zip"
+        subprocess.run(
+            [sys.executable, str(source / "tools/package.py"), "--output", str(archive_path)],
+            cwd=source, text=True, capture_output=True, check=True, timeout=60,
+        )
+        dest.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            for member in archive.infolist():
+                target = (dest / member.filename).resolve()
+                if not target.is_relative_to(dest):
+                    raise RuntimeError(f"unsafe release archive entry: {member.filename}")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(archive.read(member.filename))
+    venv_dir = dest / ".venv"
+    venv_python = venv_dir / "bin/python"
+    if not venv_python.exists():
+        subprocess.run(
+            [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)],
+            text=True, capture_output=True, check=True, timeout=60,
+        )
+    py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    dest_site = venv_dir / "lib" / py_ver / "site-packages"
+    dest_site.mkdir(parents=True, exist_ok=True)
+    candidate_sites = _candidate_offline_site_packages(source, py_ver)
+    selected_site = next(
+        (c for c in candidate_sites if (c / "mcp").exists() and (c / "jsonschema").exists()),
+        candidate_sites[0] if candidate_sites else None,
+    )
+    if selected_site is not None and selected_site.resolve() != dest_site.resolve():
+        shutil.copytree(selected_site, dest_site, dirs_exist_ok=True)
+    mcp_pkg_src = dest / "tools/context-mcp/src/the_librarian_mcp"
+    if mcp_pkg_src.is_dir():
+        shutil.copytree(mcp_pkg_src, dest_site / "the_librarian_mcp", dirs_exist_ok=True)
+    _write_librarian_entrypoint(venv_dir / "bin/librarian-mcp", venv_python, "the_librarian_mcp.server")
+    _write_librarian_entrypoint(venv_dir / "bin/librarian-preflight", venv_python, "the_librarian_mcp.preflight")
+    policy_local = dest / "config/policy.local.json"
+    if not policy_local.exists():
+        json_write(policy_local, {
+            "audience": "authorized-local",
+            "storage_roots": {
+                "catalog_home": "tools/catalog/.local",
+                "review_events_home": "tools/review_events/.local",
+                "context_index_db": "tools/context_index/.local/index.sqlite3",
+                "intake_home": ".local/intake",
+                "extractions_home": ".local/extractions",
+                "diagnostics_log": ".local/diagnostics/retrieval-events.jsonl",
+                "selection_manifest": "config/selection.local.json",
+            },
+        })
+    selection_local = dest / "config/selection.local.json"
+    if not selection_local.exists():
+        json_write(selection_local, {
+            "schema_version": 1,
+            "audience": "authorized-local",
+            "documents": [],
+            "context_rules": {},
+            "renditions": [],
+        })
+    init_proc = subprocess.run(
+        [str(venv_python), str(dest / "tools/initialize.py"), "--root", str(dest)],
+        cwd=dest, text=True, capture_output=True, timeout=60,
+    )
+    if init_proc.returncode != 0 and "Index is stale; run build" in (init_proc.stderr or ""):
+        subprocess.run(
+            [str(venv_python), "-m", "tools.context_index.context_index", "--root", str(dest), "build"],
+            cwd=dest, text=True, capture_output=True, check=True, timeout=60,
+        )
+        subprocess.run(
+            [str(venv_python), str(dest / "tools/initialize.py"), "--root", str(dest)],
+            cwd=dest, text=True, capture_output=True, check=True, timeout=60,
+        )
+    elif init_proc.returncode != 0:
+        raise subprocess.CalledProcessError(
+            init_proc.returncode, init_proc.args, output=init_proc.stdout, stderr=init_proc.stderr
+        )
+    subprocess.run(
+        [str(venv_python), "-m", "tools.context_index.context_index", "--root", str(dest), "status"],
+        cwd=dest, text=True, capture_output=True, check=True, timeout=60,
+    )
+    subprocess.run(
+        [str(venv_dir / "bin/librarian-mcp"), "--help"],
+        cwd=dest, text=True, capture_output=True, check=True, timeout=30,
+    )
+    private_dir(dest / ".local")
+    json_write(dest / ".local/mvp-sources.json", {
+        "schema": "librarian.mvp-instance/v1",
+        "source_toolkit": str(source),
+        "instance_root": str(dest),
+        "inbox": str(resolved_inbox) if resolved_inbox is not None else None,
+        "repos_root": str(resolved_repos) if resolved_repos is not None else None,
+    }, replace=True)
+    json_write(dest / ".local/engineer-context.json", {
+        "schema": "engineer.context-config/v1",
+        "librarian": {
+            "project_id": "falcon-librarian-mvp",
+            "executable": str(venv_dir / "bin/librarian-mcp"),
+            "root": str(dest),
+            "reader": None,
+            "selection": str(selection_local),
+        },
+        "knowitall": None,
+    }, replace=True)
+    if bind_mcp:
+        configure_librarian(dest, venv_dir / "bin/librarian-mcp", None, selection_local)
+    summary = {
+        "instance_root": str(dest),
+        "executable": str(venv_dir / "bin/librarian-mcp"),
+        "policy_local": str(policy_local),
+        "selection_local": str(selection_local),
+        "engineer_context_config": str(dest / ".local/engineer-context.json"),
+        "inbox": str(resolved_inbox) if resolved_inbox is not None else None,
+        "repos_root": str(resolved_repos) if resolved_repos is not None else None,
+        "mcp_bound": bool(bind_mcp),
+    }
+    print(json.dumps(summary, indent=2))
+    return summary
 
 
 def validate_key(key):
@@ -1782,11 +2053,31 @@ def main():
                           choices=("openai-completions", "openai-responses", "anthropic-messages"))
     register = commands.add_parser("register", help="register an existing local Git project without editing it")
     register.add_argument("path", type=Path)
+    lib_cfg = commands.add_parser("configure-librarian",
+                                  help="rebind the private falcon-context MCP server to an isolated Librarian instance")
+    lib_cfg.add_argument("--librarian-root", type=Path, required=True)
+    lib_cfg.add_argument("--librarian-executable", type=Path)
+    lib_cfg.add_argument("--librarian-reader", type=Path)
+    lib_cfg.add_argument("--librarian-selection", type=Path)
+    mvp = commands.add_parser("provision-librarian-mvp",
+                              help="package and initialize an isolated Librarian MVP instance (Layer 1 isolation)")
+    mvp.add_argument("--source", type=Path, default=Path.home() / "the_librarian")
+    mvp.add_argument("--dest", type=Path, default=Path.home() / "falcon-librarian-mvp")
+    mvp.add_argument("--inbox", type=Path)
+    mvp.add_argument("--repos-root", type=Path)
+    mvp.add_argument("--bind-mcp", action="store_true",
+                     help="also rebind the private falcon-context MCP server to this instance")
     args = parser.parse_args()
     try:
         if args.command == "setup":
             setup(args.corpus, args.forge_binary, args.librarian_executable,
                   args.librarian_reader, args.librarian_root, args.librarian_selection)
+        elif args.command == "configure-librarian":
+            configure_librarian(args.librarian_root, args.librarian_executable,
+                                args.librarian_reader, args.librarian_selection)
+        elif args.command == "provision-librarian-mvp":
+            provision_librarian_mvp(args.source, args.dest, inbox=args.inbox,
+                                    repos_root=args.repos_root, bind_mcp=args.bind_mcp)
         elif args.command == "run":
             serve()
         elif args.command == "stop":

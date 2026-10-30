@@ -280,6 +280,82 @@ class LocalEnvironmentTests(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError, "readable and searchable"):
             local_env.setup(self.corpus, self.binary, executable, reader, toolkit)
 
+    def test_configure_librarian_rebinds_existing_environment_and_mcp(self):
+        executable, _, selection = self.explicit_librarian()
+        toolkit = executable.parents[2]
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_librarian(toolkit)
+        saved = json.loads((self.state / "environment.json").read_text())
+        self.assertEqual(saved["librarian_executable"], str(executable))
+        self.assertIsNone(saved["librarian_reader"])
+        self.assertEqual(saved["librarian_root"], str(toolkit))
+        self.assertEqual(saved["librarian_selection"], str(selection))
+        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        self.assertEqual(binding["command"], str(executable))
+        self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection)])
+
+    def test_provision_librarian_mvp_packages_initializes_and_optionally_binds_mcp(self):
+        source = self.root / "the_librarian"
+        (source / "tools/context_index").mkdir(parents=True)
+        (source / "tools/context-mcp/src/the_librarian_mcp").mkdir(parents=True)
+        (source / "config").mkdir(parents=True)
+        (source / "release-files.json").write_text(json.dumps([
+            "tools/package.py",
+            "tools/initialize.py",
+            "tools/context_index/context_index.py",
+            "tools/context-mcp/src/the_librarian_mcp/__init__.py",
+            "tools/context-mcp/src/the_librarian_mcp/server.py",
+            "tools/context-mcp/src/the_librarian_mcp/preflight.py",
+            "config/policy.json",
+        ]))
+        (source / "tools/package.py").write_text(
+            "import argparse, json, zipfile\nfrom pathlib import Path\n"
+            "p = argparse.ArgumentParser(); p.add_argument('--output', type=Path, required=True)\n"
+            "args = p.parse_args(); root = Path(__file__).resolve().parents[1]\n"
+            "with zipfile.ZipFile(args.output, 'w') as zf:\n"
+            "    for f in json.loads((root / 'release-files.json').read_text()):\n"
+            "        zf.writestr(f, (root / f).read_bytes())\n"
+        )
+        (source / "tools/initialize.py").write_text("import sys\nsys.exit(0)\n")
+        (source / "tools/context_index/context_index.py").write_text("import sys\nsys.exit(0)\n")
+        (source / "tools/context-mcp/src/the_librarian_mcp/__init__.py").write_text("")
+        (source / "tools/context-mcp/src/the_librarian_mcp/server.py").write_text(
+            "import jsonschema, mcp\n"
+            "def main():\n"
+            "    assert mcp.MCP_READY and jsonschema.JSONSCHEMA_READY\n"
+            "    return 0\n"
+        )
+        (source / "tools/context-mcp/src/the_librarian_mcp/preflight.py").write_text("def main(): return 0\n")
+        (source / "config/policy.json").write_text('{"schema_version": 1}\n')
+        offline_site = self.root / "offline-site-packages"
+        (offline_site / "mcp").mkdir(parents=True)
+        (offline_site / "jsonschema").mkdir(parents=True)
+        (offline_site / "mcp/__init__.py").write_text("MCP_READY = True\n")
+        (offline_site / "jsonschema/__init__.py").write_text("JSONSCHEMA_READY = True\n")
+        dest = self.root / "falcon-librarian-mvp"
+        inbox = self.root / "inbox"
+        repos = self.root / "repos"
+        inbox.mkdir()
+        repos.mkdir()
+        with self.assertRaisesRegex(RuntimeError, "isolated directory outside --source"):
+            local_env.provision_librarian_mvp(source, source)
+        with (
+            patch.dict(os.environ, {"LIBRARIAN_OFFLINE_SITE_PACKAGES": str(offline_site)}),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            summary = local_env.provision_librarian_mvp(
+                source, dest, inbox=inbox, repos_root=repos, bind_mcp=True,
+            )
+        self.assertEqual(summary["instance_root"], str(dest))
+        self.assertTrue((dest / "config/policy.local.json").is_file())
+        self.assertTrue((dest / "config/selection.local.json").is_file())
+        self.assertTrue((dest / ".local/mvp-sources.json").is_file())
+        self.assertTrue((dest / ".local/engineer-context.json").is_file())
+        self.assertFalse((source / ".local").exists())
+        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        self.assertEqual(binding["command"], str(dest / ".venv/bin/librarian-mcp"))
+        self.assertEqual(binding["args"], ["--root", str(dest), "--manifest", str(dest / "config/selection.local.json")])
+
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"
         content = '{"theme":"light","custom":"retained"}\n'
@@ -297,6 +373,32 @@ class LocalEnvironmentTests(unittest.TestCase):
         other.touch()
         with self.assertRaisesRegex(RuntimeError, "differs"):
             local_env.setup(self.corpus, other)
+
+    def test_setup_migrates_only_stale_saved_pi_version(self):
+        path = self.state / "environment.json"
+        saved = json.loads(path.read_text())
+        local_env.private_write(path, json.dumps(dict(saved, pi_version="1.0.3")), replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads(path.read_text()), saved)
+
+    def test_setup_rejects_stale_pi_version_with_other_differences(self):
+        path = self.state / "environment.json"
+        stale = dict(json.loads(path.read_text()), pi_version="1.0.3",
+                     pi_executable="/old/pi")
+        local_env.private_write(path, json.dumps(stale), replace=True)
+        with self.assertRaisesRegex(RuntimeError, "differs"):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads(path.read_text()), stale)
+
+    def test_setup_does_not_migrate_version_when_pi_check_fails(self):
+        path = self.state / "environment.json"
+        stale = dict(json.loads(path.read_text()), pi_version="1.0.3")
+        local_env.private_write(path, json.dumps(stale), replace=True)
+        with patch.object(local_env, "verify_pi", side_effect=RuntimeError("expected Pi")), \
+                self.assertRaisesRegex(RuntimeError, "expected Pi"):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(json.loads(path.read_text()), stale)
 
     def test_default_offset_keeps_existing_ports_and_saved_settings(self):
         self.assertNotIn("port_offset", json.loads((self.state / "environment.json").read_text()))
@@ -378,6 +480,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["KENN_FORGE_API_URL"], "http://127.0.0.1:18091")
         self.assertIn(str(local_env.JQ_BINARY.parent), env["PATH"].split(os.pathsep))
         self.assertIn(str(local_env.PYDEPS_DIR / "bin"), env["PATH"].split(os.pathsep))
+        self.assertEqual(env["PATH"].split(os.pathsep)[-1], str(Path.home() / ".local/bin"))
 
     def test_missing_usai_fails_without_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "no provider fallback"):

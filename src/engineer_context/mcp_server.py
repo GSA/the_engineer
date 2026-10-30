@@ -8,6 +8,7 @@ from .config import load_config,parse_task
 from .packet import canonical_bytes
 from .report import render_report
 from .revalidate import revalidate as revalidate_context
+from .seams import filter_seams, render_seams, resolve_repositories, scan_seams
 
 
 def create_server(config):
@@ -38,6 +39,15 @@ def create_server(config):
         """Recheck exact task/workspace evidence immediately before relying on it."""
         try: return output(await revalidate_context(config,packet,parse_task(task)))
         except (ValueError,OSError): raise ValueError('invalid context revalidation input') from None
+
+    @server.tool(annotations=readonly,structured_output=False)
+    def seams(repos:list[str]|None=None,workspace_root:str|None=None,query:str='',kind:str='',format:str='compact',max_chars:int=4000)->TextContent:
+        """Scan cross-repository seams (UI HTTP -> API Gateway -> CDK -> Lambda, orphan/stub handlers, async queues/streams, CloudFormation imports)."""
+        try:
+            repo_map=resolve_repositories(repos,workspace_root)
+            matched=filter_seams(scan_seams(repo_map),query=query,kind=kind)
+            return output(render_seams(repo_map,matched,fmt=format,max_chars=max_chars))
+        except (ValueError,OSError): raise ValueError('invalid seam scan input') from None
     return server
 
 
