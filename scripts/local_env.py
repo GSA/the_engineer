@@ -1884,10 +1884,12 @@ ACCEPT_MCP_SERVERS = ("falcon-context", "kata", "kenn-forge")
 def accept_command_output(name):
     """Read-only probes used by accept; isolated so tests can replace them."""
     if name == "submodule":
-        command, env = ["git", "-C", str(RUNTIME_ROOT), "submodule", "status"], None
+        command, env, cwd = ["git", "-C", str(RUNTIME_ROOT), "submodule", "status"], None, None
     else:
+        # Run outside the checkout: its .kata.toml would bind kata mcp serve to a project.
         command, env = [verify_pi(settings(create=False)), "mcp", "list"], base_environment()
-    return subprocess.run(command, env=env, text=True, capture_output=True,
+        cwd = STATE / "home"
+    return subprocess.run(command, env=env, cwd=cwd, text=True, capture_output=True,
                           check=True, timeout=180).stdout
 
 

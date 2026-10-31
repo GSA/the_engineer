@@ -1932,6 +1932,8 @@ class AcceptanceTests(unittest.TestCase):
             local_env.accept_command_output("mcp")
         seed.assert_not_called()
         self.assertEqual(run.call_args.args[0], ["/usr/bin/pi", "mcp", "list"])
+        # A checkout's .kata.toml would bind kata mcp serve to an unregistered project.
+        self.assertEqual(run.call_args.kwargs["cwd"], self.state / "home")
 
 
 if __name__ == "__main__":
