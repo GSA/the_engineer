@@ -123,6 +123,20 @@
     `the_knowitall` (`src/knowitall_snapshot/acquire.py` and `materialize.py`,
     commit `5efdd85`).
 
+- **Pi Kata lifecycle, attention and resume verification (`tvbf`)**:
+  - `forge-workspace.ts` now reports as Forge agent `pi` (resume argv
+    `--session <id>`; the former `claude` identity produced Pi's boolean
+    `--resume` picker), forwards session start sources, ends sessions only on
+    replacement or termination signals, and gates idle dialogs out of attention.
+  - Live pilot on Forge workspace `30c7faa073ddba15` (target `pi`, USAi
+    `claude-opus-5.5`): read-only `kata show tvbf` turn → `done`; Escape
+    interrupt during `sleep 60` → `done` with the turn aborted; `/reload` →
+    `idle`, `continued=true`; in-turn `ctx.ui.confirm` → `input`, answered →
+    `done`; `/quit` → row forgotten as finished; SIGHUP → end reason `other`,
+    row retained (Forge currently resumes it only on daemon restart);
+    `pi --session <id>` restored the conversation (recalled codeword). `tvbf`
+    stayed open, owned by `nkirrish`, with no added comments throughout.
+
 - **Forge workspace PR completion, MCP targets, and Pi lifecycle hooks (`24g8`)**:
   - Enabled Forge MCP on `http://127.0.0.1:18092/mcp` in
     `.local/environment/forge/config.toml` and `scripts/local_env.py`. Forge
@@ -137,7 +151,7 @@
   - Added `scripts/pi-extensions/forge-workspace.ts` (installed to
     `.local/environment/pi/extensions/forge-workspace.ts`) to load Forge's
     `AGENTS.override.md` and `/api/v1/agent-hooks/claude` `SessionStart`
-    context, report live Pi lifecycle events via `KENN_FORGE_RUNTIME_SESSION_KEY`,
+    context, report live Pi lifecycle events (now via `/api/v1/agent-hooks/pi`),
     and override `superpowers:finishing-a-development-branch` in Forge
     workspaces so agents automatically push, create/update the PR, and register
     workspace targets instead of asking whether to merge locally to `main`.

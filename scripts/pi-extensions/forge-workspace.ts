@@ -8,6 +8,10 @@ const RUNTIME_KEY_LOOKUP_COOLDOWN_MS = 5000;
 const PI_ARGON_MODEL = "gemini-4-argon";
 const FORGE_HOOK_SOURCE = "kenn-forge-agent-activity";
 const FORGE_HOOK_TIMEOUT_MS = 1500;
+// Pi session_start and session_shutdown reasons in Forge's hook vocabulary.
+// A fork ends as "clear": Forge treats "other" as a termination signal.
+const SESSION_START_SOURCES: Record<string, string> = { resume: "resume", fork: "fork", new: "clear" };
+const SESSION_END_REASONS: Record<string, string> = { new: "clear", resume: "resume", fork: "clear" };
 const GEMINI_SUMMARY_MODEL = process.env.KENN_FORGE_PR_SUMMARY_MODEL?.trim() || "gemini-4-argon";
 const GEMINI_SUMMARY_TIMEOUT_MS = 15000;
 const USAI_DEFAULT_BASE_URL = "https://api.gsa.usai.gov/api/v1";
@@ -282,18 +286,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		return "";
 	}
 
-	async function postForgeHook(
-		ctx: any,
-		payload: Record<string, unknown>,
-		options?: { allowWithoutRuntimeKey?: boolean },
-	): Promise<any> {
-		if (isSubagentProcess()) {
-			return null;
-		}
-		const runtimeKey = await resolveRuntimeSessionKey(ctx.cwd);
-		if (!runtimeKey && !options?.allowWithoutRuntimeKey) {
-			return null;
-		}
+	function hookHeaders(runtimeKey: string): Record<string, string> {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
 			"X-Kenn-Forge-Hook-Source": FORGE_HOOK_SOURCE,
@@ -301,40 +294,99 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		if (runtimeKey) {
 			headers["X-Kenn-Forge-Runtime-Session-Key"] = runtimeKey;
 		}
-		const sessionId =
-			typeof ctx?.sessionManager?.getSessionId === "function"
-				? ctx.sessionManager.getSessionId()
-				: "pi-session";
+		return headers;
+	}
+
+	async function postJson(path: string, runtimeKey: string, body: Record<string, unknown>): Promise<any> {
 		try {
-			const response = await fetch(`${forgeApiBaseUrl()}/api/v1/agent-hooks/claude`, {
+			const response = await fetch(`${forgeApiBaseUrl()}${path}`, {
 				method: "POST",
-				headers,
-				body: JSON.stringify({
-					session_id: sessionId,
-					cwd: ctx.cwd,
-					...payload,
-				}),
+				headers: hookHeaders(runtimeKey),
+				body: JSON.stringify(body),
 				signal: AbortSignal.timeout(FORGE_HOOK_TIMEOUT_MS),
 			});
-			if (!response.ok) {
-				return null;
-			}
-			return await response.json();
+			return response.ok ? await response.json() : null;
 		} catch {
 			return null;
 		}
 	}
 
+	// Lifecycle reports use Forge's native Pi profile so a saved conversation
+	// resumes with `pi --session <id>`. Only the interactive session a user can
+	// resume reports, and only once Pi has saved its session file; events
+	// before that are held (as kit's Pi agenthook extension does).
+	const sessionFile = (ctx: any): string =>
+		typeof ctx?.sessionManager?.getSessionFile === "function" ? ctx.sessionManager.getSessionFile() || "" : "";
+	const reportable = (ctx: any): boolean => !isSubagentProcess() && ctx?.mode === "tui" && Boolean(sessionFile(ctx));
+	const saved = (ctx: any): boolean => existsSync(sessionFile(ctx));
+	let heldStart: Record<string, unknown> | null = null;
+	const heldPrompts: Record<string, unknown>[] = [];
+	let hookQueue: Promise<unknown> = Promise.resolve();
+	let agentRunning = false;
+	let inputPromptOpen = false;
+	// Pi handles SIGTERM/SIGHUP by disposing with reason "quit". Forge reads
+	// end reason "other" as a termination signal and resumes the conversation
+	// instead of forgetting it as finished.
+	let terminatedBySignal = false;
+	const markSignal = () => {
+		terminatedBySignal = true;
+	};
+	const TERMINATION_SIGNALS = ["SIGTERM", "SIGHUP"] as const;
+	let signalsWatched = false;
+
+	async function sendHook(ctx: any, payload: Record<string, unknown>): Promise<void> {
+		const runtimeKey = await resolveRuntimeSessionKey(ctx.cwd);
+		if (!runtimeKey) {
+			return;
+		}
+		await postJson("/api/v1/agent-hooks/pi", runtimeKey, {
+			session_id: ctx.sessionManager.getSessionId(),
+			cwd: ctx.cwd,
+			transcript_path: sessionFile(ctx),
+			...payload,
+		});
+	}
+
+	// Hooks post in event order so a late PostToolUse never overwrites Stop.
+	function reportHook(ctx: any, payload: Record<string, unknown> | null, hold = false): Promise<unknown> {
+		if (!reportable(ctx)) {
+			return hookQueue;
+		}
+		hookQueue = hookQueue.then(async () => {
+			if (!saved(ctx)) {
+				if (hold && payload) {
+					heldPrompts.push(payload);
+				}
+				return;
+			}
+			if (heldStart) {
+				const start = heldStart;
+				heldStart = null;
+				await sendHook(ctx, start);
+			}
+			for (const prompt of heldPrompts.splice(0)) {
+				await sendHook(ctx, prompt);
+			}
+			if (payload) {
+				await sendHook(ctx, payload);
+			}
+		});
+		return hookQueue;
+	}
+
+	// Workspace context comes from Forge's Claude SessionStart renderer. The
+	// request carries no runtime key, so Forge records no activity for it.
 	async function ensureSessionStart(ctx: any): Promise<void> {
 		if (sessionStartResolved || isSubagentProcess()) {
 			return;
 		}
 		sessionStartResolved = true;
-		const data = await postForgeHook(
-			ctx,
-			{ hook_event_name: "SessionStart", source: "startup" },
-			{ allowWithoutRuntimeKey: true },
-		);
+		const data = await postJson("/api/v1/agent-hooks/claude", "", {
+			session_id: "forge-workspace-context",
+			cwd: ctx.cwd,
+			hook_event_name: "SessionStart",
+			source: "startup",
+		});
 		const additional = data?.hook_output?.hookSpecificOutput?.additionalContext;
 		if (typeof additional === "string" && additional.trim()) {
 			sessionStartContext = additional.trim();
@@ -345,13 +397,34 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		return Boolean(readOverrideFile(cwd) || sessionStartContext);
 	}
 
-	pi.on("session_start", async (_event: any, ctx: any) => {
+	pi.on("session_start", async (event: any, ctx: any) => {
 		await ensureSessionStart(ctx);
+		if (!reportable(ctx)) {
+			return;
+		}
+		const reason = String(event?.reason || "startup");
+		// Pi reports startup (or reload) even when it opens a saved session.
+		const source =
+			SESSION_START_SOURCES[reason] || (saved(ctx) ? "resume" : "startup");
+		heldStart = { hook_event_name: "SessionStart", source };
+		if (!signalsWatched) {
+			signalsWatched = true;
+			for (const signal of TERMINATION_SIGNALS) process.on(signal, markSignal);
+		}
+		await reportHook(ctx, null);
+	});
+
+	// Pi has appended the turn's user message by the first model call.
+	pi.on("context", async (_event: any, ctx: any) => {
+		if (heldStart || heldPrompts.length > 0) {
+			void reportHook(ctx, null);
+		}
 	});
 
 	pi.on("before_agent_start", async (event: any, ctx: any) => {
 		await ensureSessionStart(ctx);
-		void postForgeHook(ctx, { hook_event_name: "UserPromptSubmit" });
+		agentRunning = true;
+		void reportHook(ctx, { hook_event_name: "UserPromptSubmit" }, true);
 
 		const overrideFile = readOverrideFile(ctx.cwd);
 		const contextFiles = event?.systemPromptOptions?.contextFiles;
@@ -407,7 +480,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		) {
 			pendingPrCommands.set(event.toolCallId, event.args.command);
 		}
-		void postForgeHook(ctx, {
+		void reportHook(ctx, {
 			hook_event_name: "PreToolUse",
 			tool_name: event?.toolName || "",
 		});
@@ -416,7 +489,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	pi.on("tool_execution_end", async (event: any, ctx: any) => {
 		const hadPrCommand =
 			typeof event?.toolCallId === "string" && pendingPrCommands.delete(event.toolCallId);
-		void postForgeHook(ctx, {
+		void reportHook(ctx, {
 			hook_event_name: "PostToolUse",
 			tool_name: event?.toolName || "",
 		});
@@ -425,30 +498,47 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		}
 	});
 
-	pi.on("ui_prompt_start", async (event: any, ctx: any) => {
-		void postForgeHook(ctx, {
-			hook_event_name: "Notification",
-			notification_type: "elicitation_dialog",
-			message: event?.title || event?.method || "Agent is waiting for user input",
-		});
+	// A dialog during a turn is the agent waiting for the user. Dialogs while
+	// Pi is idle (commands, pickers) are not an agent handoff.
+	pi.on("ui_prompt_start", async (_event: any, ctx: any) => {
+		if (!agentRunning) {
+			return;
+		}
+		inputPromptOpen = true;
+		void reportHook(ctx, { hook_event_name: "Notification", notification_type: "elicitation_dialog" });
 	});
 
 	pi.on("ui_prompt_end", async (_event: any, ctx: any) => {
-		void postForgeHook(ctx, {
-			hook_event_name: "PostToolUse",
-		});
+		if (!inputPromptOpen) {
+			return;
+		}
+		inputPromptOpen = false;
+		if (agentRunning) {
+			void reportHook(ctx, { hook_event_name: "PostToolUse" });
+		}
 	});
 
+	// Settling ends the turn, completed or aborted; either way Pi is idle.
 	pi.on("agent_settled", async (_event: any, ctx: any) => {
-		void postForgeHook(ctx, {
-			hook_event_name: "Stop",
-		});
+		agentRunning = false;
+		inputPromptOpen = false;
+		await reportHook(ctx, { hook_event_name: "Stop" });
 	});
 
-	pi.on("session_shutdown", async (_event: any, ctx: any) => {
-		await postForgeHook(ctx, {
-			hook_event_name: "SessionEnd",
-		});
+	// Quit and reload keep the conversation resumable, so only a replacement
+	// session or a termination signal ends it. Pending reports drain before
+	// Pi exits.
+	pi.on("session_shutdown", async (event: any, ctx: any) => {
+		// Signal listeners run in one synchronous dispatch; yield so a
+		// signal-triggered shutdown is visible here.
+		await Promise.resolve();
+		if (signalsWatched) {
+			signalsWatched = false;
+			for (const signal of TERMINATION_SIGNALS) process.off(signal, markSignal);
+		}
+		const reason =
+			event?.reason === "quit" && terminatedBySignal ? "other" : SESSION_END_REASONS[String(event?.reason || "")];
+		await reportHook(ctx, reason ? { hook_event_name: "SessionEnd", reason } : null);
 	});
 
 	pi.on("tool_result", async (event: any, ctx: any) => {
