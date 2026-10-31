@@ -508,8 +508,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             run([*command, "register", str(repo)], cwd=checkout)
             run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
         # The kata and kenn-forge MCP servers connect only once their services run.
-        # Outside the checkout, whose .kata.toml would bind kata mcp serve to a project.
-        run(mcp_list, cwd=checkout / ".local/environment/home")
+        run(mcp_list, cwd=checkout)
         run([*command, "status"], cwd=checkout)
     else:
         print("\nInstallation configured for manual startup; no services were started or registered.")

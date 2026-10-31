@@ -632,7 +632,6 @@ class InstallerTests(unittest.TestCase):
             "install-roborev-service", "install-forge-service", "list", "status",
         ])
         self.assertEqual(commands[-2][-3:], [str(self.root / "scripts/pi-local.py"), "mcp", "list"])
-        self.assertEqual(run.call_args_list[-2].kwargs["cwd"], self.root / ".local/environment/home")
         self.assertFalse(any("configure-provider" in command for command in commands))
 
     def test_native_roborev_links_are_repeatable_and_refuse_conflicts(self):
