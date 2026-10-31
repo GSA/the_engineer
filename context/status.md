@@ -173,7 +173,7 @@
     using repo-local `context/*.md`, Kata, and Librarian without sidecar memory containers.
   - Verified `scripts/backup_workspace.py` archive generation (`bc20`).
 - **Synthetic prompt, temporary-plan, and publication gate verification (`mpew`)**:
-  - Added `scripts/workflow-gates.py` and `scripts/test_workflow_gates.py` (13
+  - Added `scripts/workflow-gates.py` and `scripts/test_workflow_gates.py` (17
     unit tests) to verify prompt and tool isolation across `private_pi`,
     `forge_workspace`, and `roborev_review`, enforce non-model temporary plan
     checks across `.local/plans/` and `docs/superpowers/`, validate additive

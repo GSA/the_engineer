@@ -101,6 +101,12 @@ class PromptSurfaceTests(unittest.TestCase):
         self.assertFalse(same_family["allowed"])
         self.assertIn("distinct", same_family["reason"])
 
+    def test_prompt_probe_stubs_fetch_and_never_calls_live_forge(self):
+        gates = load_module()
+        result = gates.evaluate_prompt_surface("forge_workspace")
+        self.assertTrue(result["allowed"])
+        self.assertTrue(result["fetch_isolated"])
+
 
 class TemporaryPlanGateTests(unittest.TestCase):
     def test_blocks_staged_and_untracked_local_plans(self):
@@ -119,6 +125,32 @@ class TemporaryPlanGateTests(unittest.TestCase):
             clean = gates.check_temporary_plans(repo, base_ref="main")
             self.assertTrue(clean["allowed"])
             self.assertEqual(clean["violations"], [])
+
+    def test_blocks_force_staged_local_plan_even_when_unlinked_from_working_tree(self):
+        gates = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = init_temp_repo(Path(tmp))
+            local_plan = repo / ".local" / "plans" / "2026-10-30-staged-only.md"
+            local_plan.parent.mkdir(parents=True, exist_ok=True)
+            local_plan.write_text("# Force-staged plan\n", encoding="utf-8")
+            run_git(repo, "add", "-f", ".local/plans/2026-10-30-staged-only.md")
+            local_plan.unlink()
+
+            verdict = gates.check_temporary_plans(repo, base_ref="main")
+            self.assertFalse(verdict["allowed"])
+            self.assertIn(".local/plans/2026-10-30-staged-only.md", verdict["staged_violations"])
+
+    def test_rejects_invalid_base_ref_or_non_git_repo(self):
+        gates = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            non_repo = Path(tmp) / "not-a-repo"
+            non_repo.mkdir()
+            with self.assertRaises(gates.GateError):
+                gates.check_temporary_plans(non_repo, base_ref="main")
+
+            repo = init_temp_repo(Path(tmp))
+            with self.assertRaises(gates.GateError):
+                gates.check_temporary_plans(repo, base_ref="nonexistent-base-ref")
 
     def test_blocks_already_tracked_superpowers_plan_in_branch_diff(self):
         gates = load_module()
@@ -339,6 +371,50 @@ class SyntheticTaskDemoTests(unittest.TestCase):
                 code = gates.main(["demo", "--receipt", str(bad_receipt)])
             self.assertEqual(code, 1)
             self.assertIn("private", err.getvalue().lower())
+
+    def test_existing_0644_receipt_is_tightened_to_0600_and_cli_check_publication_supports_state(self):
+        gates = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            private_dir = Path(tmp) / "private"
+            private_dir.mkdir(mode=0o700)
+            receipt_path = private_dir / "receipt.json"
+            receipt_path.write_text("{}", encoding="utf-8")
+            receipt_path.chmod(0o644)
+
+            gates.run_synthetic_demo(receipt_path=receipt_path)
+            self.assertEqual(stat.S_IMODE(receipt_path.stat().st_mode), 0o600)
+
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = gates.main([
+                    "check-publication",
+                    "--action",
+                    "amend",
+                    "--surface",
+                    "forge_workspace",
+                    "--commit-sha",
+                    "abc1234",
+                    "--reviewed-commit",
+                    "abc1234",
+                ])
+            self.assertEqual(code, 2)
+            payload = json.loads(out.getvalue())
+            self.assertFalse(payload["allowed"])
+
+            out2, err2 = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out2), contextlib.redirect_stderr(err2):
+                code2 = gates.main([
+                    "check-publication",
+                    "--action",
+                    "push_branch",
+                    "--surface",
+                    "forge_workspace",
+                    "--findings-json",
+                    json.dumps([{"id": "F1", "in_scope": True, "confirmed": True, "disposition": "open"}]),
+                ])
+            self.assertEqual(code2, 2)
+            payload2 = json.loads(out2.getvalue())
+            self.assertFalse(payload2["allowed"])
 
 
 if __name__ == "__main__":

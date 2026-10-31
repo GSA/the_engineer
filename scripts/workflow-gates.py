@@ -99,6 +99,14 @@ def _probe_forge_extension(surface: str) -> dict:
             delete process.env.KENN_FORGE_RUNTIME_SESSION_KEY;
             delete process.env.KENN_FORGE_API_URL;
             delete process.env.PI_SUBAGENT_EXTENSION_BINDINGS;
+            const fetchCalls = [];
+            globalThis.fetch = async (url, init) => {{
+              fetchCalls.push(String(url));
+              return new Response(JSON.stringify({{}}), {{
+                status: 200,
+                headers: {{ "content-type": "application/json" }},
+              }});
+            }};
             const handlers = new Map();
             forgeWorkspaceExtension({{
               on(event, handler) {{
@@ -139,6 +147,8 @@ def _probe_forge_extension(surface: str) -> dict:
               skill_overrides_active: Boolean(
                 readResult?.content?.some((c) => c.text?.includes("Kenn Forge Workspace Override (Active)"))
               ),
+              fetch_isolated: true,
+              intercepted_fetch_count: fetchCalls.length,
             }}));
             """
         )
@@ -170,6 +180,7 @@ def evaluate_prompt_surface(
             "ancestor_agents_filtered": False,
             "override_replaces_worktree_agents": False,
             "skill_overrides_active": probe["skill_overrides_active"],
+            "fetch_isolated": probe["fetch_isolated"],
             "requires_owner_approval_for_push": True,
             "requires_human_merge": True,
         }
@@ -181,12 +192,14 @@ def evaluate_prompt_surface(
                 and probe["ancestor_agents_filtered"]
                 and probe["override_replaces_worktree_agents"]
                 and probe["skill_overrides_active"]
+                and probe["fetch_isolated"]
             ),
             "surface": "forge_workspace",
             "forge_workspace_section_injected": probe["forge_section"],
             "ancestor_agents_filtered": probe["ancestor_agents_filtered"],
             "override_replaces_worktree_agents": probe["override_replaces_worktree_agents"],
             "skill_overrides_active": probe["skill_overrides_active"],
+            "fetch_isolated": probe["fetch_isolated"],
             "requires_owner_approval_for_push": False,
             "requires_human_merge": True,
         }
@@ -205,12 +218,28 @@ def evaluate_prompt_surface(
                 "read_only": True,
                 "forge_workspace_section_injected": False,
             }
+        local_env_source = LOCAL_ENV_PATH.read_text(encoding="utf-8")
+        pi_go_candidates = [
+            local_env.RUNTIME_ROOT / "roborev" / "internal" / "agent" / "pi.go",
+            REPO_ROOT / "roborev" / "internal" / "agent" / "pi.go",
+        ]
+        pi_go_source = ""
+        for candidate in pi_go_candidates:
+            if candidate.is_file():
+                pi_go_source = candidate.read_text(encoding="utf-8")
+                break
+        combined_source = local_env_source + "\n" + pi_go_source
+        required_flags = [
+            flag for flag in ("--no-mcp", "--no-skills") if flag in combined_source
+        ]
+        read_only_configured = (not pi_go_source) or ("read,grep,find,ls" in pi_go_source)
+        allowed = len(required_flags) == 2 and read_only_configured
         return {
-            "allowed": True,
+            "allowed": allowed,
             "surface": "roborev_review",
-            "required_flags": ["--no-mcp", "--no-skills"],
+            "required_flags": required_flags,
             "read_only_tools": ["read", "grep", "find", "ls", "json_output"],
-            "read_only": True,
+            "read_only": read_only_configured,
             "coding_family": coding_family,
             "review_family": review_family,
             "forge_workspace_section_injected": False,
@@ -220,7 +249,9 @@ def evaluate_prompt_surface(
 
 
 def _is_temporary_plan_path(rel_path: str) -> bool:
-    normalized = rel_path.replace("\\", "/").lstrip("./")
+    normalized = rel_path.replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
     return any(normalized.startswith(prefix) for prefix in TEMPORARY_PLAN_PREFIXES)
 
 
@@ -232,7 +263,8 @@ def _git_changed_paths(repo_root: Path, *diff_args: str) -> list[str]:
         capture_output=True,
     )
     if proc.returncode != 0:
-        return []
+        stderr = proc.stderr.strip() or f"git diff {' '.join(diff_args)} failed"
+        raise GateError(f"Git inspection failed in {repo_root}: {stderr}")
     paths = []
     for raw_line in proc.stdout.splitlines():
         parts = raw_line.strip().split("\t")
@@ -248,6 +280,8 @@ def _git_changed_paths(repo_root: Path, *diff_args: str) -> list[str]:
 
 def check_temporary_plans(repo_root: Path, *, base_ref: str = "main") -> dict:
     repo_root = Path(repo_root).resolve()
+    if not (repo_root / ".git").exists():
+        raise GateError(f"Not a Git repository root or worktree: {repo_root}")
     staged_violations = sorted(
         path for path in _git_changed_paths(repo_root, "--cached") if _is_temporary_plan_path(path)
     )
@@ -404,10 +438,20 @@ def _write_private_receipt(receipt_path: Path, payload: dict) -> None:
     parent_mode = stat.S_IMODE(parent.lstat().st_mode)
     if parent_mode & 0o077:
         raise GateError("Receipt parent directory must be private (mode 0700)")
-    fd = os.open(receipt_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
-        handle.write("\n")
+    if receipt_path.is_symlink():
+        raise GateError("Receipt destination must not be a symlink")
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{receipt_path.name}.", dir=str(parent))
+    tmp_path = Path(tmp_name)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, receipt_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def _run_cmd(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -834,6 +878,10 @@ def main(argv: list[str] | None = None) -> int:
         choices=["private_pi", "forge_workspace", "roborev_review"],
     )
     pub_cmd.add_argument("--branch", default="kenn-forge/kata/mpew")
+    pub_cmd.add_argument("--commit-sha", default="")
+    pub_cmd.add_argument("--reviewed-commit", action="append", default=[])
+    pub_cmd.add_argument("--findings-json", default="[]")
+    pub_cmd.add_argument("--plans-dirty", action="store_true")
     pub_cmd.add_argument("--owner-approved", action="store_true")
     pub_cmd.add_argument("--human-operator", action="store_true")
     pub_cmd.add_argument("--targets-registered", action="store_true")
@@ -856,10 +904,17 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2))
             return 0 if result["allowed"] else 2
         if args.command == "check-publication":
+            findings = json.loads(args.findings_json)
+            if not isinstance(findings, list):
+                raise GateError("--findings-json must decode to a JSON list")
             result = evaluate_publication_gate(
                 args.action,
                 surface=args.surface,
                 branch=args.branch,
+                commit_sha=args.commit_sha,
+                reviewed_commits=args.reviewed_commit,
+                findings=findings,
+                plans_clean=not args.plans_dirty,
                 owner_approved=args.owner_approved,
                 human_operator=args.human_operator,
                 targets_registered=args.targets_registered,
