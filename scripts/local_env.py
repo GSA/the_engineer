@@ -1158,10 +1158,32 @@ def pi_launch(args):
         raise RuntimeError("USAi is not ready: run configure-provider and set-key; no provider fallback") from error
     env["USAI_API_KEY"] = key
     if "--json-schema" in cleaned_args:
-        for flag in ("--no-mcp", "--no-skills"):
-            if flag not in cleaned_args:
-                cleaned_args.insert(0, flag)
+        cleaned_args = structured_review_args(cleaned_args)
     return [executable, "--provider", "usai", "--model", model, *cleaned_args], env
+
+
+# Roborev's structured review is independent and read-only: it must not inherit
+# coder policy from AGENTS files, the Forge workspace extension or Superpowers.
+REVIEW_ISOLATION_FLAGS = ("--no-context-files", "--no-extensions", "--no-skills",
+                          "--no-prompt-templates", "--no-mcp")
+
+
+def structured_review_args(args):
+    """Isolate a structured review, loading only the installed schema extension."""
+    name = PI_REVIEW_EXTENSION.removeprefix("npm:").rsplit("@", 1)[0]
+    schema_extension = str(STATE / "pi/npm/node_modules" / name)
+    kept = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg in ("--extension", "-e") and index + 1 < len(args) and \
+                args[index + 1] in (PI_REVIEW_EXTENSION, schema_extension):
+            index += 2
+            continue
+        if arg not in REVIEW_ISOLATION_FLAGS:
+            kept.append(arg)
+        index += 1
+    return [*REVIEW_ISOLATION_FLAGS, "--extension", schema_extension, *kept]
 
 
 def install_pi_extensions():
@@ -2000,6 +2022,67 @@ def accept(home=None, repos=()):
     return failures
 
 
+POLICY_PROBE = ROOT / "scripts/pi-policy-probe.ts"
+REVIEW_PROBE_ARGS = ("--mode", "json", "--json-schema", '{"type":"object"}', "--json-output",
+                     os.devnull, "--json-fallback", "none", "--tools", "read,grep,find,ls,json_output")
+
+
+def policy_probe(cwd, extra=()):
+    """Report the policy Pi loads at cwd; the probe exits before any model request."""
+    command, env = pi_launch(["--no-session", *extra, "--extension", str(POLICY_PROBE), "-p", "probe"])
+    output = subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True,
+                            timeout=180).stdout
+    for line in output.splitlines():
+        if line.startswith("PI_POLICY_PROBE "):
+            return json.loads(line.removeprefix("PI_POLICY_PROBE "))
+    raise RuntimeError("policy probe did not report; inspect scripts/pi-local.py startup")
+
+
+def policy_failures(surface, report, cwd):
+    """Compare one probe report with the expected loaded policy for its surface."""
+    private = str(STATE / "pi/AGENTS.md")
+    override = str(Path(cwd) / "AGENTS.override.md")
+    files, sections = report["context_files"], report["sections"]
+    if surface == "review":
+        loaded = [*files, *report["skills"]]
+        loaded += ["forge_workspace"] if "forge_workspace" in sections else []
+        loaded += ["Superpowers bootstrap"] if report["superpowers_bootstrap"] else []
+        return [f"review inherits {item}" for item in loaded]
+    failures = []
+    if not report["superpowers_bootstrap"] or "using-superpowers" not in report["skills"]:
+        failures.append("Superpowers is not loaded")
+    if not Path(private).is_file():
+        failures.append(f"private Pi coder contract {private} is missing")
+    elif private not in files:
+        failures.append("private Pi AGENTS.md is not loaded")
+    if surface == "forge":
+        if override not in files:
+            failures.append("AGENTS.override.md is not loaded")
+        if "forge_workspace" not in sections:
+            failures.append("Forge workspace policy section is missing")
+    elif "forge_workspace" in sections:
+        failures.append("Forge workspace policy loads outside a Forge workspace")
+    return failures
+
+
+def verify_pi_policy(cwd):
+    """Probe coder and roborev review policy at cwd without a model request."""
+    cwd = Path(cwd).expanduser().resolve()
+    coder = "forge" if (cwd / "AGENTS.override.md").is_file() else "private"
+    failures = []
+    for surface, extra in ((coder, ()), ("review", REVIEW_PROBE_ARGS)):
+        report = policy_probe(cwd, extra)
+        problems = policy_failures(surface, report, cwd)
+        failures += problems
+        print(f"{'FAIL' if problems else 'PASS'} {surface}: context={report['context_files']} "
+              f"skills={len(report['skills'])} bootstrap={report['superpowers_bootstrap']} "
+              f"forge_workspace={'forge_workspace' in report['sections']}", flush=True)
+        for problem in problems:
+            print(f"  - {problem}", flush=True)
+    print("Policy probe made no model call.")
+    return failures
+
+
 def serve():
     config = settings()
     verify_pi(config)
@@ -2150,6 +2233,9 @@ def main():
         "accept", help="read-only fresh-host acceptance of toolchains, Pi, MCP, services and credentials")
     acceptance.add_argument("--repo", type=Path, action="append", default=[],
                             help="also require Forge registration and roborev hooks (repeatable)")
+    policy = commands.add_parser(
+        "verify-pi-policy", help="show and check the policy coder and roborev review Pi load (no model call)")
+    policy.add_argument("--cwd", type=Path, default=Path.cwd())
     key = commands.add_parser("set-key", help="prompt privately for the USAi key; never supply it on the command line")
     key.add_argument("--private-only", action="store_true", help="do not link/change existing global Pi credentials")
     commands.add_parser("configure-private-pi-tracking",
@@ -2214,6 +2300,9 @@ def main():
             print(json.dumps(status(), indent=2))
         elif args.command == "accept":
             if accept(repos=args.repo):
+                return 1
+        elif args.command == "verify-pi-policy":
+            if verify_pi_policy(args.cwd):
                 return 1
         elif args.command == "set-key":
             set_key(private_only=args.private_only)

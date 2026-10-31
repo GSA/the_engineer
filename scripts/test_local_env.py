@@ -507,6 +507,52 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.pi_launch(["--no-session", "-p", "Synthetic test"])
         key.assert_not_called()
 
+    def test_structured_review_loads_only_the_schema_extension(self):
+        self.provider()
+        self.key()
+        installed = self.state / "pi/npm/node_modules/@nqbao/pi-json-schema"
+        for prefix in ([], ["--extension", local_env.PI_REVIEW_EXTENSION]):
+            with self.subTest(explicit=bool(prefix)):
+                command, _ = local_env.pi_launch(
+                    ["--mode", "json", *prefix, "--json-schema", "{}", "-p", "--tools", "read"])
+                args = command[5:]
+                for flag in ("--no-context-files", "--no-extensions", "--no-skills",
+                             "--no-prompt-templates", "--no-mcp"):
+                    self.assertEqual(args.count(flag), 1, flag)
+                self.assertNotIn(local_env.PI_REVIEW_EXTENSION, args)
+                self.assertEqual(args.count(str(installed)), 1)
+                self.assertEqual(args[args.index(str(installed)) - 1], "--extension")
+                self.assertIn("--json-schema", args)
+
+    def test_coding_launch_keeps_policy_resources(self):
+        self.provider()
+        self.key()
+        command, _ = local_env.pi_launch(["--no-session", "-p", "code"])
+        for flag in ("--no-context-files", "--no-extensions", "--no-skills"):
+            self.assertNotIn(flag, command)
+
+    def test_policy_expectations_per_surface(self):
+        private = str(self.state / "pi/AGENTS.md")
+        Path(private).write_text("policy\n")
+        cwd = self.root / "ws"
+        override = str(cwd / "AGENTS.override.md")
+        coder = {"sections": ["project_context", "skills", "forge_workspace"],
+                 "context_files": [private, override], "skills": ["using-superpowers"],
+                 "superpowers_bootstrap": True}
+        self.assertEqual(local_env.policy_failures("forge", coder, cwd), [])
+        self.assertIn("Forge workspace policy loads outside a Forge workspace",
+                      local_env.policy_failures("private", coder, cwd))
+        self.assertEqual(local_env.policy_failures("forge", {**coder, "context_files": []}, cwd),
+                         ["private Pi AGENTS.md is not loaded", "AGENTS.override.md is not loaded"])
+        self.assertEqual(len(local_env.policy_failures("review", coder, cwd)), 5)
+        isolated = {"sections": ["tools", "cwd"], "context_files": [], "skills": [],
+                    "superpowers_bootstrap": False}
+        self.assertEqual(local_env.policy_failures("review", isolated, cwd), [])
+        self.assertIn("Superpowers is not loaded", local_env.policy_failures("private", isolated, cwd))
+        Path(private).unlink()
+        self.assertIn(f"private Pi coder contract {private} is missing",
+                      local_env.policy_failures("forge", coder, cwd))
+
     def test_credential_free_mcp_command(self):
         command, env = local_env.pi_launch(["mcp", "list"])
         self.assertEqual(command, ["/usr/bin/pi", "mcp", "list"])
