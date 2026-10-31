@@ -627,10 +627,13 @@ class InstallerTests(unittest.TestCase):
             installer.install(self.root, self.corpus, "local-kata", "user")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(commands[2][-1], "forge-local-kata")
-        self.assertEqual([command[-1] for command in commands[-6:]], [
+        self.assertEqual([command[-1] for command in commands[-7:]], [
             "install-kata-service", "install-agentsview-service",
-            "install-roborev-service", "install-forge-service", "list", "status",
+            "install-roborev-service", "install-forge-service", "init", "list", "status",
         ])
+        # Registers the checkout's committed .kata.toml project so kata mcp serve connects.
+        self.assertEqual(run.call_args_list[-3].args[0], [str(self.root / "kata/kata"), "init"])
+        self.assertEqual(run.call_args_list[-3].kwargs["cwd"], self.root)
         self.assertEqual(commands[-2][-3:], [str(self.root / "scripts/pi-local.py"), "mcp", "list"])
         self.assertFalse(any("configure-provider" in command for command in commands))
 

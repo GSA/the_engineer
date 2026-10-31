@@ -507,6 +507,9 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             print(f"\nRegistering {repo} with Forge and installing roborev Git hooks...")
             run([*command, "register", str(repo)], cwd=checkout)
             run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
+        # Pi's kata MCP server binds to the checkout's committed .kata.toml project,
+        # which a fresh Kata daemon has not registered yet (idempotent when it has).
+        run([str(checkout / "kata/kata"), "init"], cwd=checkout)
         # The kata and kenn-forge MCP servers connect only once their services run.
         run(mcp_list, cwd=checkout)
         run([*command, "status"], cwd=checkout)
