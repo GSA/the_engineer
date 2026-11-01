@@ -25,6 +25,12 @@
 
 ## Recent completed milestones
 
+- **Verified Forge task, Pi and roborev handoffs (`avvp`)**:
+  - `local_env.py verify-handoff` joins Forge task detail/mapping, worktree,
+    Pi session, AgentsView record, resume file, exact-commit roborev job and
+    stored disposition. Kata workspaces use the external roborev hook and
+    review page; Forge's native Reviews tab is pull-request-only.
+
 - **Verified Pi policy loading by surface (`k03a`)**:
   - roborev structured reviews run isolated (no AGENTS files, Forge extension,
     Superpowers, prompt templates or MCP; schema extension by path), and

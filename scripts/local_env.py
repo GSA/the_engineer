@@ -2095,6 +2095,152 @@ def verify_pi_policy(cwd):
     return failures
 
 
+HANDOFF_BASES = {"forge": lambda: f"http://127.0.0.1:{FORGE_PORT}/api/v1",
+                 "roborev": lambda: f"http://127.0.0.1:{ROBOREV_PORT}/api",
+                 "agentsview": lambda: f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/v1"}
+
+
+def handoff_get(service, path, headers=None):
+    """Read-only GET against one loopback service; isolated so tests can replace it."""
+    request = urllib.request.Request(HANDOFF_BASES[service]() + path,
+                                     headers={"Accept": "application/json", **(headers or {})})
+    with HTTP.open(request, timeout=15) as response:
+        return json.load(response)
+
+
+def verify_handoff(workspace_id, commit=None):
+    """Check one Forge Kata workspace's task, worktree, Pi, AgentsView and roborev linkage.
+
+    Every probe is a read-only GET or git read; nothing is launched, claimed or closed.
+    """
+    failures, facts = [], {}
+
+    def check(name, probe):
+        try:
+            detail = probe()
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError,
+                subprocess.SubprocessError) as error:
+            failures.append(name)
+            print(f"FAIL {name}: {error}", flush=True)
+        else:
+            print(f"PASS {name}: {detail}", flush=True)
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(facts["worktree"]), *args], text=True,
+                              capture_output=True, check=True, timeout=15).stdout.strip()
+
+    workspace = handoff_get("forge", f"/workspaces/{urllib.parse.quote(workspace_id)}")
+    kata = workspace.get("kata") or {}
+    facts["worktree"] = Path(workspace["worktree_path"]).resolve()
+
+    def task_detail():
+        path = f"/kata/daemons/{kata['daemon_id']}/issues/{kata['issue_uid']}"
+        result = handoff_get("forge", path)
+        issue = result["detail"]["issue"]
+        if result.get("daemon_health") != "connected":
+            raise RuntimeError(f"Kata daemon health is {result.get('daemon_health')}")
+        if (issue["uid"], issue["title"]) != (kata["issue_uid"], kata["title"]):
+            raise RuntimeError("Forge task detail differs from the workspace's Kata task")
+        return f"{kata['qualified_id']} {issue['title']!r}"
+
+    def task_mapping():
+        expected = f"{workspace['repo_owner']}/{workspace['repo_name']}".lower()
+        mappings = handoff_get("forge", "/kata/project-mappings",
+                               {"X-Kenn-Forge-Kata-Daemon": kata["daemon_id"]})
+        if mappings["daemon_id"] != kata["daemon_id"]:
+            raise RuntimeError(f"Forge returned daemon {mappings['daemon_id']} mappings")
+        mapping = next((project for project in mappings["projects"]
+                       if project["project_uid"] == kata["project_uid"]), None)
+        if mapping is None:
+            raise RuntimeError(f"Forge has no mapping for Kata project {kata['project_uid']}")
+        actual = (mapping.get("repo") or {}).get("repo_path", "").lower()
+        if mapping["status"] != "mapped" or actual != expected:
+            raise RuntimeError(f"project maps to {actual or mapping['status']}, not {expected}")
+        return f"{kata['project_uid']} -> {expected}"
+
+    def worktree():
+        branch = git("branch", "--show-current")
+        if branch != workspace["git_head_ref"]:
+            raise RuntimeError(f"worktree is on {branch!r}, not {workspace['git_head_ref']!r}")
+        return f"{facts['worktree']} on {branch}"
+
+    def pi_launch():
+        sessions = handoff_get("forge", f"/workspaces/{urllib.parse.quote(workspace_id)}/agent-sessions")
+        session = next((item for item in sessions["sessions"] if item["agent"] == "pi"), None)
+        if session is None:
+            raise RuntimeError("Forge reports no Pi session for this workspace")
+        facts["session"] = session["session_id"]
+        return f"target {session['target_key']} session {session['session_id']}"
+
+    def agentsview():
+        if "session" not in facts:
+            raise RuntimeError("no Pi session to look up")
+        try:
+            session = handoff_get("agentsview", f"/sessions/pi:{facts['session']}")
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(f"AgentsView has not indexed pi:{facts['session']} "
+                               f"(HTTP {error.code})") from None
+        if Path(session["cwd"]).resolve() != facts["worktree"]:
+            raise RuntimeError(f"AgentsView session cwd is {session['cwd']}")
+        return session["id"]
+
+    def resume():
+        if "session" not in facts:
+            raise RuntimeError("no Pi session to resume")
+        saved = next((STATE / "pi/sessions").rglob(f"*_{facts['session']}.jsonl"), None)
+        if saved is None:
+            raise RuntimeError("no saved Pi session file; Forge cannot resume with --session")
+        return f"pi --session {facts['session']}"
+
+    def review_job():
+        sha = git("rev-parse", commit or "HEAD")
+        query = {"branch": workspace["git_head_ref"], "status": "done",
+                 "exclude_job_type": "fix", "limit": 200}
+        job = None
+        while job is None:
+            page = handoff_get("roborev", f"/jobs?{urllib.parse.urlencode(query)}")
+            job = next((job for job in page["jobs"]
+                        if job["git_ref"].split("..")[-1] == sha and job["status"] == "done"
+                        and job.get("job_type") != "fix"
+                        and Path(job["worktree_path"]).resolve() == facts["worktree"]), None)
+            if not page.get("has_more") or not page.get("next_cursor"):
+                break
+            query["cursor"] = page["next_cursor"]
+        if job is None:
+            raise RuntimeError(f"no finished roborev job in this worktree ends at {sha[:12]}")
+        facts["job"] = job
+        return f"job {job['id']} verdict {job.get('verdict')} {job.get('web_url', '')}".rstrip()
+
+    def review_disposition():
+        job = facts.get("job")
+        if job is None:
+            raise RuntimeError("no review job to dispose")
+        if job.get("verdict") == "P":
+            return "passed"
+        if job.get("closed"):
+            return "closed"
+        responses = handoff_get("roborev", f"/comments?job_id={job['id']}")["responses"]
+        if not responses:
+            raise RuntimeError(f"failing job {job['id']} has no comment or close; "
+                               f"record a disposition with roborev comment {job['id']}")
+        return f"{len(responses)} stored response(s)"
+
+    for name, probe in (("task-detail", task_detail), ("task-mapping", task_mapping),
+                        ("worktree", worktree), ("pi-launch", pi_launch),
+                        ("agentsview", agentsview), ("resume", resume),
+                        ("review-job", review_job), ("review-disposition", review_disposition)):
+        check(name, probe)
+    # Forge renders its Reviews tab only for pull_request workspaces; a Kata workspace's
+    # review linkage is the roborev post-commit route and standalone review page.
+    if workspace["item_type"] == "pull_request":
+        print("PASS native-review-ui: Forge Reviews tab", flush=True)
+    else:
+        print(f"GAP native-review-ui: Forge shows no Reviews tab for {workspace['item_type']} "
+              "workspaces; use the roborev review page above", flush=True)
+    print(f"Handoff: {8 - len(failures)}/8 checks passed; read-only, no model call.")
+    return failures
+
+
 def serve():
     config = settings()
     verify_pi(config)
@@ -2248,6 +2394,10 @@ def main():
     policy = commands.add_parser(
         "verify-pi-policy", help="show and check the policy coder and roborev review Pi load (no model call)")
     policy.add_argument("--cwd", type=Path, default=Path.cwd())
+    handoff = commands.add_parser(
+        "verify-handoff", help="check a Forge Kata workspace's task, Pi, AgentsView and roborev linkage")
+    handoff.add_argument("workspace", help="Forge workspace ID")
+    handoff.add_argument("--commit", help="commit whose review to check (default: worktree HEAD)")
     key = commands.add_parser("set-key", help="prompt privately for the USAi key; never supply it on the command line")
     key.add_argument("--private-only", action="store_true", help="do not link/change existing global Pi credentials")
     commands.add_parser("configure-private-pi-tracking",
@@ -2315,6 +2465,9 @@ def main():
                 return 1
         elif args.command == "verify-pi-policy":
             if verify_pi_policy(args.cwd):
+                return 1
+        elif args.command == "verify-handoff":
+            if verify_handoff(args.workspace, args.commit):
                 return 1
         elif args.command == "set-key":
             set_key(private_only=args.private_only)

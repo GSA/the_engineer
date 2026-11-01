@@ -33,6 +33,12 @@ the private `pi/AGENTS.md`. Check which policy coder and roborev review Pi load 
 scripts/local_env.py verify-pi-policy [--cwd PATH]` (see
 `context/engineering-workflow.md#loaded-policy-by-surface`).
 
+Check a Forge Kata workspace's task, Pi, AgentsView and roborev linkage with
+`python3 scripts/local_env.py verify-handoff WORKSPACE_ID [--commit SHA]`.
+Linkage is joined by Kata issue UID, worktree path, branch, Pi session ID and
+commit SHA; Kata workspaces show reviews only through the roborev hook and
+review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
+
 ## CLI binaries and wrappers
 
 - `kata` (`~/.local/bin/kata` -> `/home/nkirrish/kenn-kopy/kata/kata`):
