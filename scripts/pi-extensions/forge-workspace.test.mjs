@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import forgeWorkspaceExtension from "./forge-workspace.ts";
@@ -11,6 +11,8 @@ let runtimeSessions;
 let reportedSessions;
 let hooks;
 let contextRequests;
+let summaryRequests;
+let summaryResponse;
 const saved = { ...process.env };
 const savedArgv = [...process.argv];
 
@@ -20,12 +22,21 @@ beforeEach(() => {
     reportedSessions = [];
     hooks = [];
     contextRequests = [];
+    summaryRequests = [];
+    summaryResponse = { status: 200, text: "" };
     cwd = mkdtempSync(join(tmpdir(), "forge-ext-"));
     writeFileSync(join(cwd, "AGENTS.override.md"), "- Workspace ID: `ws1`\n");
     server = Bun.serve({
         port: 0,
         async fetch(req) {
             const path = new URL(req.url).pathname;
+            if (path === "/chat/completions") {
+                summaryRequests.push(await req.json());
+                return Response.json(
+                    { choices: [{ message: { content: summaryResponse.text } }] },
+                    { status: summaryResponse.status },
+                );
+            }
             if (path.endsWith("/workspaces/ws1/runtime")) {
                 return Response.json({ sessions: runtimeSessions });
             }
@@ -46,9 +57,88 @@ beforeEach(() => {
             return new Response("not found", { status: 404 });
         },
     });
+
     delete process.env.KENN_FORGE_RUNTIME_SESSION_KEY;
     delete process.env.PI_SUBAGENT_EXTENSION_BINDINGS;
     process.env.KENN_FORGE_API_URL = `http://127.0.0.1:${server.port}`;
+});
+
+async function summarizePr({ shortStat, draft, summary, status = 200 }) {
+    const url = "https://github.com/example/project/pull/42";
+    process.env.USAI_API_KEY = "synthetic-summary-test-key";
+    process.env.PI_CODING_AGENT_DIR = cwd;
+    process.env.PATH = `${cwd}:${process.env.PATH}`;
+    process.env.TEST_PR = JSON.stringify({ url, title: "Update widget behavior", body: draft, baseRefName: "main" });
+    process.env.TEST_SHORT_STAT = shortStat;
+    process.env.TEST_EDIT_PATH = join(cwd, "edited-body");
+    writeFileSync(join(cwd, "models.json"), JSON.stringify({
+        providers: { usai: { baseUrl: `http://127.0.0.1:${server.port}` } },
+    }));
+    writeFileSync(join(cwd, "gh"), `#!${process.execPath}
+import { readFileSync, writeFileSync } from "node:fs";
+if (process.argv[3] === "view") console.log(process.env.TEST_PR);
+else if (process.argv[3] === "edit") writeFileSync(process.env.TEST_EDIT_PATH, readFileSync(0));
+else process.exit(1);
+`, { mode: 0o700 });
+    writeFileSync(join(cwd, "git"), `#!${process.execPath}
+if (process.argv.includes("--shortstat")) console.log(process.env.TEST_SHORT_STAT);
+else if (process.argv.includes("--stat")) console.log(" widgets.ts | 2 +-");
+else if (process.argv.includes("log")) console.log("abc123 Update widget behavior");
+else process.exit(1);
+`, { mode: 0o700 });
+    summaryResponse = { status, text: summary };
+    const h = load();
+    const ctx = makeCtx({ mode: "print" });
+    await h.tool_execution_start({
+        toolName: "bash", toolCallId: "pr-write", args: { command: "gh pr create --body-file draft.md" },
+    }, ctx);
+    await h.tool_execution_end({
+        toolName: "bash", toolCallId: "pr-write", result: { content: [{ text: url }] },
+    }, ctx);
+    return existsSync(process.env.TEST_EDIT_PATH) ? readFileSync(process.env.TEST_EDIT_PATH, "utf8") : null;
+}
+
+for (const scenario of [
+    {
+        name: "tiny fix",
+        shortStat: "1 file changed, 1 insertion(+), 1 deletion(-)",
+        draft: "Fix the widget label typo.\n\nKata: example#abcd",
+        summary: "Fix the widget label typo.\n\nKata: example#abcd",
+    },
+    {
+        name: "large mechanical change",
+        shortStat: "40 files changed, 800 insertions(+), 800 deletions(-)",
+        draft: "Rename the widget import across callers; behavior is unchanged.\n\nCloses #12",
+        summary: "Rename the widget import across callers; behavior is unchanged.\n\nCloses #12",
+    },
+    {
+        name: "multi-concern change",
+        shortStat: "6 files changed, 180 insertions(+), 40 deletions(-)",
+        draft: "Add widget export and change its storage format. Existing stores require migration.\n\nKata: example#abcd",
+        summary: "Add widget export.\n\n## Compatibility\nExisting stores require migration.\n\nKata: example#abcd",
+    },
+]) {
+    test(`PR formatter allows content-led structure for a ${scenario.name}`, async () => {
+        expect(await summarizePr(scenario)).toBe(`${scenario.summary}\n`);
+        expect(summaryRequests).toHaveLength(1);
+        const prompt = summaryRequests[0].messages[0].content;
+        expect(prompt).toContain(scenario.draft);
+        expect(prompt).toContain(scenario.shortStat);
+        expect(prompt).not.toMatch(/Size tier:|followed by|(?:\d+-\d+|\d+)\s+(?:flat |structured )?bullet points/i);
+        const event = { systemPromptOptions: { sections: {} } };
+        await load().before_agent_start(event, makeCtx({ mode: "print" }));
+        expect(event.systemPromptOptions.sections.forge_workspace).not.toMatch(/\d+-\d+ bullets/);
+    });
+}
+
+test("PR formatter leaves the existing description alone when the model route fails", async () => {
+    expect(await summarizePr({
+        shortStat: "1 file changed, 1 insertion(+)",
+        draft: "Keep this description.",
+        summary: "",
+        status: 503,
+    })).toBeNull();
+    expect(summaryRequests).toHaveLength(1);
 });
 
 afterEach(() => {
