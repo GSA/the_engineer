@@ -49,6 +49,13 @@ scripts/local_env.py verify-pi-policy [--cwd PATH]` (see
   (which loads `AGENTS.override.md` / Forge `SessionStart` context, overrides
   `finishing-a-development-branch` to push + create PR + register Forge targets,
   and posts live agent activity hooks via `KENN_FORGE_RUNTIME_SESSION_KEY`).
+  It exports `KATA_REF` (caller value, else the `Qualified ID` of a Kata-task
+  `AGENTS.override.md`) for the native attention-only adapter
+  `extensions/kata.js` that `install-pi-extensions` writes with
+  `kata agent-hook install pi` (contract removed; AGENTS policy carries it).
+  Start sets `work.attention ok`; `/quit` or SIGHUP sets `needs-human`
+  "session ended without hand-off" unless the agent already handed off;
+  `/reload`, Escape and `pi --session <id>` resume keep or restore `ok`.
 - `python3 scripts/gh-local.py`: runs `gh` with `GH_CONFIG_DIR` set to
   `.local/environment/gh` so Forge and operator GitHub checks share isolated
   authentication.

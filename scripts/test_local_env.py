@@ -482,6 +482,35 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIn(str(local_env.PYDEPS_DIR / "bin"), env["PATH"].split(os.pathsep))
         self.assertEqual(env["PATH"].split(os.pathsep)[-1], str(Path.home() / ".local/bin"))
 
+    def test_forge_kata_workspace_exports_tracked_kata_ref(self):
+        self.provider()
+        self.key()
+        cwd = self.root / "ws"
+        cwd.mkdir()
+        os.chdir(cwd)
+        override = cwd / "AGENTS.override.md"
+        override.write_text(
+            "## Source Item\n- Source kind: Kata task\n- Short ID: tvbf\n"
+            "- Qualified ID: the_engineer#tvbf\n- Title: <untrusted-source-text>x</untrusted-source-text>\n"
+        )
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("KATA_REF", None)
+            _, env = local_env.pi_launch([])
+            self.assertEqual(env["KATA_REF"], "the_engineer#tvbf")
+            with patch.dict(os.environ, {"KATA_REF": "other#abcd"}):
+                _, env = local_env.pi_launch([])
+            self.assertEqual(env["KATA_REF"], "other#abcd")
+            for text in ("## Source Item\n- Source kind: GitHub issue\n- Qualified ID: the_engineer#tvbf\n",
+                         "## Source Item\n- Source kind: Kata task\n- Qualified ID: --as attacker\n",
+                         "# Not a workspace\n"):
+                with self.subTest(text=text):
+                    override.write_text(text)
+                    _, env = local_env.pi_launch([])
+                    self.assertNotIn("KATA_REF", env)
+            override.unlink()
+            _, env = local_env.pi_launch([])
+            self.assertNotIn("KATA_REF", env)
+
     def test_missing_usai_fails_without_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "no provider fallback"):
             local_env.pi_launch([])
@@ -642,7 +671,15 @@ class LocalEnvironmentTests(unittest.TestCase):
 
         installed = []
 
+        kata_installs = []
+        kata_envs = []
+
         def install(command, **kwargs):
+            if command[1:2] == ["agent-hook"]:
+                kata_installs.append(command)
+                kata_envs.append(kwargs["env"])
+                self.assertTrue(kwargs["check"])
+                return
             self.assertEqual(command[:2], ["/usr/bin/pi", "install"])
             self.assertIn(command[2], local_env.PI_EXTENSIONS)
             installed.append(command[2])
@@ -659,8 +696,14 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.install_pi_extensions()
                 local_env.install_pi_review_extension()
         saved = json.loads(path.read_text())
-        self.assertEqual(run.call_count, 2 * len(local_env.PI_EXTENSIONS))
+        self.assertEqual(run.call_count, 2 * (len(local_env.PI_EXTENSIONS) + 2))
         self.assertEqual(installed, list(local_env.PI_EXTENSIONS) * 2)
+        kata = str(local_env.RUNTIME_ROOT / "kata/kata")
+        self.assertEqual(kata_installs, [
+            [kata, "agent-hook", "install", "pi", "--executable", kata],
+            [kata, "agent-hook", "uninstall", "pi", "--contract-only"],
+        ] * 2)
+        self.assertEqual(kata_envs[0]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
         self.assertEqual(saved["theme"], before["theme"])
         self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
         for extension in local_env.PI_EXTENSIONS:

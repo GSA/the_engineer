@@ -303,7 +303,11 @@ roborev review --repo "$PWD" --branch --wait     # one branch review before open
 
 In Forge, create a workspace from a Kata task and launch **Pi (USAi)** or
 **Pi (Gemini 4 Argon)**. The Forge workspace extension pushes the branch, opens
-the PR, and registers the PR and Kata task in Forge.
+the PR, and registers the PR and Kata task in Forge. In a Kata-task workspace,
+`scripts/pi-local.py` sets `KATA_REF` to the task, so Kata's Pi attention
+adapter (installed by `install-pi-extensions`) marks it `work.attention ok`
+while Pi runs and `needs-human` ("session ended without hand-off") after
+`/quit` or SIGHUP, keeping any explicit hand-off the agent already set.
 
 ## Maintenance
 

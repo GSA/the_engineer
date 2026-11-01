@@ -142,6 +142,15 @@
     row retained (Forge currently resumes it only on daemon restart);
     `pi --session <id>` restored the conversation (recalled codeword). `tvbf`
     stayed open, owned by `nkirrish`, with no added comments throughout.
+  - Kata attention: `pi-local.py` derives `KATA_REF` from the workspace
+    override and `install-pi-extensions` installs Kata's attention-only Pi
+    adapter. Pilot (tmux, USAi `claude-opus-5.5`, private
+    `runtime/tvbf-kata-attention-pilot-20261101.json`): start → `ok`;
+    `/reload` and Escape keep `ok`; `/quit` and SIGHUP without hand-off →
+    `needs-human` "session ended without hand-off"; `pi --session <id>`
+    resume → `ok` with the conversation restored; a model-run
+    `kata meta set` hand-off survived `/quit`. No claim, close or comment
+    was duplicated; `tvbf` stayed open and owned by `nkirrish`.
 
 - **Forge workspace PR completion, MCP targets, and Pi lifecycle hooks (`24g8`)**:
   - Enabled Forge MCP on `http://127.0.0.1:18092/mcp` in
