@@ -25,6 +25,13 @@
 
 ## Recent completed milestones
 
+- **Content-led PR descriptions (`8gp7`)**:
+  - Forge coder, branch-finishing and automatic formatter guidance share one
+    policy based on meaningful changes and reviewer needs. File/line-count
+    tiers and mandatory paragraph/bullet counts are removed.
+  - Changes are local on `fix/adaptive-pr-summary`; the installed extension
+    remains unchanged pending delivery. Existing PR bodies are untouched.
+
 - **Verified Forge task, Pi and roborev handoffs (`avvp`)**:
   - `local_env.py verify-handoff` joins Forge task detail/mapping, worktree,
     Pi session, AgentsView record, resume file, exact-commit roborev job and

@@ -152,6 +152,11 @@ different root.
 Each repo has its own `.roborev.toml` (agent `pi`, reviews every 5 commits) and
 `.kata.toml` (Kata project binding).
 
+Forge's automatic PR formatter chooses detail and structure by the meaningful
+changes, not a file-count tier or bullet quota. A focused fix can stay a short
+paragraph; independent changes can use bullets or sections. It preserves task
+references and actionable compatibility, migration, and approval notes.
+
 ## Task-bound business and code evidence
 
 `engineer-task-context` composes one task-bound evidence packet from the
