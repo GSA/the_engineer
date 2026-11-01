@@ -87,7 +87,7 @@ into `.local/environment/pi/models.json` (excluding embedding models
 adversarial pairing via `--review-model`:
 
 - `defaultProvider`: `"usai"`
-- Coder default (`usai.json.model` / `pi/settings.json.defaultModel`): `"claude-opus-5.5"`
+- Coder default (`usai.json.model` / `pi/settings.json.defaultModel`): `"claude-sonnet-5.5"`
 - Alternate Forge coder launch target (`forge/config.toml` `key = "pi-argon"`): `"gemini-4-argon"` (`Pi (Gemini 4 Argon)`)
 - Reviewer default (`usai.json.review_model` / `roborev/config.toml`): `"gpt-6.1-sol-latest-guardrails-defaultv2"`
 - Subagent `defaultModel`: `"inherit"`

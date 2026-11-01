@@ -37,7 +37,7 @@ or reconciliation service is installed.
   (`the_engineer`, `the_librarian`, `the_knowitall`, `spud`).
 - Active USAi paired coder/reviewer models in `.local/environment/usai.json`,
   `.local/environment/pi/settings.json`, and `.local/environment/roborev/config.toml`:
-  coder = `claude-opus-5.5` (with `pi-argon` / `gemini-4-argon` also enabled as a
+  coder = `claude-sonnet-5.5` (with `pi-argon` / `gemini-4-argon` also enabled as a
   first-class Forge workspace agent target), reviewer =
   `gpt-6.1-sol-latest-guardrails-defaultv2` (`https://api.gsa.usai.gov/api/v1`,
   `openai-completions`), with all 25 advertised USAi chat models synced into

@@ -50,7 +50,7 @@ See [dist/README.md](dist/README.md) for every option.
 # 1. Check prerequisites, then install.
 bash dist/install.sh --check --corpus ~/falcon-docs
 bash dist/install.sh --corpus ~/falcon-docs --forge-build local-kata --services user \
-  --usai-base-url https://api.gsa.usai.gov/api/v1 --usai-model claude-opus-5.5 \
+  --usai-base-url https://api.gsa.usai.gov/api/v1 --usai-model claude-sonnet-5.5 \
   --usai-review-model gpt-6.1-sol-latest-guardrails-defaultv2 \
   --register-repo ~/kenn-kopy --register-repo ~/the_librarian
 
@@ -303,6 +303,10 @@ such as the tmux `pi` session or open Forge workspaces. A USAi HTTP `401` means
 the key is expired or revoked; rotate it as shown above.
 
 ## Loading and changing USAi models
+
+The default Forge coder (`Pi (USAi)`) uses `claude-sonnet-5.5`. New sessions
+pick up model changes automatically; restart an existing Pi session to switch.
+The alternate `Pi (Gemini 4 Argon)` target and the reviewer model are independent.
 
 1. `list-models` fetches `/models` from USAi into `usai-models.json`. It only
    lists models; it does not test them.
