@@ -1983,7 +1983,7 @@ class HandoffTests(unittest.TestCase):
                 "kata": kata},
             ("forge", "/kata/daemons/local/issues/I1"): {
                 "daemon_health": "connected", "detail": {"issue": {"uid": "I1", "title": "Task one"}}},
-            ("forge", "/kata/project-mappings"): {"projects": [
+            ("forge", "/kata/project-mappings"): {"daemon_id": "local", "projects": [
                 {"project_uid": "P1", "status": "mapped", "repo": {"repo_path": "gsa/repo"}}]},
             ("forge", "/workspaces/ws1/agent-sessions"): {"sessions": [
                 {"agent": "pi", "session_id": "sess-1", "target_key": "pi"}]},
@@ -1996,9 +1996,13 @@ class HandoffTests(unittest.TestCase):
         }
         self.requests = []
 
-        def get(service, path):
-            self.requests.append((service, path))
-            key = (service, path.split("?branch=")[0] if path.startswith("/jobs") else path)
+        def get(service, path, headers=None):
+            self.requests.append((service, path, headers))
+            if path.startswith("/jobs"):
+                cursor = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query).get("cursor")
+                key = (service, f"/jobs#{cursor[0]}" if cursor else "/jobs")
+            else:
+                key = (service, path)
             if key not in self.data:
                 raise urllib.error.HTTPError(path, 404, "not found", {}, None)
             return self.data[key]
@@ -2062,8 +2066,25 @@ class HandoffTests(unittest.TestCase):
     def test_only_get_requests_are_made(self):
         self.run_verify()
         self.assertTrue(self.requests)
-        jobs = [path for service, path in self.requests if path.startswith("/jobs")]
-        self.assertEqual(jobs, ["/jobs?branch=kenn-forge%2Fkata%2Ft1&limit=200"])
+        jobs = [path for _, path, _ in self.requests if path.startswith("/jobs")]
+        self.assertEqual(jobs, ["/jobs?branch=kenn-forge%2Fkata%2Ft1&status=done"
+                                "&exclude_job_type=fix&limit=200"])
+
+    def test_project_mapping_uses_workspace_daemon(self):
+        self.run_verify()
+        headers = [h for _, path, h in self.requests if path == "/kata/project-mappings"]
+        self.assertEqual(headers, [{"X-Kenn-Forge-Kata-Daemon": "local"}])
+        self.data[("forge", "/kata/project-mappings")]["daemon_id"] = "other"
+        self.assertEqual(self.run_verify()[0], ["task-mapping"])
+
+    def test_review_lookup_follows_pages_and_skips_fix_jobs(self):
+        review = self.data[("roborev", "/jobs")]["jobs"][0]
+        fix = {**review, "id": 8, "job_type": "fix", "verdict": "F"}
+        self.data[("roborev", "/jobs")] = {"jobs": [fix], "has_more": True, "next_cursor": "c2"}
+        self.data[("roborev", "/jobs#c2")] = {"jobs": [review], "has_more": False}
+        failures, output = self.run_verify()
+        self.assertEqual(failures, [], output)
+        self.assertIn("job 7", output)
 
 
 if __name__ == "__main__":

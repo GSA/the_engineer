@@ -2088,10 +2088,10 @@ HANDOFF_BASES = {"forge": lambda: f"http://127.0.0.1:{FORGE_PORT}/api/v1",
                  "agentsview": lambda: f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/v1"}
 
 
-def handoff_get(service, path):
+def handoff_get(service, path, headers=None):
     """Read-only GET against one loopback service; isolated so tests can replace it."""
     request = urllib.request.Request(HANDOFF_BASES[service]() + path,
-                                     headers={"Accept": "application/json"})
+                                     headers={"Accept": "application/json", **(headers or {})})
     with HTTP.open(request, timeout=15) as response:
         return json.load(response)
 
@@ -2133,7 +2133,11 @@ def verify_handoff(workspace_id, commit=None):
 
     def task_mapping():
         expected = f"{workspace['repo_owner']}/{workspace['repo_name']}".lower()
-        mapping = next((project for project in handoff_get("forge", "/kata/project-mappings")["projects"]
+        mappings = handoff_get("forge", "/kata/project-mappings",
+                               {"X-Kenn-Forge-Kata-Daemon": kata["daemon_id"]})
+        if mappings["daemon_id"] != kata["daemon_id"]:
+            raise RuntimeError(f"Forge returned daemon {mappings['daemon_id']} mappings")
+        mapping = next((project for project in mappings["projects"]
                        if project["project_uid"] == kata["project_uid"]), None)
         if mapping is None:
             raise RuntimeError(f"Forge has no mapping for Kata project {kata['project_uid']}")
@@ -2178,10 +2182,18 @@ def verify_handoff(workspace_id, commit=None):
 
     def review_job():
         sha = git("rev-parse", commit or "HEAD")
-        query = urllib.parse.urlencode({"branch": workspace["git_head_ref"], "limit": 200})
-        job = next((job for job in handoff_get("roborev", f"/jobs?{query}")["jobs"]
-                    if job["git_ref"].split("..")[-1] == sha and job["status"] == "done"
-                    and Path(job["worktree_path"]).resolve() == facts["worktree"]), None)
+        query = {"branch": workspace["git_head_ref"], "status": "done",
+                 "exclude_job_type": "fix", "limit": 200}
+        job = None
+        while job is None:
+            page = handoff_get("roborev", f"/jobs?{urllib.parse.urlencode(query)}")
+            job = next((job for job in page["jobs"]
+                        if job["git_ref"].split("..")[-1] == sha and job["status"] == "done"
+                        and job.get("job_type") != "fix"
+                        and Path(job["worktree_path"]).resolve() == facts["worktree"]), None)
+            if not page.get("has_more") or not page.get("next_cursor"):
+                break
+            query["cursor"] = page["next_cursor"]
         if job is None:
             raise RuntimeError(f"no finished roborev job in this worktree ends at {sha[:12]}")
         facts["job"] = job
