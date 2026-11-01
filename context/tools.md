@@ -68,6 +68,10 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   authentication.
 - `scripts/jira-intake.py`: manual one-ticket Jira XML export to approved Kata
   tasks (`init`, `check`, `record --apply`); contract in `context/jira-intake.md`.
+- `python3 scripts/demo-capture.py`: private screenshot/video demos of
+  loopback web UIs (`capture`, `import`, `handoff`, `cleanup`, `doctor`,
+  `smoke`) into ignored `.local/demos/` with a provenance manifest; never
+  uploads. Contract in `context/demo-capture.md`.
 - `python3 scripts/terminal-local.py`: manages persistent local `pi` and
   `copilot` tmux sessions via `.local/environment/runtime/terminal/tmux.sock`.
 
