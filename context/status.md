@@ -29,8 +29,10 @@
   - Forge coder, branch-finishing and automatic formatter guidance share one
     policy based on meaningful changes and reviewer needs. File/line-count
     tiers and mandatory paragraph/bullet counts are removed.
-  - Changes are local on `fix/adaptive-pr-summary`; the installed extension
-    remains unchanged pending delivery. Existing PR bodies are untouched.
+  - PR #20 merged as `f24bf95`; the reviewed formatting delta is deployed to
+    the private Pi extension. New sessions load it automatically; existing
+    sessions need `/reload`. Existing PR bodies are untouched; the owner will
+    assess the next generated PR.
 
 - **Verified Forge task, Pi and roborev handoffs (`avvp`)**:
   - `local_env.py verify-handoff` joins Forge task detail/mapping, worktree,
