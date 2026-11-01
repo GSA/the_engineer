@@ -257,8 +257,22 @@ submodules, native links, Pi MCP connections, each user service, the USAi
 provider, USAi key and GitHub login presence, and each `--repo`'s Forge
 registration and roborev hook, with the next command for each failure. It
 exits nonzero while any check fails and never prints credential values.
-A clean-host Ubuntu run of the installer plus `accept` remains outstanding;
-synthetic regressions are not a full deployment demonstration.
+### Disposable fresh-host run
+
+`dist/container/run-acceptance.sh [REVISION]` builds a rootless Podman Ubuntu
+24.04 image with systemd, clones the pushed revision, runs
+`dist/install.sh --check`, a full `--services user --register-repo` install
+against a synthetic corpus, then `accept`. Logs go to ignored
+`.local/acceptance/`. `KEEP=1` keeps the container for the interactive
+`set-key` and `gh-local.py auth login` steps; `GOPROXY` is forwarded (use
+`https://proxy.golang.org|direct` behind a TLS proxy that returns 403 for
+some modules).
+
+On 2026-11-01 revision `8bfdd6d` installed end to end and `accept` passed
+12/14; the two failures are the expected missing USAi key and GitHub login.
+That run fetched the `agentsview` pin `c7f77ad0` from a local mirror, because
+the commit is not published on `kenn-io/agentsview`; a clean host cannot fetch
+it until the pin is published or moved.
 
 ## Maintainer checks
 

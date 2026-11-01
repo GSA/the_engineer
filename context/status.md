@@ -180,7 +180,9 @@
   `z6jw`, `k4mp`, `n0vk`, `6hce` and `h28d` are closed.
 - Open MVP work: `d8v5` (uninterrupted Jira-to-PR demo on a fresh owner-selected ticket; awaits the export), `gamy` (PR #6 merged; close after
   verification), `p4ke` (fresh-host installer plus read-only
-  `local_env.py accept`; awaits an owner-run clean Ubuntu install), `hk33` and `86ey`.
+  `local_env.py accept`; container run of `8bfdd6d` passes 12/14 with only
+  credentials missing, blocked on publishing the unfetchable `agentsview`
+  pin `c7f77ad0`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
   post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy
   identity/path migration during planned downtime) remain open.
