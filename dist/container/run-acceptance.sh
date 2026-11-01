@@ -52,8 +52,10 @@ user_exec() {
         bash dist/install.sh --corpus /opt/fake-corpus --services user \
             --usai-base-url https://usai.invalid/api/v1 --usai-model claude-opus-5.5 \
             --usai-review-model gpt-5.6-terra --register-repo ~/kenn-kopy"
-    set +e
-    user_exec "cd ~/kenn-kopy && python3 scripts/local_env.py accept --repo ~/kenn-kopy"
-    echo "accept_exit=$?"
-} 2>&1 | tee "$log"
+    status=0
+    user_exec "cd ~/kenn-kopy && python3 scripts/local_env.py accept --repo ~/kenn-kopy" || status=$?
+    echo "accept_exit=$status"
+    exit "$status"
+} 2>&1 | tee "$log" && status=0 || status=$?
 echo "Log: $log"
+exit "$status"

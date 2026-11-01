@@ -262,7 +262,7 @@ exits nonzero while any check fails and never prints credential values.
 `dist/container/run-acceptance.sh [REVISION]` builds a rootless Podman Ubuntu
 24.04 image with systemd, clones the pushed revision, runs
 `dist/install.sh --check`, a full `--services user --register-repo` install
-against a synthetic corpus, then `accept`. Logs go to ignored
+against a synthetic corpus, then `accept`, and exits with `accept`'s status. Logs go to ignored
 `.local/acceptance/`. `KEEP=1` keeps the container for the interactive
 `set-key` and `gh-local.py auth login` steps; `GOPROXY` is forwarded (use
 `https://proxy.golang.org|direct` behind a TLS proxy that returns 403 for
