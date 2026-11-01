@@ -242,7 +242,7 @@ class InstallerTests(unittest.TestCase):
         for name in installer.MANAGED_SERVICES:
             unit = f"kenn-kopy-{name}.service"
 
-            def capture(command):
+            def capture(command, **kwargs):
                 if "list-unit-files" in command and command[-1] == unit:
                     return f"{unit} enabled"
                 if "--property=FragmentPath" in command:
@@ -254,6 +254,16 @@ class InstallerTests(unittest.TestCase):
                     patch.object(installer, "capture", side_effect=capture), \
                     self.assertRaisesRegex(RuntimeError, "another installation"):
                 installer.check_user_services(self.root)
+
+    def test_fresh_host_without_units_passes_user_service_check(self):
+        def fake_run(command, **kwargs):
+            # systemctl exits 1 when list-unit-files matches nothing, as on a clean host.
+            missing = "list-unit-files" in command
+            return subprocess.CompletedProcess(command, 1 if missing else 0, "" if missing else "PATH=/usr/bin\n", "")
+
+        with patch.object(installer.shutil, "which", return_value="/usr/bin/tool"), \
+                patch.object(installer.subprocess, "run", side_effect=fake_run):
+            installer.check_user_services(self.root)
 
     def test_managed_services_match_runtime_and_supported_install_commands(self):
         environment = installer.load_environment(installer.ROOT)
@@ -599,6 +609,9 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("configure-private-pi-tracking" in command for command in commands))
         self.assertTrue(any("install-pi-extensions" in command for command in commands))
         self.assertFalse(any(any(arg.endswith("-service") for arg in command) for command in commands))
+        # Kata and Forge MCP servers need running services; manual installs only print the probe.
+        self.assertFalse(any("pi-local.py" in " ".join(command) for command in commands))
+        self.assertIn("pi-local.py mcp list", output.getvalue())
         home = self.root / "installer-home"
         self.assertEqual((home / ".local/bin/kata").resolve(), (self.root / "kata/kata").resolve())
         config = tomllib.loads((home / ".kata/config.toml").read_text())
@@ -614,10 +627,14 @@ class InstallerTests(unittest.TestCase):
             installer.install(self.root, self.corpus, "local-kata", "user")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(commands[2][-1], "forge-local-kata")
-        self.assertEqual([command[-1] for command in commands[-5:]], [
+        self.assertEqual([command[-1] for command in commands[-7:]], [
             "install-kata-service", "install-agentsview-service",
-            "install-roborev-service", "install-forge-service", "status",
+            "install-roborev-service", "install-forge-service", "init", "list", "status",
         ])
+        # Registers the checkout's committed .kata.toml project so kata mcp serve connects.
+        self.assertEqual(run.call_args_list[-3].args[0], [str(self.root / "kata/kata"), "init"])
+        self.assertEqual(run.call_args_list[-3].kwargs["cwd"], self.root)
+        self.assertEqual(commands[-2][-3:], [str(self.root / "scripts/pi-local.py"), "mcp", "list"])
         self.assertFalse(any("configure-provider" in command for command in commands))
 
     def test_native_roborev_links_are_repeatable_and_refuse_conflicts(self):

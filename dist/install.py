@@ -53,9 +53,10 @@ TOOLS = {
 }
 
 
-def capture(command, *, cwd=None, timeout=30):
+def capture(command, *, cwd=None, timeout=30, empty_failure_ok=False):
     result = subprocess.run(command, cwd=cwd, text=True, capture_output=True, timeout=timeout)
-    if result.returncode:
+    silent = not (result.stdout.strip() or result.stderr.strip())
+    if result.returncode and not (empty_failure_ok and result.returncode == 1 and silent):
         raise RuntimeError(f"{command[0]} failed (exit {result.returncode}): {result.stderr.strip()}")
     return result.stdout.strip()
 
@@ -423,7 +424,9 @@ def check_user_services(checkout):
     capture(["systemctl", "--user", "show-environment"])
     for project in MANAGED_SERVICES:
         unit = f"kenn-kopy-{project}.service"
-        listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit])
+        # systemctl exits 1 with no output when no unit file matches (a fresh host).
+        listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit],
+                         empty_failure_ok=True)
         if not listed:
             continue
         fragment = capture(["systemctl", "--user", "show", unit, "--property=FragmentPath", "--value"])
@@ -490,7 +493,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
         if provider.get("review_model"):
             provider_command.extend(["--review-model", provider["review_model"]])
         run(provider_command, cwd=checkout)
-    run([sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"], cwd=checkout)
+    mcp_list = [sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"]
     node = Path(shutil.which("node")).resolve()
     instructions(checkout, node, service_ports(environment), provider is not None, repos)
     if choice == "user":
@@ -504,9 +507,16 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             print(f"\nRegistering {repo} with Forge and installing roborev Git hooks...")
             run([*command, "register", str(repo)], cwd=checkout)
             run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
+        # Pi's kata MCP server binds to the checkout's committed .kata.toml project,
+        # which a fresh Kata daemon has not registered yet (idempotent when it has).
+        run([str(checkout / "kata/kata"), "init"], cwd=checkout)
+        # The kata and kenn-forge MCP servers connect only once their services run.
+        run(mcp_list, cwd=checkout)
         run([*command, "status"], cwd=checkout)
     else:
         print("\nInstallation configured for manual startup; no services were started or registered.")
+        print("After starting the services, check Pi's MCP servers with:")
+        print("  " + shlex.join(mcp_list))
 
 
 def manual_kata_command(checkout, kata_port=DEFAULT_PORTS["kata"]):
