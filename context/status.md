@@ -48,6 +48,14 @@ or reconciliation service is installed.
 
 ## Recent completed milestones
 
+- **Private demo capture (`86ey`)**:
+  - `scripts/demo-capture.py` captures screenshots and a WebM video of a
+    loopback web UI with headless Playwright Chromium (existing
+    `playwright-core` cache and `.local/tools/playwright-browsers`), or
+    imports a manual capture, into `.local/demos/` with an
+    `engineer.demo-capture/v1` manifest. Handoff prints verified local links;
+    nothing is uploaded. Contract: `context/demo-capture.md`.
+
 - **Content-led PR descriptions (`8gp7`)**:
   - Forge coder, branch-finishing and automatic formatter guidance share one
     policy based on meaningful changes and reviewer needs. File/line-count
