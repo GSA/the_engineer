@@ -75,6 +75,15 @@ instructions, skills and Forge policy that coder Pi and roborev's structured
 review Pi load at `PATH`, failing if a review would inherit coder policy. It
 exits before any model request.
 
+`python3 scripts/local_env.py verify-handoff WORKSPACE_ID [--commit SHA]`
+checks one Forge Kata workspace end to end with read-only requests: Forge task
+detail and project mapping, the worktree branch, the Forge-recorded Pi session,
+its AgentsView record and saved resume file, the finished roborev job for the
+exact commit in that worktree, and a stored pass, close or comment
+disposition. It also reports `GAP native-review-ui`, because Forge renders its
+Reviews tab only for pull-request workspaces; open the printed roborev review
+link instead.
+
 Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
 not edit shell files. The install tracks only Pi sessions from this install. To
 also track Copilot and other Pi transcripts, run `configure-tracking` after

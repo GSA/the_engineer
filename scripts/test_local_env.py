@@ -1955,5 +1955,116 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0], ["/usr/bin/pi", "mcp", "list"])
 
 
+class HandoffTests(unittest.TestCase):
+    """verify-handoff joins Forge, Kata, AgentsView and roborev records read-only."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.addCleanup(patch.stopall)
+        root = Path(self.temporary.name)
+        self.worktree = root / "worktree"
+        subprocess.run(["git", "init", "-q", "-b", "kenn-forge/kata/t1", str(self.worktree)], check=True)
+        subprocess.run(["git", "-C", str(self.worktree), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "commit", "-q", "--allow-empty", "-m", "c"], check=True)
+        self.sha = subprocess.run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"],
+                                  text=True, capture_output=True, check=True).stdout.strip()
+        self.state = root / "environment"
+        sessions = self.state / "pi/sessions/--worktree--"
+        sessions.mkdir(parents=True)
+        (sessions / "2026-11-01T00-00-00-000Z_sess-1.jsonl").touch()
+        patch.object(local_env, "STATE", self.state).start()
+        kata = {"daemon_id": "local", "project_uid": "P1", "issue_uid": "I1",
+                "qualified_id": "proj#t1", "title": "Task one"}
+        self.data = {
+            ("forge", "/workspaces/ws1"): {
+                "id": "ws1", "item_type": "kata_task", "repo_owner": "gsa", "repo_name": "repo",
+                "git_head_ref": "kenn-forge/kata/t1", "worktree_path": str(self.worktree),
+                "kata": kata},
+            ("forge", "/kata/daemons/local/issues/I1"): {
+                "daemon_health": "connected", "detail": {"issue": {"uid": "I1", "title": "Task one"}}},
+            ("forge", "/kata/project-mappings"): {"projects": [
+                {"project_uid": "P1", "status": "mapped", "repo": {"repo_path": "gsa/repo"}}]},
+            ("forge", "/workspaces/ws1/agent-sessions"): {"sessions": [
+                {"agent": "pi", "session_id": "sess-1", "target_key": "pi"}]},
+            ("agentsview", "/sessions/pi:sess-1"): {"id": "pi:sess-1", "cwd": str(self.worktree)},
+            ("roborev", "/jobs"): {"jobs": [
+                {"id": 7, "git_ref": f"abc..{self.sha}", "status": "done", "verdict": "F",
+                 "closed": False, "worktree_path": str(self.worktree),
+                 "web_url": "http://127.0.0.1:17374/reviews/7"}]},
+            ("roborev", "/comments?job_id=7"): {"responses": [{"response": "finding fixed in def"}]},
+        }
+        self.requests = []
+
+        def get(service, path):
+            self.requests.append((service, path))
+            key = (service, path.split("?branch=")[0] if path.startswith("/jobs") else path)
+            if key not in self.data:
+                raise urllib.error.HTTPError(path, 404, "not found", {}, None)
+            return self.data[key]
+        patch.object(local_env, "handoff_get", side_effect=get).start()
+
+    def run_verify(self, commit=None):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            failures = local_env.verify_handoff("ws1", commit)
+        return failures, output.getvalue()
+
+    def test_complete_kata_handoff_passes_and_reports_review_ui_gap(self):
+        failures, output = self.run_verify()
+        self.assertEqual(failures, [], output)
+        for name in ("task-detail", "task-mapping", "worktree", "pi-launch", "agentsview",
+                     "resume", "review-job", "review-disposition"):
+            self.assertIn(f"PASS {name}", output)
+        self.assertIn("GAP native-review-ui", output)
+        self.assertIn("reviews/7", output)
+
+    def test_pull_request_workspace_has_native_review_ui(self):
+        self.data[("forge", "/workspaces/ws1")]["item_type"] = "pull_request"
+        failures, output = self.run_verify()
+        self.assertEqual(failures, [], output)
+        self.assertIn("PASS native-review-ui", output)
+
+    def test_undisposed_failing_review_fails(self):
+        self.data[("roborev", "/comments?job_id=7")] = {"responses": []}
+        failures, output = self.run_verify()
+        self.assertEqual(failures, ["review-disposition"], output)
+
+    def test_passing_or_closed_review_needs_no_comment(self):
+        self.data[("roborev", "/comments?job_id=7")] = {"responses": []}
+        self.data[("roborev", "/jobs")]["jobs"][0]["verdict"] = "P"
+        self.assertEqual(self.run_verify()[0], [])
+        job = self.data[("roborev", "/jobs")]["jobs"][0]
+        job.update(verdict="F", closed=True)
+        self.assertEqual(self.run_verify()[0], [])
+
+    def test_review_must_cover_exact_commit_in_this_worktree(self):
+        failures, output = self.run_verify(commit="f" * 40)
+        self.assertEqual(failures, ["review-job", "review-disposition"], output)
+        self.data[("roborev", "/jobs")]["jobs"][0]["worktree_path"] = "/elsewhere"
+        self.assertEqual(self.run_verify()[0], ["review-job", "review-disposition"])
+
+    def test_each_linkage_break_is_reported_separately(self):
+        self.data[("forge", "/kata/daemons/local/issues/I1")]["detail"]["issue"]["title"] = "Other"
+        self.data[("forge", "/kata/project-mappings")]["projects"][0]["repo"]["repo_path"] = "gsa/x"
+        self.data[("forge", "/workspaces/ws1/agent-sessions")]["sessions"][0]["agent"] = "claude"
+        del self.data[("agentsview", "/sessions/pi:sess-1")]
+        failures, _ = self.run_verify()
+        self.assertEqual(failures, ["task-detail", "task-mapping", "pi-launch", "agentsview", "resume"])
+
+    def test_branch_mismatch_and_missing_resume_file_fail(self):
+        self.data[("forge", "/workspaces/ws1")]["git_head_ref"] = "other"
+        for path in (self.state / "pi/sessions").rglob("*.jsonl"):
+            path.unlink()
+        failures, _ = self.run_verify()
+        self.assertEqual(failures, ["worktree", "resume"])
+
+    def test_only_get_requests_are_made(self):
+        self.run_verify()
+        self.assertTrue(self.requests)
+        jobs = [path for service, path in self.requests if path.startswith("/jobs")]
+        self.assertEqual(jobs, ["/jobs?branch=kenn-forge%2Fkata%2Ft1&limit=200"])
+
+
 if __name__ == "__main__":
     unittest.main()
