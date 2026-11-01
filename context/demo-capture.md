@@ -25,8 +25,9 @@ python3 scripts/demo-capture.py capture --repo . --task the_engineer#86ey \
   `--full-page`, `--timeout SECONDS` (default 120).
 - The browser uses a fresh profile (UTC, `en-US`, light theme, reduced motion,
   no permissions, downloads or service workers). Only loopback, `data:` and
-  `blob:` requests load; others are aborted and counted in
-  `capture.blocked_requests`.
+  `blob:` requests and WebSockets load; others are aborted and counted in
+  `capture.blocked_requests` / `capture.blocked_websockets`. The reachability
+  check does not follow redirects.
 - `python3 scripts/demo-capture.py smoke` serves a synthetic page on an
   ephemeral loopback port and captures two screenshots and a video. The unit
   suite (`scripts/test_demo_capture.py`) runs the same smoke when `doctor`
@@ -66,8 +67,9 @@ CLI changes, prefer a transcript of the command and its output.
   capture time, retention, privacy state and each file's size and SHA-256.
 - Limits: screenshots 10 MiB, videos 50 MiB. An oversized file is deleted with
   guidance (smaller viewport, fewer steps, `--no-video`, no `--full-page`).
-- Retention defaults to 30 days. `cleanup [--older-than-days N]` lists expired
-  bundles; `cleanup --apply` deletes them.
+- Retention defaults to 30 days (`--retention-days`). `cleanup` lists bundles
+  past their own `captured_at` + `retention_days`; `--older-than-days N`
+  overrides that, and `--apply` deletes them.
 
 ## Failure guidance
 

@@ -187,11 +187,30 @@ class HandoffAndCleanupTests(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn("SHA-256", err)
 
+    def test_cleanup_honours_each_bundle_retention(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, bundle = self._bundle(tmp)
+            manifest_path = bundle / "manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["captured_at"] = "2000-01-01T00:00:00+00:00"
+            manifest["retention_days"] = 100_000
+            manifest_path.write_text(json.dumps(manifest))
+            run_main("cleanup", "--repo", str(repo), "--apply")
+            self.assertTrue(bundle.exists())
+            manifest["retention_days"] = 1
+            manifest_path.write_text(json.dumps(manifest))
+            code, out, _ = run_main("cleanup", "--repo", str(repo))
+            self.assertIn(str(bundle), out)
+            run_main("cleanup", "--repo", str(repo), "--apply")
+            self.assertFalse(bundle.exists())
+
     def test_cleanup_lists_then_deletes_expired_bundles(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo, bundle = self._bundle(tmp)
-            old = 1_000_000_000
-            os.utime(bundle / "manifest.json", (old, old))
+            manifest_path = bundle / "manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["captured_at"] = "2000-01-01T00:00:00+00:00"
+            manifest_path.write_text(json.dumps(manifest))
             code, out, _ = run_main("cleanup", "--repo", str(repo), "--older-than-days", "30")
             self.assertEqual(code, 0)
             self.assertIn(str(bundle), out)
@@ -199,6 +218,40 @@ class HandoffAndCleanupTests(unittest.TestCase):
             code, _, _ = run_main("cleanup", "--repo", str(repo), "--older-than-days", "30", "--apply")
             self.assertEqual(code, 0)
             self.assertFalse(bundle.exists())
+
+
+class PreflightTests(unittest.TestCase):
+    def test_preflight_does_not_follow_redirects(self):
+        import http.server, threading
+        hits = []
+
+        class Target(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.path)
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *_):
+                pass
+
+        target = http.server.HTTPServer(("127.0.0.1", 0), Target)
+
+        class Redirect(Target):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{target.server_address[1]}/remote")
+                self.end_headers()
+
+        source = http.server.HTTPServer(("127.0.0.1", 0), Redirect)
+        for server in (target, source):
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            demo.preflight(f"http://127.0.0.1:{source.server_address[1]}/", 5)
+        finally:
+            for server in (target, source):
+                server.shutdown()
+                server.server_close()
+        self.assertEqual(hits, [])
 
 
 class ToolchainTests(unittest.TestCase):
@@ -233,6 +286,7 @@ class BoundedSmokeTests(unittest.TestCase):
             video = next(a for a in manifest["artifacts"] if a["kind"] == "video")
             self.assertTrue((bundle / video["file"]).read_bytes().startswith(b"\x1aE\xdf\xa3"))
             self.assertGreaterEqual(manifest["capture"]["blocked_requests"], 1)
+            self.assertGreaterEqual(manifest["capture"]["blocked_websockets"], 1)
             self.assertEqual(manifest["method"], "scripted")
 
 

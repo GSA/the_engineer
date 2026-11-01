@@ -285,12 +285,19 @@ def describe(bundle, path, kind):
 # ------------------------------------------------------------------ commands
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect answer already proves the app is up; never follow it."""
+
+    def redirect_request(self, *_args, **_kwargs):
+        return None
+
+
 def preflight(url, timeout):
     try:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         opener.open(url, timeout=min(timeout, 10)).close()
-    except urllib.error.HTTPError:
-        return
+    except urllib.error.HTTPError as answered:
+        answered.close()
     except OSError as exc:
         raise CaptureError(
             f"{url} is not reachable ({exc}); start the app on loopback first. "
@@ -349,6 +356,7 @@ def capture(args, url=None):
         "browser": "playwright chromium-headless-shell (fresh profile, UTC, en-US)",
         "playwright_core": Path(report["playwright_core"]).parent.parent.name,
         "blocked_requests": result["blocked_requests"],
+        "blocked_websockets": result["blocked_websockets"],
     }
     manifest["artifacts"] = [describe(bundle, bundle / a["file"], a["kind"]) for a in result["artifacts"]]
     write_manifest(bundle, manifest)
@@ -411,12 +419,19 @@ def handoff(bundle):
     return "\n".join(lines)
 
 
-def expired(out_root, days):
-    cutoff = datetime.datetime.now().timestamp() - days * 86400
+def expired(out_root, days=None):
+    """Bundles whose captured_at plus retention (or the override) has passed."""
+    now = datetime.datetime.now(datetime.timezone.utc)
     found = []
-    for manifest in sorted(Path(out_root).glob("*/*/manifest.json")):
-        if manifest.stat().st_mtime < cutoff:
-            found.append(manifest.parent)
+    for path in sorted(Path(out_root).glob("*/*/manifest.json")):
+        try:
+            manifest = json.loads(path.read_text())
+            captured = datetime.datetime.fromisoformat(manifest["captured_at"])
+            keep = manifest.get("retention_days", DEFAULT_RETENTION_DAYS) if days is None else days
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if now - captured > datetime.timedelta(days=keep):
+            found.append(path.parent)
     return found
 
 
@@ -427,6 +442,7 @@ button{font-size:20px;padding:8px 16px}</style></head><body>
 <label>Name <input id="name"></label> <button id="save">Save</button>
 <div id="status">Not saved</div>
 <img alt="" src="https://example.invalid/tracking.png" width="1" height="1">
+<script>try{new WebSocket('wss://example.invalid/socket')}catch(e){}</script>
 <script>document.getElementById('save').onclick=()=>{document.getElementById('status').textContent=
 'Saved: '+document.getElementById('name').value;};</script></body></html>"""
 
@@ -492,7 +508,7 @@ def build_parser():
     clean = sub.add_parser("cleanup", help="list or delete bundles past retention")
     clean.add_argument("--repo", default=".")
     clean.add_argument("--out-root")
-    clean.add_argument("--older-than-days", type=int, default=DEFAULT_RETENTION_DAYS)
+    clean.add_argument("--older-than-days", type=int, help="override each bundle's retention_days")
     clean.add_argument("--apply", action="store_true")
 
     sub.add_parser("doctor", help="check the capture toolchain")

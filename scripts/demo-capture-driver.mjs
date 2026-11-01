@@ -23,6 +23,7 @@ function allowed(url) {
 const [width, height] = job.viewport;
 const artifacts = [];
 let blocked = 0;
+let blockedSockets = 0;
 const browser = await chromium.launch({ headless: true });
 try {
     const context = await browser.newContext({
@@ -42,6 +43,11 @@ try {
         if (allowed(route.request().url())) return route.continue();
         blocked += 1;
         return route.abort("blockedbyclient");
+    });
+    await context.routeWebSocket(/.*/, (ws) => {
+        if (allowed(ws.url())) return ws.connectToServer();
+        blockedSockets += 1;
+        return ws.close({ code: 1008, reason: "demo-capture: loopback only" });
     });
     const page = await context.newPage();
     const shot = async (name) => {
@@ -75,4 +81,4 @@ try {
 } finally {
     await browser.close();
 }
-process.stdout.write(JSON.stringify({ artifacts, blocked_requests: blocked }) + "\n");
+process.stdout.write(JSON.stringify({ artifacts, blocked_requests: blocked, blocked_websockets: blockedSockets }) + "\n");
