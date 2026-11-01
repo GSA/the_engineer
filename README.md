@@ -330,7 +330,8 @@ while Pi runs and `needs-human` ("session ended without hand-off") after
   no temporary working plans/specs remain under `.local/plans/` or
   `docs/superpowers/`, or `python3 scripts/workflow-gates.py demo` to run the
   non-model synthetic task demonstration across `private_pi`, `forge_workspace`,
-  and `roborev_review`.
+  and `roborev_review`. Pi agents cannot merge a PR or push to `main` unless
+  you confirm the call in the Pi UI.
 - **Run smoke tests:** stop the four services, run
   `python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge`,
   then start the services again. The smoke tests use the same ports.

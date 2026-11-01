@@ -27,6 +27,7 @@ TEMPORARY_PLAN_PREFIXES = (
 VALID_SURFACES = ("private_pi", "forge_workspace", "roborev_review")
 BRANCH_PUBLICATION_ACTIONS = ("push_branch", "pr_create", "pr_edit")
 HUMAN_ONLY_ACTIONS = ("push_main", "pr_merge")
+RUNTIME_GUARD_ALLOWED = ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool", "quoted_merge_text")
 
 
 @dataclass(frozen=True)
@@ -161,6 +162,68 @@ def _probe_forge_extension(surface: str) -> dict:
         return json.loads(proc.stdout.strip())
 
 
+def probe_publication_guard() -> dict:
+    """Drive the real forge-workspace.ts tool_call guard with synthetic commands."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp) / "repo"
+        for branch in ("main", "feature"):
+            (repo / branch).mkdir(parents=True)
+            _run_cmd(repo / branch, "git", "init", "-q", "-b", branch)
+        cases = {
+            "agent_pr_merge": ("feature", "gh pr merge 13 --squash", None),
+            "chained_gh_merge": ("feature", "git status && python3 scripts/gh-local.py pr merge 13", None),
+            "push_refspec_to_main": ("feature", "git push origin HEAD:refs/heads/main", None),
+            "push_head_on_main": ("main", "git push -u origin HEAD", None),
+            "force_push_main": ("feature", "git push --force origin main", None),
+            "human_declined_merge": ("feature", "gh pr merge 13", False),
+            "checkout_then_push_head": ("feature", "git checkout main && git push origin HEAD", None),
+            "cd_then_bare_push": ("feature", "cd ../main && git push", None),
+            "repo_option_refspec_to_main": ("feature", "git push --repo origin HEAD:main", None),
+            "repo_equals_refspec_to_main": ("feature", "git push --repo=origin HEAD:main", None),
+            "nested_shell_merge": ("feature", "bash -c 'gh pr merge 13'", None),
+            "quoted_merge_text": ("feature", "grep -n 'gh pr merge' README.md && printf '%s' \"git push origin main\"", None),
+            "workspace_branch_push": ("feature", "git push -u origin HEAD", None),
+            "pr_create": ("feature", "gh pr create --fill", None),
+            "human_confirmed_merge": ("feature", "gh pr merge 13", True),
+            "read_tool": ("feature", None, None),
+        }
+        payload = [
+            {"name": name, "cwd": str(repo / branch), "command": command, "confirm": confirm}
+            for name, (branch, command, confirm) in cases.items()
+        ]
+        script = textwrap.dedent(
+            f"""
+            import forgeWorkspaceExtension from {json.dumps(str(FORGE_EXTENSION_PATH))};
+            globalThis.fetch = async () => new Response("{{}}", {{ status: 200 }});
+            const handlers = [];
+            forgeWorkspaceExtension({{ on(event, handler) {{ if (event === "tool_call") handlers.push(handler); }} }});
+            const out = {{}};
+            for (const c of {json.dumps(payload)}) {{
+              let asked = false;
+              const ctx = {{
+                cwd: c.cwd,
+                hasUI: c.confirm !== null,
+                ui: {{ confirm: async () => {{ asked = true; return c.confirm; }} }},
+              }};
+              const event = c.command === null
+                ? {{ toolName: "read", input: {{ path: "README.md" }} }}
+                : {{ toolName: "bash", input: {{ command: c.command }} }};
+              let result;
+              for (const h of handlers) result = (await h(event, ctx)) ?? result;
+              out[c.name] = {{ blocked: Boolean(result?.block), reason: result?.reason ?? "", confirm_asked: asked }};
+            }}
+            console.log(JSON.stringify(out));
+            """
+        )
+        proc = subprocess.run(
+            [_node_executable(), "--input-type=module", "-e", script],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        return json.loads(proc.stdout.strip())
+
+
 def evaluate_prompt_surface(
     surface: str,
     *,
@@ -214,30 +277,21 @@ def evaluate_prompt_surface(
                 "allowed": False,
                 "surface": "roborev_review",
                 "reason": str(exc),
-                "required_flags": ["--no-mcp", "--no-skills"],
+                "required_flags": list(local_env.REVIEW_ISOLATION_FLAGS),
                 "read_only": True,
                 "forge_workspace_section_injected": False,
             }
-        local_env_source = LOCAL_ENV_PATH.read_text(encoding="utf-8")
-        pi_go_candidates = [
-            local_env.RUNTIME_ROOT / "roborev" / "internal" / "agent" / "pi.go",
-            REPO_ROOT / "roborev" / "internal" / "agent" / "pi.go",
-        ]
-        pi_go_source = ""
-        for candidate in pi_go_candidates:
-            if candidate.is_file():
-                pi_go_source = candidate.read_text(encoding="utf-8")
-                break
-        combined_source = local_env_source + "\n" + pi_go_source
-        required_flags = [
-            flag for flag in ("--no-mcp", "--no-skills") if flag in combined_source
-        ]
+        launch = local_env.structured_review_args(["--mode", "json", "--json-schema", "{}", "--tools", "read"])
+        isolation = list(local_env.REVIEW_ISOLATION_FLAGS)
+        launcher_isolated = launch[: len(isolation)] == isolation and launch.count("--extension") == 1
+        pi_go = local_env.RUNTIME_ROOT / "roborev" / "internal" / "agent" / "pi.go"
+        pi_go_source = pi_go.read_text(encoding="utf-8") if pi_go.is_file() else ""
         read_only_configured = (not pi_go_source) or ("read,grep,find,ls" in pi_go_source)
-        allowed = len(required_flags) == 2 and read_only_configured
         return {
-            "allowed": allowed,
+            "allowed": launcher_isolated and read_only_configured,
             "surface": "roborev_review",
-            "required_flags": required_flags,
+            "required_flags": isolation,
+            "launcher_isolated": launcher_isolated,
             "read_only_tools": ["read", "grep", "find", "ls", "json_output"],
             "read_only": read_only_configured,
             "coding_family": coding_family,
@@ -774,6 +828,10 @@ def run_synthetic_demo(*, receipt_path: Path | None = None) -> dict:
             human_operator=True,
         )
 
+    runtime_guard = probe_publication_guard()
+    runtime_guard_passed = all(
+        case["blocked"] == (name not in RUNTIME_GUARD_ALLOWED) for name, case in runtime_guard.items()
+    )
     stages = {
         "prompt_gates": {
             "passed": prompt_passed,
@@ -785,7 +843,10 @@ def run_synthetic_demo(*, receipt_path: Path | None = None) -> dict:
         "red": {
             "exit_code": red_proc.returncode,
             "tests_passed": red_proc.returncode == 0,
-            "error_excerpt": "NotImplementedError: advance_counter not implemented yet",
+            "error_excerpt": next(
+                (line.strip() for line in (red_proc.stdout + red_proc.stderr).splitlines() if "NotImplementedError" in line),
+                "",
+            ),
         },
         "green": {
             "exit_code": green_proc.returncode,
@@ -816,6 +877,7 @@ def run_synthetic_demo(*, receipt_path: Path | None = None) -> dict:
             "forge_pr_create_allowed": forge_pr["allowed"],
             "agent_merge_allowed": agent_merge["allowed"],
             "human_merge_allowed": human_merge["allowed"],
+            "runtime_guard": {"passed": runtime_guard_passed, "cases": runtime_guard},
         },
     }
     overall_passed = (
@@ -835,6 +897,7 @@ def run_synthetic_demo(*, receipt_path: Path | None = None) -> dict:
         and forge_pr["allowed"]
         and not agent_merge["allowed"]
         and human_merge["allowed"]
+        and runtime_guard_passed
     )
     report = {
         "schema": "engineer.synthetic-gate-demo/v1",
