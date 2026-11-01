@@ -1086,6 +1086,19 @@ def configure_provider(base_url, model, api, *, review_model=None):
     print("USAi provider configured without storing a key in model settings. No model call was made.")
 
 
+def forge_kata_ref(cwd):
+    """Return the tracked Kata ref from a Forge Kata workspace's override file."""
+    try:
+        text = (Path(cwd) / "AGENTS.override.md").read_text()
+    except OSError:
+        return ""
+    section = text.partition("## Source Item\n")[2].partition("\n## ")[0]
+    if "\n- Source kind: Kata task\n" not in "\n" + section:
+        return ""
+    match = re.search(r"^- Qualified ID: ([A-Za-z0-9][A-Za-z0-9_.-]*#[A-Za-z0-9]+)$", section, re.M)
+    return match.group(1) if match else ""
+
+
 def pi_launch(args):
     config = settings()
     seed_isolated_gitconfig(STATE / "home")
@@ -1095,6 +1108,10 @@ def pi_launch(args):
         value = os.environ.get(forge_var, "").strip()
         if value:
             env[forge_var] = value
+    # Kata's native Pi attention adapter tracks the issue named by KATA_REF.
+    kata_ref = os.environ.get("KATA_REF", "").strip() or forge_kata_ref(Path.cwd())
+    if kata_ref:
+        env["KATA_REF"] = kata_ref
     if args and (args[0] == "mcp" or args == ["--version"] or args == ["--help"]):
         return [executable, *args], env
     requested_model = None
@@ -1205,7 +1222,14 @@ def install_pi_extensions():
     config = json.loads(private_read(path))
     config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
     json_write(path, config, replace=True)
-    print(f"Installed {', '.join(PI_EXTENSIONS)} in the isolated Pi profile; no model request was made.")
+    # Kata's native attention adapter only: AGENTS policy already carries the
+    # Kata contract, so the adapter's prompt contract is removed.
+    kata = str(RUNTIME_ROOT / "kata/kata")
+    for command in ([kata, "agent-hook", "install", "pi", "--executable", kata],
+                    [kata, "agent-hook", "uninstall", "pi", "--contract-only"]):
+        subprocess.run(command, cwd=STATE / "home", env=base_environment(), check=True,
+                       timeout=60, stdout=subprocess.DEVNULL)
+    print(f"Installed {', '.join(PI_EXTENSIONS)} and Kata Pi attention in the isolated Pi profile; no model request was made.")
 
 
 def install_pi_review_extension():
