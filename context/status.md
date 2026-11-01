@@ -1,5 +1,28 @@
 # Current status
 
+## MVP readiness and task completion
+
+The connected MVP is Librarian plus Engineer, using the delivered cross-repo
+seam scanner (`z6jw`) where needed. Knowitall is retired from this milestone.
+The next outcomes are real-document population (`the_librarian#60h6`), observable
+intake (`the_librarian#rvx5`), post-compaction retrieval (`8vhd`), the approved
+real-ticket walkthrough (`hk33`), and private capture (`86ey`). Fresh-host
+acceptance (`p4ke`) remains open in parallel; a merged installer PR does not
+satisfy its remaining reproduction requirements.
+
+Merged-PR reconciliation closed Librarian `9hqs`/`0nj8` and Engineer
+`k03a`/`mpew`/`tvbf`/`avvp` with per-task merge and acceptance evidence.
+The owner accepted the external roborev hook/page for `avvp`; no native
+Kata-workspace Reviews tab is claimed.
+
+Forge `bf025d22` merges PRs and optionally cleans up workspaces, but its Kata
+integration is read-only. Workspace/PR task links do not authorize completion.
+Use native `kata close` only after the task's acceptance is met, with PR/commit
+evidence; partial-delivery tasks stay open. `430a` records the planned upstream
+change for explicitly authorized, evidence-backed closure after a confirmed
+merge, including independent closure-failure reporting. No automatic closure
+or reconciliation service is installed.
+
 ## Live environment state
 
 - All four user systemd units are running on loopback:
