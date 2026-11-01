@@ -325,9 +325,14 @@ class RuntimePublicationGuardTests(unittest.TestCase):
             "push_head_on_main",
             "force_push_main",
             "human_declined_merge",
+            "checkout_then_push_head",
+            "cd_then_bare_push",
+            "repo_option_refspec_to_main",
+            "repo_equals_refspec_to_main",
+            "nested_shell_merge",
         ):
             self.assertTrue(cases[name]["blocked"], name)
-        for name in ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool"):
+        for name in ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool", "quoted_merge_text"):
             self.assertFalse(cases[name]["blocked"], name)
         self.assertIn("human", cases["agent_pr_merge"]["reason"])
         self.assertTrue(cases["human_confirmed_merge"]["confirm_asked"])

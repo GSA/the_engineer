@@ -27,7 +27,7 @@ TEMPORARY_PLAN_PREFIXES = (
 VALID_SURFACES = ("private_pi", "forge_workspace", "roborev_review")
 BRANCH_PUBLICATION_ACTIONS = ("push_branch", "pr_create", "pr_edit")
 HUMAN_ONLY_ACTIONS = ("push_main", "pr_merge")
-RUNTIME_GUARD_ALLOWED = ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool")
+RUNTIME_GUARD_ALLOWED = ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool", "quoted_merge_text")
 
 
 @dataclass(frozen=True)
@@ -176,6 +176,12 @@ def probe_publication_guard() -> dict:
             "push_head_on_main": ("main", "git push -u origin HEAD", None),
             "force_push_main": ("feature", "git push --force origin main", None),
             "human_declined_merge": ("feature", "gh pr merge 13", False),
+            "checkout_then_push_head": ("feature", "git checkout main && git push origin HEAD", None),
+            "cd_then_bare_push": ("feature", "cd ../main && git push", None),
+            "repo_option_refspec_to_main": ("feature", "git push --repo origin HEAD:main", None),
+            "repo_equals_refspec_to_main": ("feature", "git push --repo=origin HEAD:main", None),
+            "nested_shell_merge": ("feature", "bash -c 'gh pr merge 13'", None),
+            "quoted_merge_text": ("feature", "grep -n 'gh pr merge' README.md && printf '%s' \"git push origin main\"", None),
             "workspace_branch_push": ("feature", "git push -u origin HEAD", None),
             "pr_create": ("feature", "gh pr create --fill", None),
             "human_confirmed_merge": ("feature", "gh pr merge 13", True),

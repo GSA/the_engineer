@@ -221,6 +221,8 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 }
 
 const PROTECTED_BRANCHES = new Set(["main", "master"]);
+const COMMAND_WRAPPERS = new Set(["env", "sudo", "command", "exec", "time", "nohup", "xargs"]);
+const SHELLS = /(^|\/)(ba|z|da)?sh$/;
 
 function currentBranch(cwd: string): string {
 	try {
@@ -233,54 +235,136 @@ function currentBranch(cwd: string): string {
 	}
 }
 
-function pushTargetsProtected(args: string[], cwd: string): boolean {
-	if (args.some((arg) => arg === "--all" || arg === "--mirror")) {
-		return true;
+// Split a shell command into simple commands of words, keeping quoted text as
+// data inside one word.
+function shellCommands(command: string): string[][] {
+	const commands: string[][] = [];
+	let words: string[] = [];
+	let word = "";
+	let inWord = false;
+	let quote = "";
+	const endWord = () => {
+		if (inWord) words.push(word);
+		word = "";
+		inWord = false;
+	};
+	const endCommand = () => {
+		endWord();
+		if (words.length) commands.push(words);
+		words = [];
+	};
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i];
+		if (quote) {
+			if (ch === quote) quote = "";
+			else if (ch === "\\" && quote === '"' && i + 1 < command.length) word += command[++i];
+			else word += ch;
+		} else if (ch === "'" || ch === '"') {
+			quote = ch;
+			inWord = true;
+		} else if (ch === "\\" && i + 1 < command.length) {
+			word += command[++i];
+			inWord = true;
+		} else if (/[;&|\n()`]/.test(ch) || (ch === "$" && command[i + 1] === "(")) {
+			endCommand();
+		} else if (/\s/.test(ch)) {
+			endWord();
+		} else {
+			word += ch;
+			inWord = true;
+		}
 	}
+	endCommand();
+	return commands;
+}
+
+function programWords(words: string[]): string[] {
+	let i = 0;
+	while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || COMMAND_WRAPPERS.has(words[i]) || words[i] === "{")) {
+		i++;
+	}
+	return words.slice(i);
+}
+
+function pushTargetsProtected(args: string[], cwd: string, branchUncertain: boolean): boolean {
 	const positional: string[] = [];
+	let repoGiven = false;
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
-		if (arg === "-o" || arg === "--push-option" || arg === "--repo") {
+		if (arg === "--all" || arg === "--mirror") {
+			return true;
+		}
+		if (arg === "--repo") {
+			repoGiven = true;
+			i++;
+		} else if (arg.startsWith("--repo=")) {
+			repoGiven = true;
+		} else if (arg === "-o" || arg === "--push-option") {
 			i++;
 		} else if (!arg.startsWith("-")) {
 			positional.push(arg);
 		}
 	}
-	const refspecs = positional.slice(1);
-	const branch = currentBranch(cwd);
+	const refspecs = repoGiven ? positional : positional.slice(1);
+	const head = () => (branchUncertain ? "main" : currentBranch(cwd));
 	if (refspecs.length === 0) {
-		return PROTECTED_BRANCHES.has(branch);
+		return PROTECTED_BRANCHES.has(head());
 	}
 	return refspecs.some((spec) => {
 		let dst = spec.replace(/^\+/, "");
 		dst = dst.includes(":") ? dst.slice(dst.indexOf(":") + 1) : dst;
 		dst = dst.replace(/^refs\/heads\//, "");
-		return PROTECTED_BRANCHES.has(dst === "HEAD" ? branch : dst);
+		return PROTECTED_BRANCHES.has(dst === "HEAD" || dst === "@" ? head() : dst);
 	});
 }
 
 // Merging a PR or pushing main is human-controlled on every surface: the agent
 // may run it only after the human confirms it in the Pi UI.
-export function humanOnlyPublication(command: string, cwd: string): string | null {
-	for (const segment of command.split(/&&|\|\||[;|\n]/)) {
-		const words = segment.trim().replace(/["']/g, "").split(/\s+/).filter(Boolean);
-		const gh = words.findIndex((word) => /(^|\/)gh(-local\.py)?$/.test(word));
-		if (gh >= 0) {
-			const rest = words.slice(gh + 1);
-			const pr = rest.indexOf("pr");
-			if (pr >= 0 && rest[pr + 1] === "merge") {
-				return "pr_merge";
+export function humanOnlyPublication(command: string, cwd: string, depth = 0): string | null {
+	// After an earlier cd/checkout in the same call, HEAD and cwd are unknown
+	// when tool_call runs, so a bare or HEAD push needs confirmation.
+	let branchUncertain = false;
+	for (const words of shellCommands(command)) {
+		const [program = "", ...rest] = programWords(words);
+		if (SHELLS.test(program) && depth < 3) {
+			const script = rest[rest.indexOf("-c") + 1];
+			if (rest.includes("-c") && script) {
+				const nested = humanOnlyPublication(script, cwd, depth + 1);
+				if (nested) return nested;
 			}
-			if (rest.includes("api") && rest.some((word) => /\/pulls\/\d+\/merge$/.test(word))) {
-				return "pr_merge";
-			}
+			continue;
 		}
-		const git = words.findIndex((word) => /(^|\/)git$/.test(word));
-		const push = git >= 0 ? words.indexOf("push", git + 1) : -1;
-		if (push >= 0) {
-			const dashC = words.indexOf("-C", git + 1);
-			const pushCwd = dashC >= 0 && dashC < push ? words[dashC + 1] : cwd;
-			if (pushTargetsProtected(words.slice(push + 1), pushCwd)) {
+		if (program === "cd" || program === "pushd" || program === "popd") {
+			branchUncertain = true;
+			continue;
+		}
+		if (/(^|\/)gh(-local\.py)?$/.test(program) || (/(^|\/)python3?$/.test(program) && /gh-local\.py$/.test(rest[0] ?? ""))) {
+			const args = /python3?$/.test(program) ? rest.slice(1) : rest;
+			if (args[0] === "pr" && args[1] === "merge") {
+				return "pr_merge";
+			}
+			if (args[0] === "api" && args.some((arg) => /\/pulls\/\d+\/merge$/.test(arg))) {
+				return "pr_merge";
+			}
+			continue;
+		}
+		if (/(^|\/)git$/.test(program)) {
+			let i = 0;
+			let gitCwd = cwd;
+			while (i < rest.length && rest[i].startsWith("-")) {
+				if (rest[i] === "-C") {
+					gitCwd = rest[i + 1] ?? gitCwd;
+					i += 2;
+				} else if (rest[i] === "-c") {
+					i += 2;
+				} else {
+					i++;
+				}
+			}
+			const sub = rest[i];
+			if (sub === "checkout" || sub === "switch" || sub === "worktree") {
+				branchUncertain = true;
+			} else if (sub === "push" && pushTargetsProtected(rest.slice(i + 1), gitCwd, branchUncertain)) {
 				return "push_main";
 			}
 		}
