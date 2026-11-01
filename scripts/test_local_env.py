@@ -531,9 +531,25 @@ class LocalEnvironmentTests(unittest.TestCase):
         for flag in ("--no-context-files", "--no-extensions", "--no-skills"):
             self.assertNotIn(flag, command)
 
+    def test_setup_installs_tracked_coder_contract(self):
+        installed = self.state / "pi/AGENTS.md"
+        self.assertEqual(installed.read_text(), local_env.CODER_CONTRACT.read_text())
+        self.assertEqual(installed.stat().st_mode & 0o777, 0o600)
+        installed.write_text("stale\n")
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(installed.read_text(), local_env.CODER_CONTRACT.read_text())
+
+    def test_coder_contract_owns_coder_duties_once(self):
+        text = local_env.CODER_CONTRACT.read_text()
+        for duty in ("amend", "roborev show", "structural", "as evidence",
+                     ".local/plans/", "merge"):
+            self.assertIn(duty, text)
+        self.assertNotIn("gh pr create", text)  # Forge delivery lives in forge-workspace.ts
+        self.assertLess(len(text), 4096)
+
     def test_policy_expectations_per_surface(self):
         private = str(self.state / "pi/AGENTS.md")
-        Path(private).write_text("policy\n")
         cwd = self.root / "ws"
         override = str(cwd / "AGENTS.override.md")
         coder = {"sections": ["project_context", "skills", "forge_workspace"],
@@ -549,6 +565,9 @@ class LocalEnvironmentTests(unittest.TestCase):
                     "superpowers_bootstrap": False}
         self.assertEqual(local_env.policy_failures("review", isolated, cwd), [])
         self.assertIn("Superpowers is not loaded", local_env.policy_failures("private", isolated, cwd))
+        Path(private).write_text("stale\n")
+        self.assertIn("private Pi coder contract differs from scripts/pi-coder-contract.md; rerun setup",
+                      local_env.policy_failures("forge", coder, cwd))
         Path(private).unlink()
         self.assertIn(f"private Pi coder contract {private} is missing",
                       local_env.policy_failures("forge", coder, cwd))

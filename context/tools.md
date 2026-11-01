@@ -28,7 +28,8 @@ Verify a whole host read-only with `python3 scripts/local_env.py accept
 [--repo PATH ...]` (PASS/FAIL per check, nonzero until every check passes;
 needs a login shell for `systemctl --user`).
 
-Check which policy coder and roborev review Pi load with `python3
+The coder contract is `scripts/pi-coder-contract.md`; `setup` installs it as
+the private `pi/AGENTS.md`. Check which policy coder and roborev review Pi load with `python3
 scripts/local_env.py verify-pi-policy [--cwd PATH]` (see
 `context/engineering-workflow.md#loaded-policy-by-surface`).
 
