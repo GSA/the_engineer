@@ -20,11 +20,16 @@ Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 - Ubuntu 24.04+ on x86_64, or WSL2
 - Python 3.11+, Node.js 24.11+, Pi `1.4.0`
 - A USAi API key
-- A `falcon-docs` corpus checkout that contains `tools/context-mcp/.venv/bin/qualified-context-mcp`, passed as `--corpus`
+- An approved local corpus path, passed as `--corpus` (always required).
+  The default legacy `falcon-docs` binding requires
+  `tools/context-mcp/.venv/bin/qualified-context-mcp` and
+  `tools/context-index/context_index.py` beneath that path. To use an explicit
+  Librarian toolkit instead, also pass `--librarian-executable` and
+  `--librarian-root`; the legacy files are not required for that binding.
 
 ```sh
 sudo apt-get install git curl ca-certificates build-essential libc6-dev \
-  tmux python3 python3-venv zstd tar coreutils diffutils ripgrep fd-find
+  tmux python3 python3-venv tar coreutils diffutils ripgrep fd-find
 mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
 npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.4.0
 export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
@@ -136,20 +141,22 @@ different root.
 
 | File | Purpose |
 | --- | --- |
-| `environment.json` | Corpus path, Forge binary, Pi executable and version, and any `port_offset`, written by `setup`; rerunning `setup` after upgrading the saved Pi executable in place updates only an older `pi_version` |
+| `environment.json` | Corpus path, Forge binary, Pi executable and version, optional Librarian binding, and any `port_offset`, written by `setup`; rerunning `setup` after upgrading the saved Pi executable in place updates only an older `pi_version` |
 | `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
 | `usai.json` | Active coder `model` and `review_model` |
 | `usai-models.json` | Last model catalog fetched from USAi |
 | `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is the `${USAI_API_KEY}` placeholder. |
-| `pi/settings.json` | Pi default provider and model, Superpowers package, and subagent defaults (`model: inherit`) |
+| `pi/settings.json` | Pi default provider and model, Superpowers and extension packages (`pi-subagents`, `pi-json-schema`), and subagent defaults (`model: inherit`) |
 | `pi/mcp.json` | Pi MCP servers: `falcon-context` (Librarian-style corpus), `kata`, and `kenn-forge` |
+| `pi/extensions/forge-workspace.ts` | Forge workspace extension (session hooks, worktree isolation, PR/target registration) |
 | `forge/config.toml` | Forge host and port, MCP, and agent launchers `pi` (default model) and `pi-argon` (`gemini-4-argon`) |
 | `roborev/config.toml` | Daemon address, `pi` agent command, and reviewer model (linked from `~/.roborev`) |
 | `kata/config.toml` | Kata listen address |
+| `agentsview/config.toml` | AgentsView archive policy and session source directories (paired with `agentsview-tracking.json`) |
 | `gh/` | Isolated GitHub CLI login used by Forge and `scripts/gh-local.py` |
 | `systemd/` | Generated user units |
 
-Each repo has its own `.roborev.toml` (agent `pi`, reviews every 5 commits) and
+Each repo has its own `.roborev.toml` (agent `pi`, reviews batched every 5 commits) and
 `.kata.toml` (Kata project binding).
 
 Forge's automatic PR formatter chooses detail and structure by the meaningful
@@ -164,7 +171,7 @@ configured Librarian business corpus and a revision-bound Knowitall code
 generation. It is a read-only consumer: it never acquires sources, indexes,
 extracts, or publishes, and it never mutates a Kata task.
 
-Install it into a private virtual environment (Python 3.12 or newer) and write
+Install it into a private virtual environment (`python3 -m venv .local/context-venv && .local/context-venv/bin/pip install -e '.[test]'` with Python 3.12 or newer) and write
 an `engineer.context-config/v1` file naming the explicit providers:
 
 ```json
@@ -177,7 +184,8 @@ an `engineer.context-config/v1` file naming the explicit providers:
 }
 ```
 
-The Knowitall store must already be a published store: an incomplete directory
+The `knowitall` block is optional (`null` or omitted when collecting business
+evidence only). When configured, the Knowitall store must already be a published store: an incomplete directory
 is refused rather than initialized, because collection never writes provider
 state. `knowitall.python` names the interpreter that owns
 `knowitall-code-context` 0.1.0; Engineer itself need not be installed there,
@@ -196,6 +204,7 @@ argument.
 engineer-context collect --config binding.json --request request.json --output packet.json
 engineer-context report --packet packet.json
 engineer-context revalidate --config binding.json --packet packet.json --task task.json --output recheck.json
+engineer-context seams --workspace-root ~/falcon --format markdown --max-chars 4000
 ```
 
 `collect` exits 0 only when every required business locator and code query
@@ -225,8 +234,10 @@ are reported as unavailable capabilities pending `the_librarian#923h` and
 `the_librarian#rjr5`. Packets can carry restricted source text, so write them
 only to private paths and never paste them into shared channels.
 
-Agents reach the same three read-only operations through a stdio MCP server
-configured once at startup:
+Agents reach the same four read-only operations (`collect`, `report`,
+`revalidate`, and `seams`) through a stdio MCP server configured once at
+startup (`engineer-seams` is also installed as a standalone CLI entry point
+for the same scanner):
 
 ```sh
 engineer-context-mcp --config binding.json
@@ -295,12 +306,15 @@ the key is expired or revoked; rotate it as shown above.
 
 1. `list-models` fetches `/models` from USAi into `usai-models.json`. It only
    lists models; it does not test them.
-2. `configure-provider` writes every chat model (the built-in list plus the
-   fetched catalog) to `pi/models.json` and skips embedding models. It also sets
-   the coder default in `pi/settings.json` and `usai.json`, and syncs the
-   reviewer model to `roborev/config.toml`.
-3. The coder and the reviewer must come from different model families (Claude,
-   OpenAI, or Gemini), and both must appear in the fetched catalog.
+2. `configure-provider --base-url <url> --model <coder> [--review-model <reviewer>] --api openai-completions`
+   writes every chat model (the built-in list plus the fetched catalog) to
+   `pi/models.json` and skips embedding models. It also sets the coder default
+   in `pi/settings.json` and `usai.json`, and syncs `--review-model` to
+   `roborev/config.toml`. Omitting `--review-model` clears a previously
+   configured reviewer pairing.
+3. When `--review-model` is set, the coder and the reviewer must come from
+   different model families (Claude, OpenAI, or Gemini), and both must appear
+   in `usai-models.json` when its advertised model list is nonempty.
 4. `pi-local.py --model` accepts only the coder model, the reviewer model, or
    `gemini-4-argon`. To use another model, run `configure-provider` again.
 
@@ -327,9 +341,11 @@ while Pi runs and `needs-human` ("session ended without hand-off") after
 ## Maintenance
 
 - **Back up:** `python3 scripts/backup_workspace.py <dest-dir>` creates a
-  verified `.tar.zst` archive of the workspace, including SQLite snapshots.
-- **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'` and the
-  same command with `-s dist`.
+  verified `.tar.gz` archive (plus `.sha256` checksum) of the workspace,
+  including SQLite snapshots.
+- **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'`, the
+  same command with `-s dist`, and `python -m unittest discover -s tests -p 'test_context_*.py'`
+  in the `engineer-task-context` virtual environment.
 - **Verify prompt, temporary-plan, and publication gates:** run
   `python3 scripts/workflow-gates.py check-plans --repo . --base main` to verify
   no temporary working plans/specs remain under `.local/plans/` or
