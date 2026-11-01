@@ -36,7 +36,7 @@ Each Pi surface loads one policy set; check it with
 
 | Surface | Loaded policy |
 |---|---|
-| Private Pi (`scripts/pi-local.py` in a checkout) | private `.local/environment/pi/AGENTS.md` (the canonical coder contract), the repository `AGENTS.md`, Superpowers skills and bootstrap, `pi-subagents` |
+| Private Pi (`scripts/pi-local.py` in a checkout) | private `.local/environment/pi/AGENTS.md` (installed coder contract), the repository `AGENTS.md`, Superpowers skills and bootstrap, `pi-subagents` |
 | Forge-launched Pi (`pi`, `pi-argon`) | the same coder policy with the Forge-generated `AGENTS.override.md` in place of the root `AGENTS.md`, plus the `forge_workspace` section and skill overrides from `forge-workspace.ts` |
 | roborev structured review (`--json-schema`) | Pi's base prompt, the roborev prompt with `.roborev.toml` `review_guidelines`, read-only tools and the pinned schema extension only |
 
@@ -44,10 +44,22 @@ Each Pi surface loads one policy set; check it with
 --no-extensions --no-skills --no-prompt-templates --no-mcp` and loads the
 installed `@nqbao/pi-json-schema` package by path, so reviewers stay
 independent and read-only and never inherit coder commit, fix, push or planning
-duties. Coder responsibilities (clarifying, checkpoint commits, evaluating
-task-scoped roborev findings, removing temporary plans) live once in the coder
-contract and repository `AGENTS.md`; Superpowers supplies TDD, design,
-planning and verification discipline.
+duties. Coder responsibilities (clarifying, checkpoint commits, additive review
+fixes, evaluating task-scoped roborev findings, removing temporary plans) live
+once in the tracked coder contract `scripts/pi-coder-contract.md`; `setup`
+installs it as the private `pi/AGENTS.md` and `verify-pi-policy` fails when the
+installed copy drifts. Forge delivery (push, PR, target registration) lives in
+the `forge_workspace` section of `forge-workspace.ts`; Superpowers supplies
+TDD, design, planning and verification discipline.
+
+### Source guidance dispositions
+
+| Source | Adopted in the coder contract | Left out |
+|---|---|---|
+| [Clanker Constitution v2026.08.11](https://github.com/kenn-io/constitution) (CC BY 4.0) | request as contract, ask only on consequential gaps, never amend, preserve others' work, verify with fresh evidence, human merge | `CLAUDE.md` and memory rules (Pi loads `AGENTS.md`); the full text stays in the inactive `context/prompt-drafts/` example |
+| [Kent Beck, Augmented Coding (2025)](https://newsletter.kentbeck.com/p/augmented-coding-beyond-the-vibes) | small red/green/refactor steps, separate structural and behavioral commits, keep tests meaningful | the `plan.md`/"go" protocol (Kata holds tasks), Rust preferences, full-suite runs after every edit |
+| [Wes McKinney, agentic engineering (2026)](https://wesmckinney.com/blog/agentic-engineering-aug-2026/) | human-owned intent, design and publication; agents execute | role pipelines (Forge workspaces and Superpowers cover execution) |
+| [Richard Gill, Pi setup](https://github.com/richardgill/pi-extensions/blob/main/PI_SETUP.md) | automatic project trust (already seeded in `pi/trust.json`) | his extensions and tmux orchestration (Forge owns workspaces and sessions) |
 
 ## Task-bound evidence before acting
 

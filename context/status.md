@@ -30,6 +30,12 @@
     Superpowers, prompt templates or MCP; schema extension by path), and
     `local_env.py verify-pi-policy` checks private, Forge and review surfaces
     without a model call.
+  - The coder contract is tracked once in `scripts/pi-coder-contract.md`
+    (checkpoint and additive-fix commits, consuming roborev results, structural
+    vs behavioral commits, temporary-plan cleanup, human merge); `setup`
+    installs it as private `pi/AGENTS.md` and `verify-pi-policy` fails on drift.
+    Constitution/Beck/McKinney/Gill dispositions are in
+    `context/engineering-workflow.md#source-guidance-dispositions`.
 
 - **Manual Jira-to-Kata intake contract (`99gr`)**:
   - Added `scripts/jira-intake.py` (`init`, `check`, `record [--apply]`) and

@@ -56,6 +56,8 @@ def resolve_runtime_root(source_root, environment=None):
 
 
 RUNTIME_ROOT = resolve_runtime_root(ROOT)
+# The one canonical coder contract; setup installs it as the private Pi AGENTS.md.
+CODER_CONTRACT = ROOT / "scripts/pi-coder-contract.md"
 STATE = RUNTIME_ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
 PI_VERSION = "1.4.0"
@@ -546,6 +548,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
     else:
         json_write(mcp_path, {"mcpServers": servers})
+    private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
     private_dir(STATE / "pi/extensions")
     forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
     if forge_ext_src.is_file():
@@ -2062,6 +2065,8 @@ def policy_failures(surface, report, cwd):
         failures.append(f"private Pi coder contract {private} is missing")
     elif private not in files:
         failures.append("private Pi AGENTS.md is not loaded")
+    if Path(private).is_file() and Path(private).read_text() != CODER_CONTRACT.read_text():
+        failures.append("private Pi coder contract differs from scripts/pi-coder-contract.md; rerun setup")
     if surface == "forge":
         if override not in files:
             failures.append("AGENTS.override.md is not loaded")
