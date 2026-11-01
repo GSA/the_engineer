@@ -116,8 +116,10 @@ authorization.
     `scripts/local_env.py:validate_paired_models()` to confirm that `private_pi`
     loads repo policy without Forge overrides, `forge_workspace` filters
     ancestor `AGENTS.md` and applies autonomous skill overrides, and
-    `roborev_review` enforces `--no-mcp --no-skills`, read-only tools, and
-    distinct model families (`claude`, `openai`, `gemini`).
+    `roborev_review` launches through `local_env.structured_review_args()` with
+    the `REVIEW_ISOLATION_FLAGS` from `k03a`, read-only tools, and distinct
+    model families (`claude`, `openai`, `gemini`). The live loaded policy is
+    checked separately by `python3 scripts/local_env.py verify-pi-policy`.
   - `check-plans --repo . --base main`: inspects staged changes, branch diffs
     against `main`, and the working tree for temporary planning artifacts under
     `.local/plans/`, `docs/superpowers/plans/`, and `docs/superpowers/specs/`
@@ -130,5 +132,7 @@ authorization.
   - `demo [--receipt <private-path>]`: executes an end-to-end synthetic task
     through Red -> Green -> Refactor -> Review -> Plan Cleanup -> Publication
     gates in an isolated temporary Git repository and writes a mode `0600`
-    receipt when requested.
+    receipt when requested. The publication stage also drives the real
+    `forge-workspace.ts` `tool_call` guard, which blocks agent PR merges and
+    pushes to `main` unless the human confirms them in the Pi UI.
 

@@ -314,6 +314,26 @@ class PublicationAndReviewGateTests(unittest.TestCase):
         self.assertTrue(human_merge["allowed"])
 
 
+class RuntimePublicationGuardTests(unittest.TestCase):
+    def test_extension_blocks_agent_merge_and_main_push_unless_human_confirms(self):
+        gates = load_module()
+        cases = gates.probe_publication_guard()
+        for name in (
+            "agent_pr_merge",
+            "chained_gh_merge",
+            "push_refspec_to_main",
+            "push_head_on_main",
+            "force_push_main",
+            "human_declined_merge",
+        ):
+            self.assertTrue(cases[name]["blocked"], name)
+        for name in ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool"):
+            self.assertFalse(cases[name]["blocked"], name)
+        self.assertIn("human", cases["agent_pr_merge"]["reason"])
+        self.assertTrue(cases["human_confirmed_merge"]["confirm_asked"])
+        self.assertFalse(cases["agent_pr_merge"]["confirm_asked"])
+
+
 class SyntheticTaskDemoTests(unittest.TestCase):
     def test_run_synthetic_demo_executes_red_green_refactor_review_and_publication_gates(self):
         gates = load_module()
@@ -351,6 +371,9 @@ class SyntheticTaskDemoTests(unittest.TestCase):
             self.assertTrue(pub_stage["forge_pr_create_allowed"])
             self.assertFalse(pub_stage["agent_merge_allowed"])
             self.assertTrue(pub_stage["human_merge_allowed"])
+            self.assertTrue(pub_stage["runtime_guard"]["passed"])
+            self.assertIn("NotImplementedError", stages["red"]["error_excerpt"])
+            self.assertTrue(stages["prompt_gates"]["roborev_review"]["launcher_isolated"])
 
             self.assertTrue(receipt_path.is_file())
             mode = stat.S_IMODE(receipt_path.stat().st_mode)

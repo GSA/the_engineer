@@ -220,6 +220,74 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 	}
 }
 
+const PROTECTED_BRANCHES = new Set(["main", "master"]);
+
+function currentBranch(cwd: string): string {
+	try {
+		return execFileSync("git", ["-C", cwd, "symbolic-ref", "--short", "HEAD"], {
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+		}).trim();
+	} catch {
+		return "";
+	}
+}
+
+function pushTargetsProtected(args: string[], cwd: string): boolean {
+	if (args.some((arg) => arg === "--all" || arg === "--mirror")) {
+		return true;
+	}
+	const positional: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "-o" || arg === "--push-option" || arg === "--repo") {
+			i++;
+		} else if (!arg.startsWith("-")) {
+			positional.push(arg);
+		}
+	}
+	const refspecs = positional.slice(1);
+	const branch = currentBranch(cwd);
+	if (refspecs.length === 0) {
+		return PROTECTED_BRANCHES.has(branch);
+	}
+	return refspecs.some((spec) => {
+		let dst = spec.replace(/^\+/, "");
+		dst = dst.includes(":") ? dst.slice(dst.indexOf(":") + 1) : dst;
+		dst = dst.replace(/^refs\/heads\//, "");
+		return PROTECTED_BRANCHES.has(dst === "HEAD" ? branch : dst);
+	});
+}
+
+// Merging a PR or pushing main is human-controlled on every surface: the agent
+// may run it only after the human confirms it in the Pi UI.
+export function humanOnlyPublication(command: string, cwd: string): string | null {
+	for (const segment of command.split(/&&|\|\||[;|\n]/)) {
+		const words = segment.trim().replace(/["']/g, "").split(/\s+/).filter(Boolean);
+		const gh = words.findIndex((word) => /(^|\/)gh(-local\.py)?$/.test(word));
+		if (gh >= 0) {
+			const rest = words.slice(gh + 1);
+			const pr = rest.indexOf("pr");
+			if (pr >= 0 && rest[pr + 1] === "merge") {
+				return "pr_merge";
+			}
+			if (rest.includes("api") && rest.some((word) => /\/pulls\/\d+\/merge$/.test(word))) {
+				return "pr_merge";
+			}
+		}
+		const git = words.findIndex((word) => /(^|\/)git$/.test(word));
+		const push = git >= 0 ? words.indexOf("push", git + 1) : -1;
+		if (push >= 0) {
+			const dashC = words.indexOf("-C", git + 1);
+			const pushCwd = dashC >= 0 && dashC < push ? words[dashC + 1] : cwd;
+			if (pushTargetsProtected(words.slice(push + 1), pushCwd)) {
+				return "push_main";
+			}
+		}
+	}
+	return null;
+}
+
 export default function forgeWorkspaceExtension(pi: any): void {
 	let sessionStartContext: string | null = null;
 	let sessionStartResolved = false;
@@ -469,6 +537,22 @@ export default function forgeWorkspaceExtension(pi: any): void {
 				event.systemPromptOptions.sections.forge_workspace = FORGE_WORKSPACE_SECTION;
 			}
 		}
+	});
+
+	pi.on("tool_call", async (event: any, ctx: any) => {
+		const command = event?.toolName === "bash" ? event?.input?.command : undefined;
+		const action = typeof command === "string" ? humanOnlyPublication(command, ctx.cwd) : null;
+		if (!action) {
+			return undefined;
+		}
+		const label = action === "pr_merge" ? "Merge a pull request" : "Push to main";
+		if (ctx.hasUI && (await ctx.ui.confirm(`${label}? Human approval required`, command))) {
+			return undefined;
+		}
+		return {
+			block: true,
+			reason: `${action} is human-controlled: the human must merge or push main, or approve it in the Pi UI`,
+		};
 	});
 
 	pi.on("tool_execution_start", async (event: any, ctx: any) => {
