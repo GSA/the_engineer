@@ -48,14 +48,11 @@ or reconciliation service is installed.
 
 ## Recent completed milestones
 
-- **MVP value baseline and scorecard (`ef0w`)**:
-  - Added `scripts/value-scorecard.py` (`init`, `check`, `report`, `rollup`) and
-    `context/value-scorecard.md`. Unknown is never zero; capacity released is
-    separate from cash savings; shared setup is allocated once; claims list
-    blockers. Private baseline/unknowns and run records for `hk33` and `j4v3`
-    are in ignored `.local/value-scorecard/`. Baseline hours, loaded rate,
-    pricing approval, setup allocation and the pilot threshold await the owner.
-
+- **MVP value case (`ef0w`)**:
+  - `context/value-case.md` is a one-page template: labeled estimates, mechanism,
+    checks and falsifiers. Capacity released is separate from cash savings.
+    Private filled copies for `hk33` and `j4v3` are in ignored `.local/value-case/`;
+    baseline hours, loaded rate, pricing approval and the pilot threshold await the owner.
 - **Private demo capture (`86ey`)**:
   - `scripts/demo-capture.py` captures screenshots and a WebM video of a
     loopback web UI with headless Playwright Chromium (existing
