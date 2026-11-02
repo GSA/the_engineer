@@ -92,6 +92,17 @@ def _metric(m, path, errors, gaps, extra=()):
     return value
 
 
+def _baseline_blockers(base):
+    kind = base.get("kind", "missing")
+    if kind == "agent-first-replay":
+        return ["baseline is an agent-first replay, not an independent control"]
+    if kind not in ("historical-observed", "estimate"):
+        return ["baseline: no comparable baseline agreed"]
+    out = [] if _approved(base) else ["baseline: not approved by the owner"]
+    out += [f"baseline.{f}: not recorded" for f in ("scope", "quality_bar", "source_access") if not base.get(f)]
+    return out
+
+
 def _approved(d):
     return bool(d and d.get("approved_by") and d.get("approved_at"))
 
@@ -107,6 +118,13 @@ def _list(rec, name, errors):
 def validate(rec, today=None):
     """Return (errors, gaps). Errors are malformed data; gaps are unknowns."""
     errors, gaps = [], []
+    tables = ("run", "baseline", "rate", "active_minutes", "elapsed", "interventions", "runtime_cost_usd",
+              "setup", "findings", "escaped_defects", "operating", "cash_savings_usd", "replication", "pilot")
+    for name in tables:
+        if name in rec and not isinstance(rec[name], dict):
+            errors.append(f"{name}: must be a table")
+    if errors:
+        return errors, gaps
     _keys(rec, {"schema", "run", "baseline", "rate", "active_minutes", "elapsed", "interventions",
                 "route", "usage", "pricing", "runtime_cost_usd", "setup", "shared_cost",
                 "findings", "finding", "escaped_defects", "operating", "cash_savings_usd",
@@ -173,6 +191,9 @@ def validate(rec, today=None):
     _keys(pilot, {"status", "defined_by", "defined_at", "threshold"}, "pilot", errors)
     if pilot.get("status") not in (None, "defined", "undefined"):
         errors.append("pilot.status must be defined or undefined")
+    if not (pilot.get("status") == "defined" and pilot.get("defined_by") and pilot.get("defined_at")
+            and pilot.get("threshold")):
+        gaps.append("pilot: success threshold not defined with the owner")
     return errors, gaps
 
 
@@ -227,8 +248,9 @@ def _validate_usage(rec, errors, gaps):
         for field in TOKEN_FIELDS:
             if field in u and (not isinstance(u[field], int) or isinstance(u[field], bool) or u[field] < 0):
                 errors.append(f"{path}.{field} must be a non-negative integer")
-        if not any(f in u for f in ("input", "output")):
-            errors.append(f"{path}: input or output tokens required")
+        for field in ("input", "output"):
+            if field not in u:
+                errors.append(f"{path}.{field} is required (cache counts default to 0; use status unknown otherwise)")
         ref = u.get("pricing")
         if ref is None:
             gaps.append(f"{path}: no pricing basis")
@@ -249,6 +271,8 @@ def _validate_setup(rec, errors, gaps):
     if status == "unknown":
         gaps.append("setup: unknown (shared setup/ingestion allocation not decided)")
     shared = _list(rec, "shared_cost", errors)
+    if status == "allocated" and not shared:
+        gaps.append("setup: allocated but no shared_cost entries")
     if status != "allocated" and shared:
         errors.append("shared_cost entries require setup.status = allocated")
     ids = set()
@@ -364,13 +388,7 @@ def _claims(rec, today, derived):
         common.append("feasibility run: one ticket does not establish an organization-wide result")
     if pilot.get("status") != "defined" or not (pilot.get("defined_by") and pilot.get("threshold")):
         common.append("pilot and success threshold not defined with the owner")
-    kind = base.get("kind", "missing")
-    if kind == "agent-first-replay":
-        common.append("baseline is an agent-first replay, not an independent control")
-    elif kind == "missing":
-        common.append("baseline: no comparable baseline agreed")
-    elif not _approved(base):
-        common.append("baseline: not approved by the owner")
+    common += _baseline_blockers(base)
     claims = {name: list(common) for name in CLAIMS}
     if derived["active_minutes_total"] is None or _val((rec.get("elapsed") or {}).get("elapsed_minutes")) is None:
         claims["faster delivery"].append("agent-assisted active or elapsed time unknown")
@@ -384,8 +402,8 @@ def _claims(rec, today, derived):
         quality.append("escaped defects unknown")
     elif isinstance(esc.get("window_end"), datetime.date) and today and today < esc["window_end"]:
         quality.append(f"escaped-defect observation window open until {esc['window_end']}")
-    if not base.get("quality_bar"):
-        quality.append("baseline quality bar not recorded")
+    if any(f.get("disposition") == "open" for f in rec.get("finding") or []):
+        quality.append("review findings still open")
     roi = claims["positive ROI"]
     if derived["cost_equivalent_usd"] is None:
         roi.append("cost-equivalent unknown (hours, approved rate, pricing or setup allocation missing)")
@@ -403,7 +421,7 @@ def build_report(rec, today=None):
     total = sum(known) if all(v is not None for v in known) else None
     floor = sum(v for v in known if v is not None)  # not-applicable phases count as 0
     base = rec.get("baseline") or {}
-    base_hours = _val(base.get("hours")) if base.get("kind") in ("historical-observed", "estimate") else None
+    base_hours = _val(base.get("hours")) if not _baseline_blockers(base) else None
     capacity = base_hours - total / 60 if base_hours is not None and total is not None else None
     model_cost = _usage_cost(rec)
     runtime = _val(rec.get("runtime_cost_usd"))
@@ -497,10 +515,10 @@ TEMPLATE = '''schema = "engineer.value-scorecard/v1"
 # not-applicable. Unknown is never zero. Keep ticket keys, rates and receipts here only.
 
 [run]
-id = "{run_id}"
-kind = "{kind}"                  # feasibility | pilot | replication
-task_class = "{task_class}"
-task_type = "{task_type}"
+id = {run_id}
+kind = {kind}                  # feasibility | pilot | replication
+task_class = {task_class}
+task_type = {task_type}
 
 [baseline]
 kind = "missing"                 # historical-observed | estimate | agent-first-replay | missing
@@ -644,7 +662,7 @@ Missing data stays unknown. Keep this directory private (ignored by Git).
 
 
 def _toml_string(text):
-    return json.dumps(text)
+    return json.dumps(text, ensure_ascii=False)
 
 
 def _replication_block():
@@ -684,8 +702,9 @@ def cmd_init(args):
     run_dir.mkdir(mode=0o700)
     replication = _replication_block() if args.kind != "replication" else "\n".join(
         f"[replication.{k}]\nstatus = \"unknown\"" for k in REPLICATION)
-    text = TEMPLATE.format(run_id=args.run_id, kind=args.kind, task_class=args.task_class,
-                           task_type=args.task_type, replication=replication)
+    text = TEMPLATE.format(run_id=_toml_string(args.run_id), kind=_toml_string(args.kind),
+                           task_class=_toml_string(args.task_class), task_type=_toml_string(args.task_type),
+                           replication=replication)
     _write_private(run_dir / "scorecard.toml", text)
     _write_private(run_dir / "COLLECT.md", COLLECT)
     print(f"created {run_dir / 'scorecard.toml'}")
@@ -734,25 +753,31 @@ def rollup(records, today=None):
                 shares.setdefault(s.get("id"), []).append(s["share"])
         rep = build_report(rec, today)
         t = types.setdefault((rec.get("run") or {}).get("task_type", "unknown"), {
-            "runs": 0, "complete_active_runs": 0, "accepted_tasks": 0, "active_minutes": 0,
-            "capacity_released_hours": 0.0, "capacity_runs": 0, "escalations": 0})
+            "runs": 0, "complete_active_runs": 0, "active_minutes": None,
+            "capacity_runs": 0, "capacity_released_hours": None,
+            "accepted_task_runs": 0, "accepted_tasks": None,
+            "escalation_runs": 0, "escalations": None})
         t["runs"] += 1
-        accepted = _val((rec.get("operating") or {}).get("accepted_tasks"))
-        t["accepted_tasks"] += accepted or 0
-        t["escalations"] += rep["measures"]["escalations"] or 0
+        for key, runs_key, value in (
+                ("accepted_tasks", "accepted_task_runs", _val((rec.get("operating") or {}).get("accepted_tasks"))),
+                ("escalations", "escalation_runs", rep["measures"]["escalations"])):
+            if value is not None:
+                t[runs_key] += 1
+                t[key] = (t[key] or 0) + value
         if rep["active_minutes_total"] is not None:
             t["complete_active_runs"] += 1
-            t["active_minutes"] += rep["active_minutes_total"]
+            t["active_minutes"] = (t["active_minutes"] or 0) + rep["active_minutes_total"]
         if rep["capacity_released_hours"] is not None:
             t["capacity_runs"] += 1
-            t["capacity_released_hours"] += rep["capacity_released_hours"]
+            t["capacity_released_hours"] = (t["capacity_released_hours"] or 0) + rep["capacity_released_hours"]
     for ident, values in shares.items():
         if sum(values) > 1 + 1e-9:
             problems.append(f"shared cost {ident!r}: shares sum to {sum(values):g}, above 1 (double counted)")
     return {
         "runs": len(records),
         "by_task_type": types,
-        "caveat": "Totals include only runs with known values; unknown is not zero. "
+        "caveat": "Totals sum only runs with known values (see the *_runs counts) and are null when none are known; "
+                  "unknown is not zero. "
                   "This is not an organization-wide or statistically powered result.",
     }, problems
 

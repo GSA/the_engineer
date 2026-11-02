@@ -230,6 +230,42 @@ class Claims(unittest.TestCase):
         self.assertTrue(any("open" in g for g in gaps))
 
 
+class ReviewFixes(unittest.TestCase):
+    def test_usage_needs_input_and_output(self):
+        rec = complete_record()
+        del rec["usage"][0]["output"]
+        errors, _ = vs.validate(rec, TODAY)
+        self.assertTrue(any("output" in e for e in errors), errors)
+
+    def test_open_finding_blocks_equal_quality_in_report(self):
+        rec = complete_record()
+        rec["finding"].append({"id": "3", "source": "roborev", "disposition": "open"})
+        rep = vs.build_report(rec, TODAY)
+        self.assertEqual(rep["claims"]["equal quality"]["status"], vs.NOT_CLAIMABLE)
+
+    def test_baseline_without_comparability_fields_is_not_usable(self):
+        rec = complete_record()
+        del rec["baseline"]["scope"]
+        del rec["baseline"]["source_access"]
+        rep = vs.build_report(rec, TODAY)
+        self.assertIsNone(rep["capacity_released_hours"])
+        self.assertTrue(any("scope" in b for b in rep["claims"]["faster delivery"]["blockers"]))
+
+    def test_wrong_section_types_are_errors_not_crashes(self):
+        for section in ("baseline", "run", "active_minutes", "pilot"):
+            rec = complete_record()
+            rec[section] = "missing"
+            errors, _ = vs.validate(rec, TODAY)
+            self.assertTrue(any(section in e for e in errors), (section, errors))
+
+    def test_allocated_without_entries_and_undefined_pilot_are_gaps(self):
+        rec = complete_record(shared_cost=[])
+        _, gaps = vs.validate(rec, TODAY)
+        self.assertTrue(any("shared_cost" in g for g in gaps), gaps)
+        _, gaps = vs.validate(complete_record(pilot={"status": "undefined"}), TODAY)
+        self.assertTrue(any("pilot" in g for g in gaps), gaps)
+
+
 class Structure(unittest.TestCase):
     def test_unknown_findings_forbid_entries(self):
         rec = complete_record(findings={"status": "unknown"})
@@ -296,6 +332,20 @@ class Cli(unittest.TestCase):
         self.assertEqual(self.init("run-a")[0], 0)
         self.assertEqual(self.init("run-a")[0], 1)
 
+    def test_init_round_trips_special_characters(self):
+        text = 'owner "approved" \\ change'
+        self.assertEqual(self.init("run-q", "--task-class", text, "--task-type", "t\u00e9")[0], 0)
+        data = tomllib.loads((self.private / "run-q" / "scorecard.toml").read_text())
+        self.assertEqual(data["run"]["task_class"], text)
+
+    def test_wrong_section_type_exits_with_diagnostic(self):
+        self.private.mkdir()
+        bad = self.private / "bad.toml"
+        bad.write_text('schema = "%s"\nbaseline = "missing"\n' % vs.SCHEMA)
+        code, _, err = run_main("check", str(bad))
+        self.assertEqual(code, 1)
+        self.assertIn("baseline", err)
+
     def test_init_rejects_path_like_run_id(self):
         self.assertEqual(self.init("../x")[0], 1)
 
@@ -352,6 +402,8 @@ source = "test"
         self.assertEqual(code, 0)
         roll = json.loads(out)
         self.assertEqual(roll["runs"], 2)
+        self.assertIsNone(roll["by_task_type"]["feature"]["accepted_tasks"])
+        self.assertEqual(roll["by_task_type"]["feature"]["accepted_task_runs"], 0)
         self.assertEqual(sorted(roll["by_task_type"]), ["feature", "refinement"])
         self.assertIn("not an organization-wide", roll["caveat"])
 
