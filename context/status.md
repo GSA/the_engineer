@@ -4,11 +4,33 @@
 
 The connected MVP is Librarian plus Engineer, using the delivered cross-repo
 seam scanner (`z6jw`) where needed. Knowitall is retired from this milestone.
-The next outcomes are real-document population (`the_librarian#60h6`), observable
-intake (`the_librarian#rvx5`), post-compaction retrieval (`8vhd`), the approved
-real-ticket walkthrough (`hk33`), and private capture (`86ey`). Fresh-host
-acceptance (`p4ke`) remains open in parallel; a merged installer PR does not
-satisfy its remaining reproduction requirements.
+The priority is measurable value through the configured USAi model roles,
+with qualified evidence and accountable human decisions:
+
+- **P0:** usable corpus (`the_librarian#60h6`, `3y40`), full-context audit
+  integration (`the_librarian#9e3j` -> `s27j`), baseline/scorecard (`ef0w`) and
+  approved ticket inputs (`97fg`). Progress (`the_librarian#rvx5`), daily
+  snapshots (`the_librarian#9qg1`) and capture capability (`86ey`) are closed;
+  verify deployment rather than reopening their implementation.
+- **P1:** post-compaction retrieval (`8vhd`), real-ticket execution (`hk33`,
+  `d8v5`) and refinement-only evidence (`j4v3`), then capture/visuals/rehearsal
+  (`se6n`, `cgsr`, `eszx`). Establish measurement and audit integration before
+  the new run, using an existing approved run for `s27j` acceptance.
+- **Transfer and scale:** clean-host acceptance (`p4ke`) then second-team
+  bootstrap-to-value (`7ygh`); residual intake validation performance
+  (`the_librarian#2rye`) measured after the existing backup fix. The unavailable
+  published AgentsView pin remains a clean-host blocker; preserve local changes.
+
+The operating-model hypothesis is that refined routine work moves into an
+agent-executable backlog, while trusted engineers own intent, consequential
+technical decisions, exceptions and acceptance. Measure human touch time,
+accepted throughput, rework and escalation rates rather than asserting that
+most backlog work is already automated. Refinement is not authorization.
+
+One run establishes feasibility. Faster team onboarding, positive ROI and
+outperformance need comparable baselines and observed second-team outcomes.
+Private run evidence stays outside the public toolkit. The owner-facing
+presentation outline is maintained separately from this capability register.
 
 Merged-PR reconciliation closed Librarian `9hqs`/`0nj8` and Engineer
 `k03a`/`mpew`/`tvbf`/`avvp` with per-task merge and acceptance evidence.

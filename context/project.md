@@ -4,7 +4,7 @@
 
 **Engineer** (`engineer`, repository `GSA/the_engineer`, local checkout
 `/home/nkirrish/kenn-kopy`) provides the persistent local engineering
-environment and operator console for a human-directed, three-product federal
+environment and operator console for a human-directed, two-product federal
 engineering workflow:
 
 1. **Librarian** (`GSA/the_librarian`, `~/the_librarian`): Falcon documentation
@@ -13,9 +13,9 @@ engineering workflow:
    application repositories under `~/falcon/`.
 2. **Engineer** (`GSA/the_engineer`, `~/kenn-kopy`): local orchestration across
    Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView.
-3. **Knowitall** (`GSA/the_knowitall`, `~/the_knowitall`): evidence-backed
-   multi-source organizational intelligence platform (current implementation
-   focus is Phase 1 architecture, terminology, and local stack scaffolding).
+
+Knowitall is retired from the connected MVP. Engineer uses its delivered
+cross-repository seam scanner when code context crosses repository boundaries.
 
 ## Product identity
 
