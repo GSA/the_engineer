@@ -280,6 +280,12 @@ Librarian grounding and `jira.*` metadata. A task with
 traceability to an existing Kata task instead of creating one. Launch work on a task from
 **Forge > Workspaces > New workspace**.
 
+## Value case
+
+`context/value-case.md` is a one-page template for the estimated value of a
+run: labeled estimates, the mechanism, quick checks and what would falsify the
+claim. Fill private copies under ignored `.local/value-case/`.
+
 ## USAi key management and rotation
 
 - `set-key` prompts for the key with hidden input. It rejects keys passed as an
