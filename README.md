@@ -280,6 +280,21 @@ Librarian grounding and `jira.*` metadata. A task with
 traceability to an existing Kata task instead of creating one. Launch work on a task from
 **Forge > Workspaces > New workspace**.
 
+## Per-run value scorecard
+
+`scripts/value-scorecard.py` creates, validates and reports a private per-run
+scorecard (active engineer minutes by phase, elapsed/wait time, interventions,
+tokens by model and role, findings, escaped defects, capacity released versus
+cash savings, shared setup allocation and replication timings). Unknown is
+never zero. Records live in ignored `.local/value-scorecard/`; contract and
+claim rules are in `context/value-scorecard.md`.
+
+```sh
+scripts/value-scorecard.py init RUN --kind feasibility --task-class CLASS --task-type TYPE
+scripts/value-scorecard.py check  .local/value-scorecard/RUN/scorecard.toml
+scripts/value-scorecard.py report .local/value-scorecard/RUN/scorecard.toml
+```
+
 ## USAi key management and rotation
 
 - `set-key` prompts for the key with hidden input. It rejects keys passed as an

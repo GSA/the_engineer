@@ -68,6 +68,9 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   authentication.
 - `scripts/jira-intake.py`: manual one-ticket Jira XML export to approved Kata
   tasks (`init`, `check`, `record --apply`); contract in `context/jira-intake.md`.
+- `scripts/value-scorecard.py`: private per-run value scorecard (`init`, `check`,
+  `report`, `rollup`) in ignored `.local/value-scorecard/`; contract in
+  `context/value-scorecard.md`.
 - `python3 scripts/demo-capture.py`: private screenshot/video demos of
   loopback web UIs (`capture`, `import`, `handoff`, `cleanup`, `doctor`,
   `smoke`) into ignored `.local/demos/` with a provenance manifest; never
