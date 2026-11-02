@@ -128,7 +128,10 @@ class Receipt:
         }
 
     def write(self, checkout, outcome, **context):
-        directory = checkout / ".local/install-receipts"
+        if (checkout / ".local").is_dir():
+            directory = checkout / ".local/install-receipts"
+        else:  # failure before the checkout exists: a private per-user fallback
+            directory = Path(tempfile.gettempdir()) / f"engi-install-receipts-{os.getuid()}"
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         name = datetime.datetime.fromtimestamp(self.started, datetime.timezone.utc).strftime(
             "install-%Y%m%dT%H%M%SZ.json")
@@ -248,6 +251,13 @@ def prerequisites(corpus, librarian_executable=None, librarian_reader=None,
             except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
                 errors.append(f"Librarian runtime/dependencies unavailable: {error}")
     return errors
+
+
+def write_failure_receipt(checkout, error):
+    try:
+        print(f"Failure receipt: {RECEIPT.write(checkout, 'failed', error=error[:500])}", file=sys.stderr)
+    except OSError:
+        pass
 
 
 def parse_mirrors(values):
@@ -849,6 +859,8 @@ def main(argv=None):
                 print(f"ERROR: {error}", file=sys.stderr)
             print("Install the missing prerequisites, then rerun. No packages or services were changed.",
                   file=sys.stderr)
+            if not args.check:
+                write_failure_receipt(checkout, "; ".join(errors))
             return 1
         print("Host tools, C headers/linker and Librarian executable prerequisites passed.")
         if args.check:
@@ -893,12 +905,8 @@ def main(argv=None):
         return 0
     except (OSError, RuntimeError, ValueError, EOFError, subprocess.SubprocessError) as error:
         print(f"ERROR: Installation stopped: {error}", file=sys.stderr)
-        if not args.check and (checkout / ".local").is_dir():
-            try:
-                print(f"Failure receipt: {RECEIPT.write(checkout, 'failed', error=str(error)[:500])}",
-                      file=sys.stderr)
-            except OSError:
-                pass
+        if not args.check:
+            write_failure_receipt(checkout, str(error))
         print("Completed files/settings are retained. If service registration partially succeeded, "
               "earlier units may still be running; use the printed per-unit stop commands.",
               file=sys.stderr)

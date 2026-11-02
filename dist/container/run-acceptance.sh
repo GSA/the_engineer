@@ -33,19 +33,19 @@ mounts=()
 mirror_args=""
 fixes=()
 for entry in ${SUBMODULE_MIRRORS:-}; do
-    name=${entry%%=*}; target=${entry#*=}
-    if [[ $name == "$entry" || -z $target ]]; then
+    module=${entry%%=*}; target=${entry#*=}
+    if [[ $module == "$entry" || -z $target ]]; then
         echo "SUBMODULE_MIRRORS entries must be NAME=PATH_OR_URL: $entry" >&2; exit 2
     fi
     if [[ $target != *://* && $target != *@*:* ]]; then
         [[ -d $target ]] || { echo "Mirror path not found: $target" >&2; exit 2; }
-        mounts+=(-v "$(cd "$target" && pwd):/mirrors/$name:ro")
-        target=/mirrors/$name
-        fixes+=("local submodule mirror for $name (owner-approved source of the pin)")
+        mounts+=(-v "$(cd "$target" && pwd):/mirrors/$module:ro")
+        target=/mirrors/$module
+        fixes+=("local submodule mirror for $module (owner-approved source of the pin)")
     else
-        fixes+=("submodule mirror URL for $name")
+        fixes+=("submodule mirror URL for $module")
     fi
-    mirror_args+=" --submodule-mirror $(printf %q "$name=$target")"
+    mirror_args+=" --submodule-mirror $(printf %q "$module=$target")"
 done
 
 # Host CAs (for example a corporate TLS proxy) are staged in ignored extra-ca/.

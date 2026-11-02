@@ -647,6 +647,9 @@ class InstallerTests(unittest.TestCase):
         self.git(upstream, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
                  "commit", "--quiet", "-m", "pin")
         sha = self.git(upstream, "rev-parse", "HEAD")
+        self.mirror_source = self.root / "mirror-source"  # same objects, kept after upstream loses them
+        subprocess.run(["git", "clone", "--quiet", "--bare", str(upstream), str(self.mirror_source)],
+                       check=True, capture_output=True)
         platform = self.root / "platform"
         platform.mkdir()
         self.git(platform, "init", "--quiet", "--template=")
@@ -677,14 +680,8 @@ class InstallerTests(unittest.TestCase):
 
     def test_submodule_mirror_resolves_unfetchable_pin_without_editing_gitmodules(self):
         platform, upstream, sha = self.pinned_checkout(available=False)
-        mirror = self.root / "mirror"
-        mirror.mkdir()
-        self.git(mirror, "init", "--quiet", "--template=")
-        (mirror / "f").write_text("x")
-        self.git(mirror, "add", ".")
-        self.git(mirror, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
-                 "commit", "--quiet", "-m", "pin")
-        self.assertEqual(self.git(mirror, "rev-parse", "HEAD"), sha)  # same tree/author/time => same id
+        mirror = self.mirror_source
+        self.assertEqual(self.git(mirror, "rev-parse", "HEAD"), sha)
         before = (platform / ".gitmodules").read_text()
         self.assertEqual(installer.check_submodule_pins(platform, {"agentsview": str(mirror)}), [])
         self.assertEqual((platform / ".gitmodules").read_text(), before)
@@ -775,6 +772,48 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(installer.main(["--check", "--corpus", str(self.corpus)]), 1)
         self.assertIn("Pinned agentsview gone", errors.getvalue())
         acquire.assert_not_called()
+
+    def test_failed_install_writes_receipt_for_prerequisite_and_checkout_failures(self):
+        checkout = self.root / "new-checkout"
+        fallback = self.root / "fallback-tmp"
+        fallback.mkdir()
+        cases = (
+            ("prerequisites", patch.object(installer, "prerequisites", return_value=["Missing git"]), ()),
+            ("checkout", patch.object(installer, "prerequisites", return_value=[]), ()),
+        )
+        for label, patcher, _ in cases:
+            installer.RECEIPT.reset()
+            with self.subTest(label), patcher, \
+                    patch.object(installer.tempfile, "gettempdir", return_value=str(fallback)), \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()) as errors:
+                code = installer.main(["--checkout", str(checkout), "--corpus", str(self.corpus),
+                                       "--services", "manual"])
+            self.assertEqual(code, 1)
+            self.assertIn("Failure receipt:", errors.getvalue())
+        receipts = sorted((fallback / f"engi-install-receipts-{os.getuid()}").glob("install-*.json"))
+        self.assertTrue(receipts)
+        self.assertEqual(json.loads(receipts[-1].read_text())["outcome"], "failed")
+
+    def test_acceptance_script_keeps_container_name_with_mirrors(self):
+        script = Path(__file__).parent / "container/run-acceptance.sh"
+        self.assertNotRegex(script.read_text(), r"(?m)^\s+name=\$\{entry")
+        bin_dir = self.root / "fakebin"
+        bin_dir.mkdir()
+        calls = self.root / "podman-calls"
+        (bin_dir / "podman").write_text(f'#!/bin/sh\necho "$@" >> {calls}\nexit 0\n')
+        (bin_dir / "podman").chmod(0o755)
+        mirror = self.root / "mirror-dir"
+        mirror.mkdir()
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "NAME": "engi-test",
+               "SUBMODULE_MIRRORS": f"agentsview={mirror}", "ACCEPT_LOG_DIR": str(self.root / "acc")}
+        subprocess.run(["bash", str(script), "HEAD"], env=env, capture_output=True)
+        log = calls.read_text().splitlines()
+        self.assertIn("rm -f engi-test", log)
+        self.assertTrue(any(line.startswith("run -d --name engi-test") and
+                            f"{mirror}:/mirrors/agentsview:ro" in line for line in log))
+        self.assertFalse(any("rm -f agentsview" in line or "--name agentsview" in line for line in log))
+        self.assertTrue(list((self.root / "acc").glob("*.json")))
 
     def test_acceptance_script_syntax_and_receipt_contract(self):
         script = Path(__file__).parent / "container/run-acceptance.sh"
