@@ -2,8 +2,10 @@
 """Install the local engineering platform without copying private runtime state."""
 
 import argparse
+import contextlib
 import fcntl
 import importlib.util
+import datetime
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 from urllib.parse import urlsplit
 
@@ -61,8 +64,97 @@ def capture(command, *, cwd=None, timeout=30, empty_failure_ok=False):
     return result.stdout.strip()
 
 
-def run(command, *, cwd):
-    subprocess.run(command, cwd=cwd, check=True)
+def run(command, *, cwd, env=None):
+    subprocess.run(command, cwd=cwd, check=True, env=env)
+
+
+GOPROXY_DEFAULT = "https://proxy.golang.org|direct"
+
+
+class Receipt:
+    """Secret-free elapsed/hands-on timing and fix record for one installer run."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.started = time.time()
+        self.phases = []
+        self.hands_on_seconds = 0.0
+        self.manual_fixes = []
+        self.applied_defaults = []
+        self.submodule_mirrors = {}
+
+    @contextlib.contextmanager
+    def phase(self, name):
+        begin = time.monotonic()
+        entry = {"name": name, "status": "ok"}
+        self.phases.append(entry)
+        try:
+            yield
+        except BaseException as error:
+            entry["status"] = "failed"
+            entry["error"] = str(error)[:300]
+            raise
+        finally:
+            entry["seconds"] = round(time.monotonic() - begin, 3)
+
+    def default(self, name):
+        if name not in self.applied_defaults:
+            self.applied_defaults.append(name)
+
+    def document(self, checkout, outcome, **context):
+        finished = time.time()
+        try:
+            revision = capture(["git", "-C", str(checkout), "rev-parse", "HEAD"])
+        except (RuntimeError, OSError, subprocess.SubprocessError):
+            revision = None
+        try:
+            pins = {name: sha for name, (sha, _url) in submodule_pins(checkout).items()}
+        except (RuntimeError, OSError, subprocess.SubprocessError):
+            pins = {}
+        stamp = lambda value: datetime.datetime.fromtimestamp(
+            value, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "schema": "engineer.install-receipt/v1", "outcome": outcome,
+            "started_at": stamp(self.started), "finished_at": stamp(finished),
+            "elapsed_seconds": round(finished - self.started, 3),
+            "hands_on_seconds": round(self.hands_on_seconds, 3),
+            "hands_on_note": "interactive prompt wait only; add other manual time with --record-fix",
+            "phases": self.phases, "manual_fixes": self.manual_fixes,
+            "applied_defaults": self.applied_defaults,
+            "submodule_mirrors": self.submodule_mirrors,
+            "platform_revision": revision, "submodule_pins": pins, **context,
+        }
+
+    def write(self, checkout, outcome, **context):
+        directory = checkout / ".local/install-receipts"
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        name = datetime.datetime.fromtimestamp(self.started, datetime.timezone.utc).strftime(
+            "install-%Y%m%dT%H%M%SZ.json")
+        path = directory / name
+        fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(self.document(checkout, outcome, **context), stream, indent=2)
+            stream.write("\n")
+        return path
+
+
+RECEIPT = Receipt()
+
+
+def build_environment():
+    """Child environment for source/build steps.
+
+    Go's default ``proxy,direct`` list falls back to the source repository only on
+    404/410. Behind a TLS-intercepting proxy ``go.kenn.io`` answers 403, so an
+    unset GOPROXY uses ``|direct`` (fall back on any error). An explicit value wins.
+    """
+    environment = dict(os.environ)
+    if "GOPROXY" not in environment:
+        environment["GOPROXY"] = GOPROXY_DEFAULT
+        RECEIPT.default(f"GOPROXY={GOPROXY_DEFAULT}")
+    return environment
 
 
 def check_c_toolchain():
@@ -158,6 +250,19 @@ def prerequisites(corpus, librarian_executable=None, librarian_reader=None,
     return errors
 
 
+def parse_mirrors(values):
+    mirrors = {}
+    for value in values:
+        name, separator, url = value.partition("=")
+        if not separator or name not in PROJECTS or not url:
+            raise RuntimeError(f"--submodule-mirror expects NAME=URL with NAME in {', '.join(PROJECTS)}.")
+        if name in mirrors:
+            raise RuntimeError(f"--submodule-mirror repeats {name}.")
+        validate_source(url)
+        mirrors[name] = url
+    return mirrors
+
+
 def validate_source(source):
     if source.startswith("-") or any(char in source for char in "\n\r\x00"):
         raise RuntimeError("Invalid source repository path/URL.")
@@ -209,6 +314,93 @@ def check_submodules(checkout):
         changed = capture(["git", "-C", str(path), "status", "--porcelain", "--ignore-submodules=none"])
         if changed:
             raise RuntimeError(f"{project} has local changes; preserve them before installing/updating.")
+
+
+def submodule_pins(checkout):
+    """Return {project: (gitlink commit, URL)} for the checkout's pinned repositories."""
+    pins = {}
+    for project in PROJECTS:
+        listing = capture(["git", "-C", str(checkout), "ls-tree", "HEAD", "--", project])
+        fields = listing.split()
+        if len(fields) < 3 or fields[0] != "160000":
+            continue
+        url = capture(["git", "config", "-f", str(checkout / ".gitmodules"), "--get",
+                       f"submodule.{project}.url"])
+        pins[project] = (fields[2], url)
+    return pins
+
+
+def _is_local_path(source):
+    return "://" not in source and not re.match(r"[^/]+@[^/]+:", source)
+
+
+def source_environment(checkout, mirrors, base=None):
+    """Environment redirecting pinned submodule URLs to explicit mirrors.
+
+    Uses git's ``url.<mirror>.insteadOf`` through GIT_CONFIG_* so the tracked
+    ``.gitmodules`` and the checkout's configuration stay untouched (the pinned
+    ``submodule sync`` would otherwise reset a per-checkout override).
+    """
+    environment = dict(os.environ if base is None else base)
+    if not mirrors:
+        return environment
+    pins = submodule_pins(checkout)
+    entries = []
+    for name, mirror in mirrors.items():
+        if name not in pins:
+            raise RuntimeError(f"--submodule-mirror names an unpinned repository: {name}")
+        entries.append((f"url.{mirror}.insteadOf", pins[name][1]))
+        if _is_local_path(mirror):
+            entries.append(("protocol.file.allow", "always"))
+    count = int(environment.get("GIT_CONFIG_COUNT", "0") or 0)
+    for offset, (key, value) in enumerate(entries):
+        environment[f"GIT_CONFIG_KEY_{count + offset}"] = key
+        environment[f"GIT_CONFIG_VALUE_{count + offset}"] = value
+    environment["GIT_CONFIG_COUNT"] = str(count + len(entries))
+    return environment
+
+
+def pin_fetchable(checkout, project, sha, url, environment):
+    """Whether the pinned commit exists locally or is fetchable from ``url``."""
+    submodule = checkout / project
+    if (submodule / ".git").exists():
+        probe = subprocess.run(["git", "-C", str(submodule), "cat-file", "-e", f"{sha}^{{commit}}"],
+                               capture_output=True)
+        if probe.returncode == 0:
+            return True, "present locally"
+    with tempfile.TemporaryDirectory(prefix="engi-pin-probe-") as directory:
+        try:
+            capture(["git", "init", "--quiet", "--bare", "--template=", directory])
+            # Commit and trees only, depth 1: enough to prove the pin is fetchable.
+            filtering = [] if _is_local_path(url) else ["--filter=blob:none"]
+            result = subprocess.run(
+                ["git", "-C", directory, "fetch", "--quiet", "--no-tags", "--depth=1", *filtering,
+                 "--", url, sha], capture_output=True, text=True, timeout=180, env=environment)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+            return False, str(error)
+    return result.returncode == 0, result.stderr.strip().splitlines()[-1] if result.stderr.strip() else ""
+
+
+def check_submodule_pins(checkout, mirrors=None):
+    """Return one diagnostic per pinned repository whose commit cannot be fetched."""
+    mirrors = mirrors or {}
+    if not (checkout / ".gitmodules").is_file() or not (checkout / ".git").exists():
+        return []
+    environment = source_environment(checkout, mirrors)
+    errors = []
+    for project, (sha, url) in submodule_pins(checkout).items():
+        ok, detail = pin_fetchable(checkout, project, sha, url, environment)
+        if ok:
+            continue
+        source = mirrors.get(project, url)
+        errors.append(
+            f"Pinned {project} commit {sha[:8]} is not fetchable from {source}"
+            f"{f' ({detail})' if detail else ''}. A clean host cannot reproduce this pin. "
+            f"Owner decision needed: publish the commit to an approved remote (for example "
+            f"'git -C {project} push APPROVED_REMOTE_URL {sha}:refs/heads/APPROVED_BRANCH') and rerun "
+            f"with --submodule-mirror {project}=APPROVED_REMOTE_URL, or move the gitlink to a "
+            f"published commit. Nothing was published or reset by this installer.")
+    return errors
 
 
 def _check_native_kata_directory(path):
@@ -407,9 +599,13 @@ def service_choice(choice):
     if not sys.stdin.isatty():
         print("Noninteractive input: services remain manual; use --services user for explicit opt-in.")
         return "manual"
-    answer = input(
-        f"Enable AND start all {len(MANAGED_SERVICES)} Ubuntu user services now? [y/N] "
-    ).strip().lower()
+    asked = time.monotonic()
+    try:
+        answer = input(
+            f"Enable AND start all {len(MANAGED_SERVICES)} Ubuntu user services now? [y/N] "
+        ).strip().lower()
+    finally:
+        RECEIPT.hands_on_seconds += time.monotonic() - asked
     if answer in ("y", "yes"):
         return "user"
     if answer in ("", "n", "no"):
@@ -450,7 +646,8 @@ def load_environment(checkout):
 
 def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             librarian_reader=None, librarian_root=None, librarian_selection=None,
-            provider=None, repos=()):
+            provider=None, repos=(), mirrors=None):
+    mirrors = mirrors or {}
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
         raise RuntimeError("Installer/runtime Pi pins differ; use dist from the selected platform revision.")
@@ -459,13 +656,23 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
     environment.check_ports()
     check_native_roborev_client(checkout)
     check_submodules(checkout)
+    with RECEIPT.phase("pin-preflight"):
+        pin_errors = check_submodule_pins(checkout, mirrors)
+        if pin_errors:
+            raise RuntimeError("\n".join(pin_errors))
+    RECEIPT.submodule_mirrors = dict(mirrors)
+    child = source_environment(checkout, mirrors, build_environment())
     print("\nInitializing repositories at the platform's exact gitlink revisions...")
-    run(["bash", "scripts/bootstrap-sources.sh"], cwd=checkout)
+    with RECEIPT.phase("sources"):
+        run(["bash", "scripts/bootstrap-sources.sh"], cwd=checkout, env=child)
     print("\nInstalling workspace-local Go/Bun/GitHub CLI toolchains...")
-    run(["bash", "scripts/bootstrap-toolchains.sh"], cwd=checkout)
+    with RECEIPT.phase("toolchains"):
+        run(["bash", "scripts/bootstrap-toolchains.sh"], cwd=checkout, env=child)
     print("\nBuilding services (normal Forge remains the default; no automatic fallback)...")
     forge_target = "forge" if forge_build == "normal" else "forge-local-kata"
-    run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target], cwd=checkout)
+    with RECEIPT.phase("build"):
+        run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target],
+            cwd=checkout, env=child)
     forge = checkout / ("forge/kenn-forge" if forge_build == "normal"
                         else ".local/forge-local-kata/kenn-forge")
     for binary in (forge, checkout / "roborev/bin/roborev",
@@ -605,12 +812,21 @@ def main(argv=None):
     parser.add_argument("--usai-review-model", help="optional opposite-family roborev model")
     parser.add_argument("--usai-api", default="openai-completions",
                         choices=("openai-completions", "openai-responses", "anthropic-messages"))
+    parser.add_argument("--submodule-mirror", action="append", default=[], metavar="NAME=URL",
+                        help="owner-approved mirror for a pinned repository (for example "
+                             "agentsview=URL) whose upstream remote lacks the pinned commit; "
+                             "repeatable; the tracked .gitmodules is not changed")
+    parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
+                        help="note a manual fix or workaround in the install receipt (repeatable)")
     parser.add_argument("--forge-build", choices=("normal", "local-kata"), default="normal",
                         help="explicitly select the temporary local-Kata workaround if normal downloads are blocked")
     args = parser.parse_args(argv)
     checkout = args.checkout.expanduser().resolve()
     corpus = args.corpus.expanduser().resolve()
+    RECEIPT.reset()
+    RECEIPT.manual_fixes = list(args.record_fix)
     try:
+        mirrors = parse_mirrors(args.submodule_mirror)
         repos = [repo.expanduser().resolve() for repo in args.register_repo]
         for repo in repos:
             if not (repo / ".git").exists():
@@ -636,6 +852,12 @@ def main(argv=None):
             return 1
         print("Host tools, C headers/linker and Librarian executable prerequisites passed.")
         if args.check:
+            pin_errors = check_submodule_pins(checkout, mirrors)
+            if pin_errors:
+                for error in pin_errors:
+                    print(f"ERROR: {error}", file=sys.stderr)
+                return 1
+            print("Pinned repositories are fetchable (or no checkout to probe yet).")
             print("Check only: source downloads, builds, configuration and services were not changed.")
             return 0
         choice = service_choice(args.services)
@@ -643,7 +865,8 @@ def main(argv=None):
             raise RuntimeError("--register-repo needs running services; use --services user.")
         if choice == "user":
             check_user_services(checkout)
-        acquire_checkout(checkout, args.source, args.revision)
+        with RECEIPT.phase("checkout"):
+            acquire_checkout(checkout, args.source, args.revision)
         local = checkout / ".local"
         os.umask(0o077)
         local.mkdir(mode=0o700, exist_ok=True)
@@ -664,10 +887,18 @@ def main(argv=None):
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,
                     selection if args.librarian_executable else None,
-                    provider, repos)
+                    provider, repos, mirrors)
+        path = RECEIPT.write(checkout, "success", services=choice)
+        print(f"\nInstall receipt (elapsed {RECEIPT.document(checkout, 'success')['elapsed_seconds']}s): {path}")
         return 0
     except (OSError, RuntimeError, ValueError, EOFError, subprocess.SubprocessError) as error:
         print(f"ERROR: Installation stopped: {error}", file=sys.stderr)
+        if not args.check and (checkout / ".local").is_dir():
+            try:
+                print(f"Failure receipt: {RECEIPT.write(checkout, 'failed', error=str(error)[:500])}",
+                      file=sys.stderr)
+            except OSError:
+                pass
         print("Completed files/settings are retained. If service registration partially succeeded, "
               "earlier units may still be running; use the printed per-unit stop commands.",
               file=sys.stderr)

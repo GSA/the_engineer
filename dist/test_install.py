@@ -637,6 +637,154 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(commands[-2][-3:], [str(self.root / "scripts/pi-local.py"), "mcp", "list"])
         self.assertFalse(any("configure-provider" in command for command in commands))
 
+    def pinned_checkout(self, available=True):
+        """A platform checkout whose agentsview gitlink points at a commit in a local repo."""
+        upstream = self.root / "agentsview-upstream"
+        upstream.mkdir()
+        self.git(upstream, "init", "--quiet", "--template=")
+        (upstream / "f").write_text("x")
+        self.git(upstream, "add", ".")
+        self.git(upstream, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
+                 "commit", "--quiet", "-m", "pin")
+        sha = self.git(upstream, "rev-parse", "HEAD")
+        platform = self.root / "platform"
+        platform.mkdir()
+        self.git(platform, "init", "--quiet", "--template=")
+        (platform / ".gitmodules").write_text(
+            f'[submodule "agentsview"]\n\tpath = agentsview\n\turl = {upstream}\n')
+        self.git(platform, "add", ".gitmodules")
+        self.git(platform, "update-index", "--add", "--cacheinfo", f"160000,{sha},agentsview")
+        self.git(platform, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
+                 "commit", "--quiet", "-m", "platform")
+        if not available:
+            self.git(upstream, "update-ref", "-d", "HEAD")
+            self.git(upstream, "-c", "gc.pruneExpire=now", "gc", "--quiet", "--prune=now")
+            subprocess.run(["rm", "-rf", str(upstream / ".git/objects")], check=True)
+            (upstream / ".git/objects").mkdir()
+        return platform, upstream, sha
+
+    def test_pin_preflight_passes_when_commit_is_fetchable(self):
+        platform, _, _ = self.pinned_checkout()
+        self.assertEqual(installer.check_submodule_pins(platform), [])
+
+    def test_unfetchable_pin_gets_owner_decision_diagnostic_without_publishing(self):
+        platform, upstream, sha = self.pinned_checkout(available=False)
+        errors = installer.check_submodule_pins(platform)
+        self.assertEqual(len(errors), 1)
+        for text in ("agentsview", sha[:8], str(upstream), "Owner decision",
+                     "--submodule-mirror agentsview=", "Nothing was published"):
+            self.assertIn(text, errors[0])
+
+    def test_submodule_mirror_resolves_unfetchable_pin_without_editing_gitmodules(self):
+        platform, upstream, sha = self.pinned_checkout(available=False)
+        mirror = self.root / "mirror"
+        mirror.mkdir()
+        self.git(mirror, "init", "--quiet", "--template=")
+        (mirror / "f").write_text("x")
+        self.git(mirror, "add", ".")
+        self.git(mirror, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
+                 "commit", "--quiet", "-m", "pin")
+        self.assertEqual(self.git(mirror, "rev-parse", "HEAD"), sha)  # same tree/author/time => same id
+        before = (platform / ".gitmodules").read_text()
+        self.assertEqual(installer.check_submodule_pins(platform, {"agentsview": str(mirror)}), [])
+        self.assertEqual((platform / ".gitmodules").read_text(), before)
+        environment = installer.source_environment(platform, {"agentsview": str(mirror)}, {})
+        self.assertEqual(environment["GIT_CONFIG_KEY_0"], f"url.{mirror}.insteadOf")
+        self.assertEqual(environment["GIT_CONFIG_VALUE_0"], str(upstream))
+        self.assertEqual(environment["GIT_CONFIG_COUNT"], "2")  # plus protocol.file for a local path
+
+    def test_mirror_must_name_a_pinned_repository(self):
+        platform, _, _ = self.pinned_checkout()
+        with self.assertRaisesRegex(RuntimeError, "unpinned"):
+            installer.source_environment(platform, {"forge": "https://example.invalid/f.git"}, {})
+        for value in ("agentsview", "bogus=https://example.invalid/x.git", "agentsview="):
+            with self.subTest(value=value), self.assertRaisesRegex(RuntimeError, "NAME=URL"):
+                installer.parse_mirrors([value])
+        with self.assertRaisesRegex(RuntimeError, "repeats"):
+            installer.parse_mirrors(["agentsview=/a", "agentsview=/b"])
+        with self.assertRaisesRegex(RuntimeError, "credentials"):
+            installer.parse_mirrors(["agentsview=https://user:pw@example.invalid/x.git"])
+
+    def test_goproxy_defaults_to_direct_fallback_and_explicit_value_wins(self):
+        installer.RECEIPT.reset()
+        with patch.dict(installer.os.environ, {}, clear=False):
+            installer.os.environ.pop("GOPROXY", None)
+            self.assertEqual(installer.build_environment()["GOPROXY"], "https://proxy.golang.org|direct")
+        self.assertIn("GOPROXY=https://proxy.golang.org|direct", installer.RECEIPT.applied_defaults)
+        installer.RECEIPT.reset()
+        with patch.dict(installer.os.environ, {"GOPROXY": "https://corp.invalid"}):
+            self.assertEqual(installer.build_environment()["GOPROXY"], "https://corp.invalid")
+        self.assertEqual(installer.RECEIPT.applied_defaults, [])
+
+    def test_install_runs_build_steps_with_proxy_default_and_records_phases(self):
+        self.installation()
+        installer.RECEIPT.reset()
+        with patch.dict(installer.os.environ, {}, clear=False), \
+                patch.object(installer, "check_submodule_pins", return_value=[]), \
+                patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+            installer.os.environ.pop("GOPROXY", None)
+            installer.install(self.root, self.corpus, "normal", "manual")
+        for call in run.call_args_list[:3]:
+            self.assertEqual(call.kwargs["env"]["GOPROXY"], "https://proxy.golang.org|direct")
+        self.assertEqual([phase["name"] for phase in installer.RECEIPT.phases],
+                         ["pin-preflight", "sources", "toolchains", "build"])
+
+    def test_unfetchable_pin_aborts_before_any_download_or_build(self):
+        self.installation()
+        with patch.object(installer, "check_submodule_pins", return_value=["Pinned agentsview gone"]), \
+                patch.object(installer, "run") as run, \
+                self.assertRaisesRegex(RuntimeError, "Pinned agentsview gone"):
+            installer.install(self.root, self.corpus, "normal", "manual")
+        run.assert_not_called()
+
+    def test_receipt_records_timing_fixes_and_failures_privately_without_secrets(self):
+        checkout = self.root / "checkout"
+        (checkout / ".local").mkdir(parents=True)
+        installer.RECEIPT.reset()
+        installer.RECEIPT.manual_fixes = ["set GOPROXY by hand"]
+        with installer.RECEIPT.phase("sources"):
+            pass
+        with self.assertRaises(RuntimeError), installer.RECEIPT.phase("build"):
+            raise RuntimeError("boom")
+        path = installer.RECEIPT.write(checkout, "failed", error="boom")
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+        data = json.loads(path.read_text())
+        self.assertEqual(data["schema"], "engineer.install-receipt/v1")
+        self.assertEqual(data["outcome"], "failed")
+        self.assertEqual(data["manual_fixes"], ["set GOPROXY by hand"])
+        self.assertEqual([(p["name"], p["status"]) for p in data["phases"]],
+                         [("sources", "ok"), ("build", "failed")])
+        self.assertGreaterEqual(data["elapsed_seconds"], 0)
+        self.assertIn("hands_on_seconds", data)
+
+    def test_prompt_wait_counts_as_hands_on_time(self):
+        installer.RECEIPT.reset()
+        with patch.object(installer.sys.stdin, "isatty", return_value=True), \
+                patch("builtins.input", return_value="y"), \
+                patch.object(installer.time, "monotonic", side_effect=[10.0, 14.5]):
+            self.assertEqual(installer.service_choice("ask"), "user")
+        self.assertEqual(installer.RECEIPT.hands_on_seconds, 4.5)
+
+    def test_main_check_reports_unfetchable_pin_and_installs_nothing(self):
+        with patch.object(installer, "prerequisites", return_value=[]), \
+                patch.object(installer, "check_submodule_pins", return_value=["Pinned agentsview gone"]), \
+                patch.object(installer, "acquire_checkout") as acquire, \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(installer.main(["--check", "--corpus", str(self.corpus)]), 1)
+        self.assertIn("Pinned agentsview gone", errors.getvalue())
+        acquire.assert_not_called()
+
+    def test_acceptance_script_syntax_and_receipt_contract(self):
+        script = Path(__file__).parent / "container/run-acceptance.sh"
+        subprocess.run(["bash", "-n", str(script)], check=True)
+        text = script.read_text()
+        for needle in ("SUBMODULE_MIRRORS", "engineer.acceptance-receipt/v1", "elapsed_seconds",
+                       "--record-fix", "${GOPROXY:+-e GOPROXY"):
+            self.assertIn(needle, text)
+        self.assertNotIn("proxy.golang.org,direct", text)
+
     def test_native_roborev_links_are_repeatable_and_refuse_conflicts(self):
         checkout, _ = self.native_kata_binary()
         binary = checkout / "roborev/bin/roborev"
