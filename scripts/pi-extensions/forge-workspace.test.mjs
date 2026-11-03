@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,7 @@ let hookKeys;
 let runtimeSessions;
 let reportedSessions;
 let hooks;
+let confirms;
 let contextRequests;
 let summaryRequests;
 let summaryResponse;
@@ -21,11 +23,13 @@ beforeEach(() => {
     runtimeSessions = [];
     reportedSessions = [];
     hooks = [];
+    confirms = [];
     contextRequests = [];
     summaryRequests = [];
     summaryResponse = { status: 200, text: "" };
     cwd = mkdtempSync(join(tmpdir(), "forge-ext-"));
     writeFileSync(join(cwd, "AGENTS.override.md"), "- Workspace ID: `ws1`\n");
+    execFileSync("git", ["init", "-q", "-b", "feature-a", cwd]);
     server = Bun.serve({
         port: 0,
         async fetch(req) {
@@ -150,13 +154,14 @@ afterEach(() => {
     process.argv = [...savedArgv];
 });
 
-function makeCtx({ saved = true, mode = "tui", id = "sess-1" } = {}) {
+function makeCtx({ saved = true, mode = "tui", id = "sess-1", confirm } = {}) {
     const file = join(cwd, `${id}.jsonl`);
     if (saved) writeFileSync(file, "{}\n");
     return {
         cwd,
         mode,
         sessionManager: { getSessionId: () => id, getSessionFile: () => file },
+        ...(confirm ? { hasUI: true, ui: { confirm: async (...args) => { confirms.push(args); return confirm(); } } } : {}),
     };
 }
 
@@ -384,4 +389,182 @@ test("background subagent runner processes stay isolated from Forge hooks, secti
         content: [{ type: "text", text: "Original skill content" }],
     }, ctx);
     expect(skillResult).toBeUndefined();
+});
+
+// Bounded roborev review loops: the first branch review is allowed, later
+// full-branch reviews need the human, and findings on fix commits go to the
+// owner instead of another fix pass.
+const call = (h, command, ctx = makeCtx({ mode: "print" })) =>
+    h.tool_call({ toolName: "bash", toolCallId: "c1", input: { command } }, ctx);
+const finding = (n, severity, path, problem) =>
+    `### ${n}. ${severity}\n\n**Location:** ${path}:10-12\n\n**Problem:** ${problem}\n\n**Fix:** change it.\n`;
+const ORIGINAL = finding(1, "Medium", "src/widget.ts", "The widget cache never invalidates when the store format changes.");
+const result = (h, command, text, ctx = makeCtx({ mode: "print" })) =>
+    h.tool_result({ toolName: "bash", toolCallId: "c1", input: { command }, content: [{ type: "text", text }] }, ctx);
+
+test("the first branch review is allowed and the second is blocked in non-interactive sessions", async () => {
+    const h = load();
+    expect(await call(h, "roborev review --branch --wait --min-severity medium")).toBeUndefined();
+    const blocked = await call(h, "roborev review --branch --wait --min-severity medium");
+    expect(blocked.block).toBe(true);
+    expect(blocked.reason).toContain("review budget");
+    expect(blocked.reason).toContain("loop");
+    expect(blocked.reason).toContain("human");
+});
+
+test("a second branch review needs the human and runs only when confirmed", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    const declined = await call(h, "roborev review --branch", makeCtx({ confirm: () => false }));
+    expect(declined.block).toBe(true);
+    expect(confirms).toHaveLength(1);
+    const allowed = await call(h, "roborev review --branch=feature-a", makeCtx({ confirm: () => true }));
+    expect(allowed).toBeUndefined();
+});
+
+test("the branch review count survives reload, resume and a new session", async () => {
+    await call(load(), "cd . && roborev review --branch --wait");
+    const reloaded = load();
+    await reloaded.session_start({ reason: "resume" }, makeCtx({ id: "sess-2" }));
+    const blocked = await call(reloaded, "bash -c 'roborev review --since main'", makeCtx({ mode: "print", id: "sess-2" }));
+    expect(blocked.block).toBe(true);
+});
+
+test("each branch keeps its own review budget", async () => {
+    await call(load(), "roborev review --branch");
+    execFileSync("git", ["-C", cwd, "symbolic-ref", "HEAD", "refs/heads/feature-b"]);
+    expect(await call(load(), "roborev review --branch")).toBeUndefined();
+});
+
+test("a fix-commit review is allowed after the branch review", async () => {
+    const h = load();
+    await call(h, "roborev review --branch --wait");
+    for (const command of ["roborev review abc123 --wait --min-severity medium", "roborev review", "roborev review --dirty"]) {
+        expect(await call(h, command)).toBeUndefined();
+    }
+});
+
+test("refine and unscoped fix loops need the human like a second branch review", async () => {
+    const h = load();
+    for (const command of ["roborev refine", "roborev fix", "roborev fix --open"]) {
+        expect((await call(h, command)).block).toBe(true);
+    }
+    expect(await call(h, "roborev fix 42")).toBeUndefined();
+    expect(await call(h, "roborev show 42")).toBeUndefined();
+});
+
+test("new findings on a fix commit are recorded for the owner and trigger the loop self-check", async () => {
+    const h = load();
+    await call(h, "roborev review --branch --wait");
+    await result(h, "roborev review --branch --wait", ORIGINAL);
+    const fix = "roborev review abc123 --wait";
+    await call(h, fix);
+    const out = await result(h, fix, finding(1, "High", "src/other.ts", "The exporter drops trailing rows."));
+    const text = out.content.map((part) => part.text).join("\n");
+    expect(text).toContain("outside the original findings");
+    expect(text).toContain("roborev respond");
+    expect(text).toContain("Do not action");
+    expect(text).toContain("assess whether you are in a review loop");
+    const event = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(event, makeCtx());
+    expect(event.systemPromptOptions.sections.forge_workspace).toContain("Stop and assess whether you are in a review loop");
+    // The escalation persists across a reload.
+    const reloaded = { systemPromptOptions: { sections: {} } };
+    await load().before_agent_start(reloaded, makeCtx());
+    expect(reloaded.systemPromptOptions.sections.forge_workspace).toContain("Stop and assess whether you are in a review loop");
+});
+
+test("a recurring finding on a fix commit triggers the self-check as recurring", async () => {
+    const h = load();
+    await call(h, "roborev review --branch --wait");
+    await result(h, "roborev review --branch --wait", ORIGINAL);
+    const out = await result(h, "roborev review abc123 --wait", finding(1, "Medium", "src/widget.ts", "The widget cache never invalidates when the store format changes again."));
+    const text = out.content.map((part) => part.text).join("\n");
+    expect(text).toContain("recurring");
+    expect(text).toContain("assess whether you are in a review loop");
+});
+
+test("a clean or low-only fix-commit review leaves the result and prompt alone", async () => {
+    const h = load();
+    await call(h, "roborev review --branch --wait");
+    await result(h, "roborev review --branch --wait", ORIGINAL);
+    expect(await result(h, "roborev review abc123 --wait", "## Summary\n\nNo issues found.")).toBeUndefined();
+    expect(await result(h, "roborev review abc123 --wait", finding(1, "Low", "src/x.ts", "Rename a variable."))).toBeUndefined();
+    const event = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(event, makeCtx());
+    expect(event.systemPromptOptions.sections.forge_workspace).not.toContain("Stop and assess whether you are in a review loop");
+});
+
+test("originals are read from roborev show when the branch review ran in the background", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    await result(h, "roborev show 7", ORIGINAL);
+    const out = await result(h, "roborev review abc123 --wait", finding(1, "Medium", "src/widget.ts", "The widget cache never invalidates when the store format changes."));
+    expect(out.content.map((part) => part.text).join("\n")).toContain("recurring");
+});
+
+test("a blocked second branch review also arms the self-check prompt", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    await call(h, "roborev review --branch");
+    const event = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(event, makeCtx());
+    expect(event.systemPromptOptions.sections.forge_workspace).toContain("Stop and assess whether you are in a review loop");
+});
+
+test("workspace policy states the enforced review budget and original-finding scope", async () => {
+    const event = { systemPromptOptions: { sections: {} } };
+    await load().before_agent_start(event, makeCtx());
+    const policy = event.systemPromptOptions.sections.forge_workspace;
+    expect(policy).toContain("Pi enforces the review budget");
+    expect(policy).toContain("only the findings recorded in the first review");
+    expect(policy).toContain("`roborev review <sha>`");
+});
+
+test("a failing review that exits nonzero is still screened and recorded", async () => {
+    const h = load();
+    const failing = (command, text) => h.tool_result({
+        toolName: "bash", toolCallId: "c1", isError: true, input: { command },
+        content: [{ type: "text", text: `Enqueued job 5 for abc\n${text}\n\nCommand exited with code 1` }],
+    }, makeCtx({ mode: "print" }));
+    await call(h, "roborev review --branch --wait");
+    await failing("roborev review --branch --wait", ORIGINAL);
+    await call(h, "roborev review abc123 --wait");
+    const out = await failing("roborev review abc123 --wait", finding(1, "High", "src/other.ts", "The exporter drops trailing rows."));
+    expect(out.content.map((part) => part.text).join("\n")).toContain("outside the original findings");
+});
+
+test("single-argument and --sha ranges count as branch reviews", async () => {
+    for (const range of ["roborev review main..HEAD", "roborev review --sha main...HEAD", "roborev review --sha=main..HEAD"]) {
+        execFileSync("git", ["-C", cwd, "symbolic-ref", "HEAD", `refs/heads/b-${range.length}`]);
+        const h = load();
+        expect(await call(h, range)).toBeUndefined();
+        expect((await call(h, range)).block).toBe(true);
+    }
+});
+
+test("a fix review enqueued without --wait is screened when its job is shown", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    await result(h, "roborev review --branch", "Enqueued job 10 for abc..def");
+    await result(h, "roborev show 10", ORIGINAL);
+    await call(h, "roborev review abc123");
+    await result(h, "roborev review abc123", "Enqueued job 11 for abc123");
+    const out = await result(h, "roborev show --job 11", finding(1, "High", "src/other.ts", "The exporter drops trailing rows."));
+    const text = out.content.map((part) => part.text).join("\n");
+    expect(text).toContain("outside the original findings");
+    const event = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(event, makeCtx());
+    expect(event.systemPromptOptions.sections.forge_workspace).toContain("Stop and assess whether you are in a review loop");
+});
+
+test("showing the original branch job again does not replace its recorded findings", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    await result(h, "roborev review --branch", "Enqueued job 10 for abc..def");
+    await result(h, "roborev show 10", ORIGINAL);
+    await result(h, "roborev show 10", finding(1, "Medium", "src/else.ts", "A different problem entirely."));
+    await call(h, "roborev review abc123 --wait");
+    const out = await result(h, "roborev review abc123 --wait", finding(1, "Medium", "src/widget.ts", "The widget cache never invalidates when the store format changes."));
+    expect(out.content.map((part) => part.text).join("\n")).toContain("recurring");
 });

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const RUNTIME_KEY_LOOKUP_COOLDOWN_MS = 5000;
@@ -29,6 +29,7 @@ const FORGE_WORKSPACE_SECTION = [
 	"- Unless a genuine blocking requirement ambiguity cannot be resolved from the repository or Kata/issue description, do NOT stop after `brainstorming` or `writing-plans` to wait for human approval of a classification, design, written spec, implementation plan, or execution method.",
 	"- Keep any working spec or implementation plan in ignored `.local/plans/` (never under `docs/superpowers/`), execute the plan directly with TDD, and remove temporary `.local/plans/` files before delivery.",
 	"- Apply the coder contract's bounded roborev delivery policy: reuse evidence for unchanged reviewed code; otherwise run `roborev review --branch --wait --min-severity medium` at most once per delivery, followed by at most one focused, verified fix pass. Do not re-review merely to obtain a passing verdict. Record dispositions with `roborev respond <job>` and close a review only when all actionable findings are fixed or confirmed stale/invalid; leave valid out-of-scope findings open and ask the owner. Hand recurring or unresolved confirmed findings to the owner; pause publication and completion for unresolved task-scoped medium/high/critical defects. Low findings do not block delivery. Reloads, resumes, and skill transitions reuse the same review/fix allowance and recorded evidence.",
+	"- Pi enforces the review budget: it blocks a second `roborev review --branch` (or `--since`, `roborev refine`, unscoped `roborev fix`) on this branch unless the human confirms in the Pi UI, and the count survives reloads and resumes. A fix pass addresses only the findings recorded in the first review; verify with `roborev respond <job>` dispositions plus targeted tests, or at most `roborev review <sha>` of the fix commit itself. Findings on a fix commit outside the originals are recorded for the owner, not actioned. When Pi flags a possible review loop, stop, assess whether you are in a loop and need a human, summarize open findings, and hand off by PR comment, Forge or Kata instead of continuing.",
 	"- When implementation and verification are complete, do NOT stop to ask whether to merge locally to `main`, keep the branch as-is, or discard work.",
 	"- Always complete the workspace by pushing the workspace branch (`git push -u origin HEAD`) and creating or updating the GitHub pull request (`gh pr create` / `gh pr edit`). This is pre-authorized: do not ask for permission.",
 	"- Make every edit and commit inside this workspace worktree on its branch. If the task needs changes in another repository, create a feature branch there (never commit on its `main` checkout), push it, and open a PR there.",
@@ -368,7 +369,164 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 	return null;
 }
 
+// ---- Bounded roborev review loops ------------------------------------------
+// One full-branch review per workspace branch; fix passes cover only the
+// original findings; a repeated or widened review escalates to the human.
+
+const ROBOREV_VALUE_FLAGS = new Set([
+	"--agent", "--base", "--model", "--panel", "--provider", "--reasoning", "--repo", "--sha",
+	"--since", "--spec", "--plan", "--type", "--min-severity", "--server",
+]);
+const BUDGET_FILE = "forge-roborev-budget.json";
+const REVIEW_LOOP_PROMPT =
+	"Review loop self-check: Pi flagged a possible roborev review loop on this branch. Stop and assess whether you are in a review loop and need a human. Do not run further reviews or fix passes. Summarize the open findings (job IDs, severity, location, disposition) and hand off by PR comment, Forge or Kata, then wait for the human.";
+
+type RoborevKind = "branch" | "loop" | "narrow" | "other";
+
+// Classify each roborev invocation in a shell command. A full-branch review
+// (--branch, --since or a commit range), `refine` and an unscoped `fix` widen
+// the review; `review <sha>`, `--dirty` and `fix <job>` stay narrow.
+export function roborevInvocations(command: string, depth = 0): RoborevKind[] {
+	const kinds: RoborevKind[] = [];
+	for (const words of shellCommands(command)) {
+		const [program = "", ...rest] = programWords(words);
+		if (SHELLS.test(program) && depth < 3) {
+			const script = rest[rest.indexOf("-c") + 1];
+			if (rest.includes("-c") && script) kinds.push(...roborevInvocations(script, depth + 1));
+			continue;
+		}
+		if (!/(^|\/)roborev$/.test(program)) continue;
+		let i = 0;
+		while (i < rest.length && rest[i].startsWith("-")) i += ROBOREV_VALUE_FLAGS.has(rest[i]) ? 2 : 1;
+		const sub = rest[i];
+		const args = rest.slice(i + 1);
+		const positional: string[] = [];
+		let branch = false;
+		for (let j = 0; j < args.length; j++) {
+			const arg = args[j];
+			if (arg === "--branch" || arg.startsWith("--branch=") || arg === "--since" || arg.startsWith("--since=")) branch = true;
+			// A two- or three-dot ref (positional or --sha) names a range.
+			if (arg.startsWith("--sha=") && arg.includes("..")) branch = true;
+			if (arg.startsWith("-")) {
+				if (ROBOREV_VALUE_FLAGS.has(arg)) {
+					j++;
+					if (arg === "--sha" && args[j]?.includes("..")) branch = true;
+				}
+			} else {
+				positional.push(arg);
+				if (arg.includes("..")) branch = true;
+			}
+		}
+		if (sub === "refine") kinds.push("loop");
+		else if (sub === "fix") kinds.push(positional.some((arg) => /^\d+$/.test(arg)) ? "narrow" : "loop");
+		else if (sub === "review") kinds.push(branch || positional.length > 1 ? "branch" : "narrow");
+		else kinds.push("other");
+	}
+	return kinds;
+}
+
+type ReviewFinding = { severity: string; path: string; problem: string };
+// Job ID shown by `roborev show [--job] <id>`, or 0.
+function showJobId(command: string): number {
+	for (const words of shellCommands(command)) {
+		const [program = "", sub = "", ...rest] = programWords(words);
+		if (/(^|\/)roborev$/.test(program) && sub === "show") {
+			const id = rest.find((arg) => /^\d+$/.test(arg));
+			return id ? Number(id) : 0;
+		}
+	}
+	return 0;
+}
+
+type ReviewBudget = {
+	branchReviews: number;
+	branchJob: number;
+	fixJobs: number[];
+	originalsRecorded: boolean;
+	originals: ReviewFinding[];
+	escalation: string;
+	ownerFindings: ReviewFinding[];
+};
+
+export function parseReviewFindings(text: string): ReviewFinding[] {
+	return text
+		.split(/^###\s+\d+\.\s+/m)
+		.slice(1)
+		.map((block) => ({
+			severity: (block.match(/^\s*(\w+)/)?.[1] ?? "").toLowerCase(),
+			path: block.match(/\*\*Location:\*\*\s*`?([^\s`:,]+)/)?.[1] ?? "",
+			problem: (block.match(/\*\*Problem:\*\*\s*([\s\S]*?)(?=\n\s*\*\*\w+:\*\*|$)/)?.[1] ?? "").trim().slice(0, 400),
+		}));
+}
+
+const isReviewText = (text: string): boolean => /^###\s+\d+\.\s+\w+/m.test(text) || /\*\*Agent assessment/.test(text) || /^##\s+Summary/m.test(text);
+const actionable = (finding: ReviewFinding): boolean => ["critical", "high", "medium"].includes(finding.severity);
+
+function words(text: string): Set<string> {
+	return new Set(text.toLowerCase().match(/[a-z0-9_]{4,}/g) ?? []);
+}
+
+function sameFinding(a: ReviewFinding, b: ReviewFinding): boolean {
+	if (!a.path || a.path !== b.path) return false;
+	const left = words(a.problem);
+	const right = words(b.problem);
+	let shared = 0;
+	for (const word of left) if (right.has(word)) shared++;
+	const union = left.size + right.size - shared;
+	return union === 0 || shared / union >= 0.4;
+}
+
+function emptyBudget(): ReviewBudget {
+	return { branchReviews: 0, branchJob: 0, fixJobs: [], originalsRecorded: false, originals: [], escalation: "", ownerFindings: [] };
+}
+
+// Budget state lives in the worktree's git directory, keyed by branch, so it
+// survives reloads, resumes, new sessions and skill transitions.
+function createBudgetStore() {
+	const memory = new Map<string, ReviewBudget>();
+	const location = (cwd: string): { file: string; branch: string } => {
+		let gitDir = "";
+		try {
+			gitDir = execFileSync("git", ["-C", cwd, "rev-parse", "--absolute-git-dir"], {
+				encoding: "utf8",
+				stdio: ["ignore", "pipe", "ignore"],
+			}).trim();
+		} catch {
+			// Not a git checkout: keep the count in memory.
+		}
+		return { file: gitDir ? join(gitDir, BUDGET_FILE) : "", branch: currentBranch(cwd) || "(detached)" };
+	};
+	const readAll = (file: string): Record<string, ReviewBudget> => {
+		try {
+			return JSON.parse(readFileSync(file, "utf8"));
+		} catch {
+			return {};
+		}
+	};
+	return {
+		read(cwd: string): ReviewBudget {
+			const { file, branch } = location(cwd);
+			const stored = file ? readAll(file)[branch] : memory.get(`${cwd}\0${branch}`);
+			return { ...emptyBudget(), ...(stored ?? {}) };
+		},
+		write(cwd: string, update: (budget: ReviewBudget) => void): ReviewBudget {
+			const { file, branch } = location(cwd);
+			const all = file ? readAll(file) : {};
+			const budget: ReviewBudget = { ...emptyBudget(), ...((file ? all[branch] : memory.get(`${cwd}\0${branch}`)) ?? {}) };
+			update(budget);
+			if (file) {
+				all[branch] = budget;
+				writeFileSync(file, JSON.stringify(all, null, 2), { mode: 0o600 });
+			} else {
+				memory.set(`${cwd}\0${branch}`, budget);
+			}
+			return budget;
+		},
+	};
+}
+
 export default function forgeWorkspaceExtension(pi: any): void {
+	const budgets = createBudgetStore();
 	let sessionStartContext: string | null = null;
 	let sessionStartResolved = false;
 	let resolvedRuntimeKey: string | null = null;
@@ -634,16 +792,103 @@ export default function forgeWorkspaceExtension(pi: any): void {
 
 		if (!isSubagentProcess() && (overrideFile || sessionStartContext)) {
 			if (event?.systemPromptOptions?.sections && typeof event.systemPromptOptions.sections === "object") {
-				event.systemPromptOptions.sections.forge_workspace = FORGE_WORKSPACE_SECTION;
+				const escalation = budgets.read(ctx.cwd).escalation;
+				event.systemPromptOptions.sections.forge_workspace = escalation
+					? `${FORGE_WORKSPACE_SECTION}\n- ${REVIEW_LOOP_PROMPT} (${escalation})`
+					: FORGE_WORKSPACE_SECTION;
 			}
 		}
 	});
+
+	async function guardReviewBudget(command: string, ctx: any): Promise<{ block: true; reason: string } | undefined> {
+		const kinds = roborevInvocations(command);
+		const wide = kinds.filter((kind) => kind === "branch").length;
+		const loops = kinds.filter((kind) => kind === "loop").length;
+		if (wide + loops === 0) {
+			return undefined;
+		}
+		const budget = budgets.read(ctx.cwd);
+		if (loops === 0 && budget.branchReviews + wide <= 1) {
+			budgets.write(ctx.cwd, (state) => {
+				state.branchReviews += wide;
+			});
+			return undefined;
+		}
+		const detail = loops
+			? "`roborev refine` and unscoped `roborev fix` loop over the whole branch"
+			: "the one full-branch review for this branch is spent";
+		if (ctx.hasUI && (await ctx.ui.confirm("Another roborev review pass? Possible review loop; human approval required", command))) {
+			budgets.write(ctx.cwd, (state) => {
+				state.branchReviews += wide;
+				state.escalation = "";
+			});
+			return undefined;
+		}
+		budgets.write(ctx.cwd, (state) => {
+			state.escalation = state.escalation || "A further full-branch review or review loop was blocked.";
+		});
+		return {
+			block: true,
+			reason: `roborev review budget: ${detail}. Stop and assess whether you are in a review loop and need a human. Verify fixes against the original findings only (\`roborev respond <job>\` dispositions plus targeted tests, or \`roborev review <sha>\` of the fix commit), summarize open findings, and hand off by PR comment, Forge or Kata. A human can approve another pass in the Pi UI.`,
+		};
+	}
+
+	// Record the first review's findings; screen fix-commit reviews against them.
+	// Output is processed even when bash reports a nonzero exit, because a
+	// completed failing review exits 1.
+	function screenReviewResult(command: string, text: string, cwd: string): string | null {
+		const kinds = roborevInvocations(command);
+		const wide = kinds.includes("branch");
+		const narrow = kinds.includes("narrow") && !wide;
+		const enqueued = Number(text.match(/Enqueued job (\d+)/)?.[1] ?? 0);
+		let budget = budgets.read(cwd);
+		if (enqueued && budget.branchReviews >= 1) {
+			budget = budgets.write(cwd, (state) => {
+				if (wide && !state.branchJob) state.branchJob = enqueued;
+				else if (narrow && !state.fixJobs.includes(enqueued)) state.fixJobs.push(enqueued);
+			});
+		}
+		if (!isReviewText(text) || budget.branchReviews < 1) {
+			return null;
+		}
+		const shown = showJobId(command);
+		const found = parseReviewFindings(text).filter(actionable);
+		const isFixReview = narrow || (shown > 0 && budget.fixJobs.includes(shown));
+		if (!budget.originalsRecorded && !isFixReview && (wide || shown > 0)) {
+			budgets.write(cwd, (state) => {
+				state.originalsRecorded = true;
+				state.originals = found;
+			});
+			return null;
+		}
+		const fixShown = shown > 0 ? budget.fixJobs.includes(shown) : true;
+		if (!budget.originalsRecorded || !isFixReview || !fixShown || found.length === 0) {
+			return null;
+		}
+		const recurring = found.filter((item) => budget.originals.some((original) => sameFinding(item, original)));
+		const outside = found.filter((item) => !recurring.includes(item));
+		const lines = ["", "## Pi review-loop guard"];
+		if (outside.length) {
+			lines.push(
+				`${outside.length} medium-or-higher finding(s) on this fix commit are outside the original findings (${outside.map((item) => item.path || "unknown location").join(", ")}). Do not action them: record them with \`roborev respond <job>\` and hand them to the owner.`,
+			);
+		}
+		if (recurring.length) {
+			lines.push(`${recurring.length} finding(s) are recurring from the original review (${recurring.map((item) => item.path).join(", ")}): the fix did not resolve them.`);
+		}
+		lines.push(REVIEW_LOOP_PROMPT);
+		budgets.write(cwd, (state) => {
+			state.ownerFindings.push(...outside);
+			state.escalation = recurring.length ? "A finding recurred on a fix commit." : "A fix-commit review raised new findings.";
+		});
+		return lines.join("\n");
+	}
 
 	pi.on("tool_call", async (event: any, ctx: any) => {
 		const command = event?.toolName === "bash" ? event?.input?.command : undefined;
 		const action = typeof command === "string" ? humanOnlyPublication(command, ctx.cwd) : null;
 		if (!action) {
-			return undefined;
+			return typeof command === "string" ? guardReviewBudget(command, ctx) : undefined;
 		}
 		const label = action === "pr_merge" ? "Merge a pull request" : "Push to main";
 		if (ctx.hasUI && (await ctx.ui.confirm(`${label}? Human approval required`, command))) {
@@ -726,6 +971,12 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	});
 
 	pi.on("tool_result", async (event: any, ctx: any) => {
+		if (event?.toolName === "bash" && typeof event?.input?.command === "string") {
+			const note = screenReviewResult(event.input.command, extractResultText(event), ctx.cwd);
+			if (note) {
+				return { content: [...(Array.isArray(event.content) ? event.content : []), { type: "text", text: note }] };
+			}
+		}
 		if (
 			isSubagentProcess() ||
 			event?.toolName !== "read" ||

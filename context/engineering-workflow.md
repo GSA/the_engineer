@@ -40,7 +40,9 @@ followed by at most one focused fix pass for confirmed task-scoped
 medium/high/critical defects. Make additive fix commits and verify actual
 behavior with targeted tests. These allowances retain the previous one-review,
 one-fix boundary; severity filtering removes low findings from delivery gates.
-The allowance is agent guidance, not a runtime-enforced counter.
+The Pi Forge-workspace extension (`scripts/pi-extensions/forge-workspace.ts`)
+enforces the allowance for bash `roborev` commands; see "Enforced review
+budget" below.
 
 Do not launch another review just to get a passing verdict. Record reviewed
 revision, job IDs, dispositions, fix commits, verification, and any handoff in
@@ -63,6 +65,30 @@ delivery's allowance.
   unresolved task-scoped medium/high/critical defects. A failed or unavailable
   review is not passing evidence; report the gap and ask the owner rather than
   repeatedly enqueueing reviews.
+
+#### Enforced review budget
+
+- Pi counts full-branch reviews (`roborev review --branch`, `--since` or a
+  commit range) per workspace branch in `forge-roborev-budget.json` inside
+  the worktree's git directory, so the count survives reloads, resumes, new
+  sessions and skill transitions. The first is allowed. A second, and
+  `roborev refine` or `roborev fix` without a job ID, is blocked unless the
+  human confirms in the Pi UI; print/JSON sessions always block.
+- After the first review, a fix pass addresses only the findings recorded in
+  that job. Verify with `roborev respond <job>` dispositions plus targeted
+  tests, or at most `roborev review <sha>` of the fix commit (also
+  `--dirty` or the default HEAD review); never a fresh full-branch review.
+- When a fix-commit review reports medium-or-higher findings outside the
+  originals, Pi appends a notice: do not action them, record them with
+  `roborev respond` and hand them to the owner. A finding that recurs from
+  the original review is reported as recurring.
+- Either case, or a blocked further branch review, arms the loop self-check:
+  Pi adds a prompt to the Forge workspace policy telling the agent to stop,
+  assess whether it is in a review loop and needs a human, summarize open
+  findings (job IDs, severity, location, disposition) and hand off by PR
+  comment, Forge or Kata. The flag persists with the budget.
+- Copilot has no runtime hook (the `roborev agent-hook` was not installed by
+  owner choice), so it follows this policy as prose only.
 
 `review_min_severity` changes which findings fail a review, not what the model
 reports. `auto_close_passing_reviews` closes passing jobs; it does not resolve

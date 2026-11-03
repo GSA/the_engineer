@@ -725,11 +725,21 @@ class LocalEnvironmentTests(unittest.TestCase):
                      ".local/plans/", "merge",
                      "roborev review --branch --wait --min-severity medium",
                      "at most once per", "at most one focused fix pass",
-                     "pause publication", "out-of-scope findings open"):
+                     "pause publication", "out-of-scope findings open",
+                     "Pi enforces this", "addresses only the original findings",
+                     "possible review loop"):
             self.assertIn(duty, text)
         self.assertNotIn("gh pr create", text)  # Forge delivery lives in forge-workspace.ts
         self.assertLess(len(text), 4096)
         self.assertNotIn("repeat until", text)
+
+    def test_agents_md_matches_enforced_review_budget(self):
+        agents = " ".join((Path(__file__).resolve().parents[1] / "AGENTS.md").read_text().split())
+        for phrase in ("Pi enforces the budget", "second full-branch review",
+                       "`roborev refine`", "address only the original findings",
+                       "`roborev review <sha>`", "loop self-check",
+                       "Copilot has no runtime hook"):
+            self.assertIn(phrase, agents)
 
     def test_policy_expectations_per_surface(self):
         private = str(self.state / "pi/AGENTS.md")
