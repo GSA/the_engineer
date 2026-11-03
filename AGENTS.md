@@ -36,7 +36,13 @@
   code, confirm the problem is present, reachable, and within the current task,
   then fix only confirmed findings. Close stale or invalid findings with
   evidence and no code change, leave valid out-of-scope findings open and ask
-  the owner, and justify every skipped finding in the review comment.
+  the owner, and justify every skipped finding in the review comment. Before
+  delivery, reuse review evidence for unchanged reviewed code; otherwise run
+  `roborev review --branch --wait --min-severity medium` at most once, followed
+  by at most one focused, verified fix pass. Do not re-review merely to obtain
+  a passing verdict. Hand recurring or unresolved confirmed findings to the
+  owner; pause publication for unresolved task-scoped medium/high/critical
+  defects. See `context/engineering-workflow.md` for disposition rules.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Require explicit approval before changing global settings or exposing

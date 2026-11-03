@@ -331,8 +331,18 @@ To add newly published models or switch the coder or reviewer, run steps 1 and
 python3 scripts/terminal-local.py open pi        # persistent tmux session; run scripts/pi-local.py inside it
 python3 scripts/terminal-local.py open copilot   # Copilot CLI, for non-sensitive work
 kata ready --no-label blocked --no-label deferred --agent && kata claim <id>
-roborev review --repo "$PWD" --branch --wait     # one branch review before opening a PR
+roborev review --repo "$PWD" --branch --wait --min-severity medium  # only when existing evidence does not cover unchanged code
 ```
+
+Delivery allows one branch review and one focused, tested fix pass, not
+repeated review-until-clean cycles. Record dispositions and revision/fix
+evidence in Kata; reuse them across resumes, reloads, and skill transitions.
+Leave valid out-of-scope findings open for the owner. Hand recurring or
+unresolved confirmed findings to the owner and pause publication for unresolved
+task-scoped medium/high/critical defects; low findings do not block delivery.
+See [review and disposition rules](context/engineering-workflow.md#bounded-delivery-review-and-dispositions).
+`setup` adds missing medium-severity and passing-review auto-close defaults to
+existing private roborev configs without replacing explicit overrides.
 
 In Forge, create a workspace from a Kata task and launch **Pi (USAi)** or
 **Pi (Gemini 4 Argon)**. The Forge workspace extension pushes the branch, opens

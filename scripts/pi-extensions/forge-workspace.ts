@@ -28,7 +28,7 @@ const FORGE_WORKSPACE_SECTION = [
 	"- This session is running inside an autonomous Kenn Forge workspace.",
 	"- Unless a genuine blocking requirement ambiguity cannot be resolved from the repository or Kata/issue description, do NOT stop after `brainstorming` or `writing-plans` to wait for human approval of a classification, design, written spec, implementation plan, or execution method.",
 	"- Keep any working spec or implementation plan in ignored `.local/plans/` (never under `docs/superpowers/`), execute the plan directly with TDD, and remove temporary `.local/plans/` files before delivery.",
-	"- Before opening or updating a pull request, run `roborev review --branch --wait` once. If `roborev` reports concrete correctness, security, or contract bugs in your changed code, apply at most one focused fix commit (`roborev fix` or direct fix + test verification) and proceed to delivery; do NOT loop `roborev review --branch --wait` across multiple rounds or add speculative defensive code for hypothetical edge cases.",
+	"- Apply the coder contract's bounded roborev delivery policy: reuse evidence for unchanged reviewed code; otherwise run `roborev review --branch --wait --min-severity medium` at most once per delivery, followed by at most one focused, verified fix pass. Do not re-review merely to obtain a passing verdict. Record dispositions with `roborev respond <job>` and close a review only when all actionable findings are fixed or confirmed stale/invalid; leave valid out-of-scope findings open and ask the owner. Hand recurring or unresolved confirmed findings to the owner; pause publication and completion for unresolved task-scoped medium/high/critical defects. Low findings do not block delivery. Reloads, resumes, and skill transitions reuse the same review/fix allowance and recorded evidence.",
 	"- When implementation and verification are complete, do NOT stop to ask whether to merge locally to `main`, keep the branch as-is, or discard work.",
 	"- Always complete the workspace by pushing the workspace branch (`git push -u origin HEAD`) and creating or updating the GitHub pull request (`gh pr create` / `gh pr edit`).",
 	`- ${PR_DESCRIPTION_GUIDANCE} The automatic PR formatter uses the same guidance after \`gh pr create\` / \`gh pr edit\`.`,
@@ -52,7 +52,7 @@ const WRITING_PLANS_OVERRIDE = [
 	"You are running inside an autonomous Kenn Forge workspace.",
 	"- Save any working implementation plan to ignored `.local/plans/` (never under `docs/superpowers/plans/` and never commit it to Git).",
 	"- After self-reviewing the plan, do **NOT** stop at `Execution Handoff` to ask the human partner to review the plan or choose between Subagent-driven and Native execution.",
-	"- Immediately proceed to implement the plan with TDD in this session (or using `subagent` with `model: \"inherit\"` for independent tasks), remove temporary `.local/plans/` artifacts before delivery, run one `roborev review --branch --wait` pass (with at most one fix pass for concrete bugs in changed code), push the branch, create/update the PR, and register the PR and Kata/issue targets with Forge.",
+	"- Immediately proceed to implement the plan with TDD in this session (or using `subagent` with `model: \"inherit\"` for independent tasks), remove temporary `.local/plans/` artifacts before delivery, and apply the bounded roborev delivery policy, reusing earlier review/fix evidence without restarting the allowance. When no unresolved task-scoped medium/high/critical defects remain, push the branch, create/update the PR, and register the PR and Kata/issue targets with Forge.",
 ].join("\n");
 
 const FINISHING_BRANCH_OVERRIDE = [
@@ -62,7 +62,7 @@ const FINISHING_BRANCH_OVERRIDE = [
 	"You are running inside a Kenn Forge workspace. Do **NOT** present Step 4's 4-option menu or ask whether to merge locally to `main`.",
 	"",
 	"Once Step 1 (tests pass) is verified:",
-	"1. Run `roborev review --branch --wait` once (and apply at most one focused fix commit if concrete bugs in changed code are reported; do not loop `roborev review --branch --wait` across multiple rounds) and remove any temporary `.local/plans/` files.",
+	"1. Apply the bounded roborev delivery policy, reusing earlier review/fix evidence without restarting the allowance, and remove any temporary `.local/plans/` files. Pause publication for unresolved task-scoped medium/high/critical defects and hand them to the owner rather than repeating review/fix passes.",
 	`2. Automatically execute **Option 2 (Push and Create a Pull Request)**: push the workspace branch (\`git push -u origin HEAD\`) and create or update the pull request (\`gh pr create\` / \`gh pr edit\`). ${PR_DESCRIPTION_GUIDANCE}`,
 	"3. Register the pull request and any worked GitHub issue or Kata task with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using the `Workspace ID` and `Repository` from the Kenn Forge Workspace Context), then verify with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 	"4. Do not remove the Forge workspace worktree; Forge manages workspace worktree lifecycle.",

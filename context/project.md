@@ -56,9 +56,13 @@ cross-repository seam scanner when code context crosses repository boundaries.
   and `defaultModel: "inherit"` across `delegate`, `oracle`, `reviewer`,
   `scout`, and `worker`. Always omit `model` on `action: "resume"`.
 - **Code review**: Repositories use native `roborev init --no-daemon` Git hooks
-  (`post-commit`, `post-rewrite`, `pre-push`) with `post_commit_batch_size = 5`
-  and affirmative `review_guidelines` in `.roborev.toml`. Superpowers
-  `reviewer` subagents handle per-task implementation checks inside subagent
-  workflows, while `roborev` handles commit and branch reviews asynchronously.
+  (`post-commit`, `post-rewrite`, `pre-push`) with `post_commit_batch_size = 5`,
+  `review_min_severity = "medium"`, `refine_min_severity = "medium"`,
+  `fix_min_severity = "medium"`, and affirmative `review_guidelines` in
+  `.roborev.toml`. Superpowers `reviewer` subagents handle per-task
+  implementation checks inside subagent workflows, while `roborev` handles
+  batched commit reviews. Delivery reuses unchanged-code evidence or allows
+  one medium-threshold branch review plus one verified fix pass, with owner
+  handoff instead of repeated reviews; see `context/engineering-workflow.md`.
 - **Network and credentials**: All local services bind to `127.0.0.1`. Keep keys,
   tokens, and corpus/user state inside ignored `.local/` paths.

@@ -164,6 +164,32 @@ function load() {
     return handlers;
 }
 
+test("loaded workspace policy keeps the review allowance across resume and skill transitions", async () => {
+    const h = load();
+    const ctx = makeCtx();
+    await h.session_start({ reason: "resume" }, ctx);
+    const event = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(event, ctx);
+    const policy = event.systemPromptOptions.sections.forge_workspace;
+    expect(policy).toContain("at most once per delivery");
+    expect(policy).toContain("at most one focused, verified fix pass");
+    expect(policy).toContain("leave valid out-of-scope findings open");
+    expect(policy).toContain("pause publication and completion");
+    expect(policy).toContain("Reloads, resumes, and skill transitions reuse");
+    for (const skill of ["writing-plans", "finishing-a-development-branch"]) {
+        const result = await h.tool_result({
+            toolName: "read",
+            input: { path: `/skills/${skill}/SKILL.md` },
+            content: [{ type: "text", text: "Original skill content" }],
+        }, ctx);
+        expect(result.content[0].text).toBe("Original skill content");
+        const override = result.content[1].text;
+        expect(override).toContain("bounded roborev delivery policy");
+        expect(override).toContain("without restarting the allowance");
+        expect(override).not.toContain("roborev review --branch");
+    }
+});
+
 const names = () => hooks.map((h) => h.hook_event_name);
 
 async function fireToolStart() {

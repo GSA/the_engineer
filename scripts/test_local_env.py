@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import MagicMock, patch
 import urllib.error
@@ -131,6 +132,44 @@ class LocalEnvironmentTests(unittest.TestCase):
             source_wrapper = str(local_env.ROOT / "scripts/pi-local.py")
             self.assertNotIn(source_wrapper, (self.state / "forge/config.toml").read_text())
             self.assertNotIn(source_wrapper, (self.state / "roborev/config.toml").read_text())
+
+    def test_setup_installs_missing_roborev_defaults_in_existing_config(self):
+        path = self.state / "roborev/config.toml"
+        original = (
+            '# retained configuration\n'
+            'default_model = "custom-reviewer"\n'
+            '[web]\nlisten = "127.0.0.1:17374"\n'
+        )
+        local_env.private_write(path, original, replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        raw = path.read_text()
+        config = tomllib.loads(raw)
+        for workflow in ("review", "refine", "fix"):
+            self.assertEqual(config[f"{workflow}_min_severity"], "medium")
+        self.assertTrue(config["auto_close_passing_reviews"])
+        self.assertEqual(config["default_model"], "custom-reviewer")
+        self.assertEqual(config["web"]["listen"], "127.0.0.1:17374")
+        self.assertTrue(raw.endswith(original))
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(path.read_text(), raw)
+
+    def test_setup_preserves_explicit_roborev_policy_overrides(self):
+        path = self.state / "roborev/config.toml"
+        local_env.private_write(path, (
+            'review_min_severity = "high"\n'
+            'refine_min_severity = ""\n'
+            'auto_close_passing_reviews = false\n'
+            '[web]\nlisten = "127.0.0.1:17374"\n'
+        ), replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        config = tomllib.loads(path.read_text())
+        self.assertEqual(config["review_min_severity"], "high")
+        self.assertEqual(config["refine_min_severity"], "")
+        self.assertEqual(config["fix_min_severity"], "medium")
+        self.assertFalse(config["auto_close_passing_reviews"])
 
     def test_setup_migrates_managed_launcher_from_a_deleted_other_worktree(self):
         stale = str(local_env.RUNTIME_ROOT / ".local/environment/forge/worktrees/host/repo/deleted/scripts/pi-local.py")
@@ -573,10 +612,14 @@ class LocalEnvironmentTests(unittest.TestCase):
     def test_coder_contract_owns_coder_duties_once(self):
         text = local_env.CODER_CONTRACT.read_text()
         for duty in ("amend", "roborev show", "structural", "as evidence",
-                     ".local/plans/", "merge"):
+                     ".local/plans/", "merge",
+                     "roborev review --branch --wait --min-severity medium",
+                     "at most once per", "at most one focused fix pass",
+                     "pause publication", "out-of-scope findings open"):
             self.assertIn(duty, text)
         self.assertNotIn("gh pr create", text)  # Forge delivery lives in forge-workspace.ts
         self.assertLess(len(text), 4096)
+        self.assertNotIn("repeat until", text)
 
     def test_policy_expectations_per_surface(self):
         private = str(self.state / "pi/AGENTS.md")

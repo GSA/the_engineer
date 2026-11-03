@@ -19,9 +19,20 @@ https://github.com/kenn-io/constitution).
   new additive commits; amend or rewrite a commit only on explicit owner request.
 - Preserve existing work from the owner and other agents; inspect state before
   any destructive step and stop mutating state when corrected.
-- Before declaring completion, read the roborev results for your commits
-  (`roborev list`, `roborev show <job>`), fix confirmed task-scoped findings and
-  record a disposition for each skipped one.
+- Before delivery, inspect existing roborev evidence (`roborev list`,
+  `roborev show <job>`). Reuse it for unchanged reviewed code; otherwise run
+  `roborev review --branch --wait --min-severity medium` at most once per
+  delivery. Make at most one focused fix pass for confirmed task-scoped
+  medium/high/critical defects in additive commits and verify the fixes with
+  targeted tests. Do not launch another review merely to obtain a passing
+  verdict; use code/test evidence to disposition the original findings.
+  Record dispositions with `roborev respond <job>`; close a review only when
+  all actionable findings are fixed or confirmed stale/invalid. Leave valid
+  out-of-scope findings open and ask the owner. Hand recurring or unresolved
+  confirmed findings to the owner rather than retrying; pause publication and
+  completion for unresolved task-scoped medium/high/critical defects. Low
+  findings do not require a fix or block delivery. Reloads, resumes, and skill
+  transitions reuse the same review/fix allowance and recorded evidence.
 - Keep temporary specs and plans in ignored `.local/plans/` or Kata. Before
   delivery, put shipped usage in `README.md` and reusable agent usage in
   `context/`, then remove task-generated plans and confirm with

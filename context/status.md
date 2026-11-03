@@ -70,6 +70,18 @@ or reconciliation service is installed.
 
 ## Recent completed milestones
 
+- **Bounded roborev delivery policy (`n3qc`)**:
+  - Tracked coder and Forge guidance reuse unchanged-code evidence, allow one
+    branch review plus one verified fix pass, and hand recurring/unresolved
+    findings to the owner. Valid out-of-scope findings stay open; unresolved
+    task-scoped medium/high/critical defects pause publication.
+  - Setup adds missing medium-severity and passing-review auto-close defaults
+    while preserving explicit config overrides. Verified with 152 local-env,
+    17 Forge extension, and 18 workflow-gate tests.
+  - Activation uses `setup` to refresh the private coder/extension copies,
+    then `/reload` in existing Pi sessions. The delivery allowance is agent
+    guidance; native background hooks retain their batching behavior.
+
 - **Content-led PR descriptions (`8gp7`)**:
   - Forge coder, branch-finishing and automatic formatter guidance share one
     policy based on meaningful changes and reviewer needs. File/line-count

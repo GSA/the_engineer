@@ -5,7 +5,7 @@
 1. **Discover and claim in Kata**: inspect ready issues (`kata ready --no-label blocked --no-label deferred --agent`), read the issue (`kata show <id>`), and claim it (`kata claim <id>`) before editing code.
 2. **Execute in an isolated worktree or checkout**: launch a Forge workspace (`Pi (USAi)`) or work in the bound repository checkout using `scripts/pi-local.py` or Copilot CLI.
 3. **Validate incrementally**: run targeted unit/integration tests for each change and commit coherent slices locally.
-4. **Review asynchronously via native `roborev`**: native `post-commit` hooks batch every 5 commits (`post_commit_batch_size = 5`) into a single background `roborev` job and flush any unreviewed commits on `git push`.
+4. **Review with a bounded delivery pass**: native `post-commit` hooks batch every 5 commits (`post_commit_batch_size = 5`) into background `roborev` jobs and `pre-push` flushes unreviewed commits. Apply the review and disposition rules below before delivery.
 5. **Complete the Forge workspace PR and register targets**: in a Kenn Forge workspace (`AGENTS.override.md` present or `KENN_FORGE_RUNTIME_SESSION_KEY` set), always finish verified work by pushing the workspace branch (`git push -u origin HEAD`), creating or updating the GitHub PR (`gh pr create` / `gh pr edit`) without stopping on `finishing-a-development-branch`'s local-merge menu, and registering the PR and worked Kata/GitHub items via `kenn_forge_add_workspace_target` and `kenn_forge_add_workspace_kata_target` (confirming with `kenn_forge_list_workspace_targets`).
 6. **Close in Kata with evidence**: record test, commit, and PR evidence in Kata (`kata close <id> --reason "..."`) and update `context/status.md` when a milestone completes.
 
@@ -24,10 +24,48 @@
     against its task spec before moving to the next task.
 - **Native `roborev` CLI and Git hooks**:
   - Handles repository commit and branch code reviews (`roborev status`,
-    `roborev show <job_id>`, `roborev review --branch`).
-  - Let the native `post-commit` hook (batched every 5 commits) and `pre-push`
-    hook enqueue commit reviews automatically instead of running manual
-    `roborev review --dirty --wait` loops before every commit.
+    `roborev show <job_id>`, `roborev review --branch --wait --min-severity medium`)
+    with `review_min_severity = "medium"`, `refine_min_severity = "medium"`, and
+    `fix_min_severity = "medium"`.
+  - Let native hooks enqueue reviews during development; consume the results
+    rather than launching manual dirty-review loops before every commit.
+
+### Bounded delivery review and dispositions
+
+Inspect existing reviews first (`roborev list`, `roborev show <job>`). Reuse
+evidence that covers unchanged reviewed code. Otherwise run
+`roborev review --branch --wait --min-severity medium` at most once per delivery,
+followed by at most one focused fix pass for confirmed task-scoped
+medium/high/critical defects. Make additive fix commits and verify actual
+behavior with targeted tests. These allowances retain the previous one-review,
+one-fix boundary; severity filtering removes low findings from delivery gates.
+The allowance is agent guidance, not a runtime-enforced counter.
+
+Do not launch another review just to get a passing verdict. Record reviewed
+revision, job IDs, dispositions, fix commits, verification, and any handoff in
+Kata so reloads, resumes, and skill transitions reuse evidence and do not
+restart the allowance. Background reviews of fix commits do not authorize
+another automatic fix pass. A later delivery with new implementation changes
+may need fresh review; a review fix or PR-description edit does not reset this
+delivery's allowance.
+
+- Treat findings as claims: confirm presence, reachability, and task scope
+  before changing code. Low findings do not require fixes or block delivery.
+- Record each disposition with `roborev respond <job>`. Close a review with
+  `roborev close <job>` only when all actionable findings are fixed with
+  evidence or confirmed stale/invalid. A disposition does not require a new
+  passing model verdict.
+- Leave valid out-of-scope findings open and ask the owner; they do not
+  automatically expand the task or block its publication.
+- Hand recurring or unresolved confirmed findings to the owner instead of
+  repeating review/fix passes. Pause publication and task completion for
+  unresolved task-scoped medium/high/critical defects. A failed or unavailable
+  review is not passing evidence; report the gap and ask the owner rather than
+  repeatedly enqueueing reviews.
+
+`review_min_severity` changes which findings fail a review, not what the model
+reports. `auto_close_passing_reviews` closes passing jobs; it does not resolve
+failing jobs or bound review loops.
 
 ## Loaded policy by surface
 
@@ -147,4 +185,3 @@ authorization.
     receipt when requested. The publication stage also drives the real
     `forge-workspace.ts` `tool_call` guard, which blocks agent PR merges and
     pushes to `main` unless the human confirms them in the Pi UI.
-

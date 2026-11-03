@@ -104,13 +104,18 @@ adversarial pairing via `--review-model`:
   `server_addr = "127.0.0.1:17373"`, `default_agent = "pi"`,
   `pi_cmd = "/home/nkirrish/kenn-kopy/scripts/pi-local.py"`,
   `default_model = "gpt-6.1-sol-latest-guardrails-defaultv2"`,
-  `review_model = "gpt-6.1-sol-latest-guardrails-defaultv2"`.
+  `review_model = "gpt-6.1-sol-latest-guardrails-defaultv2"`,
+  `review_min_severity = "medium"`, `refine_min_severity = "medium"`,
+  `fix_min_severity = "medium"`, `auto_close_passing_reviews = true`.
+  `setup` adds missing defaults to existing private configs while preserving
+  explicit overrides, model routing, and unrelated settings.
   `scripts/local_env.py:pi_launch()` accepts `--model` only when it matches the
   configured `usai.json` coder `model` or `review_model` and validates opposite
   Claude/OpenAI model families in `validate_roborev_config()`.
 - Per-repository `.roborev.toml` (installed in `kenn-kopy`, `the_librarian`,
   `the_knowitall`, `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
-  - `agent = "pi"`, `review_reasoning = "fast"`, `fix_reasoning = "standard"`
+  - `agent = "pi"`, `review_reasoning = "standard"`
+  - `review_min_severity = "medium"`, `refine_min_severity = "medium"`, `fix_min_severity = "medium"`
   - `post_commit_batch_size = 5`
   - Concise, affirmative `review_guidelines`
 - Hooks: native `roborev init --no-daemon` hooks (`post-commit`, `post-rewrite`,
@@ -123,7 +128,7 @@ adversarial pairing via `--review-model`:
   - Maps Pi events: `session_start` → `SessionStart` (`resume`/`fork`/`clear`, or `resume` when startup opens a saved file), turns → `UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop` (aborted turns also settle to `Stop`), dialogs during a turn → `Notification elicitation_dialog` (Forge `input`). `session_shutdown` sends `SessionEnd` only for replacement (`new`/`fork` → `clear`, `resume` → `resume`) or SIGTERM/SIGHUP (`other`, so Forge resumes instead of forgetting); `/quit` and `/reload` keep the conversation resumable.
   - Blocks agent `gh pr merge` (including `gh-local.py` and `gh api .../pulls/N/merge`) and `git push` to `main`/`master` (explicit refspec, `--all`/`--mirror`, or bare push from a `main` checkout) on every Pi surface unless the human confirms the call in the Pi UI; print/JSON sessions always block. Workspace-branch pushes and `gh pr create`/`gh pr edit` are unaffected.
   - Filters parent repo `AGENTS.md` files from child worktrees under `.local/environment/forge/worktrees/`.
-  - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, run a single `roborev review --branch --wait` + at most one fix pass, format PR descriptions via `gemini-4-argon`, and register PR/Kata targets with Forge. Coder, finishing and formatter prompts share content-led guidance: no size tiers or paragraph/bullet quotas, concise prose for focused changes, optional lists/sections for independent concerns, and retained task references and actionable caveats.
+  - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, share the bounded delivery review policy in `context/engineering-workflow.md`, format PR descriptions via `gemini-4-argon`, and register PR/Kata targets with Forge. The review/fix allowance survives skill transitions, reloads, and resumes; unresolved task-scoped medium/high/critical defects pause publication for owner handoff. Coder, finishing and formatter prompts share content-led guidance: no size tiers or paragraph/bullet quotas, concise prose for focused changes, optional lists/sections for independent concerns, and retained task references and actionable caveats.
   - Seeds `.local/environment/home/.gitconfig` and `.config/git/ignore`, and exposes `jq` (`.local/tools/jq-1.7.1/bin`) and shared Python test dependencies (`.local/tools/pydeps`) on `PATH`/`PYTHONPATH`.
 
 ## Task-bound evidence consumer

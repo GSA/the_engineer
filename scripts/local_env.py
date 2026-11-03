@@ -472,12 +472,25 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         '[[agents]]\nkey = "pi-argon"\nlabel = "Pi (Gemini 4 Argon)"\nenabled = true\n'
         f'command = [{json.dumps(str(wrapper))}, "--model", "gemini-4-argon"]\n' + disabled,
     )
+    roborev_path = STATE / "roborev/config.toml"
     private_write(
-        STATE / "roborev/config.toml",
+        roborev_path,
         f'server_addr = "127.0.0.1:{ROBOREV_PORT}"\nmax_workers = 1\ndefault_agent = "pi"\n'
         f'pi_cmd = {json.dumps(str(wrapper))}\n'
         f'[web]\nlisten = "127.0.0.1:{ROBOREV_WEB_PORT}"\n',
     )
+    roborev_defaults = {
+        "review_min_severity": "medium",
+        "refine_min_severity": "medium",
+        "fix_min_severity": "medium",
+        "auto_close_passing_reviews": True,
+    }
+    raw = private_read(roborev_path)
+    existing = tomllib.loads(raw)
+    missing = "".join(f"{key} = {json.dumps(value)}\n"
+                      for key, value in roborev_defaults.items() if key not in existing)
+    if missing:
+        private_write(roborev_path, missing + raw, replace=True)
     managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
     launcher_migrations = (
         (STATE / "forge/config.toml",
