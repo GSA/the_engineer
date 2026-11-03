@@ -33,6 +33,12 @@ https://github.com/kenn-io/constitution).
   completion for unresolved task-scoped medium/high/critical defects. Low
   findings do not require a fix or block delivery. Reloads, resumes, and skill
   transitions reuse the same review/fix allowance and recorded evidence.
+  In a Forge workspace Pi enforces this: a second full-branch review,
+  `roborev refine` or unscoped `roborev fix` is blocked unless the human
+  confirms. A fix pass addresses only the original findings; verify it with
+  `roborev respond` and targeted tests or `roborev review <sha>` of the fix
+  commit, and record new findings on fix commits for the owner. When Pi flags a
+  possible review loop, stop, summarize open findings and hand off.
 - Keep temporary specs and plans in ignored `.local/plans/` or Kata. Before
   delivery, put shipped usage in `README.md` and reusable agent usage in
   `context/`, then remove task-generated plans and confirm with

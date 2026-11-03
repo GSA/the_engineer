@@ -92,6 +92,18 @@ or reconciliation service is installed.
     then `/reload` in existing Pi sessions. The delivery allowance is agent
     guidance; native background hooks retain their batching behavior.
 
+- **Enforced roborev review loops (`3twq`)**:
+  - The Forge workspace extension blocks a second full-branch review,
+    `roborev refine` and unscoped `roborev fix` unless the human confirms
+    (print/JSON always block). The per-branch count persists in the
+    worktree's git directory. Fix-commit reviews (`roborev review <sha>`) stay
+    allowed; findings outside or recurring from the first review are flagged
+    for the owner and arm a loop self-check prompt (stop, assess, hand off).
+  - Coder contract, `AGENTS.md` and `context/engineering-workflow.md` describe
+    the enforced behavior. Copilot has no runtime hook (agent-hook not
+    installed by owner choice) and keeps the prose policy.
+  - Activation uses `setup` to refresh the private copies, then `/reload`.
+
 - **MVP value case (`ef0w`)**:
   - `context/value-case.md` is a one-page template: labeled estimates, mechanism,
     checks and falsifiers. Capacity released is separate from cash savings.
