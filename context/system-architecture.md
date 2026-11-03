@@ -1,12 +1,14 @@
-# Three-product system architecture
+# Two-product system architecture
 
 ## Product roles
 
 | Product | Repository / Checkout | Kata project | Role |
 | --- | --- | --- | --- |
 | **Librarian** | `GSA/the_librarian` (`~/the_librarian`) | `librarian` | Rust CLI and MCP server (`falcon-context`) that indexes documentation and recorded review coverage for low-token retrieval (`catalog`, `search`, `get`, `get_many`, `coverage`, `review_events`, `status`). |
-| **Engineer** | `GSA/the_engineer` (`~/kenn-kopy`) | `engi-platform` | Local engineering platform combining Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView under `.local/environment/`. |
-| **Knowitall** | `GSA/the_knowitall` (`~/the_knowitall`) | `knowitall` | Evidence-backed multi-source organizational intelligence platform (connectors, canonical event/entity index, and cited synthesis). |
+| **Engineer** | `GSA/the_engineer` (`~/kenn-kopy`) | `engi-platform` | Local engineering platform combining Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView under `.local/environment/`, plus the task-bound Librarian evidence consumer and cross-repository seam scanner (`engineer-context`). |
+
+Knowitall (`GSA/the_knowitall`) is archived on GitHub and has no local
+checkout, Kata project or Forge registration.
 
 ## Runtime topology on the WSL host
 

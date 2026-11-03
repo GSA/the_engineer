@@ -42,8 +42,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         async with stdio_client(_server_params(self.config)) as (r,w):
             async with ClientSession(r,w) as session:
                 await session.initialize()
-                value=config_value()
-                result=await session.call_tool('collect',{'request':{'task':packet_value()['task'],'business':[{'locator':'doc:1','required':True}],'code':[]}})
+                result=await session.call_tool('collect',{'request':{'task':packet_value()['task'],'business':[{'locator':'doc:1','required':True}]}})
                 self.assertFalse(result.is_error)
                 self.assertIsNone(result.structured_content)
                 self.assertEqual(len(result.content),1)

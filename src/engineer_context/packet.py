@@ -4,9 +4,9 @@ import hashlib
 import json
 from .config import exact_fields, identity, parse_task
 
-SCHEMA = 'engineer.task-context/v1'
+SCHEMA = 'engineer.task-context/v2'
 FIELDS = ['schema', 'packet_id', 'observed_at', 'task', 'run_ref', 'providers',
-          'business', 'code', 'associations', 'capabilities', 'issues', 'readiness']
+          'business', 'capabilities', 'issues', 'readiness']
 
 
 def canonical_bytes(value):
@@ -27,13 +27,13 @@ def _shape(value):
     identity(value['packet_id']); identity(value['observed_at']); parse_task(value['task'])
     if value['run_ref'] is not None:
         identity(value['run_ref'])
-    for field in ['business', 'code', 'associations', 'issues']:
+    for field in ['business', 'issues']:
         if not isinstance(value[field], list):
             raise ValueError('invalid packet list')
     for field in ['providers', 'capabilities']:
         if not isinstance(value[field], dict):
             raise ValueError('invalid packet object')
-    for entry in value['business'] + value['code']:
+    for entry in value['business']:
         exact_fields(entry, ['request', 'required', 'response'], ['diagnostics'])
         if not isinstance(entry['request'], dict) or type(entry['required']) is not bool or (entry['response'] is not None and not isinstance(entry['response'], dict)):
             raise ValueError('invalid evidence entry')

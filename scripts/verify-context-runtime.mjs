@@ -73,14 +73,14 @@ try {
       return text;
     };
     const packet = JSON.parse(read(await tools[collect]({request: ${JSON.stringify(request)}})));
-    if (!packet.business[0].response || !packet.code[0].response?.resolved || !packet.code[0].response.evidence.length)
+    if (packet.readiness !== 'ready' || !packet.business[0].response)
       throw new Error('actual qualified evidence missing');
     const rendered = read(await tools[report]({packet}));
     text({packet, rendered, tools: names.filter(n => n.includes('component'))});`;
   const result = await tool.execute('isolated-probe', { code: script }, AbortSignal.timeout(60000));
   assert.ok(!result.isError, 'probe tool failed');
   const output = result.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
-  assert.ok(output.includes('engineer.task-context/v1') && output.includes('unasserted'), 'qualified packet/report not returned');
+  assert.ok(output.includes('engineer.task-context/v2') && output.includes('Readiness is not authorization'), 'qualified packet/report not returned');
   assert.equal(calls, 0);
   const parent = await fs.lstat(path.dirname(receiptPath));
   assert.ok(parent.isDirectory() && !parent.isSymbolicLink() && !(parent.mode & 0o077), 'receipt parent must be private');

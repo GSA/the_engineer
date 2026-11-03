@@ -1,4 +1,4 @@
-"""Tests for cross-repository seam scanning and optional knowitall retirement."""
+"""Tests for the dependency-free cross-repository seam scanner."""
 import json
 from pathlib import Path
 import tempfile
