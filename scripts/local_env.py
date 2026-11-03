@@ -8,6 +8,7 @@ import getpass
 import json
 import os
 from pathlib import Path
+import pwd
 import re
 import shlex
 import shutil
@@ -587,7 +588,9 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         if not isinstance(saved, dict):
             raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
         saved_librarian = saved.get("falcon-context")
-        if saved_librarian is not None and saved_librarian != servers["falcon-context"]:
+        audited = {**servers["falcon-context"],
+                   "args": servers["falcon-context"]["args"] + audit_args(PI_AUDIT_LABEL)}
+        if saved_librarian is not None and saved_librarian not in (servers["falcon-context"], audited):
             raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
         if missing:
@@ -608,8 +611,76 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     print("Existing settings were preserved. No service or model request was started.")
 
 
+PI_AUDIT_LABEL = "pi-forge"
+COPILOT_AUDIT_LABEL = "copilot"
+COPILOT_TOOLS = ["status", "search", "get", "get_many", "catalog", "review_events"]
+AUDIT_FLAGS = ("--audit-log", "--agent-label")
+LIBRARIAN_COMMANDS = ("librarian-mcp", "qualified-context-mcp")
+
+
+def audit_args(label):
+    """Opt-in private audit: a bare --audit-log writes <root>/.local/audit/<label>-mcp-access.jsonl."""
+    return ["--audit-log", "--agent-label", label]
+
+
+def librarian_supports_audit(help_text):
+    return all(flag in help_text for flag in AUDIT_FLAGS)
+
+
+def librarian_server_args(root, reader, selection, label=None):
+    args = ["--root", str(root)]
+    if reader is not None:
+        args.extend(["--reader", str(reader)])
+    if selection is not None:
+        args.extend(["--manifest", str(selection)])
+    return args + (audit_args(label) if label else [])
+
+
+def unmanaged_binding_candidates():
+    """Client configs that may hold a Librarian binding but are not owned by configure-librarian."""
+    try:
+        home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+    except KeyError:
+        home = Path.home()
+    return [home / ".copilot/mcp-config.json", RUNTIME_ROOT / ".pi/mcp.json",
+            RUNTIME_ROOT / ".github/mcp.json", GLOBAL_PI / "mcp.json"]
+
+
+def unmanaged_binding_report(paths, managed=()):
+    """Describe, without modifying, Librarian bindings outside configure-librarian's ownership."""
+    skip = {Path(path).resolve() for path in managed}
+    lines = []
+    for path in paths:
+        path = Path(path)
+        if not path.is_file() or path.resolve() in skip:
+            continue
+        try:
+            servers = json.loads(path.read_text()).get("mcpServers", {})
+            if not isinstance(servers, dict):
+                raise ValueError("mcpServers is not an object")
+        except (OSError, ValueError, AttributeError):
+            lines.append(f"Unmanaged binding {path}: unreadable; not inspected or modified")
+            continue
+        for name, server in servers.items():
+            if not isinstance(server, dict):
+                continue
+            command, args = str(server.get("command", "")), server.get("args", [])
+            if name != "falcon-context" and Path(command).name not in LIBRARIAN_COMMANDS:
+                continue
+            args = args if isinstance(args, list) else []
+            if "--audit-log" in args and "--agent-label" in args[:-1:]:
+                label = args[args.index("--agent-label") + 1]
+                lines.append(f"Unmanaged binding {path}: {name} audit label {label}; not modified")
+            else:
+                lines.append(f"Unmanaged binding {path}: {name} has no audit flags; not modified. "
+                             "To audit it, add `--audit-log --agent-label LABEL` yourself with a "
+                             f"label distinct from {PI_AUDIT_LABEL} and {COPILOT_AUDIT_LABEL}.")
+    return lines
+
+
 def configure_librarian(librarian_root, librarian_executable=None,
-                        librarian_reader=None, librarian_selection=None):
+                        librarian_reader=None, librarian_selection=None,
+                        audit=False, copilot_config=None):
     config = settings()
     root = librarian_root.expanduser().resolve()
     executable = (
@@ -632,11 +703,27 @@ def configure_librarian(librarian_root, librarian_executable=None,
     if selection is not None and (not selection.is_file() or not os.access(selection, os.R_OK)):
         raise RuntimeError(f"missing readable Librarian selection: {selection}")
     try:
-        subprocess.run([str(server), "--help"], text=True, capture_output=True,
-                       check=True, timeout=30)
+        help_result = subprocess.run([str(server), "--help"], text=True, capture_output=True,
+                                     check=True, timeout=30)
     except (OSError, subprocess.SubprocessError) as error:
         detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
         raise RuntimeError(f"Librarian runtime/dependencies unavailable: {detail}") from error
+    can_audit = librarian_supports_audit(help_result.stdout + help_result.stderr)
+    if audit and not can_audit:
+        raise RuntimeError(
+            f"installed {server} lacks {' and '.join(AUDIT_FLAGS)}; reinstall the Librarian MCP "
+            f"adapter from a checkout that includes the audit interface (the_librarian#9e3j), "
+            "then rerun with --audit. Nothing was changed.")
+    copilot_path = None
+    copilot = None
+    if copilot_config is not None:
+        copilot_path = Path(copilot_config).expanduser().resolve()
+        if copilot_path.exists():
+            copilot = json.loads(private_read(copilot_path))
+            if not isinstance(copilot, dict) or not isinstance(copilot.get("mcpServers", {}), dict):
+                raise RuntimeError(f"invalid saved MCP settings; inspect {copilot_path} first")
+        else:
+            copilot = {}
     updated_config = {
         **config,
         "librarian_executable": str(server),
@@ -644,16 +731,13 @@ def configure_librarian(librarian_root, librarian_executable=None,
         "librarian_root": str(root),
         "librarian_selection": str(selection) if selection is not None else None,
     }
-    librarian_args = ["--root", str(root)]
-    if reader is not None:
-        librarian_args.extend(["--reader", str(reader)])
-    if selection is not None:
-        librarian_args.extend(["--manifest", str(selection)])
+    librarian_args = librarian_server_args(root, reader, selection, PI_AUDIT_LABEL if audit else None)
     mcp_path = STATE / "pi/mcp.json"
     mcp = json.loads(private_read(mcp_path)) if mcp_path.exists() else {}
     saved = mcp.get("mcpServers") if mcp else {}
     if not isinstance(saved, dict):
         raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
+    previously_audited = "--audit-log" in (saved.get("falcon-context") or {}).get("args", [])
     json_write(STATE / "environment.json", updated_config, replace=True)
     json_write(
         mcp_path,
@@ -671,7 +755,35 @@ def configure_librarian(librarian_root, librarian_executable=None,
         },
         replace=True,
     )
+    if copilot_path is not None:
+        servers = copilot.setdefault("mcpServers", {})
+        entry = servers.get("falcon-context")
+        entry = dict(entry) if isinstance(entry, dict) else {"type": "local", "tools": COPILOT_TOOLS,
+                                                              "timeout": 60000}
+        entry.update({"command": str(server), "cwd": str(root),
+                      "args": librarian_server_args(root, reader, selection,
+                                                    COPILOT_AUDIT_LABEL if audit else None)})
+        servers["falcon-context"] = entry
+        copilot_path.parent.mkdir(parents=True, exist_ok=True)
+        json_write(copilot_path, copilot, replace=True)
     print(f"Librarian MCP provider bound to {root}")
+    audit_dir = root / ".local/audit"
+    if audit:
+        labels = [PI_AUDIT_LABEL] + ([COPILOT_AUDIT_LABEL] if copilot_path is not None else [])
+        print("Audit: enabled for " + ", ".join(f"{label} -> {audit_dir}/{label}-mcp-access.jsonl"
+                                                for label in labels))
+        print("Activation: running clients keep their old binding until restarted; start a new "
+              "Pi/Forge session (or restart Copilot) to pick up the audit flags. Records appear "
+              f"only for calls made after that restart. Summarize with librarian-audit --root {root} report.")
+    elif not can_audit:
+        print("Audit: unavailable; the installed adapter lacks "
+              f"{' and '.join(AUDIT_FLAGS)}. Reinstall it, then rerun with --audit.")
+    else:
+        print("Audit: disabled" + (" (previous audit flags removed)" if previously_audited else "")
+              + "; pass --audit to record every returned payload privately.")
+    for line in unmanaged_binding_report(unmanaged_binding_candidates(),
+                                         managed=[copilot_path] if copilot_path else ()):
+        print(line)
 
 
 def _candidate_offline_site_packages(source: Path, py_ver: str) -> list[Path]:
@@ -2529,6 +2641,10 @@ def main():
     lib_cfg.add_argument("--librarian-executable", type=Path)
     lib_cfg.add_argument("--librarian-reader", type=Path)
     lib_cfg.add_argument("--librarian-selection", type=Path)
+    lib_cfg.add_argument("--audit", action="store_true",
+                         help="opt in to the Librarian's private full-text audit log for managed bindings")
+    lib_cfg.add_argument("--copilot-config", type=Path,
+                         help="also bind this Copilot MCP config's falcon-context server (never implicit)")
     mvp = commands.add_parser("provision-librarian-mvp",
                               help="package and initialize an isolated Librarian MVP instance (Layer 1 isolation)")
     mvp.add_argument("--source", type=Path, default=Path.home() / "the_librarian")
@@ -2544,7 +2660,8 @@ def main():
                   args.librarian_reader, args.librarian_root, args.librarian_selection)
         elif args.command == "configure-librarian":
             configure_librarian(args.librarian_root, args.librarian_executable,
-                                args.librarian_reader, args.librarian_selection)
+                                args.librarian_reader, args.librarian_selection,
+                                audit=args.audit, copilot_config=args.copilot_config)
         elif args.command == "provision-librarian-mvp":
             provision_librarian_mvp(args.source, args.dest, inbox=args.inbox,
                                     repos_root=args.repos_root, bind_mcp=args.bind_mcp)
