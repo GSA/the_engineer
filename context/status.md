@@ -283,7 +283,11 @@ or reconciliation service is installed.
   verification), `p4ke` (fresh-host installer plus read-only
   `local_env.py accept`; container run of `8bfdd6d` passes 12/14 with only
   credentials missing, blocked on publishing the unfetchable `agentsview`
-  pin `c7f77ad0`; the installer now preflights pin fetchability, accepts
+  pin `22bc8212` to `kenn-io/agentsview`; the pin is published on the
+  `biggestbinary/agentsview` fork, so clean hosts need
+  `--submodule-mirror agentsview=https://github.com/biggestbinary/agentsview.git`
+  until the two carried commits land upstream; the installer now preflights pin
+  fetchability, accepts
   `--submodule-mirror NAME=URL`, defaults `GOPROXY` to `...|direct` and writes
   `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
