@@ -497,6 +497,9 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertTrue((dest / "config/selection.local.json").is_file())
         self.assertTrue((dest / ".local/mvp-sources.json").is_file())
         self.assertTrue((dest / ".local/engineer-context.json").is_file())
+        context_config = json.loads((dest / ".local/engineer-context.json").read_text())
+        self.assertEqual(context_config["schema"], "engineer.context-config/v2")
+        self.assertEqual(set(context_config), {"schema", "librarian"})
         self.assertFalse((source / ".local").exists())
         binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
         self.assertEqual(binding["command"], str(dest / ".venv/bin/librarian-mcp"))

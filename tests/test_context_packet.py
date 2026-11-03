@@ -8,21 +8,23 @@ from test_context_config import TASK
 
 
 def packet_value():
-    return dict(schema='engineer.task-context/v1', packet_id='packet-1', observed_at='2026-10-29T00:00:00Z',
+    return dict(schema='engineer.task-context/v2', packet_id='packet-1', observed_at='2026-10-29T00:00:00Z',
                 task=TASK.copy(), run_ref=None, providers={},
                 business=[dict(request={'locator': 'doc:1'}, required=True, response={'handling': ['restricted'], 'pieces': [dict(locator='doc:1', path='doc.md', source_hash='abc', line_start=1, line_end=2, text='Exact\npassage', reasons=['qualified'])]})],
-                code=[dict(request={}, required=True, response={'range': dict(path='code.py', line_start=3, line_end=4), 'snapshot': 's1'})],
-                associations=[], capabilities={'assertions': {'status': 'unavailable'}, 'contributions': {'status': 'unavailable'}}, issues=[], readiness='ready')
+                capabilities={'assertions': {'status': 'unavailable'}, 'contributions': {'status': 'unavailable'}}, issues=[], readiness='ready')
 
 class PacketTests(unittest.TestCase):
-    def test_packet_round_trip_retains_exact_passage_and_range(self):
+    def test_packet_round_trip_retains_exact_passage(self):
         original = packet_value(); before = copy.deepcopy(original)
         sealed = seal_packet(original); decoded = json.loads(json.dumps(sealed))
         validate_packet(decoded, parse_task(TASK))
         self.assertEqual(decoded['business'][0]['response']['pieces'][0]['text'], 'Exact\npassage')
         self.assertEqual(decoded['business'][0]['response']['handling'], ['restricted'])
-        self.assertEqual(decoded['code'][0]['response']['range'], {'path': 'code.py', 'line_start': 3, 'line_end': 4})
         self.assertEqual(original, before)
+
+    def test_retired_v1_code_packet_is_rejected(self):
+        packet = dict(packet_value(), schema='engineer.task-context/v1', code=[], associations=[])
+        with self.assertRaises(ValueError): seal_packet(packet)
 
     def test_packet_digest_detects_mutation(self):
         sealed = seal_packet(packet_value()); sealed['business'][0]['response']['handling'] = []

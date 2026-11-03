@@ -957,7 +957,7 @@ def provision_librarian_mvp(source, dest, *, inbox=None, repos_root=None, bind_m
         "repos_root": str(resolved_repos) if resolved_repos is not None else None,
     }, replace=True)
     json_write(dest / ".local/engineer-context.json", {
-        "schema": "engineer.context-config/v1",
+        "schema": "engineer.context-config/v2",
         "librarian": {
             "project_id": "falcon-librarian-mvp",
             "executable": str(venv_dir / "bin/librarian-mcp"),
@@ -965,7 +965,6 @@ def provision_librarian_mvp(source, dest, *, inbox=None, repos_root=None, bind_m
             "reader": None,
             "selection": str(selection_local),
         },
-        "knowitall": None,
     }, replace=True)
     if bind_mcp:
         configure_librarian(dest, venv_dir / "bin/librarian-mcp", None, selection_local)

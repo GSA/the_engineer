@@ -14,15 +14,16 @@ engineering workflow:
 2. **Engineer** (`GSA/the_engineer`, `~/kenn-kopy`): local orchestration across
    Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView.
 
-Knowitall is retired from the connected MVP. Engineer uses its delivered
-cross-repository seam scanner when code context crosses repository boundaries.
+Knowitall (`GSA/the_knowitall`) is archived on GitHub and unregistered from
+Forge. Engineer owns the stdlib-only cross-repository seam scanner
+(`src/engineer_context/seams.py`) for code that crosses repository boundaries.
 
 ## Product identity
 
 - Selected product name: **Engineer** (`engineer`), replacing Engi Platform and
   Kenn Kopy in user-facing documentation and UI copy.
-- Kata projects match repository names (`the_engineer`, `the_librarian`,
-  `the_knowitall`). Checkout directory (`~/kenn-kopy`) and systemd unit prefix
+- Kata projects match repository names (`the_engineer`, `the_librarian`).
+  Checkout directory (`~/kenn-kopy`) and systemd unit prefix
   (`kenn-kopy-*`) remain stable until the scheduled runtime/identifier
   migration (`eb48`).
 
@@ -36,7 +37,7 @@ cross-repository seam scanner when code context crosses repository boundaries.
 - `scripts/backup_workspace.py`: builds and verifies reproducible tar.zst
   backups of workspace repos, SQLite databases, and local environment state.
 - `dist/`: self-contained host bundle (`install.sh` / `install.py`) for
-  reproducing the 3-product workspace on another Linux/WSL machine.
+  reproducing the Librarian + Engineer workspace on another Linux/WSL machine.
 - `forge/`, `kata/`, `roborev/`, `agentsview/`, `superpowers/`: upstream source
   submodules (pinned commits; keep upstream checkouts clean unless maintaining
   an explicit tracked fork/build).

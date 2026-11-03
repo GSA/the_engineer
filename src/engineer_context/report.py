@@ -26,10 +26,7 @@ def render_report(packet,validation=None):
                 rest={k:v for k,v in piece.items() if k not in ('locator','path','line_start','line_end','source_hash','text','reasons','source_location')}
                 if rest: lines.append(f"  Provenance: {json.dumps(rest,sort_keys=True,ensure_ascii=False)}")
                 lines.extend([f"  Qualifications: {json.dumps(piece.get('reasons',[]))}",piece['text']])
-    for index,entry in enumerate(packet['code']):
-        lines.append(f"Code {index}: {json.dumps(entry['response'],sort_keys=True,ensure_ascii=False)}")
-    lines += [f"Associations (presentation only): {json.dumps(packet['associations'],sort_keys=True)}",
-              f"Capabilities: {json.dumps(packet['capabilities'],sort_keys=True)}",
+    lines += [f"Capabilities: {json.dumps(packet['capabilities'],sort_keys=True)}",
               f"Scope issues: {json.dumps(packet['issues'],sort_keys=True)}"]
     if validation is not None: lines.append('Point-in-time revalidation: '+json.dumps(validation,sort_keys=True))
     return '\n'.join(lines)

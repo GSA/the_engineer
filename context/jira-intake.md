@@ -64,7 +64,7 @@ assumptions live beside them.
 ## Grounding and launch
 
 - Ground each task with qualified Librarian (`falcon-context`) references in
-  `grounding`, and collect an `engineer.task-context/v1` packet before acting
+  `grounding`, and collect an `engineer.task-context/v2` packet before acting
   (see `engineering-workflow.md`).
 - A person launches each recorded task from **Forge > Workspaces > New
   workspace**; the intake creates tasks only.

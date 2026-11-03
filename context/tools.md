@@ -127,7 +127,7 @@ adversarial pairing via `--review-model`:
   configured `usai.json` coder `model` or `review_model` and validates opposite
   Claude/OpenAI model families in `validate_roborev_config()`.
 - Per-repository `.roborev.toml` (installed in `kenn-kopy`, `the_librarian`,
-  `the_knowitall`, `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
+  `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
   - `agent = "pi"`, `review_reasoning = "standard"`
   - `review_min_severity = "medium"`, `refine_min_severity = "medium"`, `fix_min_severity = "medium"`
   - `post_commit_batch_size = 5`
@@ -145,80 +145,39 @@ adversarial pairing via `--review-model`:
   - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, share the bounded delivery review policy in `context/engineering-workflow.md`, format PR descriptions via `gemini-4-argon`, and register PR/Kata targets with Forge. The review/fix allowance survives skill transitions, reloads, and resumes; unresolved task-scoped medium/high/critical defects pause publication for owner handoff. Coder, finishing and formatter prompts share content-led guidance: no size tiers or paragraph/bullet quotas, concise prose for focused changes, optional lists/sections for independent concerns, and retained task references and actionable caveats.
   - Seeds `.local/environment/home/.gitconfig` and `.config/git/ignore`, and exposes `jq` (`.local/tools/jq-1.7.1/bin`) and shared Python test dependencies (`.local/tools/pydeps`) on `PATH`/`PYTHONPATH`.
 
-## Task-bound evidence consumer
+## Task-bound evidence consumer and seam scanner
 
 `engineer-task-context` (`src/engineer_context/`, CLI `engineer-context`, stdio
-MCP `engineer-context-mcp`) composes `engineer.task-context/v1` packets from the
-Librarian MCP server and the owning Knowitall `knowitall.code-context/v1`
-provider. Routing is explicit per `engineer.context-config/v1`; the consumer
-never discovers providers, writes provider state, or mutates a task.
+MCP `engineer-context-mcp`) composes `engineer.task-context/v2` packets from the
+Librarian MCP server, routed explicitly per `engineer.context-config/v2`. The
+consumer never discovers providers, writes provider state, or mutates a task.
+The same package ships the stdlib-only cross-repository seam scanner
+(`src/engineer_context/seams.py`, CLI `engineer-seams` / `engineer-context
+seams`, MCP tool `seams`) for UI, API Gateway, CDK, Lambda, async and
+CloudFormation edges across repositories.
 
-Provider facts to respect when extending it: Librarian identity is
-`the-librarian` 0.3.0, requires fresh `status` and returns exactly one JSON
-`TextContent`; `search` is discovery only. Knowitall is
-`knowitall-code-context` 0.1.0 over `PublicationStore`, with `resolve_current`
-pinned once per packet and exact selectors for follow-ups. Librarian exposes no
-project UID or generation token, so configured business identity stays distinct
-from provider-asserted code identity, and associations never exceed
-`unasserted`. Assertions and contributions remain unavailable pending
+Librarian facts to respect when extending it: identity is `the-librarian`
+0.3.0, it requires fresh `status` and returns exactly one JSON `TextContent`;
+`search` is discovery only. Librarian exposes no project UID or generation
+token, so configured business identity stays distinct from provider-asserted
+identity. Assertions and contributions remain unavailable pending
 `the_librarian#923h` and `the_librarian#rjr5`; do not invent those contracts.
 
-Interpreter and server program paths in the configuration are absolutized
-lexically rather than resolved, because dereferencing a virtual environment's
-`bin/python` changes the child's prefix and breaks the Knowitall bridge. Corpus,
-store, reader and selection paths are still fully resolved. They are treated as
-paths only, so spaces are allowed and no launch goes through a shell. The
-Librarian launch sends `--root` and, when selected, `--manifest`; the current
-toolkit loads its reader from `tools.context_index` under that root and rejects
-`--reader`, so `librarian.reader` and `setup --librarian-reader` stay optional
-and exist only for a legacy release that requires that argument. The provider
-advertises the same `the-librarian` 0.3.0 identity under both contracts, so an
-identity check cannot distinguish them.
-`src/engineer_context/bridge.py` is executed by path on the provider
-interpreter and imports nothing from `engineer_context`, so Engineer and
-Knowitall can live in separate private environments; its fixed `REASONS`
-vocabulary diagnoses a missing provider package, unpublished store, rejected
-request, invalid response or exceeded budget without echoing provider text.
-Because each exchange is a fresh process, the bridge passes the owning
-`QueryService` a store-bound `continuation_secret` derived from the resolved
-store path; a random per-process key would reject every page token the previous
-response issued, and the token only selects an offset inside a binding the
-holder can already query. A continuation token is bound to the whole selector
-that issued it, so collection and revalidation replay a paged request unchanged
-and verify generation identity separately: revalidation uses a pinned probe,
-and collection compares the resolved identity with the pinned generation after
-the response. Collection otherwise pins the first `current` resolution onto
-later `current` queries, skipping every page of a supplied chain, including its
-first page: repinning one page would make the provider issue different tokens
-and break the chain.
-
-A page is partial evidence by itself, so readiness requires the packet to hold
-the whole page chain for that query and generation: every carried token must
-match a page in the packet, and every issued token must have its successor
-there too. Missing neighbours are reported as absent pages rather than treated
-as a complete observation. Pagination therefore no longer blocks an individual
-page during revalidation, where the digest comparison already proves the page
-is unchanged. When a provider refuses a cursor during revalidation, the held
-request was accepted at collection, so this is changed provider state and the
-check is reported as stale rather than raised as caller input.
-
-The consumer also checks a code request against the owning request shape
-(required fields, selector variant, query kind, enumerations, relationship
-lists, repository-relative paths and one-based positions) before any provider
-exchange, so an unreachable provider cannot turn caller input into an
-availability gap. A contract rejection is likewise caller input: the bridge
-translates the owning `invalid_request` status, which also answers a cursor
-whose binding changed, into `request-invalid`, which surfaces as
-`InvalidCodeRequest` and exits 1 rather than appearing as a scoped provider
-gap. The owning validator in the bridge remains authoritative.
+The server program path in the configuration is absolutized lexically rather
+than resolved, because dereferencing a virtual environment's entry point
+changes the child's prefix. Corpus, reader and selection paths are fully
+resolved. They are treated as paths only, so spaces are allowed and no launch
+goes through a shell. The Librarian launch sends `--root` and, when selected,
+`--manifest`; the current toolkit loads its reader from `tools.context_index`
+under that root and rejects `--reader`, so `librarian.reader` and `setup
+--librarian-reader` stay optional and exist only for a legacy release that
+requires that argument.
 
 Actual-provider verification lives in `tests/integration/` and fails rather
-than skips when `ENGINEER_LIBRARIAN_SOURCE`, `ENGINEER_KNOWITALL_SOURCE` or
-`KNOWITALL_GRAPHIFY_RUNTIME` is absent. Fixtures are built only through owning
-supported APIs: Librarian `package.release_paths` plus `tools/initialize.py`,
-and Knowitall `create_snapshot`/`extract_generation`/`PublicationStore`. Use the
-pinned offline Graphify runtime (`graphifyy==0.9.96`) and non-identifying
-fixtures only; never point tests at the Falcon corpus or a production index.
+than skips when `ENGINEER_LIBRARIAN_SOURCE` is absent. Fixtures are built only
+through the owning Librarian `package.release_paths` plus `tools/initialize.py`
+with non-identifying content; never point tests at the Falcon corpus or a
+production index.
 
 `scripts/verify-context-runtime.mjs` proves actual Pi discovery and a qualified
 read with zero model requests. Pi SDK facts it depends on: passing `tools: []`
@@ -251,7 +210,7 @@ evidence.
 - Task-bound evidence consumer (private venv with `engineer-task-context` installed):
   ```sh
   python -m unittest discover -s tests -p 'test_context_*.py'
-  PYTHONPATH=tests/integration python -m unittest test_context_real_providers
+  ENGINEER_LIBRARIAN_SOURCE=~/the_librarian PYTHONPATH=tests/integration python -m unittest test_context_real_providers
   ```
 - Local Forge binary (`.local/forge-local-kata`, keeps `forge/` submodule clean):
   ```sh

@@ -102,17 +102,18 @@ TDD, design, planning and verification discipline.
 
 ## Task-bound evidence before acting
 
-Before acting on a task that depends on business requirements and code, collect
-one `engineer.task-context/v1` packet with `engineer-context collect` and read
+Before acting on a task that depends on business requirements, collect
+one `engineer.task-context/v2` packet with `engineer-context collect` and read
 its report. Treat the packet as an observation, not authorization: a ready
 packet records that required evidence was present at observation time, not that
 an assertion, review or approval exists.
 
 Recheck with `engineer-context revalidate` immediately before acting, and stop
-when it reports blocked. A corrected source passage or a newer published code
-generation must block, because a historical packet is never rewritten to follow
-current provider state. Required missing or partial scope, including
-pagination, blocks readiness; optional gaps are reported but do not.
+when it reports blocked. A corrected source passage or a changed Librarian
+binding must block, because a historical packet is never rewritten to follow
+current provider state. Required missing scope blocks readiness; optional gaps
+are reported but do not. When the change crosses repository boundaries, locate
+the affected edges with `engineer-context seams` before editing.
 
 Packets and revalidation receipts can carry restricted source text and exact
 code locations. Keep them in private paths such as ignored `.local/`, never in
@@ -136,8 +137,8 @@ authorization.
 - **Kata (`http://127.0.0.1:17777/kata`)** is the authoritative task tracker.
 - **Forge (`http://127.0.0.1:18091/`)** maps local repositories to Kata project
   keys via **Settings > Kata mappings** (`local` connection: `engi-platform` ->
-  `GSA/the_engineer`, `librarian` -> `GSA/the_librarian`, `knowitall` ->
-  `GSA/the_knowitall`, `spud` -> `GSA/aos-spud`).
+  `GSA/the_engineer`, `librarian` -> `GSA/the_librarian`, `spud` ->
+  `GSA/aos-spud`).
 - Picking up a Kata task in **Forge > Workspaces > New workspace** creates an
   isolated Git worktree and seeds the initial agent prompt with the Kata issue
   ID, title, and description. Status transitions (`claim`, `close`) remain

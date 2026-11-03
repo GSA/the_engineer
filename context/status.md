@@ -2,8 +2,8 @@
 
 ## MVP readiness and task completion
 
-The connected MVP is Librarian plus Engineer, using the delivered cross-repo
-seam scanner (`z6jw`) where needed. Knowitall is retired from this milestone.
+The connected MVP is Librarian plus Engineer, using Engineer's cross-repo
+seam scanner (`z6jw`) where needed. Knowitall is archived (`wg6t`).
 The priority is measurable value through the configured USAi model roles,
 with qualified evidence and accountable human decisions:
 
@@ -52,11 +52,10 @@ or reconciliation service is installed.
   - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.74.0-23-gd53ecfca`)
   - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.46.1-84-gc7f77ad0`)
   - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.5.1-118-gbf025d22-local-kata`)
-- Registered Forge repositories and projects (`Engineer`, `Librarian`,
-  `Knowitall`, `SPUD`, `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
-  all 4 primary projects (`Engineer`, `Librarian`, `Knowitall`, `SPUD`) are
-  linked to their GitHub `platform_identity` and Kata project mappings
-  (`the_engineer`, `the_librarian`, `the_knowitall`, `spud`).
+- Registered Forge repositories: `gsa/the_engineer`, `gsa/the_librarian`,
+  `gsa/aos-spud` and `gsa/supply-chain-user-interface`, each mapped to its Kata
+  project (`the_engineer`, `the_librarian`, `spud`,
+  `supply-chain-user-interface`).
 - Active USAi paired coder/reviewer models in `.local/environment/usai.json`,
   `.local/environment/pi/settings.json`, and `.local/environment/roborev/config.toml`:
   coder = `claude-sonnet-5.5` (with `pi-argon` / `gemini-4-argon` also enabled as a
@@ -69,6 +68,17 @@ or reconciliation service is installed.
   across all USAi model definitions.
 
 ## Recent completed milestones
+
+- **Knowitall archived; seam scanner retained (`wg6t`)**:
+  - Removed the Knowitall code provider (`knowitall.py`, `bridge.py`, code
+    queries, paging and associations) from `engineer-task-context` 0.2.0.
+    Contracts are now `engineer.task-context/v2` and
+    `engineer.context-config/v2` (Librarian only); v1 packets and configs are
+    rejected. The stdlib-only seam scanner (`seams.py`) is unchanged.
+  - Unregistered `gsa/the_knowitall` and its stale Kata mapping from live
+    Forge; `GSA/the_knowitall` stays archived on GitHub.
+  - Verified with 42 consumer tests, 2 actual-Librarian integration tests,
+    264 script tests and a live `engineer-context seams` scan of `~/falcon`.
 
 - **Bounded roborev delivery policy (`n3qc`)**:
   - Tracked coder and Forge guidance reuse unchanged-code evidence, allow one
@@ -176,7 +186,8 @@ or reconciliation service is installed.
     `kenn_forge_list_workspace_targets` call, and a clean GitHub sync. Forge's
     hot spares were re-prepared at the rewritten `origin/HEAD` commits.
 
-- **Task-bound business and code evidence consumer (`k4mp`)**:
+- **Task-bound business and code evidence consumer (`k4mp`)** (code provider
+  path since removed by `wg6t`):
   - Added `engineer-task-context` (`src/engineer_context/`, CLI
     `engineer-context`, stdio MCP `engineer-context-mcp`), which composes
     `engineer.task-context/v1` packets from the configured Librarian corpus and
