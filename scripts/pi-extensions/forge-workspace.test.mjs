@@ -520,3 +520,51 @@ test("workspace policy states the enforced review budget and original-finding sc
     expect(policy).toContain("only the findings recorded in the first review");
     expect(policy).toContain("`roborev review <sha>`");
 });
+
+test("a failing review that exits nonzero is still screened and recorded", async () => {
+    const h = load();
+    const failing = (command, text) => h.tool_result({
+        toolName: "bash", toolCallId: "c1", isError: true, input: { command },
+        content: [{ type: "text", text: `Enqueued job 5 for abc\n${text}\n\nCommand exited with code 1` }],
+    }, makeCtx({ mode: "print" }));
+    await call(h, "roborev review --branch --wait");
+    await failing("roborev review --branch --wait", ORIGINAL);
+    await call(h, "roborev review abc123 --wait");
+    const out = await failing("roborev review abc123 --wait", finding(1, "High", "src/other.ts", "The exporter drops trailing rows."));
+    expect(out.content.map((part) => part.text).join("\n")).toContain("outside the original findings");
+});
+
+test("single-argument and --sha ranges count as branch reviews", async () => {
+    for (const range of ["roborev review main..HEAD", "roborev review --sha main...HEAD", "roborev review --sha=main..HEAD"]) {
+        execFileSync("git", ["-C", cwd, "symbolic-ref", "HEAD", `refs/heads/b-${range.length}`]);
+        const h = load();
+        expect(await call(h, range)).toBeUndefined();
+        expect((await call(h, range)).block).toBe(true);
+    }
+});
+
+test("a fix review enqueued without --wait is screened when its job is shown", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    await result(h, "roborev review --branch", "Enqueued job 10 for abc..def");
+    await result(h, "roborev show 10", ORIGINAL);
+    await call(h, "roborev review abc123");
+    await result(h, "roborev review abc123", "Enqueued job 11 for abc123");
+    const out = await result(h, "roborev show --job 11", finding(1, "High", "src/other.ts", "The exporter drops trailing rows."));
+    const text = out.content.map((part) => part.text).join("\n");
+    expect(text).toContain("outside the original findings");
+    const event = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(event, makeCtx());
+    expect(event.systemPromptOptions.sections.forge_workspace).toContain("Stop and assess whether you are in a review loop");
+});
+
+test("showing the original branch job again does not replace its recorded findings", async () => {
+    const h = load();
+    await call(h, "roborev review --branch");
+    await result(h, "roborev review --branch", "Enqueued job 10 for abc..def");
+    await result(h, "roborev show 10", ORIGINAL);
+    await result(h, "roborev show 10", finding(1, "Medium", "src/else.ts", "A different problem entirely."));
+    await call(h, "roborev review abc123 --wait");
+    const out = await result(h, "roborev review abc123 --wait", finding(1, "Medium", "src/widget.ts", "The widget cache never invalidates when the store format changes."));
+    expect(out.content.map((part) => part.text).join("\n")).toContain("recurring");
+});

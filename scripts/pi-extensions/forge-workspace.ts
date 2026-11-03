@@ -405,10 +405,16 @@ export function roborevInvocations(command: string, depth = 0): RoborevKind[] {
 		for (let j = 0; j < args.length; j++) {
 			const arg = args[j];
 			if (arg === "--branch" || arg.startsWith("--branch=") || arg === "--since" || arg.startsWith("--since=")) branch = true;
+			// A two- or three-dot ref (positional or --sha) names a range.
+			if (arg.startsWith("--sha=") && arg.includes("..")) branch = true;
 			if (arg.startsWith("-")) {
-				if (ROBOREV_VALUE_FLAGS.has(arg)) j++;
+				if (ROBOREV_VALUE_FLAGS.has(arg)) {
+					j++;
+					if (arg === "--sha" && args[j]?.includes("..")) branch = true;
+				}
 			} else {
 				positional.push(arg);
+				if (arg.includes("..")) branch = true;
 			}
 		}
 		if (sub === "refine") kinds.push("loop");
@@ -420,8 +426,22 @@ export function roborevInvocations(command: string, depth = 0): RoborevKind[] {
 }
 
 type ReviewFinding = { severity: string; path: string; problem: string };
+// Job ID shown by `roborev show [--job] <id>`, or 0.
+function showJobId(command: string): number {
+	for (const words of shellCommands(command)) {
+		const [program = "", sub = "", ...rest] = programWords(words);
+		if (/(^|\/)roborev$/.test(program) && sub === "show") {
+			const id = rest.find((arg) => /^\d+$/.test(arg));
+			return id ? Number(id) : 0;
+		}
+	}
+	return 0;
+}
+
 type ReviewBudget = {
 	branchReviews: number;
+	branchJob: number;
+	fixJobs: number[];
 	originalsRecorded: boolean;
 	originals: ReviewFinding[];
 	escalation: string;
@@ -457,7 +477,7 @@ function sameFinding(a: ReviewFinding, b: ReviewFinding): boolean {
 }
 
 function emptyBudget(): ReviewBudget {
-	return { branchReviews: 0, originalsRecorded: false, originals: [], escalation: "", ownerFindings: [] };
+	return { branchReviews: 0, branchJob: 0, fixJobs: [], originalsRecorded: false, originals: [], escalation: "", ownerFindings: [] };
 }
 
 // Budget state lives in the worktree's git directory, keyed by branch, so it
@@ -814,25 +834,35 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	}
 
 	// Record the first review's findings; screen fix-commit reviews against them.
+	// Output is processed even when bash reports a nonzero exit, because a
+	// completed failing review exits 1.
 	function screenReviewResult(command: string, text: string, cwd: string): string | null {
-		if (!isReviewText(text)) {
-			return null;
-		}
 		const kinds = roborevInvocations(command);
-		const budget = budgets.read(cwd);
-		const found = parseReviewFindings(text).filter(actionable);
-		const isShow = /(^|[\s/;&|])roborev\s+show\b/.test(command);
-		if (budget.branchReviews < 1) {
+		const wide = kinds.includes("branch");
+		const narrow = kinds.includes("narrow") && !wide;
+		const enqueued = Number(text.match(/Enqueued job (\d+)/)?.[1] ?? 0);
+		let budget = budgets.read(cwd);
+		if (enqueued && budget.branchReviews >= 1) {
+			budget = budgets.write(cwd, (state) => {
+				if (wide && !state.branchJob) state.branchJob = enqueued;
+				else if (narrow && !state.fixJobs.includes(enqueued)) state.fixJobs.push(enqueued);
+			});
+		}
+		if (!isReviewText(text) || budget.branchReviews < 1) {
 			return null;
 		}
-		if (!budget.originalsRecorded && (kinds.includes("branch") || isShow)) {
+		const shown = showJobId(command);
+		const found = parseReviewFindings(text).filter(actionable);
+		const isFixReview = narrow || (shown > 0 && budget.fixJobs.includes(shown));
+		if (!budget.originalsRecorded && !isFixReview && (wide || shown > 0)) {
 			budgets.write(cwd, (state) => {
 				state.originalsRecorded = true;
 				state.originals = found;
 			});
 			return null;
 		}
-		if (!budget.originalsRecorded || !kinds.includes("narrow") || kinds.includes("branch") || found.length === 0 || isShow) {
+		const fixShown = shown > 0 ? budget.fixJobs.includes(shown) : true;
+		if (!budget.originalsRecorded || !isFixReview || !fixShown || found.length === 0) {
 			return null;
 		}
 		const recurring = found.filter((item) => budget.originals.some((original) => sameFinding(item, original)));
@@ -941,7 +971,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	});
 
 	pi.on("tool_result", async (event: any, ctx: any) => {
-		if (event?.toolName === "bash" && typeof event?.input?.command === "string" && !event?.isError) {
+		if (event?.toolName === "bash" && typeof event?.input?.command === "string") {
 			const note = screenReviewResult(event.input.command, extractResultText(event), ctx.cwd);
 			if (note) {
 				return { content: [...(Array.isArray(event.content) ? event.content : []), { type: "text", text: note }] };
