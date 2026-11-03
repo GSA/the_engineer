@@ -20,9 +20,13 @@
   pull request (`gh pr create` / `gh pr edit`), and registering the PR and any
   worked GitHub/Kata items in Forge via `kenn_forge_add_workspace_target` and
   `kenn_forge_add_workspace_kata_target` (confirming with
-  `kenn_forge_list_workspace_targets`). Outside a Forge workspace, commit
-  completed work locally and require explicit owner approval before pushing or
-  amending commits; keep credentials and private assets out of Git.
+  `kenn_forge_list_workspace_targets`). This delivery flow is pre-authorized in
+  a workspace: do it without asking. Never push to, or offer to push to,
+  `main`; never merge a PR. Deliver through a branch and pull request, and leave
+  merging to the owner. Outside a Forge workspace, commit completed work
+  locally and require explicit owner approval before pushing or amending
+  commits; when approved, push a feature branch and open a PR rather than
+  pushing `main`. Keep credentials and private assets out of Git.
 - Keep temporary specs/plans, including planning-skill output, in ignored
   `.local/plans/` or Kata. Before delivery, document shipped user-facing usage
   in `README.md` and reusable agent-facing usage in `context/`, then remove

@@ -38,8 +38,9 @@ https://github.com/kenn-io/constitution).
   `context/`, then remove task-generated plans and confirm with
   `python3 scripts/workflow-gates.py check-plans --repo . --base origin/main`
   where that script exists.
-- Leave every merge and push to `main` to a human. In a Forge workspace, the
-  `forge_workspace` policy defines delivery; elsewhere, push or open a PR when
+- Leave every merge and push to `main` to a human; never ask to push `main`,
+  open a PR instead. In a Forge workspace, the `forge_workspace` policy defines
+  delivery without asking; elsewhere, push a feature branch or open a PR when
   the owner asks.
 - Mid-plan subagents commit locally and return control to the parent, which
   finishes the branch.
