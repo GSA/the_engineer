@@ -68,6 +68,14 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   authentication.
 - `scripts/jira-intake.py`: manual one-ticket Jira XML export to approved Kata
   tasks (`init`, `check`, `record --apply`); contract in `context/jira-intake.md`.
+- `local_env.py configure-librarian --audit [--copilot-config PATH]`: opt-in
+  `--audit-log`/`--agent-label` flags (`pi-forge`, `copilot`) after probing
+  `librarian-mcp --help`; unmanaged bindings are reported, not edited. Flags
+  apply when a client restarts its MCP process; `scripts/verify-audit-binding.mjs`
+  checks a fresh Pi client against the audit log.
+- `scripts/decision-trail.py`: read-only per-task retrospective into
+  `.local/decision-trail/` joining Kata, intake approval, audit log, Forge
+  workspace, Pi session, git, roborev and `gh`; absent links print `MISSING`.
 - `python3 scripts/demo-capture.py`: private screenshot/video demos of
   loopback web UIs (`capture`, `import`, `handoff`, `cleanup`, `doctor`,
   `smoke`) into ignored `.local/demos/` with a provenance manifest; never

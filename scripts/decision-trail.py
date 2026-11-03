@@ -44,6 +44,8 @@ GAPS = {
     "human-decision": "no human merge or review decision recorded",
     "pr": "no pull request",
     "pr-head-reviewed": "no finished review covers the pull request head commit",
+    "review": "no finished roborev job covers this commit",
+    "disposition": "failing review with no recorded comment and not closed",
     "qualifier-model": "Librarian qualifier model is not captured by any supplied source",
 }
 
@@ -210,7 +212,7 @@ def build(spec, sources):
     jobs = [job for job in sources.review_jobs(spec["repo"]) if job.get("status") == "done"]
     reviews, report["commits"] = [], []
     for commit in commits:
-        covering = [job for job in jobs if ref_end(job) == commit["sha"]]
+        covering = [job for job in jobs if commit["sha"] in sources.covered(spec["repo"], job)]
         if not covering:
             gap(f"review:{short(commit['sha'])}")
         report["commits"].append({**commit, "reviews": [job["id"] for job in covering]})
@@ -320,7 +322,7 @@ def render(report):
         reviewed = ", ".join(f"job {job}" for job in commit["reviews"]) or f"MISSING review:{short(commit['sha'])}"
         out.append(f"- {short(commit['sha'])} {commit.get('date')} {commit.get('subject')} -> {reviewed}")
     for review in report["reviews"]:
-        out.append(f"- Review {review['job']} on {short(review['commit'])}: verdict {review['verdict']}, "
+        out.append(f"- Review {review['job']} ending at {short(review['commit'])}: verdict {review['verdict']}, "
                    f"{len(review['findings'])} finding(s), closed={review['closed']}")
         for finding in review["findings"]:
             out.append(f"  - {finding.get('severity')} {finding.get('location')}: {clip(finding.get('problem'))}")
@@ -387,6 +389,15 @@ class LiveSources:
 
     def review_jobs(self, repo):
         return json.loads(self.run(["roborev", "list", "--json", "--all-branches", "--limit", "500"], cwd=repo))
+
+    def covered(self, repo, job):
+        """Commits a review job examined: its whole range, or just the one commit."""
+        ref = str(job.get("git_ref", ""))
+        spec = ref if ".." in ref else f"{ref}^!"
+        try:
+            return set(self.run(["git", "-C", repo, "rev-list", spec]).split())
+        except subprocess.SubprocessError:
+            return {ref_end(job)}
 
     def review_findings(self, job):
         shown = json.loads(self.run(["roborev", "show", "--json", "--job", str(job)]))

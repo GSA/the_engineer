@@ -33,6 +33,9 @@ def audit_record(tool, outcome="ok", when="2026-11-02T10:00:05+00:00", label="pi
             "references": {"locators": ["documents/a.md#x"], "source_hashes": ["h1"], "record_ids": []}, **extra}
 
 
+ref_end = lambda job: job['git_ref'].split('..')[-1]
+
+
 class FakeSources:
     def __init__(self, **overrides):
         self.data = {
@@ -62,6 +65,9 @@ class FakeSources:
     def review_findings(self, job): return self.data["findings"].get(job, [])
     def review_responses(self, job): return self.data["comments"].get(job, [])
     def pull_request(self, ref): return self.data["pr"]
+    def covered(self, repo, job):
+        return set(self.data.get("covered", {}).get(job["id"], {ref_end(job)}))
+
     def workspace(self, workspace_id):
         return self.data.get("workspace", {"qualified_id": "proj#ab12", "session_ids": ["sess-1"]})
 
@@ -165,6 +171,10 @@ class DecisionTrailTests(unittest.TestCase):
         self.assertIn(f"review:{HEAD[:12]}", report["gaps"])
         self.assertIn("pr-head-reviewed", report["gaps"])
         self.assertNotIn(f"review:{FIRST[:12]}", report["gaps"])
+
+    def test_range_review_covers_every_commit_it_examined(self):
+        report = self.build(sources=FakeSources(covered={7: {FIRST, HEAD}}))
+        self.assertNotIn(f"review:{HEAD[:12]}", report["gaps"])
 
     def test_failed_review_without_disposition_is_a_gap(self):
         report = self.build(sources=FakeSources(comments={}, jobs=[{**FakeSources().data["jobs"][0], "closed": False}]))

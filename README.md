@@ -118,6 +118,45 @@ python3 scripts/local_env.py provision-librarian-mvp \
 that instance. To bind later, run
 `python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-librarian-mvp`.
 
+### Audit bindings and decision trail
+
+`librarian-mcp --audit-log --agent-label LABEL` (the_librarian#9e3j) records
+the full text each client received, with its SHA-256, in a private
+`<root>/.local/audit/<label>-mcp-access.jsonl`. Opt in per binding:
+
+```sh
+python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-librarian --audit \
+  [--copilot-config ~/.copilot/mcp-config.json]
+```
+
+- `--audit` adds the flags to the managed Pi/Forge binding (label `pi-forge`);
+  `--copilot-config PATH` adds a separate Copilot binding (label `copilot`) and
+  preserves other servers in that file. Rerunning is idempotent; omitting
+  `--audit` turns auditing off again.
+- The command refuses, without writing, when the installed `librarian-mcp`
+  lacks either flag (reinstall the adapter from a checkout containing 9e3j).
+- Global or repository bindings it does not own (`~/.copilot/mcp-config.json`
+  without `--copilot-config`, repo `.pi/mcp.json`, `GLOBAL_PI/mcp.json`,
+  `.github/mcp.json`) are listed as unmanaged and never modified.
+- Activation: flags take effect only when a client starts a new
+  `librarian-mcp` process. Restart or `/reload` Pi and restart Copilot, then
+  prove it:
+  `node scripts/verify-audit-binding.mjs <pi cli.js> <STATE>/pi <query> <audit log>`
+  drives a fresh Pi client through status, search, exact get and a failing get
+  and checks that each audit record carries the hash of the payload Pi received.
+  If the log cannot be written the call returns an error and no document text.
+
+`python3 scripts/decision-trail.py --kata PROJECT#ID --repo DIR --commits RANGE
+--pr OWNER/REPO#N --audit-log LOG --session-file FILE --workspace ID
+[--intake DIR] --name NAME` writes a private, read-only retrospective to
+`.local/decision-trail/NAME.md`: approved ticket and revision, what the
+Librarian returned (hashes, locators, qualification), task/workspace/session,
+commits with exact-commit reviews and dispositions, checks, the PR and the
+human decision, model roles and quoted rationale. Absent links print `MISSING`
+and are never inferred; labels do not prove task or session identity (only
+Forge's workspace link and session time overlap do); hidden reasoning is not
+captured; returned text is never copied.
+
 A second WSL2 distro for rehearsals (Layer 2, `the_engineer#t592`) is deferred
 until after the MVP; see [docs/wsl2-rehearsal.md](docs/wsl2-rehearsal.md).
 
