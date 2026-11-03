@@ -334,6 +334,112 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(binding["command"], str(executable))
         self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection)])
 
+    def audit_librarian(self, supported=True):
+        executable, _, selection = self.explicit_librarian()
+        flags = "  --audit-log [AUDIT_LOG]\n  --agent-label AGENT_LABEL\n" if supported else ""
+        executable.write_text(f"#!/bin/sh\ncat <<'EOF'\nusage: librarian-mcp [-h] --root ROOT\n"
+                              f"{flags}  --diagnostics-log DIAGNOSTICS_LOG\nEOF\n")
+        executable.chmod(0o755)
+        return executable, selection, executable.parents[2]
+
+    def pi_binding(self):
+        return json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+
+    def configure_quietly(self, *args, **kwargs):
+        out = io.StringIO()
+        with patch.object(local_env, "unmanaged_binding_candidates", return_value=kwargs.pop("unmanaged", [])), \
+                contextlib.redirect_stdout(out):
+            local_env.configure_librarian(*args, **kwargs)
+        return out.getvalue()
+
+    def test_configure_librarian_audit_adds_private_flags_with_pi_label_and_is_idempotent(self):
+        executable, selection, toolkit = self.audit_librarian()
+        mcp_path = self.state / "pi/mcp.json"
+        mcp = json.loads(mcp_path.read_text())
+        mcp["mcpServers"]["unrelated"] = {"command": "/retained/tool", "args": []}
+        local_env.json_write(mcp_path, mcp, replace=True)
+        output = self.configure_quietly(toolkit, audit=True)
+        self.assertEqual(self.pi_binding()["args"], [
+            "--root", str(toolkit), "--manifest", str(selection),
+            "--audit-log", "--agent-label", "pi-forge"])
+        self.assertEqual(self.pi_binding()["command"], str(executable))
+        self.assertEqual(json.loads(mcp_path.read_text())["mcpServers"]["unrelated"]["command"], "/retained/tool")
+        self.assertIn("Audit: enabled", output)
+        self.assertIn("restart", output)
+        first = mcp_path.read_bytes()
+        self.configure_quietly(toolkit, audit=True)
+        self.assertEqual(mcp_path.read_bytes(), first)
+        self.assertEqual(mcp_path.stat().st_mode & 0o777, 0o600)
+
+    def test_configure_librarian_without_audit_leaves_flags_off_and_says_so(self):
+        _, selection, toolkit = self.audit_librarian()
+        output = self.configure_quietly(toolkit, audit=True)
+        output = self.configure_quietly(toolkit)
+        self.assertNotIn("--audit-log", self.pi_binding()["args"])
+        self.assertIn("Audit: disabled", output)
+
+    def test_configure_librarian_rejects_unsupported_audit_flags_before_any_write(self):
+        _, _, toolkit = self.audit_librarian(supported=False)
+        before = {path: path.read_bytes() for path in (self.state / "pi/mcp.json", self.state / "environment.json")}
+        copilot = self.root / "copilot/mcp.json"
+        with self.assertRaisesRegex(RuntimeError, "--audit-log.*--agent-label.*reinstall"):
+            self.configure_quietly(toolkit, audit=True, copilot_config=copilot)
+        self.assertEqual({path: path.read_bytes() for path in before}, before)
+        self.assertFalse(copilot.exists())
+        # Without --audit the unsupported toolkit still binds, and the output flags the gap.
+        self.assertIn("Audit: unavailable", self.configure_quietly(toolkit))
+
+    def test_configure_librarian_copilot_binding_is_explicit_distinct_and_preserves_other_servers(self):
+        executable, selection, toolkit = self.audit_librarian()
+        copilot = self.root / "copilot/mcp.json"
+        copilot.parent.mkdir()
+        copilot.write_text(json.dumps({"mcpServers": {
+            "other": {"command": "/other", "args": ["x"]},
+            "falcon-context": {"tools": ["status", "get"], "timeout": 60000, "type": "local",
+                               "command": "/old", "args": ["--root", "/old"]}}, "theme": "kept"}))
+        self.configure_quietly(toolkit, audit=True, copilot_config=copilot)
+        saved = json.loads(copilot.read_text())
+        self.assertEqual(saved["theme"], "kept")
+        self.assertEqual(saved["mcpServers"]["other"], {"command": "/other", "args": ["x"]})
+        binding = saved["mcpServers"]["falcon-context"]
+        self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection),
+                                           "--audit-log", "--agent-label", "copilot"])
+        self.assertEqual((binding["command"], binding["tools"], binding["type"], binding["cwd"]),
+                         (str(executable), ["status", "get"], "local", str(toolkit)))
+        self.assertNotEqual(binding["args"][-1], self.pi_binding()["args"][-1])
+        first = copilot.read_bytes()
+        self.configure_quietly(toolkit, audit=True, copilot_config=copilot)
+        self.assertEqual(copilot.read_bytes(), first)
+        self.assertEqual(copilot.stat().st_mode & 0o777, 0o600)
+
+    def test_configure_librarian_reports_unmanaged_bindings_without_modifying_them(self):
+        _, _, toolkit = self.audit_librarian()
+        glob = self.root / "global-copilot.json"
+        repo = self.root / "repo-pi.json"
+        glob.write_text(json.dumps({"mcpServers": {"falcon-context": {
+            "command": "/x/.venv/bin/librarian-mcp", "args": ["--root", "/x"]}}}))
+        repo.write_text(json.dumps({"mcpServers": {"falcon": {
+            "command": "/x/.venv/bin/librarian-mcp",
+            "args": ["--root", "/x", "--audit-log", "--agent-label", "custom"]}, "kata": {"command": "kata"}}}))
+        before = (glob.read_bytes(), repo.read_bytes())
+        output = self.configure_quietly(toolkit, audit=True, unmanaged=[glob, repo, self.root / "absent.json"])
+        self.assertEqual((glob.read_bytes(), repo.read_bytes()), before)
+        self.assertIn(f"Unmanaged binding {glob}: falcon-context has no audit flags; not modified", output)
+        self.assertIn("--audit-log --agent-label", output)
+        self.assertIn(f"Unmanaged binding {repo}: falcon audit label custom; not modified", output)
+        self.assertEqual(output.count("Unmanaged binding"), 2)
+
+    def test_setup_accepts_audited_saved_pi_binding(self):
+        executable, selection, toolkit = self.audit_librarian()
+        with patch.object(local_env, "STATE", self.root / "explicit-environment"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary, executable, None, toolkit, selection)
+            self.configure_quietly(toolkit, audit=True)
+            local_env.setup(self.corpus, self.binary, executable, None, toolkit, selection)
+            saved = json.loads((local_env.STATE / "pi/mcp.json").read_text())
+            self.assertEqual(saved["mcpServers"]["falcon-context"]["args"][-3:],
+                             ["--audit-log", "--agent-label", "pi-forge"])
+
     def test_provision_librarian_mvp_packages_initializes_and_optionally_binds_mcp(self):
         source = self.root / "the_librarian"
         (source / "tools/context_index").mkdir(parents=True)

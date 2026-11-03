@@ -122,6 +122,20 @@ or reconciliation service is installed.
     Constitution/Beck/McKinney/Gill dispositions are in
     `context/engineering-workflow.md#source-guidance-dispositions`.
 
+- **Librarian audit bindings and decision trail (`s27j`)**:
+  - `configure-librarian --audit [--copilot-config PATH]` and
+    `scripts/verify-audit-binding.mjs` are delivered and verified against a
+    synthetic Librarian kit (status/search/get/error hashes match the audit
+    log; a read-only log yields a visible error). The installed
+    `falcon-librarian` adapter predates 9e3j: reinstall it from
+    `~/the_librarian/tools/context-mcp`, run `configure-librarian --audit`, and
+    restart clients before real calls are audited. Global bindings stay
+    untouched.
+  - `scripts/decision-trail.py` reconstructed the closed `the_librarian#9e3j`
+    / PR 14 run privately (human merge, roborev jobs 514-527; missing links:
+    ticket approval, session, workspace, check outcomes, review dispositions).
+    `hk33` supplies the first full trail.
+
 - **Manual Jira-to-Kata intake contract (`99gr`)**:
   - Added `scripts/jira-intake.py` (`init`, `check`, `record [--apply]`) and
     `context/jira-intake.md`. It retains one owner-supplied Jira XML export
