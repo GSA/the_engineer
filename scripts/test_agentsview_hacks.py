@@ -85,7 +85,8 @@ class AgentsviewHackTests(unittest.TestCase):
             (tmp / f"pi/--tmp-x--/s{index}.jsonl").write_text(
                 "\n".join(json.dumps(line) for line in lines) + "\n")
         env = dict(os.environ, HOME=str(tmp / "home"), AGENTSVIEW_DATA_DIR=str(tmp / "data"),
-                   COPILOT_DIR=str(tmp / "copilot"), PI_DIR=str(tmp / "pi"))
+                   COPILOT_DIR=str(tmp / "copilot"), PI_DIR=str(tmp / "pi"),
+                   AGENTSVIEW_NO_DAEMON="1")
         for command in (["source", "sync"],):
             subprocess.run([str(BINARY), *command], env=env, cwd=tmp, check=True,
                            capture_output=True, timeout=120)
