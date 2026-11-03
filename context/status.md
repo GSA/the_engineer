@@ -82,6 +82,19 @@ or reconciliation service is installed.
     then `/reload` in existing Pi sessions. The delivery allowance is agent
     guidance; native background hooks retain their batching behavior.
 
+- **MVP value case (`ef0w`)**:
+  - `context/value-case.md` is a one-page template: labeled estimates, mechanism,
+    checks and falsifiers. Capacity released is separate from cash savings.
+    Private filled copies for `hk33` and `j4v3` are in ignored `.local/value-case/`;
+    baseline hours, loaded rate, pricing approval and the pilot threshold await the owner.
+- **Private demo capture (`86ey`)**:
+  - `scripts/demo-capture.py` captures screenshots and a WebM video of a
+    loopback web UI with headless Playwright Chromium (existing
+    `playwright-core` cache and `.local/tools/playwright-browsers`), or
+    imports a manual capture, into `.local/demos/` with an
+    `engineer.demo-capture/v1` manifest. Handoff prints verified local links;
+    nothing is uploaded. Contract: `context/demo-capture.md`.
+
 - **Content-led PR descriptions (`8gp7`)**:
   - Forge coder, branch-finishing and automatic formatter guidance share one
     policy based on meaningful changes and reviewer needs. File/line-count
@@ -304,7 +317,9 @@ or reconciliation service is installed.
   verification), `p4ke` (fresh-host installer plus read-only
   `local_env.py accept`; container run of `8bfdd6d` passes 12/14 with only
   credentials missing, blocked on publishing the unfetchable `agentsview`
-  pin `c7f77ad0`), `hk33` and `86ey`.
+  pin `c7f77ad0`; the installer now preflights pin fetchability, accepts
+  `--submodule-mirror NAME=URL`, defaults `GOPROXY` to `...|direct` and writes
+  `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
   post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy
   identity/path migration during planned downtime) remain open.

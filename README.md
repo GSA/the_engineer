@@ -280,6 +280,12 @@ Librarian grounding and `jira.*` metadata. A task with
 traceability to an existing Kata task instead of creating one. Launch work on a task from
 **Forge > Workspaces > New workspace**.
 
+## Value case
+
+`context/value-case.md` is a one-page template for the estimated value of a
+run: labeled estimates, the mechanism, quick checks and what would falsify the
+claim. Fill private copies under ignored `.local/value-case/`.
+
 ## USAi key management and rotation
 
 - `set-key` prompts for the key with hidden input. It rejects keys passed as an
@@ -351,6 +357,23 @@ the PR, and registers the PR and Kata task in Forge. In a Kata-task workspace,
 adapter (installed by `install-pi-extensions`) marks it `work.attention ok`
 while Pi runs and `needs-human` ("session ended without hand-off") after
 `/quit` or SIGHUP, keeping any explicit hand-off the agent already set.
+
+## Demo screenshots and video
+
+Agents can show changed behavior to reviewers as screenshots and a short
+video, captured headlessly from a loopback web UI:
+
+```sh
+python3 scripts/demo-capture.py doctor   # check Node, Playwright and browser
+python3 scripts/demo-capture.py capture --task the_engineer#86ey \
+  --demonstrates "What changed" --url http://127.0.0.1:8000/ --step 'click:#save'
+python3 scripts/demo-capture.py handoff .local/demos/<task>/<bundle>
+```
+
+Bundles land in ignored `.local/demos/` with a provenance manifest and are
+never uploaded. Review every frame before sharing; attaching to a PR or issue
+needs your explicit approval. Manual capture, limits, retention and failure
+guidance are in `context/demo-capture.md`.
 
 ## Maintenance
 

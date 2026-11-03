@@ -268,11 +268,42 @@ against a synthetic corpus, then `accept`, and exits with `accept`'s status. Log
 `https://proxy.golang.org|direct` behind a TLS proxy that returns 403 for
 some modules).
 
+Set `SUBMODULE_MIRRORS="agentsview=/path/or/URL"` to supply an owner-approved
+source for a pin that upstream cannot serve (host paths are mounted read-only;
+nothing is published). Each run writes `*.json` (`engineer.acceptance-receipt/v1`:
+revision, elapsed and per-phase seconds, `accept` exit, mirrors) beside the log and
+copies the installer's own receipt out of the container.
+
 On 2026-11-01 revision `8bfdd6d` installed end to end and `accept` passed
 12/14; the two failures are the expected missing USAi key and GitHub login.
 That run fetched the `agentsview` pin `c7f77ad0` from a local mirror, because
 the commit is not published on `kenn-io/agentsview`; a clean host cannot fetch
 it until the pin is published or moved.
+
+### Pin preflight, mirrors and receipts
+
+Before any download or build, `install.py` (including `--check`) probes that
+each pinned repository's gitlink commit is fetchable from its `.gitmodules`
+URL (or a supplied mirror), and otherwise stops with one diagnostic per pin
+naming the repository, commit, source and the owner decision needed. It never
+pushes, publishes, resets or edits `.gitmodules`. After the owner publishes a
+commit (for example `git -C agentsview push APPROVED_REMOTE_URL
+c7f77ad0...:refs/heads/APPROVED_BRANCH`), either move the gitlink or rerun with
+`--submodule-mirror agentsview=APPROVED_REMOTE_URL`; the mirror is applied only
+to that run through git's `url.<mirror>.insteadOf` environment settings.
+
+Source and build steps run with `GOPROXY=https://proxy.golang.org|direct` when
+`GOPROXY` is unset (`proxy,direct` only falls back on 404/410, so a TLS proxy's
+403 for `go.kenn.io` stops the build); an explicit `GOPROXY` is preserved.
+
+Each install writes a private secret-free receipt to
+`.local/install-receipts/install-<UTC>.json` (`engineer.install-receipt/v1`),
+also on failure: UTC start/finish and elapsed seconds, per-phase seconds
+(`pin-preflight`, `sources`, `toolchains`, `build`, ...), hands-on seconds
+(interactive prompt wait), `manual_fixes` from repeatable `--record-fix TEXT`,
+applied defaults such as the GOPROXY value, mirrors, platform revision and pins.
+Operators add other hands-on minutes and workarounds with `--record-fix`
+or in the Kata `ef0w` record; credential steps are timed separately by hand.
 
 ## Maintainer checks
 
