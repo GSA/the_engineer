@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def find_binary():
     explicit = os.environ.get("AGENTSVIEW_BIN")
     if explicit:
-        return Path(explicit)
+        return Path(explicit).expanduser().resolve()
     for base in (ROOT, ROOT.parent):
         candidate = base / "agentsview/agentsview"
         if candidate.is_file():
@@ -130,13 +130,18 @@ class AgentsviewHackTests(unittest.TestCase):
         self.assertEqual(total, 1000, "shutdown totalNanoAiu is authoritative")
 
     def test_checkpoint_never_overrides_per_request_receipts(self):
-        for name, tail in (("receipt only", [CHECKPOINT % 900000000, RECEIPT]),
-                           ("receipt after shutdown", [CHECKPOINT % 900000000, SHUTDOWN, RECEIPT])):
+        # The checkpoint must change nothing: compare with the same session
+        # minus the checkpoint, and require receipt tokens to be priced.
+        for name, tail in (("receipt only", [RECEIPT]),
+                           ("receipt after shutdown", [SHUTDOWN, RECEIPT])):
             with self.subTest(name):
-                total, models = self.usage([START % "cp-rc", USER, *tail])
+                head = [START % "cp-rc", USER]
+                baseline_total, baseline = self.usage([*head, *tail])
+                self.assertGreater(baseline.get("gpt-5.6-sol", 0), 0,
+                                   "receipt usage must be counted and priced")
+                total, models = self.usage([*head, CHECKPOINT % 900000000, *tail])
                 self.assertNotIn("copilot", models, "no synthesized checkpoint row")
-                self.assertNotEqual(total, 9000)
-                self.assertLess(total, 1000, "receipt tokens priced from the catalog")
+                self.assertEqual((total, models), (baseline_total, baseline))
 
 
 if __name__ == "__main__":
