@@ -15,15 +15,15 @@
 - Preserve upstream history, licenses, and local changes. Read a submodule's
   instructions before editing it.
 - In Kenn Forge workspace sessions (`AGENTS.override.md` present or
-  `KENN_FORGE_RUNTIME_SESSION_KEY` set), finish verified work by pushing the
-  workspace branch (`git push -u origin HEAD`), creating or updating a GitHub
-  pull request (`gh pr create` / `gh pr edit`), and registering the PR and any
-  worked GitHub/Kata items in Forge via `kenn_forge_add_workspace_target` and
-  `kenn_forge_add_workspace_kata_target` (confirming with
-  `kenn_forge_list_workspace_targets`). This delivery flow is pre-authorized in
-  a workspace: do it without asking. Never push to, or offer to push to,
-  `main`; never merge a PR. Deliver through a branch and pull request, and leave
-  merging to the owner. Outside a Forge workspace, commit completed work
+  `KENN_FORGE_RUNTIME_SESSION_KEY` set), edit and commit only in the workspace
+  worktree, then push its branch (`git push -u origin HEAD`) and create or
+  update a GitHub pull request (`gh pr create` / `gh pr edit`) without asking;
+  Forge links that PR to the workspace from its branch. Changes another
+  repository needs go on a feature branch and PR there, never on its `main`
+  checkout; register those PRs with `kenn_forge_add_workspace_target`, worked
+  Kata tasks with `kenn_forge_add_workspace_kata_target`, and confirm with
+  `kenn_forge_list_workspace_targets`. Never commit to, push, or offer to push
+  `main`, and never merge a PR; merging is the owner's. Outside a Forge workspace, commit completed work
   locally and require explicit owner approval before pushing or amending
   commits; when approved, push a feature branch and open a PR rather than
   pushing `main`. Keep credentials and private assets out of Git.

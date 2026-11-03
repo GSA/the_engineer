@@ -31,9 +31,10 @@ const FORGE_WORKSPACE_SECTION = [
 	"- Apply the coder contract's bounded roborev delivery policy: reuse evidence for unchanged reviewed code; otherwise run `roborev review --branch --wait --min-severity medium` at most once per delivery, followed by at most one focused, verified fix pass. Do not re-review merely to obtain a passing verdict. Record dispositions with `roborev respond <job>` and close a review only when all actionable findings are fixed or confirmed stale/invalid; leave valid out-of-scope findings open and ask the owner. Hand recurring or unresolved confirmed findings to the owner; pause publication and completion for unresolved task-scoped medium/high/critical defects. Low findings do not block delivery. Reloads, resumes, and skill transitions reuse the same review/fix allowance and recorded evidence.",
 	"- When implementation and verification are complete, do NOT stop to ask whether to merge locally to `main`, keep the branch as-is, or discard work.",
 	"- Always complete the workspace by pushing the workspace branch (`git push -u origin HEAD`) and creating or updating the GitHub pull request (`gh pr create` / `gh pr edit`). This is pre-authorized: do not ask for permission.",
-	"- Never push to, or ask the human whether to push to, `main` or the default branch, and never merge a PR; deliver through the workspace branch and pull request.",
+	"- Make every edit and commit inside this workspace worktree on its branch. If the task needs changes in another repository, create a feature branch there (never commit on its `main` checkout), push it, and open a PR there.",
+	"- Never commit to, push to, or ask the human whether to push to `main` or the default branch, and never merge a PR; deliver through branches and pull requests.",
 	`- ${PR_DESCRIPTION_GUIDANCE} The automatic PR formatter uses the same guidance after \`gh pr create\` / \`gh pr edit\`.`,
-	"- After creating or updating a PR (or working on a GitHub issue or Kata task), register every target with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using `mcp__kenn_forge__kenn_forge_list_repos` if needed to look up `platform_repo_id`), then confirm with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
+	"- Forge links the workspace branch's PR to this workspace automatically. Register PRs in other repositories or extra stacked PRs with `mcp__kenn_forge__kenn_forge_add_workspace_target`, and worked GitHub issues or Kata tasks with it or `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using `mcp__kenn_forge__kenn_forge_list_repos` if needed to look up `platform_repo_id`), then confirm with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 ].join("\n");
 
 const BRAINSTORMING_OVERRIDE = [
@@ -65,7 +66,7 @@ const FINISHING_BRANCH_OVERRIDE = [
 	"Once Step 1 (tests pass) is verified:",
 	"1. Apply the bounded roborev delivery policy, reusing earlier review/fix evidence without restarting the allowance, and remove any temporary `.local/plans/` files. Pause publication for unresolved task-scoped medium/high/critical defects and hand them to the owner rather than repeating review/fix passes.",
 	`2. Automatically execute **Option 2 (Push and Create a Pull Request)**: push the workspace branch (\`git push -u origin HEAD\`) and create or update the pull request (\`gh pr create\` / \`gh pr edit\`). ${PR_DESCRIPTION_GUIDANCE}`,
-	"3. Register the pull request and any worked GitHub issue or Kata task with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using the `Workspace ID` and `Repository` from the Kenn Forge Workspace Context), then verify with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
+	"3. Forge links the workspace branch's PR automatically. Register PRs in other repositories, extra stacked PRs, and any worked GitHub issue or Kata task with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using the `Workspace ID` and `Repository` from the Kenn Forge Workspace Context), then verify with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 	"4. Do not remove the Forge workspace worktree; Forge manages workspace worktree lifecycle.",
 ].join("\n");
 
