@@ -141,7 +141,7 @@ python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-libra
 - Activation: flags take effect only when a client starts a new
   `librarian-mcp` process. Restart or `/reload` Pi and restart Copilot, then
   prove it:
-  `node scripts/verify-audit-binding.mjs <pi cli.js> <STATE>/pi <query> <audit log>`
+  `node scripts/verify-audit-binding.mjs <pi cli.js> <STATE>/pi <query> <audit log> [label]`
   drives a fresh Pi client through status, search, exact get and a failing get
   and checks that each audit record carries the hash of the payload Pi received.
   If the log cannot be written the call returns an error and no document text.

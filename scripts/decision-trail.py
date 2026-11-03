@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOCAL = REPO_ROOT / ".local"
 AUDIT_SCHEMA = "librarian-mcp-audit-v1"
+REVIEW_JOB_TYPES = ("review", "range")
 CALL_ROWS = 200
 QUOTE_CHARS = 600
 GAPS = {
@@ -209,7 +210,8 @@ def build(spec, sources):
     report["models"] = {"coder": session["models"] if session else [], "qualifier": spec.get("qualifier_model")}
 
     commits = sources.commits(spec["repo"], spec["commits"])
-    jobs = [job for job in sources.review_jobs(spec["repo"]) if job.get("status") == "done"]
+    jobs = [job for job in sources.review_jobs(spec["repo"])
+            if job.get("status") == "done" and job.get("job_type") in REVIEW_JOB_TYPES]
     reviews, report["commits"] = [], []
     for commit in commits:
         covering = [job for job in jobs if commit["sha"] in sources.covered(spec["repo"], job)]
@@ -334,7 +336,12 @@ def render(report):
     out += ["", "## 6. Checks, pull request and human decision"]
     pr = report["pr"]
     if pr:
-        out += [f"- PR {pr.get('url')} state {pr.get('state')}, head {short(pr.get('headRefOid'))}",
+        out += [f"- PR {pr.get('url')} state {pr.get('state')}, head {short(pr.get('headRefOid'))}"]
+        for check in pr.get("statusCheckRollup") or []:
+            out.append(f"- Check {check.get('name') or check.get('context')}: "
+                       f"{check.get('conclusion') or check.get('state') or 'none'} "
+                       f"({check.get('status') or 'status unknown'}) {check.get('detailsUrl') or check.get('targetUrl') or ''}".rstrip())
+        out += [
                 f"- Review decision: {pr.get('reviewDecision') or 'none recorded'}; "
                 f"{len(pr.get('reviews') or [])} review(s)"]
     for name in ("pr", "pr-head-reviewed", "check-outcomes"):
@@ -370,6 +377,8 @@ class LiveSources:
 
     def __init__(self, roborev_url, forge_url):
         self.roborev_url, self.forge_url = roborev_url, forge_url
+        # An explicit --server keeps the CLI from discovering or starting a daemon.
+        self.roborev_server = re.sub(r"/api/?$", "", roborev_url)
 
     @staticmethod
     def run(argv, cwd=None):
@@ -388,7 +397,8 @@ class LiveSources:
         return [dict(zip(("sha", "subject", "date"), line.split("\x1f"))) for line in lines]
 
     def review_jobs(self, repo):
-        return json.loads(self.run(["roborev", "list", "--json", "--all-branches", "--limit", "500"], cwd=repo))
+        return json.loads(self.run(["roborev", "list", "--json", "--all-branches", "--limit", "500",
+                                    "--server", self.roborev_server], cwd=repo))
 
     def covered(self, repo, job):
         """Commits a review job examined: its whole range, or just the one commit."""
@@ -400,7 +410,8 @@ class LiveSources:
             return {ref_end(job)}
 
     def review_findings(self, job):
-        shown = json.loads(self.run(["roborev", "show", "--json", "--job", str(job)]))
+        shown = json.loads(self.run(["roborev", "show", "--json", "--job", str(job),
+                                     "--server", self.roborev_server]))
         return (shown.get("structured_output") or {}).get("findings", [])
 
     def review_responses(self, job):

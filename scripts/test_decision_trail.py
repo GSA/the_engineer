@@ -46,7 +46,7 @@ class FakeSources:
                                    "body": "Chose option B because it keeps the contract unchanged."}]},
             "git": [{"sha": FIRST, "subject": "feat: first", "date": "2026-11-02T10:10:00Z"},
                     {"sha": HEAD, "subject": "fix: second", "date": "2026-11-02T10:20:00Z"}],
-            "jobs": [{"id": 7, "git_ref": FIRST, "status": "done", "verdict": "F", "agent": "pi",
+            "jobs": [{"id": 7, "job_type": "range", "git_ref": FIRST, "status": "done", "verdict": "F", "agent": "pi",
                       "model": "reviewer-model", "reasoning": "standard", "closed": True,
                       "finished_at": "2026-11-02T10:15:00Z", "repo_path": "/repo"}],
             "findings": {7: [{"severity": "medium", "location": "x.py:3", "problem": "bad"}]},
@@ -175,6 +175,33 @@ class DecisionTrailTests(unittest.TestCase):
     def test_range_review_covers_every_commit_it_examined(self):
         report = self.build(sources=FakeSources(covered={7: {FIRST, HEAD}}))
         self.assertNotIn(f"review:{HEAD[:12]}", report["gaps"])
+
+    def test_fix_and_task_jobs_are_not_review_evidence(self):
+        jobs = [{**FakeSources().data["jobs"][0], "id": 8, "git_ref": HEAD, "job_type": kind} for kind in ("fix", "task")]
+        pr = {**FakeSources().data["pr"]}
+        report = self.build(sources=FakeSources(jobs=jobs, pr=pr))
+        self.assertIn(f"review:{HEAD[:12]}", report["gaps"])
+        self.assertIn("pr-head-reviewed", report["gaps"])
+
+    def test_check_outcomes_are_rendered_including_failures(self):
+        pr = {**FakeSources().data["pr"], "statusCheckRollup": [
+            {"name": "unit", "conclusion": "SUCCESS", "status": "COMPLETED", "detailsUrl": "https://example.invalid/1"},
+            {"name": "lint", "conclusion": "FAILURE", "status": "COMPLETED"},
+            {"name": "slow", "conclusion": "", "status": "IN_PROGRESS"}]}
+        report = self.build(sources=FakeSources(pr=pr))
+        text = trail.render(report)
+        self.assertNotIn("check-outcomes", report["gaps"])
+        for expected in ("Check unit: SUCCESS", "Check lint: FAILURE", "Check slow: none (IN_PROGRESS)"):
+            self.assertIn(expected, text)
+
+    def test_live_sources_use_one_explicit_roborev_server(self):
+        calls = []
+        live = trail.LiveSources("http://127.0.0.1:17373/api", "http://forge.invalid")
+        live.run = lambda argv, cwd=None: calls.append(argv) or "[]"
+        live.review_jobs("/repo")
+        self.assertEqual(live.roborev_server, "http://127.0.0.1:17373")
+        self.assertIn("--server", calls[0])
+        self.assertEqual(calls[0][calls[0].index("--server") + 1], "http://127.0.0.1:17373")
 
     def test_failed_review_without_disposition_is_a_gap(self):
         report = self.build(sources=FakeSources(comments={}, jobs=[{**FakeSources().data["jobs"][0], "closed": False}]))

@@ -3,17 +3,20 @@
 // AGENT_DIR/mcp.json: status, search, exact get and a failing get. Prints only
 // tool names, error flags, character counts and SHA-256 of what Pi received,
 // so the output can be compared with the Librarian audit log without bodies.
-// With an optional AUDIT_LOG it also requires the last four log records to carry
-// the same tool, outcome and returned SHA-256 (the activation/reload check).
+// With an optional AUDIT_LOG it also requires four NEW records appended by this run
+// (label, tool, outcome and returned SHA-256 matching) - the activation/reload check.
 // usage: node verify-audit-binding.mjs PI_EXECUTABLE AGENT_DIR QUERY [AUDIT_LOG]
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { compareAudit } from "./audit-compare.mjs";
+const auditLines = () => (auditLog && existsSync(auditLog) ? readFileSync(auditLog, "utf8").split("\n").filter(Boolean) : []);
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-if (process.argv.length < 5 || process.argv.length > 6) throw new Error("usage: verify-audit-binding.mjs PI_EXECUTABLE AGENT_DIR QUERY [AUDIT_LOG]");
+if (process.argv.length < 5 || process.argv.length > 7) throw new Error("usage: verify-audit-binding.mjs PI_EXECUTABLE AGENT_DIR QUERY [AUDIT_LOG [LABEL]]");
 const auditLog = process.argv[5];
+const label = process.argv[6] ?? "pi-forge";
 const [piExecutable, agentDir, query] = [resolve(process.argv[2]), resolve(process.argv[3]), process.argv[4]];
 process.env.PI_OFFLINE = "1";
 process.env.PI_CODING_AGENT_DIR = agentDir;
@@ -23,6 +26,7 @@ const {
   createAgentSession, createCodemodeExtension, createMcpExtension,
   createToolSearchExtension, DefaultResourceLoader, SessionManager,
 } = await import(pathToFileURL(join(dirname(piExecutable), "index.js")).href);
+const before = auditLines();
 const resourceLoader = new DefaultResourceLoader({
   cwd: agentDir, agentDir, noContextFiles: true, noSkills: true, noPromptTemplates: true,
   extensionFactories: [createCodemodeExtension(), createToolSearchExtension(), createMcpExtension()],
@@ -52,15 +56,8 @@ try {
   calls.push(await call("get", { locator }));
   calls.push(await call("get", { locator: "documents/does-not-exist.md" }));
   if (auditLog) {
-    const records = readFileSync(auditLog, "utf8").trim().split("\n").slice(-calls.length).map((line) => JSON.parse(line));
-    assert.equal(records.length, calls.length, "audit log is missing records");
-    calls.forEach((call, index) => {
-      const record = records[index];
-      assert.equal(record.tool, call.tool);
-      assert.equal(record.outcome, call.error ? "error" : "ok", `${call.tool} outcome`);
-      assert.equal(record.returned_sha256, call.sha256, `${call.tool} returned hash`);
-    });
-    console.error(`audit log matches ${calls.length} client-received payload hashes`);
+    const added = compareAudit(before, auditLines(), calls, label);
+    console.error(`${added} new audit records match client-received payload hashes`);
   }
   console.log(JSON.stringify(calls.map(({ text, ...summary }) => summary), null, 2));
 } finally {
