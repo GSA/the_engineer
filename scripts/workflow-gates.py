@@ -100,6 +100,8 @@ def _probe_forge_extension(surface: str) -> dict:
             delete process.env.KENN_FORGE_RUNTIME_SESSION_KEY;
             delete process.env.KENN_FORGE_API_URL;
             delete process.env.PI_SUBAGENT_EXTENSION_BINDINGS;
+            delete process.env.PI_SUBAGENT_CHILD;
+            delete process.env.PI_SUBAGENT_RUNNER_PID;
             const fetchCalls = [];
             globalThis.fetch = async (url, init) => {{
               fetchCalls.push(String(url));

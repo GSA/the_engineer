@@ -69,7 +69,11 @@ const FINISHING_BRANCH_OVERRIDE = [
 ].join("\n");
 
 function isSubagentProcess(): boolean {
-	return Boolean(process.env.PI_SUBAGENT_EXTENSION_BINDINGS?.trim());
+	return Boolean(
+		process.env.PI_SUBAGENT_EXTENSION_BINDINGS?.trim() ||
+			process.env.PI_SUBAGENT_CHILD?.trim() ||
+			process.env.PI_SUBAGENT_RUNNER_PID?.trim(),
+	);
 }
 
 function ownForgeTargetKey(): string {
@@ -558,6 +562,26 @@ export default function forgeWorkspaceExtension(pi: any): void {
 
 	// Pi has appended the turn's user message by the first model call.
 	pi.on("context", async (_event: any, ctx: any) => {
+		if (isSubagentProcess() && Array.isArray(_event?.messages)) {
+			const filtered = _event.messages.filter((msg: any) => {
+				const content = msg?.content;
+				if (typeof content === "string") {
+					return !content.includes("superpowers:using-superpowers bootstrap for pi");
+				}
+				if (Array.isArray(content)) {
+					return !content.some(
+						(part: any) =>
+							part?.type === "text" &&
+							typeof part.text === "string" &&
+							part.text.includes("superpowers:using-superpowers bootstrap for pi"),
+					);
+				}
+				return true;
+			});
+			if (filtered.length !== _event.messages.length) {
+				return { messages: filtered };
+			}
+		}
 		if (heldStart || heldPrompts.length > 0) {
 			void reportHook(ctx, null);
 		}

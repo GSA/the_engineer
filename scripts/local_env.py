@@ -61,9 +61,22 @@ CODER_CONTRACT = ROOT / "scripts/pi-coder-contract.md"
 STATE = RUNTIME_ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
 PI_VERSION = "1.4.0"
-PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
+LEGACY_PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
+PI_REVIEW_EXTENSION_PATH = RUNTIME_ROOT / "scripts/pi-extensions/json-schema.ts"
+PI_REVIEW_EXTENSION = str(PI_REVIEW_EXTENSION_PATH)
 PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
-PI_EXTENSIONS = (PI_REVIEW_EXTENSION, PI_SUBAGENTS_EXTENSION)
+PI_EXTENSIONS = (PI_SUBAGENTS_EXTENSION,)
+PI_DISABLED_BUILTIN_SUBAGENTS = (
+    "claude-code",
+    "claude-code-writer",
+    "codex-exec",
+    "codex-exec-writer",
+    "cursor-agent",
+    "cursor-agent-writer",
+    "evidence-auditor",
+    "researcher",
+)
+PI_PASSTHROUGH_SUBCOMMANDS = frozenset({"mcp", "list", "config", "install", "remove", "update"})
 USAI_EMBEDDING_MODELS = frozenset({"cohere_english_v3", "text-embedding-005"})
 ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
 USAI_CHAT_MODELS = (
@@ -342,41 +355,61 @@ def verify_pi(config, *, env=None):
     return executable
 
 
-def default_pi_subagents_settings():
+def default_pi_subagents_settings(*, review_model=None):
+    reviewer_model = f"usai/{normalize_usai_model(review_model)}" if review_model else "inherit"
+    overrides = {
+        name: {
+            "advertise": True,
+            "description": description,
+            "model": reviewer_model if name == "reviewer" else "inherit",
+        }
+        for name, description in PI_SUBAGENT_DESCRIPTIONS.items()
+    }
+    for disabled_name in PI_DISABLED_BUILTIN_SUBAGENTS:
+        overrides[disabled_name] = {
+            "disabled": True,
+            "advertise": False,
+        }
     return {
         "defaultProvider": "usai",
         "defaultModel": "inherit",
+        "toolActivation": "eager",
         "modelScope": {
             "enforce": True,
             "strict": True,
             "allow": ["inherit", "usai/*"],
         },
-        "agentOverrides": {
-            name: {
-                "advertise": True,
-                "description": description,
-                "model": "inherit",
-            }
-            for name, description in PI_SUBAGENT_DESCRIPTIONS.items()
-        },
+        "agentOverrides": overrides,
     }
 
 
-def merge_pi_subagents_settings(existing):
-    defaults = default_pi_subagents_settings()
+def merge_pi_subagents_settings(existing, *, review_model=None):
+    if review_model is None and (STATE / "usai.json").exists():
+        try:
+            review_model = json.loads(private_read(STATE / "usai.json")).get("review_model")
+        except (OSError, ValueError):
+            review_model = None
+    defaults = default_pi_subagents_settings(review_model=review_model)
     if not isinstance(existing, dict):
         return defaults
     merged = {**defaults, **existing}
     scope = existing.get("modelScope")
     merged["modelScope"] = {**defaults["modelScope"], **(scope if isinstance(scope, dict) else {})}
     overrides = existing.get("agentOverrides")
-    merged_overrides = {
-        name: {
-            **default_override,
-            **(overrides.get(name) if isinstance(overrides, dict) and isinstance(overrides.get(name), dict) else {}),
-        }
-        for name, default_override in defaults["agentOverrides"].items()
-    }
+    merged_overrides = {}
+    for name, default_override in defaults["agentOverrides"].items():
+        current = overrides.get(name) if isinstance(overrides, dict) and isinstance(overrides.get(name), dict) else {}
+        combined = {**default_override, **current}
+        if name == "reviewer":
+            existing_model = current.get("model")
+            if review_model:
+                if existing_model in (None, "inherit") or (
+                    isinstance(existing_model, str) and existing_model.startswith("usai/")
+                ):
+                    combined["model"] = defaults["agentOverrides"]["reviewer"]["model"]
+            elif existing_model is None:
+                combined["model"] = "inherit"
+        merged_overrides[name] = combined
     if isinstance(overrides, dict):
         for name, value in overrides.items():
             if name not in merged_overrides and isinstance(value, dict):
@@ -1089,7 +1122,9 @@ def configure_provider(base_url, model, api, *, review_model=None):
     settings_path = STATE / "pi/settings.json"
     pi_settings = json.loads(private_read(settings_path)) if settings_path.exists() else {}
     pi_settings.update({"defaultProvider": "usai", "defaultModel": model})
-    pi_settings["subagents"] = merge_pi_subagents_settings(pi_settings.get("subagents"))
+    pi_settings["subagents"] = merge_pi_subagents_settings(
+        pi_settings.get("subagents"), review_model=review_model,
+    )
     json_write(settings_path, pi_settings, replace=True)
     usai_state = {"model": model}
     if review_model is not None:
@@ -1125,7 +1160,7 @@ def pi_launch(args):
     kata_ref = os.environ.get("KATA_REF", "").strip() or forge_kata_ref(Path.cwd())
     if kata_ref:
         env["KATA_REF"] = kata_ref
-    if args and (args[0] == "mcp" or args == ["--version"] or args == ["--help"]):
+    if args and (args[0] in PI_PASSTHROUGH_SUBCOMMANDS or args == ["--version"] or args == ["--help"]):
         return [executable, *args], env
     requested_model = None
     cleaned_args = []
@@ -1203,15 +1238,21 @@ REVIEW_ISOLATION_FLAGS = ("--no-context-files", "--no-extensions", "--no-skills"
 
 
 def structured_review_args(args):
-    """Isolate a structured review, loading only the installed schema extension."""
-    name = PI_REVIEW_EXTENSION.removeprefix("npm:").rsplit("@", 1)[0]
-    schema_extension = str(STATE / "pi/npm/node_modules" / name)
+    """Isolate a structured review, loading only the local schema extension."""
+    schema_extension = str(PI_REVIEW_EXTENSION_PATH)
+    legacy_npm_path = str(STATE / "pi/npm/node_modules/@nqbao/pi-json-schema")
+    redundant_extensions = {
+        PI_REVIEW_EXTENSION,
+        LEGACY_PI_REVIEW_EXTENSION,
+        schema_extension,
+        legacy_npm_path,
+    }
     kept = []
     index = 0
     while index < len(args):
         arg = args[index]
         if arg in ("--extension", "-e") and index + 1 < len(args) and \
-                args[index + 1] in (PI_REVIEW_EXTENSION, schema_extension):
+                args[index + 1] in redundant_extensions:
             index += 2
             continue
         if arg not in REVIEW_ISOLATION_FLAGS:
@@ -1224,6 +1265,15 @@ def install_pi_extensions():
     executable = verify_pi(settings())
     path = STATE / "pi/settings.json"
     private_read(path)
+    private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
+    private_dir(STATE / "pi/extensions")
+    forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
+    if forge_ext_src.is_file():
+        private_write(
+            STATE / "pi/extensions/forge-workspace.ts",
+            forge_ext_src.read_text(),
+            replace=True,
+        )
     for extension in PI_EXTENSIONS:
         subprocess.run(
             [executable, "install", extension],
@@ -1233,6 +1283,10 @@ def install_pi_extensions():
         if extension not in config.get("packages", []):
             raise RuntimeError(f"Pi did not save {extension} in the isolated profile")
     config = json.loads(private_read(path))
+    if "packages" in config and isinstance(config["packages"], list):
+        config["packages"] = [
+            pkg for pkg in config["packages"] if pkg != LEGACY_PI_REVIEW_EXTENSION
+        ]
     config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
     json_write(path, config, replace=True)
     # Kata's native attention adapter only: AGENTS policy already carries the
@@ -1242,6 +1296,7 @@ def install_pi_extensions():
                     [kata, "agent-hook", "uninstall", "pi", "--contract-only"]):
         subprocess.run(command, cwd=STATE / "home", env=base_environment(), check=True,
                        timeout=60, stdout=subprocess.DEVNULL)
+    private_dir(STATE / "pi/extensions")
     print(f"Installed {', '.join(PI_EXTENSIONS)} and Kata Pi attention in the isolated Pi profile; no model request was made.")
 
 
@@ -1990,6 +2045,8 @@ def accept(home=None, repos=()):
         missing = [name for name in PI_EXTENSIONS if name not in packages]
         if missing:
             raise RuntimeError(f"missing {', '.join(missing)}; run {command} install-pi-extensions")
+        if not PI_REVIEW_EXTENSION_PATH.is_file():
+            raise RuntimeError(f"missing {PI_REVIEW_EXTENSION_PATH}")
 
     def binaries():
         missing = accept_binaries()

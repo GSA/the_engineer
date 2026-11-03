@@ -579,16 +579,17 @@ class LocalEnvironmentTests(unittest.TestCase):
     def test_structured_review_loads_only_the_schema_extension(self):
         self.provider()
         self.key()
-        installed = self.state / "pi/npm/node_modules/@nqbao/pi-json-schema"
-        for prefix in ([], ["--extension", local_env.PI_REVIEW_EXTENSION]):
-            with self.subTest(explicit=bool(prefix)):
+        installed = local_env.PI_REVIEW_EXTENSION_PATH
+        for prefix in ([], ["--extension", local_env.PI_REVIEW_EXTENSION],
+                       ["--extension", local_env.LEGACY_PI_REVIEW_EXTENSION]):
+            with self.subTest(prefix=prefix):
                 command, _ = local_env.pi_launch(
                     ["--mode", "json", *prefix, "--json-schema", "{}", "-p", "--tools", "read"])
                 args = command[5:]
                 for flag in ("--no-context-files", "--no-extensions", "--no-skills",
                              "--no-prompt-templates", "--no-mcp"):
                     self.assertEqual(args.count(flag), 1, flag)
-                self.assertNotIn(local_env.PI_REVIEW_EXTENSION, args)
+                self.assertNotIn(local_env.LEGACY_PI_REVIEW_EXTENSION, args)
                 self.assertEqual(args.count(str(installed)), 1)
                 self.assertEqual(args[args.index(str(installed)) - 1], "--extension")
                 self.assertIn("--json-schema", args)
@@ -646,9 +647,11 @@ class LocalEnvironmentTests(unittest.TestCase):
                       local_env.policy_failures("forge", coder, cwd))
 
     def test_credential_free_mcp_command(self):
-        command, env = local_env.pi_launch(["mcp", "list"])
-        self.assertEqual(command, ["/usr/bin/pi", "mcp", "list"])
-        self.assertNotIn("USAI_API_KEY", env)
+        for subcmd in (["mcp", "list"], ["list"], ["config"]):
+            with self.subTest(subcmd=subcmd):
+                command, env = local_env.pi_launch(subcmd)
+                self.assertEqual(command, ["/usr/bin/pi", *subcmd])
+                self.assertNotIn("USAI_API_KEY", env)
 
     def test_terminal_uses_separate_private_socket_and_native_copilot_home(self):
         with patch.object(local_env.shutil, "which", return_value="/usr/bin/tmux"), \
@@ -769,14 +772,19 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(kata_envs[0]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
         self.assertEqual(saved["theme"], before["theme"])
         self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
+        self.assertNotIn(local_env.LEGACY_PI_REVIEW_EXTENSION, saved["packages"])
         for extension in local_env.PI_EXTENSIONS:
             self.assertEqual(saved["packages"].count(extension), 1)
         self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
         self.assertEqual(saved["subagents"]["defaultModel"], "inherit")
+        self.assertEqual(saved["subagents"]["toolActivation"], "eager")
         self.assertEqual(saved["subagents"]["modelScope"]["allow"], ["inherit", "usai/*"])
         for name in ("delegate", "oracle", "reviewer", "scout", "worker"):
             self.assertEqual(saved["subagents"]["agentOverrides"][name]["model"], "inherit")
             self.assertTrue(saved["subagents"]["agentOverrides"][name]["advertise"])
+        for disabled_name in local_env.PI_DISABLED_BUILTIN_SUBAGENTS:
+            self.assertTrue(saved["subagents"]["agentOverrides"][disabled_name]["disabled"])
+            self.assertFalse(saved["subagents"]["agentOverrides"][disabled_name]["advertise"])
         self.assertEqual(list(self.global_pi.iterdir()), [])
 
     def test_configure_provider_populates_usai_subagent_settings(self):
@@ -788,9 +796,24 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(saved["defaultModel"], "demo-model")
         self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
         self.assertEqual(saved["subagents"]["defaultModel"], "inherit")
+        self.assertEqual(saved["subagents"]["toolActivation"], "eager")
         self.assertEqual(saved["subagents"]["modelScope"]["allow"], ["inherit", "usai/*"])
         for name in ("delegate", "oracle", "reviewer", "scout", "worker"):
             self.assertEqual(saved["subagents"]["agentOverrides"][name]["model"], "inherit")
+        for disabled_name in local_env.PI_DISABLED_BUILTIN_SUBAGENTS:
+            self.assertTrue(saved["subagents"]["agentOverrides"][disabled_name]["disabled"])
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_provider(
+                "https://usai.example.test/v1", "claude-sonnet-5.5", "openai-completions",
+                review_model="gemini-4-argon",
+            )
+        paired = json.loads(path.read_text())
+        self.assertEqual(
+            paired["subagents"]["agentOverrides"]["reviewer"]["model"],
+            "usai/gemini-4-argon",
+        )
+        for name in ("delegate", "oracle", "scout", "worker"):
+            self.assertEqual(paired["subagents"]["agentOverrides"][name]["model"], "inherit")
 
     def test_review_extension_installation_reports_failure_and_wrong_profile(self):
         with patch.object(local_env.subprocess, "run", side_effect=local_env.subprocess.CalledProcessError(

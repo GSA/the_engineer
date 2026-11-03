@@ -12,8 +12,9 @@
 ## Subagents vs. `roborev`
 
 - **Pi `subagent` tool (`pi-subagents`)**:
-  - Uses `defaultProvider: "usai"` and `defaultModel: "inherit"` across
-    `delegate`, `oracle`, `reviewer`, `scout`, and `worker`.
+  - Uses `defaultProvider: "usai"`, `defaultModel: "inherit"`, and `toolActivation: "eager"` across
+    `delegate`, `oracle`, `scout`, and `worker`, with `reviewer` routed to `usai/<review_model>` when a paired `review_model` is configured (and external-CLI/web builtin agents disabled).
+  - Background subagent runner processes (`PI_SUBAGENT_CHILD=1` / `PI_SUBAGENT_RUNNER_PID`) are isolated by `forge-workspace.ts` so they do not inherit `forge_workspace` delivery prompts, fire Forge session hooks, or receive the full Superpowers bootstrap.
   - When calling `subagent` with `action: "run"`, `action: "chain"`, or
     `action: "parallel"`, omit `model` or set `model: "inherit"` (or an active
     `usai/*` model ID).
@@ -80,7 +81,7 @@ Each Pi surface loads one policy set; check it with
 
 `pi_launch()` isolates every structured review with `--no-context-files
 --no-extensions --no-skills --no-prompt-templates --no-mcp` and loads the
-installed `@nqbao/pi-json-schema` package by path, so reviewers stay
+tracked `scripts/pi-extensions/json-schema.ts` extension by path, so reviewers stay
 independent and read-only and never inherit coder commit, fix, push or planning
 duties. Coder responsibilities (clarifying, checkpoint commits, additive review
 fixes, evaluating task-scoped roborev findings, removing temporary plans) live

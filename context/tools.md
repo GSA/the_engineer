@@ -95,9 +95,11 @@ adversarial pairing via `--review-model`:
 - Alternate Forge coder launch target (`forge/config.toml` `key = "pi-argon"`): `"gemini-4-argon"` (`Pi (Gemini 4 Argon)`)
 - Reviewer default (`usai.json.review_model` / `roborev/config.toml`): `"gpt-6.1-sol-latest-guardrails-defaultv2"`
 - Subagent `defaultModel`: `"inherit"`
+- Subagent `toolActivation`: `"eager"`
 - `modelScope.allow`: `["inherit", "usai/*"]`
-- Built-in profiles (`delegate`, `oracle`, `reviewer`, `scout`, `worker`):
-  `model: "inherit"`
+- Built-in profiles (`delegate`, `oracle`, `scout`, `worker`): `model: "inherit"`;
+  `reviewer` routes to `usai/<review_model>` when a paired `review_model` is configured in `usai.json` (otherwise `"inherit"`).
+- External-CLI and web-access builtin profiles (`claude-code`, `claude-code-writer`, `codex-exec`, `codex-exec-writer`, `cursor-agent`, `cursor-agent-writer`, `evidence-auditor`, `researcher`): disabled (`disabled: true`, `advertise: false`) in the isolated USAi-only profile.
 - Tool overrides (`PI_SUBAGENT_DESCRIPTIONS`): instruct agents to omit `model`
   or pass `"inherit"`, omit `model` on `action: "resume"`, and keep Superpowers
   `reviewer` subagents separate from native `roborev` CLI reviews.

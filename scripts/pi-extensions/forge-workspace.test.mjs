@@ -60,6 +60,8 @@ beforeEach(() => {
 
     delete process.env.KENN_FORGE_RUNTIME_SESSION_KEY;
     delete process.env.PI_SUBAGENT_EXTENSION_BINDINGS;
+    delete process.env.PI_SUBAGENT_CHILD;
+    delete process.env.PI_SUBAGENT_RUNNER_PID;
     process.env.KENN_FORGE_API_URL = `http://127.0.0.1:${server.port}`;
 });
 
@@ -346,4 +348,40 @@ test("a termination signal ends the session as other so Forge resumes it", async
     } finally {
         process.off("SIGHUP", piSignalHandler);
     }
+});
+
+test("background subagent runner processes stay isolated from Forge hooks, sections, and Superpowers bootstrap", async () => {
+    process.env.KENN_FORGE_RUNTIME_SESSION_KEY = "rk";
+    process.env.PI_SUBAGENT_CHILD = "1";
+    process.env.PI_SUBAGENT_RUNNER_PID = "99999";
+    const h = load();
+    const ctx = makeCtx();
+    await h.session_start({ reason: "startup" }, ctx);
+    const beforeEvent = { systemPromptOptions: { sections: {} } };
+    await h.before_agent_start(beforeEvent, ctx);
+    expect(beforeEvent.systemPromptOptions.sections.forge_workspace).toBeUndefined();
+    expect(contextRequests).toEqual([]);
+    expect(hooks).toEqual([]);
+
+    const contextResult = await h.context({
+        messages: [
+            {
+                role: "user",
+                content: [{ type: "text", text: "<EXTREMELY_IMPORTANT>\nsuperpowers:using-superpowers bootstrap for pi\n</EXTREMELY_IMPORTANT>" }],
+            },
+            {
+                role: "user",
+                content: [{ type: "text", text: "Subagent task prompt" }],
+            },
+        ],
+    }, ctx);
+    expect(contextResult?.messages).toHaveLength(1);
+    expect(contextResult?.messages[0].content[0].text).toBe("Subagent task prompt");
+
+    const skillResult = await h.tool_result({
+        toolName: "read",
+        input: { path: "/skills/writing-plans/SKILL.md" },
+        content: [{ type: "text", text: "Original skill content" }],
+    }, ctx);
+    expect(skillResult).toBeUndefined();
 });
