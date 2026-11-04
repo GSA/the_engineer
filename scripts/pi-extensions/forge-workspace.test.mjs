@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import forgeWorkspaceExtension from "./forge-workspace.ts";
+import forgeWorkspaceExtension, { humanOnlyPublication } from "./forge-workspace.ts";
 
 let server;
 let cwd;
@@ -132,6 +133,65 @@ for (const scenario of [
         expect(event.systemPromptOptions.sections.forge_workspace).not.toMatch(/\d+-\d+ bullets/);
     });
 }
+
+// The guard must not stop the pre-authorized workspace PR flow: agents routinely
+// prefix a workspace push with `cd`, so a tracked `cd` has to resolve the real
+// branch instead of assuming `main`.
+test("a workspace-branch push stays allowed after cd, checkout -b, and heredoc text", () => {
+    const root = mkdtempSync(join(tmpdir(), "guard-allow-"));
+    const work = join(root, "work-kenn-forge");
+    mkdirSync(join(work, "nested"), { recursive: true });
+    execFileSync("git", ["init", "-q", "-b", "kenn-forge/work-5a30c3b8", work]);
+    const allowed = [
+        "cd " + work + " && git push -u origin HEAD",
+        "cd nested && git push -u origin HEAD",
+        "git checkout -b follow-up && git push -u origin HEAD",
+        "git switch -c follow-up && git push origin HEAD",
+        "git checkout -- README.md && git push -u origin HEAD",
+        "cat > notes.md <<'DOC'\ncd /tmp/main\ngit push origin main\nDOC\ngit push -u origin HEAD",
+        "cd " + work + " && python3 - <<'E'\nprint(1)\nE\ngit push -u origin HEAD",
+        "git -C " + work + " push -u origin HEAD",
+        "git -C " + join(work, "nested") + " checkout -b follow-up && git -C " + work + " push origin HEAD",
+    ];
+    try {
+        for (const command of allowed) {
+            expect([command, humanOnlyPublication(command, work)]).toEqual([command, null]);
+        }
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test("pushing main still needs human approval however the branch is reached", () => {
+    const root = mkdtempSync(join(tmpdir(), "guard-block-"));
+    const work = join(root, "work-kenn-forge");
+    const trunk = join(root, "main-checkout");
+    mkdirSync(work, { recursive: true });
+    mkdirSync(trunk, { recursive: true });
+    execFileSync("git", ["init", "-q", "-b", "kenn-forge/work-5a30c3b8", work]);
+    execFileSync("git", ["init", "-q", "-b", "main", trunk]);
+    const blocked = [
+        "cd " + trunk + " && git push -u origin HEAD",
+        "cd ../main-checkout && git push",
+        "git checkout main && git push origin HEAD",
+        "git switch master && git push",
+        "cd \"$(dirname " + trunk + ")\" && git push origin HEAD",
+        "cd && git push origin HEAD",
+        "cd " + join(root, "absent") + " && git push origin HEAD",
+        "git worktree add ../wt main && git push origin HEAD",
+        "git -C " + join(root, "absent") + " push origin HEAD",
+        "git checkout --detach && git push origin HEAD",
+        "cd " + trunk + " && git checkout -- README.md && git push origin HEAD",
+        "git push origin HEAD:refs/heads/main",
+    ];
+    try {
+        for (const command of blocked) {
+            expect([command, humanOnlyPublication(command, work)]).toEqual([command, "push_main"]);
+        }
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
 
 test("PR formatter leaves the existing description alone when the model route fails", async () => {
     expect(await summarizePr({

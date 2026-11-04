@@ -27,7 +27,17 @@ TEMPORARY_PLAN_PREFIXES = (
 VALID_SURFACES = ("private_pi", "forge_workspace", "roborev_review")
 BRANCH_PUBLICATION_ACTIONS = ("push_branch", "pr_create", "pr_edit")
 HUMAN_ONLY_ACTIONS = ("push_main", "pr_merge")
-RUNTIME_GUARD_ALLOWED = ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool", "quoted_merge_text")
+RUNTIME_GUARD_ALLOWED = (
+    "workspace_branch_push",
+    "cd_workspace_then_push",
+    "cd_subdir_then_push",
+    "new_branch_then_push",
+    "heredoc_text_then_push",
+    "pr_create",
+    "human_confirmed_merge",
+    "read_tool",
+    "quoted_merge_text",
+)
 
 
 @dataclass(frozen=True)
@@ -171,6 +181,7 @@ def probe_publication_guard() -> dict:
         for branch in ("main", "feature"):
             (repo / branch).mkdir(parents=True)
             _run_cmd(repo / branch, "git", "init", "-q", "-b", branch)
+        (repo / "feature" / "nested").mkdir()
         cases = {
             "agent_pr_merge": ("feature", "gh pr merge 13 --squash", None),
             "chained_gh_merge": ("feature", "git status && python3 scripts/gh-local.py pr merge 13", None),
@@ -180,11 +191,21 @@ def probe_publication_guard() -> dict:
             "human_declined_merge": ("feature", "gh pr merge 13", False),
             "checkout_then_push_head": ("feature", "git checkout main && git push origin HEAD", None),
             "cd_then_bare_push": ("feature", "cd ../main && git push", None),
+            "cd_expansion_then_push": ("feature", 'cd "$(git rev-parse --show-toplevel)/../main" && git push', None),
+            "worktree_then_push": ("feature", "git worktree add ../wt main && git push origin HEAD", None),
             "repo_option_refspec_to_main": ("feature", "git push --repo origin HEAD:main", None),
             "repo_equals_refspec_to_main": ("feature", "git push --repo=origin HEAD:main", None),
             "nested_shell_merge": ("feature", "bash -c 'gh pr merge 13'", None),
             "quoted_merge_text": ("feature", "grep -n 'gh pr merge' README.md && printf '%s' \"git push origin main\"", None),
             "workspace_branch_push": ("feature", "git push -u origin HEAD", None),
+            "cd_workspace_then_push": ("feature", f"cd {repo / 'feature'} && git push -u origin HEAD", None),
+            "cd_subdir_then_push": ("feature", "cd nested && git status -sb && git push -u origin HEAD", None),
+            "new_branch_then_push": ("feature", "git checkout -b follow-up && git push -u origin HEAD", None),
+            "heredoc_text_then_push": (
+                "feature",
+                "python3 - <<'E'\nprint('git push origin main')\nE\ngit push -u origin HEAD",
+                None,
+            ),
             "pr_create": ("feature", "gh pr create --fill", None),
             "human_confirmed_merge": ("feature", "gh pr merge 13", True),
             "read_tool": ("feature", None, None),

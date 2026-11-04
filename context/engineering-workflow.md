@@ -186,4 +186,6 @@ authorization.
     gates in an isolated temporary Git repository and writes a mode `0600`
     receipt when requested. The publication stage also drives the real
     `forge-workspace.ts` `tool_call` guard, which blocks agent PR merges and
-    pushes to `main` unless the human confirms them in the Pi UI.
+    pushes to `main` unless the human confirms them in the Pi UI, while leaving
+    workspace-branch pushes allowed even behind a `cd`, `git -C`, `git checkout
+    -b`, or heredoc in the same command.

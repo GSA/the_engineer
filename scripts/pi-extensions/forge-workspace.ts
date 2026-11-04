@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 
 const RUNTIME_KEY_LOOKUP_COOLDOWN_MS = 5000;
 // Forge launches pi-argon as pi-local.py --model gemini-4-argon; the launch
@@ -231,6 +231,35 @@ function currentBranch(cwd: string): string {
 	}
 }
 
+// A heredoc body is data for another program, so drop it before parsing; its
+// text often mentions git commands or directories that are never run here.
+function stripHeredocs(command: string): string {
+	const lines = command.split("\n");
+	const kept: string[] = [];
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		kept.push(line);
+		const delimiters = [...line.matchAll(/<<(?!<)-?\s*(?:'([^']+)'|"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))/g)].map(
+			(match) => match[1] ?? match[2] ?? match[3],
+		);
+		for (const delimiter of delimiters) {
+			while (++i < lines.length && lines[i].trim() !== delimiter) {
+				// body line: data, not a command
+			}
+		}
+	}
+	return kept.join("\n");
+}
+
+function resolveDir(cwd: string, target: string): string | null {
+	const path = isAbsolute(target) ? target : resolve(cwd, target);
+	try {
+		return statSync(path).isDirectory() ? path : null;
+	} catch {
+		return null;
+	}
+}
+
 // Split a shell command into simple commands of words, keeping quoted text as
 // data inside one word.
 function shellCommands(command: string): string[][] {
@@ -282,7 +311,47 @@ function programWords(words: string[]): string[] {
 	return words.slice(i);
 }
 
-function pushTargetsProtected(args: string[], cwd: string, branchUncertain: boolean): boolean {
+function localBranchExists(cwd: string, name: string): boolean {
+	try {
+		execFileSync("git", ["-C", cwd, "rev-parse", "--verify", "--quiet", `refs/heads/${name}`], {
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+		});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// The branch a checkout/switch lands on: a name when it is known, "" when HEAD
+// does not move (file or path checkout), null when it cannot be determined.
+function checkoutTarget(args: string[], cwd: string): string | null {
+	let newBranch = "";
+	const positional: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--") {
+			return newBranch || "";
+		}
+		if (arg === "-b" || arg === "-B" || arg === "-c" || arg === "-C" || arg === "--orphan") {
+			newBranch = args[++i] ?? "";
+			if (!newBranch || /[$*?~]/.test(newBranch)) return null;
+		} else if (arg === "--detach" || arg === "-d") {
+			return null;
+		} else if (!arg.startsWith("-")) {
+			positional.push(arg);
+		}
+	}
+	if (newBranch) return newBranch;
+	const target = positional[0];
+	if (!target) return "";
+	if (/[$*?~]/.test(target)) return null;
+	if (localBranchExists(cwd, target)) return target;
+	if (resolveDir(cwd, target) || existsSync(isAbsolute(target) ? target : resolve(cwd, target))) return "";
+	return null;
+}
+
+function pushTargetsProtected(args: string[], head: () => string): boolean {
 	const positional: string[] = [];
 	let repoGiven = false;
 	for (let i = 0; i < args.length; i++) {
@@ -302,7 +371,6 @@ function pushTargetsProtected(args: string[], cwd: string, branchUncertain: bool
 		}
 	}
 	const refspecs = repoGiven ? positional : positional.slice(1);
-	const head = () => (branchUncertain ? "main" : currentBranch(cwd));
 	if (refspecs.length === 0) {
 		return PROTECTED_BRANCHES.has(head());
 	}
@@ -317,10 +385,13 @@ function pushTargetsProtected(args: string[], cwd: string, branchUncertain: bool
 // Merging a PR or pushing main is human-controlled on every surface: the agent
 // may run it only after the human confirms it in the Pi UI.
 export function humanOnlyPublication(command: string, cwd: string, depth = 0): string | null {
-	// After an earlier cd/checkout in the same call, HEAD and cwd are unknown
-	// when tool_call runs, so a bare or HEAD push needs confirmation.
+	// A workspace push is pre-authorized, so an earlier cd or checkout in the
+	// same call is followed rather than assumed to land on main. HEAD counts as
+	// protected only while the branch truly cannot be determined.
+	let pushCwd = cwd;
+	const checkedOut = new Map<string, string>();
 	let branchUncertain = false;
-	for (const words of shellCommands(command)) {
+	for (const words of shellCommands(stripHeredocs(command))) {
 		const [program = "", ...rest] = programWords(words);
 		if (SHELLS.test(program) && depth < 3) {
 			const script = rest[rest.indexOf("-c") + 1];
@@ -331,7 +402,15 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 			continue;
 		}
 		if (program === "cd" || program === "pushd" || program === "popd") {
-			branchUncertain = true;
+			const target = rest.find((arg) => !arg.startsWith("-"));
+			// `cd` home, `cd -`, an expansion, or a missing directory leaves the
+			// next push's branch unknowable here.
+			const moved = program === "cd" && target && !/[$*?~]/.test(target) ? resolveDir(pushCwd, target) : null;
+			if (moved) {
+				pushCwd = moved;
+			} else {
+				branchUncertain = true;
+			}
 			continue;
 		}
 		if (/(^|\/)gh(-local\.py)?$/.test(program) || (/(^|\/)python3?$/.test(program) && /gh-local\.py$/.test(rest[0] ?? ""))) {
@@ -346,10 +425,13 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 		}
 		if (/(^|\/)git$/.test(program)) {
 			let i = 0;
-			let gitCwd = cwd;
+			let gitCwd = pushCwd;
+			let gitCwdUnknown = false;
 			while (i < rest.length && rest[i].startsWith("-")) {
 				if (rest[i] === "-C") {
-					gitCwd = rest[i + 1] ?? gitCwd;
+					const moved = rest[i + 1] ? resolveDir(pushCwd, rest[i + 1]) : null;
+					if (moved) gitCwd = moved;
+					else gitCwdUnknown = true;
 					i += 2;
 				} else if (rest[i] === "-c") {
 					i += 2;
@@ -358,9 +440,21 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 				}
 			}
 			const sub = rest[i];
-			if (sub === "checkout" || sub === "switch" || sub === "worktree") {
+			if (sub === "checkout" || sub === "switch") {
+				const target = gitCwdUnknown ? null : checkoutTarget(rest.slice(i + 1), gitCwd);
+				if (target === null) {
+					branchUncertain = true;
+				} else if (target) {
+					checkedOut.set(gitCwd, target);
+				}
+			} else if (sub === "worktree") {
 				branchUncertain = true;
-			} else if (sub === "push" && pushTargetsProtected(rest.slice(i + 1), gitCwd, branchUncertain)) {
+			} else if (
+				sub === "push" &&
+				pushTargetsProtected(rest.slice(i + 1), () =>
+					branchUncertain || gitCwdUnknown ? "main" : checkedOut.get(gitCwd) || currentBranch(gitCwd) || "main",
+				)
+			) {
 				return "push_main";
 			}
 		}
