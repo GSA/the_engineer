@@ -231,24 +231,127 @@ function currentBranch(cwd: string): string {
 	}
 }
 
-// A heredoc body is data for another program, so drop it before parsing; its
-// text often mentions git commands or directories that are never run here.
-function stripHeredocs(command: string): string {
-	const lines = command.split("\n");
-	const kept: string[] = [];
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-		kept.push(line);
-		const delimiters = [...line.matchAll(/<<(?!<)-?\s*(?:'([^']+)'|"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))/g)].map(
-			(match) => match[1] ?? match[2] ?? match[3],
+// The repository a directory belongs to, so a checkout through a subdirectory
+// and a push from its root share predicted branch state.
+function gitIdentity(cwd: string): string {
+	try {
+		return (
+			execFileSync("git", ["-C", cwd, "rev-parse", "--absolute-git-dir"], {
+				encoding: "utf8",
+				stdio: ["ignore", "pipe", "ignore"],
+			}).trim() || cwd
 		);
-		for (const delimiter of delimiters) {
-			while (++i < lines.length && lines[i].trim() !== delimiter) {
-				// body line: data, not a command
+	} catch {
+		return cwd;
+	}
+}
+
+// A heredoc body is data for the program that reads it, so it is not scanned as
+// shell words; a body a shell executes is spliced back in as commands. The scan
+// tracks quoting and comments so `<<` inside quoted text or a comment is not
+// taken for a heredoc operator, which would hide the commands after it.
+function stripHeredocs(command: string, depth = 0): string {
+	let out = "";
+	let lineStart = 0;
+	let quote = "";
+	let comment = false;
+	let pending: string[] = [];
+	let i = 0;
+	while (i < command.length) {
+		const ch = command[i];
+		if (ch === "\n" && !quote && pending.length) {
+			const ownerExecutes = runsShellStdin(out.slice(lineStart));
+			const bodies: string[] = [];
+			i++;
+			for (const delimiter of pending) {
+				const body: string[] = [];
+				while (i < command.length) {
+					const end = command.indexOf("\n", i);
+					const line = command.slice(i, end === -1 ? command.length : end);
+					i = end === -1 ? command.length : end + 1;
+					if (line.trim() === delimiter) break;
+					body.push(line);
+				}
+				if (ownerExecutes && depth < 3) bodies.push(stripHeredocs(body.join("\n"), depth + 1));
+			}
+			pending = [];
+			comment = false;
+			out += bodies.length ? `\n${bodies.join("\n")}\n` : "\n";
+			lineStart = out.length;
+			continue;
+		}
+		if (ch === "\n") {
+			comment = false;
+			out += ch;
+			lineStart = out.length;
+			i++;
+			continue;
+		}
+		if (comment) {
+			out += ch;
+			i++;
+			continue;
+		}
+		if (quote) {
+			if (ch === "\\" && quote === '"' && i + 1 < command.length) {
+				out += ch + command[i + 1];
+				i += 2;
+				continue;
+			}
+			if (ch === quote) quote = "";
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "\\" && i + 1 < command.length) {
+			out += ch + command[i + 1];
+			i += 2;
+			continue;
+		}
+		if (ch === "#" && (out.length === lineStart || /[\s;&|(]/.test(out[out.length - 1] ?? " "))) {
+			comment = true;
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "<" && command[i + 1] === "<" && command[i + 2] !== "<") {
+			let j = i + 2;
+			if (command[j] === "-") j++;
+			while (/[ \t]/.test(command[j] ?? "")) j++;
+			const wrap = command[j] === "'" || command[j] === '"' ? command[j] : "";
+			let delimiter = "";
+			if (wrap) {
+				j++;
+				while (j < command.length && command[j] !== wrap) delimiter += command[j++];
+				j++;
+			} else {
+				while (j < command.length && /[A-Za-z0-9_.\-]/.test(command[j] ?? "")) delimiter += command[j++];
+			}
+			if (delimiter) {
+				pending.push(delimiter);
+				i = j;
+				continue;
 			}
 		}
+		out += ch;
+		i++;
 	}
-	return kept.join("\n");
+	return out;
+}
+
+// True when the line runs a shell that reads its script from stdin, so the
+// heredoc body is executed rather than consumed as data.
+function runsShellStdin(line: string): boolean {
+	return shellCommands(line).some(({ words }) => {
+		const [program = "", ...rest] = programWords(words);
+		return SHELLS.test(program) && !rest.includes("-c");
+	});
 }
 
 function resolveDir(cwd: string, target: string): string | null {
@@ -260,14 +363,31 @@ function resolveDir(cwd: string, target: string): string | null {
 	}
 }
 
+type SimpleCommand = { words: string[]; depth: number; piped: boolean };
+
 // Split a shell command into simple commands of words, keeping quoted text as
-// data inside one word.
-function shellCommands(command: string): string[][] {
-	const commands: string[][] = [];
+// data inside one word. Each command records its subshell nesting depth and
+// whether it runs in a pipeline, because `cd` in a subshell or a pipeline does
+// not move the directory the following commands run in.
+function shellCommands(command: string): SimpleCommand[] {
+	const commands: SimpleCommand[] = [];
 	let words: string[] = [];
 	let word = "";
 	let inWord = false;
 	let quote = "";
+	let depth = 0;
+	let inBacktick = false;
+	let commandDepth = 0;
+	let started = false;
+	let piped = false;
+	let nextPiped = false;
+	const note = () => {
+		if (!started) {
+			commandDepth = depth + (inBacktick ? 1 : 0);
+			piped = nextPiped;
+			started = true;
+		}
+	};
 	const endWord = () => {
 		if (inWord) words.push(word);
 		word = "";
@@ -275,8 +395,10 @@ function shellCommands(command: string): string[][] {
 	};
 	const endCommand = () => {
 		endWord();
-		if (words.length) commands.push(words);
+		if (words.length) commands.push({ words, depth: commandDepth, piped });
 		words = [];
+		started = false;
+		piped = false;
 	};
 	for (let i = 0; i < command.length; i++) {
 		const ch = command[i];
@@ -287,16 +409,44 @@ function shellCommands(command: string): string[][] {
 		} else if (ch === "'" || ch === '"') {
 			quote = ch;
 			inWord = true;
+			note();
 		} else if (ch === "\\" && i + 1 < command.length) {
 			word += command[++i];
 			inWord = true;
-		} else if (/[;&|\n()`]/.test(ch) || (ch === "$" && command[i + 1] === "(")) {
+			note();
+		} else if (ch === "|") {
+			const or = command[i + 1] === "|";
 			endCommand();
+			if (!or && commands.length) commands[commands.length - 1].piped = true;
+			nextPiped = !or;
+			if (or) i++;
+		} else if (ch === "#" && !inWord) {
+			// a comment: the rest of the line is not a command
+			endCommand();
+			nextPiped = false;
+			while (i < command.length && command[i] !== "\n") i++;
+		} else if (ch === "(" || (ch === "$" && command[i + 1] === "(")) {
+			endCommand();
+			nextPiped = false;
+			depth++;
+			if (ch === "$") i++;
+		} else if (ch === ")") {
+			endCommand();
+			nextPiped = false;
+			depth = Math.max(0, depth - 1);
+		} else if (ch === "`") {
+			endCommand();
+			nextPiped = false;
+			inBacktick = !inBacktick;
+		} else if (/[;&\n]/.test(ch)) {
+			endCommand();
+			nextPiped = false;
 		} else if (/\s/.test(ch)) {
 			endWord();
 		} else {
 			word += ch;
 			inWord = true;
+			note();
 		}
 	}
 	endCommand();
@@ -351,7 +501,7 @@ function checkoutTarget(args: string[], cwd: string): string | null {
 	return null;
 }
 
-function pushTargetsProtected(args: string[], head: () => string): boolean {
+function pushTargetsProtected(args: string[], heads: () => string[]): boolean {
 	const positional: string[] = [];
 	let repoGiven = false;
 	for (let i = 0; i < args.length; i++) {
@@ -371,14 +521,15 @@ function pushTargetsProtected(args: string[], head: () => string): boolean {
 		}
 	}
 	const refspecs = repoGiven ? positional : positional.slice(1);
+	const headProtected = () => heads().some((branch) => PROTECTED_BRANCHES.has(branch));
 	if (refspecs.length === 0) {
-		return PROTECTED_BRANCHES.has(head());
+		return headProtected();
 	}
 	return refspecs.some((spec) => {
 		let dst = spec.replace(/^\+/, "");
 		dst = dst.includes(":") ? dst.slice(dst.indexOf(":") + 1) : dst;
 		dst = dst.replace(/^refs\/heads\//, "");
-		return PROTECTED_BRANCHES.has(dst === "HEAD" || dst === "@" ? head() : dst);
+		return dst === "HEAD" || dst === "@" ? headProtected() : PROTECTED_BRANCHES.has(dst);
 	});
 }
 
@@ -386,17 +537,26 @@ function pushTargetsProtected(args: string[], head: () => string): boolean {
 // may run it only after the human confirms it in the Pi UI.
 export function humanOnlyPublication(command: string, cwd: string, depth = 0): string | null {
 	// A workspace push is pre-authorized, so an earlier cd or checkout in the
-	// same call is followed rather than assumed to land on main. HEAD counts as
-	// protected only while the branch truly cannot be determined.
-	let pushCwd = cwd;
-	const checkedOut = new Map<string, string>();
+	// same call is followed rather than assumed to land on main. A checkout adds
+	// a branch HEAD may hold without removing the current one, because the
+	// checkout can fail and a later `;` still runs the push. A directory move is
+	// scoped to its subshell, and a move in a pipeline stage is dropped. HEAD
+	// counts as protected while any candidate branch is protected, or while the
+	// branch cannot be determined at all.
+	const cwdByDepth = new Map<number, string>([[0, cwd]]);
+	const predicted = new Map<string, Set<string>>();
 	let branchUncertain = false;
-	for (const words of shellCommands(stripHeredocs(command))) {
+	for (const { words, depth: scope, piped } of shellCommands(stripHeredocs(command))) {
+		for (const known of [...cwdByDepth.keys()]) {
+			if (known > scope) cwdByDepth.delete(known);
+		}
+		let pushCwd = cwd;
+		for (let d = 0; d <= scope; d++) pushCwd = cwdByDepth.get(d) ?? pushCwd;
 		const [program = "", ...rest] = programWords(words);
 		if (SHELLS.test(program) && depth < 3) {
 			const script = rest[rest.indexOf("-c") + 1];
 			if (rest.includes("-c") && script) {
-				const nested = humanOnlyPublication(script, cwd, depth + 1);
+				const nested = humanOnlyPublication(script, pushCwd, depth + 1);
 				if (nested) return nested;
 			}
 			continue;
@@ -406,10 +566,10 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 			// `cd` home, `cd -`, an expansion, or a missing directory leaves the
 			// next push's branch unknowable here.
 			const moved = program === "cd" && target && !/[$*?~]/.test(target) ? resolveDir(pushCwd, target) : null;
-			if (moved) {
-				pushCwd = moved;
-			} else {
+			if (!moved) {
 				branchUncertain = true;
+			} else if (!piped) {
+				cwdByDepth.set(scope, moved);
 			}
 			continue;
 		}
@@ -445,15 +605,20 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 				if (target === null) {
 					branchUncertain = true;
 				} else if (target) {
-					checkedOut.set(gitCwd, target);
+					const id = gitIdentity(gitCwd);
+					predicted.set(id, (predicted.get(id) ?? new Set()).add(target));
 				}
 			} else if (sub === "worktree") {
 				branchUncertain = true;
 			} else if (
 				sub === "push" &&
-				pushTargetsProtected(rest.slice(i + 1), () =>
-					branchUncertain || gitCwdUnknown ? "main" : checkedOut.get(gitCwd) || currentBranch(gitCwd) || "main",
-				)
+				pushTargetsProtected(rest.slice(i + 1), () => {
+					if (branchUncertain || gitCwdUnknown) return ["main"];
+					const candidates = [...(predicted.get(gitIdentity(gitCwd)) ?? [])];
+					const actual = currentBranch(gitCwd);
+					if (actual) candidates.push(actual);
+					return candidates.length ? candidates : ["main"];
+				})
 			) {
 				return "push_main";
 			}

@@ -332,6 +332,11 @@ or reconciliation service is installed.
     `k03a`'s `structured_review_args()` isolation, and the red stage records
     the observed failure. Receipt:
     `.local/environment/runtime/mpew-synthetic-gates-20261101.json`.
+  - Refinement (`bxz7`): the runtime guard resolves the directory and branch a
+    push actually runs in, so a workspace-branch push after `cd`, `git -C` or a
+    new-branch checkout no longer asks the human to approve a `main` push,
+    while subshell/pipeline `cd`, unknowable branches, shell-executed heredocs
+    and possibly failing checkouts stay gated.
 
 ## Active Kata queue (`engi-platform`)
 

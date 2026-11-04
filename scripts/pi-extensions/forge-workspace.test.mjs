@@ -149,9 +149,14 @@ test("a workspace-branch push stays allowed after cd, checkout -b, and heredoc t
         "git switch -c follow-up && git push origin HEAD",
         "git checkout -- README.md && git push -u origin HEAD",
         "cat > notes.md <<'DOC'\ncd /tmp/main\ngit push origin main\nDOC\ngit push -u origin HEAD",
+        "echo '<<EOF' && git push -u origin HEAD",
+        "bash <<'EOF'\ngit push -u origin HEAD\nEOF",
+        "# git push origin main\ngit push -u origin HEAD",
         "cd " + work + " && python3 - <<'E'\nprint(1)\nE\ngit push -u origin HEAD",
         "git -C " + work + " push -u origin HEAD",
         "git -C " + join(work, "nested") + " checkout -b follow-up && git -C " + work + " push origin HEAD",
+        "git push -u origin HEAD # not git push origin main",
+        "(cd nested && git status -sb) && git push -u origin HEAD",
     ];
     try {
         for (const command of allowed) {
@@ -166,27 +171,41 @@ test("pushing main still needs human approval however the branch is reached", ()
     const root = mkdtempSync(join(tmpdir(), "guard-block-"));
     const work = join(root, "work-kenn-forge");
     const trunk = join(root, "main-checkout");
-    mkdirSync(work, { recursive: true });
+    mkdirSync(join(work, "nested"), { recursive: true });
     mkdirSync(trunk, { recursive: true });
     execFileSync("git", ["init", "-q", "-b", "kenn-forge/work-5a30c3b8", work]);
     execFileSync("git", ["init", "-q", "-b", "main", trunk]);
     const blocked = [
-        "cd " + trunk + " && git push -u origin HEAD",
-        "cd ../main-checkout && git push",
-        "git checkout main && git push origin HEAD",
-        "git switch master && git push",
-        "cd \"$(dirname " + trunk + ")\" && git push origin HEAD",
-        "cd && git push origin HEAD",
-        "cd " + join(root, "absent") + " && git push origin HEAD",
-        "git worktree add ../wt main && git push origin HEAD",
-        "git -C " + join(root, "absent") + " push origin HEAD",
-        "git checkout --detach && git push origin HEAD",
-        "cd " + trunk + " && git checkout -- README.md && git push origin HEAD",
-        "git push origin HEAD:refs/heads/main",
+        [work, "cd " + trunk + " && git push -u origin HEAD"],
+        [work, "cd ../main-checkout && git push"],
+        [work, "cd " + trunk + "; git push -u origin HEAD"],
+        [work, "git checkout main && git push origin HEAD"],
+        [work, "git switch master && git push"],
+        [work, 'cd "$(dirname ' + trunk + ')" && git push origin HEAD'],
+        [work, "cd && git push origin HEAD"],
+        [work, "cd " + join(root, "absent") + " && git push origin HEAD"],
+        [work, "git worktree add ../wt main && git push origin HEAD"],
+        [work, "git -C " + join(root, "absent") + " push origin HEAD"],
+        [work, "git checkout --detach && git push origin HEAD"],
+        [work, "cd " + trunk + " && git checkout -- README.md && git push origin HEAD"],
+        [work, "git push origin HEAD:refs/heads/main"],
+        // a checkout in a subdirectory moves the same repository's HEAD
+        [work, "git -C " + join(work, "nested") + " checkout main && git push origin HEAD"],
+        // a heredoc body a shell executes is still a command
+        [work, "bash <<'EOF'\ngit push origin main\nEOF"],
+        // quoted heredoc syntax must not swallow the commands that follow
+        [work, "echo '<<EOF'\ngit push origin main"],
+        // the checkout may fail, leaving HEAD on main, and ; runs the push anyway
+        [trunk, "git checkout -b follow-up; git push origin HEAD"],
+        // a cd inside a subshell, a backtick, or a pipeline stage does not move
+        // the directory the later push runs in
+        [trunk, "(cd " + work + " && git status) && git push origin HEAD"],
+        [trunk, "`cd " + work + "`; git push origin HEAD"],
+        [trunk, "cd " + work + " | cat; git push origin HEAD"],
     ];
     try {
-        for (const command of blocked) {
-            expect([command, humanOnlyPublication(command, work)]).toEqual([command, "push_main"]);
+        for (const [dir, command] of blocked) {
+            expect([command, humanOnlyPublication(command, dir)]).toEqual([command, "push_main"]);
         }
     } finally {
         rmSync(root, { recursive: true, force: true });
