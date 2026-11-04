@@ -336,7 +336,11 @@ or reconciliation service is installed.
     push actually runs in, so a workspace-branch push after `cd`, `git -C` or a
     new-branch checkout no longer asks the human to approve a `main` push,
     while subshell/pipeline `cd`, unknowable branches, shell-executed heredocs
-    and possibly failing checkouts stay gated.
+    and possibly failing checkouts stay gated. The same pass closed the mirror
+    bypasses found by scanning our own wrappers: a wrapper program
+    (`timeout`, `stdbuf`, `nice`, `setsid`, …), a `gh` flag placed before the
+    subcommand (`gh --repo … pr merge`), and `git --git-dir`/`--work-tree` no
+    longer hide a `main` push or a PR merge from the gate.
 
 ## Active Kata queue (`engi-platform`)
 

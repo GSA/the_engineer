@@ -336,6 +336,11 @@ class RuntimePublicationGuardTests(unittest.TestCase):
             "repo_option_refspec_to_main",
             "repo_equals_refspec_to_main",
             "nested_shell_merge",
+            "wrapped_push_main",
+            "wrapped_merge",
+            "nice_wrapped_push_head_on_main",
+            "repo_flag_before_merge",
+            "git_dir_push_main",
         ):
             self.assertTrue(cases[name]["blocked"], name)
         for name in (
@@ -345,6 +350,8 @@ class RuntimePublicationGuardTests(unittest.TestCase):
             "new_branch_then_push",
             "heredoc_text_then_push",
             "comment_then_push",
+            "wrapped_workspace_push",
+            "repo_flag_pr_create",
             "pr_create",
             "human_confirmed_merge",
             "read_tool",

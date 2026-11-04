@@ -157,6 +157,9 @@ test("a workspace-branch push stays allowed after cd, checkout -b, and heredoc t
         "git -C " + join(work, "nested") + " checkout -b follow-up && git -C " + work + " push origin HEAD",
         "git push -u origin HEAD # not git push origin main",
         "(cd nested && git status -sb) && git push -u origin HEAD",
+        "timeout 60 git push -u origin HEAD",
+        "gh --repo GSA/the_engineer pr create --fill",
+        "gh -R GSA/the_engineer pr edit 29 --body-file /tmp/body.md",
     ];
     try {
         for (const command of allowed) {
@@ -189,6 +192,21 @@ test("pushing main still needs human approval however the branch is reached", ()
         [work, "git checkout --detach && git push origin HEAD"],
         [work, "cd " + trunk + " && git checkout -- README.md && git push origin HEAD"],
         [work, "git push origin HEAD:refs/heads/main"],
+        // a wrapper program must not hide the push it runs
+        [trunk, "timeout 60 git push origin HEAD"],
+        [trunk, "stdbuf -o0 git push origin main"],
+        [trunk, "nice -n 10 git push origin main"],
+        [trunk, "setsid git push origin main"],
+        [trunk, "/usr/bin/timeout 5m git push origin main"],
+        [trunk, "timeout 120 gh pr merge 29 --merge", "pr_merge"],
+        // gh takes its own flags before and between subcommand words
+        [work, "gh --repo GSA/the_engineer pr merge 29 --merge", "pr_merge"],
+        [work, "gh -R GSA/the_engineer pr merge 29", "pr_merge"],
+        [work, "gh pr --repo GSA/the_engineer merge 29", "pr_merge"],
+        [work, "gh api --method PUT /repos/GSA/the_engineer/pulls/29/merge", "pr_merge"],
+        // --git-dir and --work-tree choose the repository just like -C
+        [work, "git --git-dir=" + join(trunk, ".git") + " --work-tree=" + trunk + " push origin HEAD"],
+        [work, "git --work-tree " + trunk + " push origin HEAD"],
         // a checkout in a subdirectory moves the same repository's HEAD
         [work, "git -C " + join(work, "nested") + " checkout main && git push origin HEAD"],
         // a heredoc body a shell executes is still a command
@@ -204,8 +222,8 @@ test("pushing main still needs human approval however the branch is reached", ()
         [trunk, "cd " + work + " | cat; git push origin HEAD"],
     ];
     try {
-        for (const [dir, command] of blocked) {
-            expect([command, humanOnlyPublication(command, dir)]).toEqual([command, "push_main"]);
+        for (const [dir, command, expected = "push_main"] of blocked) {
+            expect([command, humanOnlyPublication(command, dir)]).toEqual([command, expected]);
         }
     } finally {
         rmSync(root, { recursive: true, force: true });

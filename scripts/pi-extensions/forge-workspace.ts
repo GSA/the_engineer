@@ -217,7 +217,29 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 }
 
 const PROTECTED_BRANCHES = new Set(["main", "master"]);
-const COMMAND_WRAPPERS = new Set(["env", "sudo", "command", "exec", "time", "nohup", "xargs"]);
+// Programs that run another command, so the real program follows their own
+// options and, for `timeout`, a duration.
+const COMMAND_WRAPPERS = new Set([
+	"env", "sudo", "doas", "command", "exec", "time", "nohup", "setsid",
+	"xargs", "timeout", "stdbuf", "nice", "ionice", "unbuffer",
+]);
+const WRAPPER_VALUE_FLAGS = new Set([
+	"-u", "-n", "-o", "-e", "-s", "-k", "-I", "-i", "-L", "-P",
+	"--user", "--signal", "--kill-after", "--adjustment", "--replace",
+	"--max-args", "--max-procs", "--class", "--output", "--input", "--error",
+]);
+const DURATION = /^\d+(?:\.\d+)?[smhd]?$/;
+// gh flags that take a separate value, so the value is not a subcommand word.
+const GH_VALUE_FLAGS = new Set([
+	"-R", "--repo", "--hostname", "--jq", "-q", "--template", "-t", "--json",
+	"--method", "-X", "--field", "-F", "--raw-field", "-f", "--header", "-H",
+	"--input", "--body", "-b", "--body-file", "-B", "--title", "--base",
+	"--head", "--search", "--label", "-l", "--limit", "-L", "--state", "-s",
+	"--subject", "--match-field", "--cache",
+]);
+// git global flags whose value is a separate word, so the value is not the
+// subcommand.
+const GIT_VALUE_FLAGS = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix"]);
 const SHELLS = /(^|\/)(ba|z|da)?sh$/;
 
 function currentBranch(cwd: string): string {
@@ -455,14 +477,37 @@ function shellCommands(command: string): SimpleCommand[] {
 
 function programWords(words: string[]): string[] {
 	let i = 0;
-	while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || COMMAND_WRAPPERS.has(words[i]) || words[i] === "{")) {
+	while (i < words.length) {
+		const word = words[i];
+		if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || word === "{") {
+			i++;
+			continue;
+		}
+		const name = word.replace(/^.*\//, "");
+		if (!COMMAND_WRAPPERS.has(name)) break;
 		i++;
+		while (i < words.length && words[i].startsWith("-")) {
+			const flag = words[i++];
+			if (WRAPPER_VALUE_FLAGS.has(flag) && i < words.length && !words[i].startsWith("-")) i++;
+		}
+		if (name === "timeout" && i < words.length && DURATION.test(words[i])) i++;
 	}
 	return words.slice(i);
 }
 
-function localBranchExists(cwd: string, name: string): boolean {
-	try {
+// gh accepts its own flags before and between subcommand words, so the
+// subcommand path is the positional words with flag values removed.
+function ghSubcommandPath(args: string[]): string[] {
+	const path: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (!arg.startsWith("-")) path.push(arg);
+		else if (GH_VALUE_FLAGS.has(arg)) i++;
+	}
+	return path;
+}
+
+function localBranchExists(cwd: string, name: string): boolean {	try {
 		execFileSync("git", ["-C", cwd, "rev-parse", "--verify", "--quiet", `refs/heads/${name}`], {
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "ignore"],
@@ -575,10 +620,11 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 		}
 		if (/(^|\/)gh(-local\.py)?$/.test(program) || (/(^|\/)python3?$/.test(program) && /gh-local\.py$/.test(rest[0] ?? ""))) {
 			const args = /python3?$/.test(program) ? rest.slice(1) : rest;
-			if (args[0] === "pr" && args[1] === "merge") {
+			const sub = ghSubcommandPath(args);
+			if (sub[0] === "pr" && sub[1] === "merge") {
 				return "pr_merge";
 			}
-			if (args[0] === "api" && args.some((arg) => /\/pulls\/\d+\/merge$/.test(arg))) {
+			if (sub[0] === "api" && args.some((arg) => /\/pulls\/\d+\/merge$/.test(arg))) {
 				return "pr_merge";
 			}
 			continue;
@@ -587,13 +633,21 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 			let i = 0;
 			let gitCwd = pushCwd;
 			let gitCwdUnknown = false;
+			// `-C`, `--git-dir`, and `--work-tree` all choose the repository the
+			// subcommand acts on, so the branch must be read there.
+			const retarget = (value: string | undefined) => {
+				const moved = value ? resolveDir(pushCwd, value) : null;
+				if (moved) gitCwd = moved;
+				else gitCwdUnknown = true;
+			};
 			while (i < rest.length && rest[i].startsWith("-")) {
-				if (rest[i] === "-C") {
-					const moved = rest[i + 1] ? resolveDir(pushCwd, rest[i + 1]) : null;
-					if (moved) gitCwd = moved;
-					else gitCwdUnknown = true;
-					i += 2;
-				} else if (rest[i] === "-c") {
+				const flag = rest[i];
+				const eq = flag.indexOf("=");
+				const name = eq > 0 ? flag.slice(0, eq) : flag;
+				if (name === "-C" || name === "--git-dir" || name === "--work-tree") {
+					retarget(eq > 0 ? flag.slice(eq + 1) : rest[i + 1]);
+					i += eq > 0 ? 1 : 2;
+				} else if (eq < 0 && GIT_VALUE_FLAGS.has(name)) {
 					i += 2;
 				} else {
 					i++;
