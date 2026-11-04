@@ -217,16 +217,24 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 }
 
 const PROTECTED_BRANCHES = new Set(["main", "master"]);
-// Programs that run another command, so the real program follows their own
-// options and, for `timeout`, a duration.
-const COMMAND_WRAPPERS = new Set([
-	"env", "sudo", "doas", "command", "exec", "time", "nohup", "setsid",
-	"xargs", "timeout", "stdbuf", "nice", "ionice", "unbuffer",
-]);
-const WRAPPER_VALUE_FLAGS = new Set([
-	"-u", "-n", "-o", "-e", "-s", "-k", "-I", "-i", "-L", "-P",
-	"--user", "--signal", "--kill-after", "--adjustment", "--replace",
-	"--max-args", "--max-procs", "--class", "--output", "--input", "--error",
+// Programs that run another command, with the options that take a separate
+// value, so the real program is found rather than one of their arguments. Each
+// wrapper differs: `env -i` is valueless while `env -u` takes a name.
+const COMMAND_WRAPPERS = new Map<string, { valueFlags: Set<string>; duration?: boolean }>([
+	["env", { valueFlags: new Set(["-u", "--unset", "-C", "--chdir", "-S", "--split-string"]) }],
+	["sudo", { valueFlags: new Set(["-u", "--user", "-g", "--group", "-p", "--prompt", "-C", "--close-from", "-h", "--host", "-r", "--role", "-t", "--type", "-U", "--other-user", "-D", "--chdir", "-R", "--chroot"]) }],
+	["doas", { valueFlags: new Set(["-u", "-C", "-a"]) }],
+	["command", { valueFlags: new Set() }],
+	["exec", { valueFlags: new Set(["-a"]) }],
+	["time", { valueFlags: new Set(["-o", "--output", "-f", "--format"]) }],
+	["nohup", { valueFlags: new Set() }],
+	["setsid", { valueFlags: new Set() }],
+	["unbuffer", { valueFlags: new Set() }],
+	["timeout", { valueFlags: new Set(["-k", "--kill-after", "-s", "--signal"]), duration: true }],
+	["stdbuf", { valueFlags: new Set(["-i", "--input", "-o", "--output", "-e", "--error"]) }],
+	["nice", { valueFlags: new Set(["-n", "--adjustment"]) }],
+	["ionice", { valueFlags: new Set(["-n", "--classdata", "-c", "--class", "-p", "--pid"]) }],
+	["xargs", { valueFlags: new Set(["-I", "--replace", "-i", "-L", "--max-lines", "-n", "--max-args", "-P", "--max-procs", "-s", "--max-chars", "-E", "-e", "--eof", "-d", "--delimiter", "-a", "--arg-file"]) }],
 ]);
 const DURATION = /^\d+(?:\.\d+)?[smhd]?$/;
 // gh flags that take a separate value, so the value is not a subcommand word.
@@ -277,7 +285,7 @@ function stripHeredocs(command: string, depth = 0): string {
 	let lineStart = 0;
 	let quote = "";
 	let comment = false;
-	let pending: string[] = [];
+	let pending: { delimiter: string; quoted: boolean }[] = [];
 	let i = 0;
 	while (i < command.length) {
 		const ch = command[i];
@@ -285,7 +293,7 @@ function stripHeredocs(command: string, depth = 0): string {
 			const ownerExecutes = runsShellStdin(out.slice(lineStart));
 			const bodies: string[] = [];
 			i++;
-			for (const delimiter of pending) {
+			for (const { delimiter, quoted } of pending) {
 				const body: string[] = [];
 				while (i < command.length) {
 					const end = command.indexOf("\n", i);
@@ -294,7 +302,15 @@ function stripHeredocs(command: string, depth = 0): string {
 					if (line.trim() === delimiter) break;
 					body.push(line);
 				}
-				if (ownerExecutes && depth < 3) bodies.push(stripHeredocs(body.join("\n"), depth + 1));
+				// A shell runs the body in a child shell, so its directory moves
+				// stay there: the body is spliced inside a subshell. An unquoted
+				// delimiter expands the body wherever it goes, so the commands in
+				// its substitutions run even when the body itself is data.
+				if (ownerExecutes && depth < 3) {
+					bodies.push(`(\n${stripHeredocs(body.join("\n"), depth + 1)}\n)`);
+				} else if (!quoted) {
+					bodies.push(...commandSubstitutions(body.join("\n")));
+				}
 			}
 			pending = [];
 			comment = false;
@@ -347,6 +363,11 @@ function stripHeredocs(command: string, depth = 0): string {
 			if (command[j] === "-") j++;
 			while (/[ \t]/.test(command[j] ?? "")) j++;
 			const wrap = command[j] === "'" || command[j] === '"' ? command[j] : "";
+			let escaped = false;
+			if (!wrap && command[j] === "\\") {
+				escaped = true;
+				j++;
+			}
 			let delimiter = "";
 			if (wrap) {
 				j++;
@@ -356,7 +377,7 @@ function stripHeredocs(command: string, depth = 0): string {
 				while (j < command.length && /[A-Za-z0-9_.\-]/.test(command[j] ?? "")) delimiter += command[j++];
 			}
 			if (delimiter) {
-				pending.push(delimiter);
+				pending.push({ delimiter, quoted: Boolean(wrap) || escaped });
 				i = j;
 				continue;
 			}
@@ -365,6 +386,32 @@ function stripHeredocs(command: string, depth = 0): string {
 		i++;
 	}
 	return out;
+}
+
+// The `$(...)` and backtick spans in expanded text, returned as `$(...)` so
+// they are read as the subshells the shell really runs them in.
+function commandSubstitutions(text: string): string[] {
+	const spans: string[] = [];
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === "\\") {
+			i++;
+		} else if (text[i] === "$" && text[i + 1] === "(") {
+			let open = 0;
+			let j = i;
+			for (; j < text.length; j++) {
+				if (text[j] === "(") open++;
+				else if (text[j] === ")" && --open === 0) break;
+			}
+			spans.push(text.slice(i, Math.min(j + 1, text.length)));
+			i = j;
+		} else if (text[i] === "`") {
+			const end = text.indexOf("`", i + 1);
+			if (end === -1) break;
+			spans.push(`$(${text.slice(i + 1, end)})`);
+			i = end;
+		}
+	}
+	return spans;
 }
 
 // True when the line runs a shell that reads its script from stdin, so the
@@ -385,28 +432,41 @@ function resolveDir(cwd: string, target: string): string | null {
 	}
 }
 
-type SimpleCommand = { words: string[]; depth: number; piped: boolean };
+type SimpleCommand = { words: string[]; scope: string; piped: boolean; conditional: boolean };
 
 // Split a shell command into simple commands of words, keeping quoted text as
-// data inside one word. Each command records its subshell nesting depth and
-// whether it runs in a pipeline, because `cd` in a subshell or a pipeline does
-// not move the directory the following commands run in.
+// data inside one word. Each command records the identity of the shell scope it
+// runs in, whether it runs in a pipeline, and whether a preceding `&&` or `||`
+// can skip it, because `cd` in a subshell or a pipeline does not move the
+// directory the following commands run in, and a skipped `cd` moves nothing.
+// Scope identities are unique, so sibling subshells never share state.
 function shellCommands(command: string): SimpleCommand[] {
 	const commands: SimpleCommand[] = [];
 	let words: string[] = [];
 	let word = "";
 	let inWord = false;
 	let quote = "";
-	let depth = 0;
+	const stack = [0];
+	let scopes = 0;
 	let inBacktick = false;
-	let commandDepth = 0;
+	let commandScope = "0";
 	let started = false;
 	let piped = false;
 	let nextPiped = false;
+	let conditional = false;
+	let nextConditional = false;
+	const open = () => {
+		scopes++;
+		stack.push(scopes);
+	};
+	const close = () => {
+		if (stack.length > 1) stack.pop();
+	};
 	const note = () => {
 		if (!started) {
-			commandDepth = depth + (inBacktick ? 1 : 0);
+			commandScope = stack.join("/");
 			piped = nextPiped;
+			conditional = nextConditional;
 			started = true;
 		}
 	};
@@ -417,10 +477,11 @@ function shellCommands(command: string): SimpleCommand[] {
 	};
 	const endCommand = () => {
 		endWord();
-		if (words.length) commands.push({ words, depth: commandDepth, piped });
+		if (words.length) commands.push({ words, scope: commandScope, piped, conditional });
 		words = [];
 		started = false;
 		piped = false;
+		conditional = false;
 	};
 	for (let i = 0; i < command.length; i++) {
 		const ch = command[i];
@@ -441,28 +502,38 @@ function shellCommands(command: string): SimpleCommand[] {
 			endCommand();
 			if (!or && commands.length) commands[commands.length - 1].piped = true;
 			nextPiped = !or;
+			nextConditional = or;
 			if (or) i++;
 		} else if (ch === "#" && !inWord) {
 			// a comment: the rest of the line is not a command
 			endCommand();
 			nextPiped = false;
+			nextConditional = false;
 			while (i < command.length && command[i] !== "\n") i++;
 		} else if (ch === "(" || (ch === "$" && command[i + 1] === "(")) {
 			endCommand();
 			nextPiped = false;
-			depth++;
+			nextConditional = false;
+			open();
 			if (ch === "$") i++;
 		} else if (ch === ")") {
 			endCommand();
 			nextPiped = false;
-			depth = Math.max(0, depth - 1);
+			nextConditional = false;
+			close();
 		} else if (ch === "`") {
 			endCommand();
 			nextPiped = false;
+			nextConditional = false;
+			if (inBacktick) close();
+			else open();
 			inBacktick = !inBacktick;
 		} else if (/[;&\n]/.test(ch)) {
+			const and = ch === "&" && command[i + 1] === "&";
 			endCommand();
 			nextPiped = false;
+			nextConditional = and;
+			if (and) i++;
 		} else if (/\s/.test(ch)) {
 			endWord();
 		} else {
@@ -484,13 +555,14 @@ function programWords(words: string[]): string[] {
 			continue;
 		}
 		const name = word.replace(/^.*\//, "");
-		if (!COMMAND_WRAPPERS.has(name)) break;
+		const wrapper = COMMAND_WRAPPERS.get(name);
+		if (!wrapper) break;
 		i++;
 		while (i < words.length && words[i].startsWith("-")) {
 			const flag = words[i++];
-			if (WRAPPER_VALUE_FLAGS.has(flag) && i < words.length && !words[i].startsWith("-")) i++;
+			if (wrapper.valueFlags.has(flag) && i < words.length) i++;
 		}
-		if (name === "timeout" && i < words.length && DURATION.test(words[i])) i++;
+		if (wrapper.duration && i < words.length && DURATION.test(words[i])) i++;
 	}
 	return words.slice(i);
 }
@@ -585,24 +657,34 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 	// same call is followed rather than assumed to land on main. A checkout adds
 	// a branch HEAD may hold without removing the current one, because the
 	// checkout can fail and a later `;` still runs the push. A directory move is
-	// scoped to its subshell, and a move in a pipeline stage is dropped. HEAD
-	// counts as protected while any candidate branch is protected, or while the
-	// branch cannot be determined at all.
-	const cwdByDepth = new Map<number, string>([[0, cwd]]);
+	// scoped to its own subshell and dropped in a pipeline stage, and a move a
+	// preceding `&&` or `||` can skip leaves the earlier directory a candidate
+	// too. HEAD counts as protected while any candidate branch is protected, or
+	// while the branch cannot be determined at all.
+	const dirsByScope = new Map<string, Set<string>>([["0", new Set([cwd])]]);
 	const predicted = new Map<string, Set<string>>();
 	let branchUncertain = false;
-	for (const { words, depth: scope, piped } of shellCommands(stripHeredocs(command))) {
-		for (const known of [...cwdByDepth.keys()]) {
-			if (known > scope) cwdByDepth.delete(known);
+	// The directories a command in this scope can run in: the innermost
+	// enclosing scope that moved, since a subshell inherits its parent.
+	const dirsFor = (scope: string): Set<string> => {
+		const parts = scope.split("/");
+		for (let n = parts.length; n > 0; n--) {
+			const found = dirsByScope.get(parts.slice(0, n).join("/"));
+			if (found) return found;
 		}
-		let pushCwd = cwd;
-		for (let d = 0; d <= scope; d++) pushCwd = cwdByDepth.get(d) ?? pushCwd;
+		return new Set([cwd]);
+	};
+	for (const { words, scope, piped, conditional } of shellCommands(stripHeredocs(command))) {
+		const pushDirs = [...dirsFor(scope)];
+		const pushCwd = pushDirs[0] ?? cwd;
 		const [program = "", ...rest] = programWords(words);
 		if (SHELLS.test(program) && depth < 3) {
 			const script = rest[rest.indexOf("-c") + 1];
 			if (rest.includes("-c") && script) {
-				const nested = humanOnlyPublication(script, pushCwd, depth + 1);
-				if (nested) return nested;
+				for (const dir of pushDirs) {
+					const nested = humanOnlyPublication(script, dir, depth + 1);
+					if (nested) return nested;
+				}
 			}
 			continue;
 		}
@@ -614,7 +696,7 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 			if (!moved) {
 				branchUncertain = true;
 			} else if (!piped) {
-				cwdByDepth.set(scope, moved);
+				dirsByScope.set(scope, new Set(conditional ? [...pushDirs, moved] : [moved]));
 			}
 			continue;
 		}
@@ -631,21 +713,26 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 		}
 		if (/(^|\/)git$/.test(program)) {
 			let i = 0;
-			let gitCwd = pushCwd;
-			let gitCwdUnknown = false;
-			// `-C`, `--git-dir`, and `--work-tree` all choose the repository the
-			// subcommand acts on, so the branch must be read there.
-			const retarget = (value: string | undefined) => {
-				const moved = value ? resolveDir(pushCwd, value) : null;
-				if (moved) gitCwd = moved;
-				else gitCwdUnknown = true;
-			};
+			// `-C` moves the working directory and repeats cumulatively, while an
+			// explicit `--git-dir` chooses the repository whose HEAD the push
+			// moves, whatever `--work-tree` says.
+			const gitCwds = new Set(pushDirs);
+			let gitDir: string | null = null;
+			let gitDirGiven = false;
 			while (i < rest.length && rest[i].startsWith("-")) {
 				const flag = rest[i];
 				const eq = flag.indexOf("=");
 				const name = eq > 0 ? flag.slice(0, eq) : flag;
-				if (name === "-C" || name === "--git-dir" || name === "--work-tree") {
-					retarget(eq > 0 ? flag.slice(eq + 1) : rest[i + 1]);
+				if (name === "-C" || name === "--git-dir") {
+					const value = eq > 0 ? flag.slice(eq + 1) : rest[i + 1];
+					const moved = value ? [...gitCwds].map((dir) => resolveDir(dir, value)).filter(Boolean) : [];
+					if (name === "-C") {
+						gitCwds.clear();
+						for (const dir of moved) gitCwds.add(dir as string);
+					} else {
+						gitDir = (moved[0] as string) ?? null;
+						gitDirGiven = true;
+					}
 					i += eq > 0 ? 1 : 2;
 				} else if (eq < 0 && GIT_VALUE_FLAGS.has(name)) {
 					i += 2;
@@ -653,24 +740,31 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 					i++;
 				}
 			}
+			const repoDirs = gitDirGiven ? (gitDir ? [gitDir] : []) : [...gitCwds];
 			const sub = rest[i];
 			if (sub === "checkout" || sub === "switch") {
-				const target = gitCwdUnknown ? null : checkoutTarget(rest.slice(i + 1), gitCwd);
-				if (target === null) {
-					branchUncertain = true;
-				} else if (target) {
-					const id = gitIdentity(gitCwd);
-					predicted.set(id, (predicted.get(id) ?? new Set()).add(target));
+				if (!repoDirs.length) branchUncertain = true;
+				for (const repoDir of repoDirs) {
+					const target = checkoutTarget(rest.slice(i + 1), repoDir);
+					if (target === null) {
+						branchUncertain = true;
+					} else if (target) {
+						const id = gitIdentity(repoDir);
+						predicted.set(id, (predicted.get(id) ?? new Set()).add(target));
+					}
 				}
 			} else if (sub === "worktree") {
 				branchUncertain = true;
 			} else if (
 				sub === "push" &&
 				pushTargetsProtected(rest.slice(i + 1), () => {
-					if (branchUncertain || gitCwdUnknown) return ["main"];
-					const candidates = [...(predicted.get(gitIdentity(gitCwd)) ?? [])];
-					const actual = currentBranch(gitCwd);
-					if (actual) candidates.push(actual);
+					if (branchUncertain || !repoDirs.length) return ["main"];
+					const candidates: string[] = [];
+					for (const repoDir of repoDirs) {
+						candidates.push(...(predicted.get(gitIdentity(repoDir)) ?? []));
+						const actual = currentBranch(repoDir);
+						if (actual) candidates.push(actual);
+					}
 					return candidates.length ? candidates : ["main"];
 				})
 			) {
@@ -679,6 +773,19 @@ export function humanOnlyPublication(command: string, cwd: string, depth = 0): s
 		}
 	}
 	return null;
+}
+
+// True when the call really runs `gh pr create` or `gh pr edit`, rather than
+// mentioning it in text, so the PR description is reformatted only on a write.
+function writesPrDescription(command: string): boolean {
+	return shellCommands(stripHeredocs(command)).some(({ words }) => {
+		const [program = "", ...rest] = programWords(words);
+		const isGh = /(^|\/)gh(-local\.py)?$/.test(program);
+		const viaPython = /(^|\/)python3?$/.test(program) && /gh-local\.py$/.test(rest[0] ?? "");
+		if (!isGh && !viaPython) return false;
+		const sub = ghSubcommandPath(viaPython ? rest.slice(1) : rest);
+		return sub[0] === "pr" && (sub[1] === "create" || sub[1] === "edit");
+	});
 }
 
 export default function forgeWorkspaceExtension(pi: any): void {
@@ -973,7 +1080,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 			event?.toolName === "bash" &&
 			typeof event?.toolCallId === "string" &&
 			typeof event?.args?.command === "string" &&
-			/\bgh\s+pr\s+(?:create|edit)\b/.test(event.args.command)
+			writesPrDescription(event.args.command)
 		) {
 			pendingPrCommands.set(event.toolCallId, event.args.command);
 		}

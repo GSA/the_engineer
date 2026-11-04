@@ -338,9 +338,14 @@ or reconciliation service is installed.
     while subshell/pipeline `cd`, unknowable branches, shell-executed heredocs
     and possibly failing checkouts stay gated. The same pass closed the mirror
     bypasses found by scanning our own wrappers: a wrapper program
-    (`timeout`, `stdbuf`, `nice`, `setsid`, …), a `gh` flag placed before the
-    subcommand (`gh --repo … pr merge`), and `git --git-dir`/`--work-tree` no
-    longer hide a `main` push or a PR merge from the gate.
+    (`timeout`, `stdbuf`, `nice`, `setsid`, `env -i`, …), a `gh` flag placed
+    before the subcommand (`gh --repo … pr merge`), and an explicit
+    `git --git-dir` no longer hide a `main` push or a PR merge from the gate,
+    each subshell carries its own directory scope, a conditionally skipped
+    `cd` keeps the pre-`cd` branch a candidate, a shell heredoc's `cd` stays
+    in its child scope, an unquoted heredoc's command substitutions are still
+    scanned, and PR-description reformatting triggers on real `gh pr
+    create`/`edit` calls rather than text that mentions them.
 
 ## Active Kata queue (`engi-platform`)
 

@@ -66,7 +66,7 @@ beforeEach(() => {
     process.env.KENN_FORGE_API_URL = `http://127.0.0.1:${server.port}`;
 });
 
-async function summarizePr({ shortStat, draft, summary, status = 200 }) {
+async function summarizePr({ shortStat, draft, summary, status = 200, command = "gh pr create --body-file draft.md" }) {
     const url = "https://github.com/example/project/pull/42";
     process.env.USAI_API_KEY = "synthetic-summary-test-key";
     process.env.PI_CODING_AGENT_DIR = cwd;
@@ -93,7 +93,7 @@ else process.exit(1);
     const h = load();
     const ctx = makeCtx({ mode: "print" });
     await h.tool_execution_start({
-        toolName: "bash", toolCallId: "pr-write", args: { command: "gh pr create --body-file draft.md" },
+        toolName: "bash", toolCallId: "pr-write", args: { command },
     }, ctx);
     await h.tool_execution_end({
         toolName: "bash", toolCallId: "pr-write", result: { content: [{ text: url }] },
@@ -160,6 +160,10 @@ test("a workspace-branch push stays allowed after cd, checkout -b, and heredoc t
         "timeout 60 git push -u origin HEAD",
         "gh --repo GSA/the_engineer pr create --fill",
         "gh -R GSA/the_engineer pr edit 29 --body-file /tmp/body.md",
+        // --work-tree alone does not change the repository the push reads
+        "git --work-tree " + root + " push -u origin HEAD",
+        // a quoted heredoc a program consumes stays data
+        "cat <<'EOF'\n$(git push origin main)\nEOF\ngit push -u origin HEAD",
     ];
     try {
         for (const command of allowed) {
@@ -204,9 +208,18 @@ test("pushing main still needs human approval however the branch is reached", ()
         [work, "gh -R GSA/the_engineer pr merge 29", "pr_merge"],
         [work, "gh pr --repo GSA/the_engineer merge 29", "pr_merge"],
         [work, "gh api --method PUT /repos/GSA/the_engineer/pulls/29/merge", "pr_merge"],
-        // --git-dir and --work-tree choose the repository just like -C
+        // --git-dir chooses the repository whose HEAD a push moves
         [work, "git --git-dir=" + join(trunk, ".git") + " --work-tree=" + trunk + " push origin HEAD"],
-        [work, "git --work-tree " + trunk + " push origin HEAD"],
+        // a wrapper's own valueless option must not swallow the program
+        [work, "env -i /usr/bin/git -C " + trunk + " push origin HEAD"],
+        // a cd a preceding && can skip leaves the earlier directory possible
+        [trunk, "false && cd " + work + "; git push origin HEAD"],
+        // sibling subshells each inherit the outer directory
+        [trunk, "(cd " + work + "); (git push origin HEAD)"],
+        // a shell heredoc's cd stays inside that shell
+        [trunk, "bash <<'EOF'\ncd " + work + "\nEOF\ngit push origin HEAD"],
+        // an unquoted heredoc expands, so its substitutions run
+        [work, "cat <<EOF\n$(git push origin main)\nEOF"],
         // a checkout in a subdirectory moves the same repository's HEAD
         [work, "git -C " + join(work, "nested") + " checkout main && git push origin HEAD"],
         // a heredoc body a shell executes is still a command
@@ -238,6 +251,25 @@ test("PR formatter leaves the existing description alone when the model route fa
         status: 503,
     })).toBeNull();
     expect(summaryRequests).toHaveLength(1);
+});
+
+test("PR formatter runs on a flagged or wrapped PR write and not on a mere mention", async () => {
+    const base = { shortStat: "1 file changed, 1 insertion(+)", draft: "Keep this.", summary: "Rewritten." };
+    for (const command of [
+        "gh --repo GSA/the_engineer pr create --fill",
+        "timeout 60 gh pr edit 29 --body-file /tmp/body.md",
+        "python3 scripts/gh-local.py pr create --fill",
+    ]) {
+        summaryRequests.length = 0;
+        rmSync(join(cwd, "edited-body"), { force: true });
+        expect([command, await summarizePr({ ...base, command })]).toEqual([command, "Rewritten.\n"]);
+    }
+    for (const command of ['echo "gh pr create"', "grep -n 'gh pr edit' README.md"]) {
+        summaryRequests.length = 0;
+        rmSync(join(cwd, "edited-body"), { force: true });
+        expect([command, await summarizePr({ ...base, command })]).toEqual([command, null]);
+        expect([command, summaryRequests.length]).toEqual([command, 0]);
+    }
 });
 
 afterEach(() => {
