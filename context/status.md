@@ -345,7 +345,10 @@ or reconciliation service is installed.
     `cd` keeps the pre-`cd` branch a candidate, a shell heredoc's `cd` stays
     in its child scope, an unquoted heredoc's command substitutions are still
     scanned, and PR-description reformatting triggers on real `gh pr
-    create`/`edit` calls rather than text that mentions them.
+    create`/`edit` calls rather than text that mentions them. Residual
+    indirection (`gh alias`, `ssh host 'git push origin main'`, variable-
+    expanded program words) is tracked in `kt2r`, and the wider
+    enumerated-list/regex drift the scan surfaced in `c95c`.
 
 ## Active Kata queue (`engi-platform`)
 
