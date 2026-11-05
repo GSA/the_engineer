@@ -46,7 +46,13 @@
   by at most one focused, verified fix pass. Do not re-review merely to obtain
   a passing verdict. Hand recurring or unresolved confirmed findings to the
   owner; pause publication for unresolved task-scoped medium/high/critical
-  defects. See `context/engineering-workflow.md` for disposition rules.
+  defects. In Forge workspaces Pi enforces the budget: a second full-branch
+  review, `roborev refine` or unscoped `roborev fix` is blocked unless the
+  human confirms, fix passes address only the original findings (verified by
+  `roborev respond` plus targeted tests, or `roborev review <sha>` of the fix
+  commit), and a recurring or new finding on a fix commit triggers a loop
+  self-check and owner handoff. Copilot has no runtime hook and keeps this as
+  prose policy. See `context/engineering-workflow.md` for disposition rules.
 - Keep configuration repeatable and secret-free. Never place credentials in
   Git, chat, logs, command arguments, or upstream checkouts.
 - Require explicit approval before changing global settings or exposing
