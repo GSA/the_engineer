@@ -327,12 +327,42 @@ class RuntimePublicationGuardTests(unittest.TestCase):
             "human_declined_merge",
             "checkout_then_push_head",
             "cd_then_bare_push",
+            "cd_expansion_then_push",
+            "worktree_then_push",
+            "subshell_cd_then_push",
+            "shell_heredoc_push_main",
+            "quoted_heredoc_then_push_main",
+            "failed_checkout_then_push",
             "repo_option_refspec_to_main",
             "repo_equals_refspec_to_main",
             "nested_shell_merge",
+            "wrapped_push_main",
+            "wrapped_merge",
+            "nice_wrapped_push_head_on_main",
+            "repo_flag_before_merge",
+            "git_dir_push_main",
+            "env_valueless_option_push_main",
+            "skipped_cd_then_push",
+            "sibling_subshell_push",
+            "heredoc_local_cd_then_push",
+            "expanded_heredoc_substitution",
         ):
             self.assertTrue(cases[name]["blocked"], name)
-        for name in ("workspace_branch_push", "pr_create", "human_confirmed_merge", "read_tool", "quoted_merge_text"):
+        for name in (
+            "workspace_branch_push",
+            "cd_workspace_then_push",
+            "cd_subdir_then_push",
+            "new_branch_then_push",
+            "heredoc_text_then_push",
+            "comment_then_push",
+            "wrapped_workspace_push",
+            "repo_flag_pr_create",
+            "quoted_heredoc_data_then_push",
+            "pr_create",
+            "human_confirmed_merge",
+            "read_tool",
+            "quoted_merge_text",
+        ):
             self.assertFalse(cases[name]["blocked"], name)
         self.assertIn("human", cases["agent_pr_merge"]["reason"])
         self.assertTrue(cases["human_confirmed_merge"]["confirm_asked"])

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 
 const RUNTIME_KEY_LOOKUP_COOLDOWN_MS = 5000;
 // Forge launches pi-argon as pi-local.py --model gemini-4-argon; the launch
@@ -218,7 +218,37 @@ async function summarizePrWithGemini(cwd: string, commandOutput: string): Promis
 }
 
 const PROTECTED_BRANCHES = new Set(["main", "master"]);
-const COMMAND_WRAPPERS = new Set(["env", "sudo", "command", "exec", "time", "nohup", "xargs"]);
+// Programs that run another command, with the options that take a separate
+// value, so the real program is found rather than one of their arguments. Each
+// wrapper differs: `env -i` is valueless while `env -u` takes a name.
+const COMMAND_WRAPPERS = new Map<string, { valueFlags: Set<string>; duration?: boolean }>([
+	["env", { valueFlags: new Set(["-u", "--unset", "-C", "--chdir", "-S", "--split-string"]) }],
+	["sudo", { valueFlags: new Set(["-u", "--user", "-g", "--group", "-p", "--prompt", "-C", "--close-from", "-h", "--host", "-r", "--role", "-t", "--type", "-U", "--other-user", "-D", "--chdir", "-R", "--chroot"]) }],
+	["doas", { valueFlags: new Set(["-u", "-C", "-a"]) }],
+	["command", { valueFlags: new Set() }],
+	["exec", { valueFlags: new Set(["-a"]) }],
+	["time", { valueFlags: new Set(["-o", "--output", "-f", "--format"]) }],
+	["nohup", { valueFlags: new Set() }],
+	["setsid", { valueFlags: new Set() }],
+	["unbuffer", { valueFlags: new Set() }],
+	["timeout", { valueFlags: new Set(["-k", "--kill-after", "-s", "--signal"]), duration: true }],
+	["stdbuf", { valueFlags: new Set(["-i", "--input", "-o", "--output", "-e", "--error"]) }],
+	["nice", { valueFlags: new Set(["-n", "--adjustment"]) }],
+	["ionice", { valueFlags: new Set(["-n", "--classdata", "-c", "--class", "-p", "--pid"]) }],
+	["xargs", { valueFlags: new Set(["-I", "--replace", "-i", "-L", "--max-lines", "-n", "--max-args", "-P", "--max-procs", "-s", "--max-chars", "-E", "-e", "--eof", "-d", "--delimiter", "-a", "--arg-file"]) }],
+]);
+const DURATION = /^\d+(?:\.\d+)?[smhd]?$/;
+// gh flags that take a separate value, so the value is not a subcommand word.
+const GH_VALUE_FLAGS = new Set([
+	"-R", "--repo", "--hostname", "--jq", "-q", "--template", "-t", "--json",
+	"--method", "-X", "--field", "-F", "--raw-field", "-f", "--header", "-H",
+	"--input", "--body", "-b", "--body-file", "-B", "--title", "--base",
+	"--head", "--search", "--label", "-l", "--limit", "-L", "--state", "-s",
+	"--subject", "--match-field", "--cache",
+]);
+// git global flags whose value is a separate word, so the value is not the
+// subcommand.
+const GIT_VALUE_FLAGS = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix"]);
 const SHELLS = /(^|\/)(ba|z|da)?sh$/;
 
 function currentBranch(cwd: string): string {
@@ -232,14 +262,215 @@ function currentBranch(cwd: string): string {
 	}
 }
 
+// The repository a directory belongs to, so a checkout through a subdirectory
+// and a push from its root share predicted branch state.
+function gitIdentity(cwd: string): string {
+	try {
+		return (
+			execFileSync("git", ["-C", cwd, "rev-parse", "--absolute-git-dir"], {
+				encoding: "utf8",
+				stdio: ["ignore", "pipe", "ignore"],
+			}).trim() || cwd
+		);
+	} catch {
+		return cwd;
+	}
+}
+
+// A heredoc body is data for the program that reads it, so it is not scanned as
+// shell words; a body a shell executes is spliced back in as commands. The scan
+// tracks quoting and comments so `<<` inside quoted text or a comment is not
+// taken for a heredoc operator, which would hide the commands after it.
+function stripHeredocs(command: string, depth = 0): string {
+	let out = "";
+	let lineStart = 0;
+	let quote = "";
+	let comment = false;
+	let pending: { delimiter: string; quoted: boolean }[] = [];
+	let i = 0;
+	while (i < command.length) {
+		const ch = command[i];
+		if (ch === "\n" && !quote && pending.length) {
+			const ownerExecutes = runsShellStdin(out.slice(lineStart));
+			const bodies: string[] = [];
+			i++;
+			for (const { delimiter, quoted } of pending) {
+				const body: string[] = [];
+				while (i < command.length) {
+					const end = command.indexOf("\n", i);
+					const line = command.slice(i, end === -1 ? command.length : end);
+					i = end === -1 ? command.length : end + 1;
+					if (line.trim() === delimiter) break;
+					body.push(line);
+				}
+				// A shell runs the body in a child shell, so its directory moves
+				// stay there: the body is spliced inside a subshell. An unquoted
+				// delimiter expands the body wherever it goes, so the commands in
+				// its substitutions run even when the body itself is data.
+				if (ownerExecutes && depth < 3) {
+					bodies.push(`(\n${stripHeredocs(body.join("\n"), depth + 1)}\n)`);
+				} else if (!quoted) {
+					bodies.push(...commandSubstitutions(body.join("\n")));
+				}
+			}
+			pending = [];
+			comment = false;
+			out += bodies.length ? `\n${bodies.join("\n")}\n` : "\n";
+			lineStart = out.length;
+			continue;
+		}
+		if (ch === "\n") {
+			comment = false;
+			out += ch;
+			lineStart = out.length;
+			i++;
+			continue;
+		}
+		if (comment) {
+			out += ch;
+			i++;
+			continue;
+		}
+		if (quote) {
+			if (ch === "\\" && quote === '"' && i + 1 < command.length) {
+				out += ch + command[i + 1];
+				i += 2;
+				continue;
+			}
+			if (ch === quote) quote = "";
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "\\" && i + 1 < command.length) {
+			out += ch + command[i + 1];
+			i += 2;
+			continue;
+		}
+		if (ch === "#" && (out.length === lineStart || /[\s;&|(]/.test(out[out.length - 1] ?? " "))) {
+			comment = true;
+			out += ch;
+			i++;
+			continue;
+		}
+		if (ch === "<" && command[i + 1] === "<" && command[i + 2] !== "<") {
+			let j = i + 2;
+			if (command[j] === "-") j++;
+			while (/[ \t]/.test(command[j] ?? "")) j++;
+			const wrap = command[j] === "'" || command[j] === '"' ? command[j] : "";
+			let escaped = false;
+			if (!wrap && command[j] === "\\") {
+				escaped = true;
+				j++;
+			}
+			let delimiter = "";
+			if (wrap) {
+				j++;
+				while (j < command.length && command[j] !== wrap) delimiter += command[j++];
+				j++;
+			} else {
+				while (j < command.length && /[A-Za-z0-9_.\-]/.test(command[j] ?? "")) delimiter += command[j++];
+			}
+			if (delimiter) {
+				pending.push({ delimiter, quoted: Boolean(wrap) || escaped });
+				i = j;
+				continue;
+			}
+		}
+		out += ch;
+		i++;
+	}
+	return out;
+}
+
+// The `$(...)` and backtick spans in expanded text, returned as `$(...)` so
+// they are read as the subshells the shell really runs them in.
+function commandSubstitutions(text: string): string[] {
+	const spans: string[] = [];
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === "\\") {
+			i++;
+		} else if (text[i] === "$" && text[i + 1] === "(") {
+			let open = 0;
+			let j = i;
+			for (; j < text.length; j++) {
+				if (text[j] === "(") open++;
+				else if (text[j] === ")" && --open === 0) break;
+			}
+			spans.push(text.slice(i, Math.min(j + 1, text.length)));
+			i = j;
+		} else if (text[i] === "`") {
+			const end = text.indexOf("`", i + 1);
+			if (end === -1) break;
+			spans.push(`$(${text.slice(i + 1, end)})`);
+			i = end;
+		}
+	}
+	return spans;
+}
+
+// True when the line runs a shell that reads its script from stdin, so the
+// heredoc body is executed rather than consumed as data.
+function runsShellStdin(line: string): boolean {
+	return shellCommands(line).some(({ words }) => {
+		const [program = "", ...rest] = programWords(words);
+		return SHELLS.test(program) && !rest.includes("-c");
+	});
+}
+
+function resolveDir(cwd: string, target: string): string | null {
+	const path = isAbsolute(target) ? target : resolve(cwd, target);
+	try {
+		return statSync(path).isDirectory() ? path : null;
+	} catch {
+		return null;
+	}
+}
+
+type SimpleCommand = { words: string[]; scope: string; piped: boolean; conditional: boolean };
+
 // Split a shell command into simple commands of words, keeping quoted text as
-// data inside one word.
-function shellCommands(command: string): string[][] {
-	const commands: string[][] = [];
+// data inside one word. Each command records the identity of the shell scope it
+// runs in, whether it runs in a pipeline, and whether a preceding `&&` or `||`
+// can skip it, because `cd` in a subshell or a pipeline does not move the
+// directory the following commands run in, and a skipped `cd` moves nothing.
+// Scope identities are unique, so sibling subshells never share state.
+function shellCommands(command: string): SimpleCommand[] {
+	const commands: SimpleCommand[] = [];
 	let words: string[] = [];
 	let word = "";
 	let inWord = false;
 	let quote = "";
+	const stack = [0];
+	let scopes = 0;
+	let inBacktick = false;
+	let commandScope = "0";
+	let started = false;
+	let piped = false;
+	let nextPiped = false;
+	let conditional = false;
+	let nextConditional = false;
+	const open = () => {
+		scopes++;
+		stack.push(scopes);
+	};
+	const close = () => {
+		if (stack.length > 1) stack.pop();
+	};
+	const note = () => {
+		if (!started) {
+			commandScope = stack.join("/");
+			piped = nextPiped;
+			conditional = nextConditional;
+			started = true;
+		}
+	};
 	const endWord = () => {
 		if (inWord) words.push(word);
 		word = "";
@@ -247,8 +478,11 @@ function shellCommands(command: string): string[][] {
 	};
 	const endCommand = () => {
 		endWord();
-		if (words.length) commands.push(words);
+		if (words.length) commands.push({ words, scope: commandScope, piped, conditional });
 		words = [];
+		started = false;
+		piped = false;
+		conditional = false;
 	};
 	for (let i = 0; i < command.length; i++) {
 		const ch = command[i];
@@ -259,16 +493,54 @@ function shellCommands(command: string): string[][] {
 		} else if (ch === "'" || ch === '"') {
 			quote = ch;
 			inWord = true;
+			note();
 		} else if (ch === "\\" && i + 1 < command.length) {
 			word += command[++i];
 			inWord = true;
-		} else if (/[;&|\n()`]/.test(ch) || (ch === "$" && command[i + 1] === "(")) {
+			note();
+		} else if (ch === "|") {
+			const or = command[i + 1] === "|";
 			endCommand();
+			if (!or && commands.length) commands[commands.length - 1].piped = true;
+			nextPiped = !or;
+			nextConditional = or;
+			if (or) i++;
+		} else if (ch === "#" && !inWord) {
+			// a comment: the rest of the line is not a command
+			endCommand();
+			nextPiped = false;
+			nextConditional = false;
+			while (i < command.length && command[i] !== "\n") i++;
+		} else if (ch === "(" || (ch === "$" && command[i + 1] === "(")) {
+			endCommand();
+			nextPiped = false;
+			nextConditional = false;
+			open();
+			if (ch === "$") i++;
+		} else if (ch === ")") {
+			endCommand();
+			nextPiped = false;
+			nextConditional = false;
+			close();
+		} else if (ch === "`") {
+			endCommand();
+			nextPiped = false;
+			nextConditional = false;
+			if (inBacktick) close();
+			else open();
+			inBacktick = !inBacktick;
+		} else if (/[;&\n]/.test(ch)) {
+			const and = ch === "&" && command[i + 1] === "&";
+			endCommand();
+			nextPiped = false;
+			nextConditional = and;
+			if (and) i++;
 		} else if (/\s/.test(ch)) {
 			endWord();
 		} else {
 			word += ch;
 			inWord = true;
+			note();
 		}
 	}
 	endCommand();
@@ -277,13 +549,77 @@ function shellCommands(command: string): string[][] {
 
 function programWords(words: string[]): string[] {
 	let i = 0;
-	while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || COMMAND_WRAPPERS.has(words[i]) || words[i] === "{")) {
+	while (i < words.length) {
+		const word = words[i];
+		if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || word === "{") {
+			i++;
+			continue;
+		}
+		const name = word.replace(/^.*\//, "");
+		const wrapper = COMMAND_WRAPPERS.get(name);
+		if (!wrapper) break;
 		i++;
+		while (i < words.length && words[i].startsWith("-")) {
+			const flag = words[i++];
+			if (wrapper.valueFlags.has(flag) && i < words.length) i++;
+		}
+		if (wrapper.duration && i < words.length && DURATION.test(words[i])) i++;
 	}
 	return words.slice(i);
 }
 
-function pushTargetsProtected(args: string[], cwd: string, branchUncertain: boolean): boolean {
+// gh accepts its own flags before and between subcommand words, so the
+// subcommand path is the positional words with flag values removed.
+function ghSubcommandPath(args: string[]): string[] {
+	const path: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (!arg.startsWith("-")) path.push(arg);
+		else if (GH_VALUE_FLAGS.has(arg)) i++;
+	}
+	return path;
+}
+
+function localBranchExists(cwd: string, name: string): boolean {	try {
+		execFileSync("git", ["-C", cwd, "rev-parse", "--verify", "--quiet", `refs/heads/${name}`], {
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+		});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+// The branch a checkout/switch lands on: a name when it is known, "" when HEAD
+// does not move (file or path checkout), null when it cannot be determined.
+function checkoutTarget(args: string[], cwd: string): string | null {
+	let newBranch = "";
+	const positional: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--") {
+			return newBranch || "";
+		}
+		if (arg === "-b" || arg === "-B" || arg === "-c" || arg === "-C" || arg === "--orphan") {
+			newBranch = args[++i] ?? "";
+			if (!newBranch || /[$*?~]/.test(newBranch)) return null;
+		} else if (arg === "--detach" || arg === "-d") {
+			return null;
+		} else if (!arg.startsWith("-")) {
+			positional.push(arg);
+		}
+	}
+	if (newBranch) return newBranch;
+	const target = positional[0];
+	if (!target) return "";
+	if (/[$*?~]/.test(target)) return null;
+	if (localBranchExists(cwd, target)) return target;
+	if (resolveDir(cwd, target) || existsSync(isAbsolute(target) ? target : resolve(cwd, target))) return "";
+	return null;
+}
+
+function pushTargetsProtected(args: string[], heads: () => string[]): boolean {
 	const positional: string[] = [];
 	let repoGiven = false;
 	for (let i = 0; i < args.length; i++) {
@@ -303,70 +639,154 @@ function pushTargetsProtected(args: string[], cwd: string, branchUncertain: bool
 		}
 	}
 	const refspecs = repoGiven ? positional : positional.slice(1);
-	const head = () => (branchUncertain ? "main" : currentBranch(cwd));
+	const headProtected = () => heads().some((branch) => PROTECTED_BRANCHES.has(branch));
 	if (refspecs.length === 0) {
-		return PROTECTED_BRANCHES.has(head());
+		return headProtected();
 	}
 	return refspecs.some((spec) => {
 		let dst = spec.replace(/^\+/, "");
 		dst = dst.includes(":") ? dst.slice(dst.indexOf(":") + 1) : dst;
 		dst = dst.replace(/^refs\/heads\//, "");
-		return PROTECTED_BRANCHES.has(dst === "HEAD" || dst === "@" ? head() : dst);
+		return dst === "HEAD" || dst === "@" ? headProtected() : PROTECTED_BRANCHES.has(dst);
 	});
 }
 
 // Merging a PR or pushing main is human-controlled on every surface: the agent
 // may run it only after the human confirms it in the Pi UI.
 export function humanOnlyPublication(command: string, cwd: string, depth = 0): string | null {
-	// After an earlier cd/checkout in the same call, HEAD and cwd are unknown
-	// when tool_call runs, so a bare or HEAD push needs confirmation.
+	// A workspace push is pre-authorized, so an earlier cd or checkout in the
+	// same call is followed rather than assumed to land on main. A checkout adds
+	// a branch HEAD may hold without removing the current one, because the
+	// checkout can fail and a later `;` still runs the push. A directory move is
+	// scoped to its own subshell and dropped in a pipeline stage, and a move a
+	// preceding `&&` or `||` can skip leaves the earlier directory a candidate
+	// too. HEAD counts as protected while any candidate branch is protected, or
+	// while the branch cannot be determined at all.
+	const dirsByScope = new Map<string, Set<string>>([["0", new Set([cwd])]]);
+	const predicted = new Map<string, Set<string>>();
 	let branchUncertain = false;
-	for (const words of shellCommands(command)) {
+	// The directories a command in this scope can run in: the innermost
+	// enclosing scope that moved, since a subshell inherits its parent.
+	const dirsFor = (scope: string): Set<string> => {
+		const parts = scope.split("/");
+		for (let n = parts.length; n > 0; n--) {
+			const found = dirsByScope.get(parts.slice(0, n).join("/"));
+			if (found) return found;
+		}
+		return new Set([cwd]);
+	};
+	for (const { words, scope, piped, conditional } of shellCommands(stripHeredocs(command))) {
+		const pushDirs = [...dirsFor(scope)];
+		const pushCwd = pushDirs[0] ?? cwd;
 		const [program = "", ...rest] = programWords(words);
 		if (SHELLS.test(program) && depth < 3) {
 			const script = rest[rest.indexOf("-c") + 1];
 			if (rest.includes("-c") && script) {
-				const nested = humanOnlyPublication(script, cwd, depth + 1);
-				if (nested) return nested;
+				for (const dir of pushDirs) {
+					const nested = humanOnlyPublication(script, dir, depth + 1);
+					if (nested) return nested;
+				}
 			}
 			continue;
 		}
 		if (program === "cd" || program === "pushd" || program === "popd") {
-			branchUncertain = true;
+			const target = rest.find((arg) => !arg.startsWith("-"));
+			// `cd` home, `cd -`, an expansion, or a missing directory leaves the
+			// next push's branch unknowable here.
+			const moved = program === "cd" && target && !/[$*?~]/.test(target) ? resolveDir(pushCwd, target) : null;
+			if (!moved) {
+				branchUncertain = true;
+			} else if (!piped) {
+				dirsByScope.set(scope, new Set(conditional ? [...pushDirs, moved] : [moved]));
+			}
 			continue;
 		}
 		if (/(^|\/)gh(-local\.py)?$/.test(program) || (/(^|\/)python3?$/.test(program) && /gh-local\.py$/.test(rest[0] ?? ""))) {
 			const args = /python3?$/.test(program) ? rest.slice(1) : rest;
-			if (args[0] === "pr" && args[1] === "merge") {
+			const sub = ghSubcommandPath(args);
+			if (sub[0] === "pr" && sub[1] === "merge") {
 				return "pr_merge";
 			}
-			if (args[0] === "api" && args.some((arg) => /\/pulls\/\d+\/merge$/.test(arg))) {
+			if (sub[0] === "api" && args.some((arg) => /\/pulls\/\d+\/merge$/.test(arg))) {
 				return "pr_merge";
 			}
 			continue;
 		}
 		if (/(^|\/)git$/.test(program)) {
 			let i = 0;
-			let gitCwd = cwd;
+			// `-C` moves the working directory and repeats cumulatively, while an
+			// explicit `--git-dir` chooses the repository whose HEAD the push
+			// moves, whatever `--work-tree` says.
+			const gitCwds = new Set(pushDirs);
+			let gitDir: string | null = null;
+			let gitDirGiven = false;
 			while (i < rest.length && rest[i].startsWith("-")) {
-				if (rest[i] === "-C") {
-					gitCwd = rest[i + 1] ?? gitCwd;
-					i += 2;
-				} else if (rest[i] === "-c") {
+				const flag = rest[i];
+				const eq = flag.indexOf("=");
+				const name = eq > 0 ? flag.slice(0, eq) : flag;
+				if (name === "-C" || name === "--git-dir") {
+					const value = eq > 0 ? flag.slice(eq + 1) : rest[i + 1];
+					const moved = value ? [...gitCwds].map((dir) => resolveDir(dir, value)).filter(Boolean) : [];
+					if (name === "-C") {
+						gitCwds.clear();
+						for (const dir of moved) gitCwds.add(dir as string);
+					} else {
+						gitDir = (moved[0] as string) ?? null;
+						gitDirGiven = true;
+					}
+					i += eq > 0 ? 1 : 2;
+				} else if (eq < 0 && GIT_VALUE_FLAGS.has(name)) {
 					i += 2;
 				} else {
 					i++;
 				}
 			}
+			const repoDirs = gitDirGiven ? (gitDir ? [gitDir] : []) : [...gitCwds];
 			const sub = rest[i];
-			if (sub === "checkout" || sub === "switch" || sub === "worktree") {
+			if (sub === "checkout" || sub === "switch") {
+				if (!repoDirs.length) branchUncertain = true;
+				for (const repoDir of repoDirs) {
+					const target = checkoutTarget(rest.slice(i + 1), repoDir);
+					if (target === null) {
+						branchUncertain = true;
+					} else if (target) {
+						const id = gitIdentity(repoDir);
+						predicted.set(id, (predicted.get(id) ?? new Set()).add(target));
+					}
+				}
+			} else if (sub === "worktree") {
 				branchUncertain = true;
-			} else if (sub === "push" && pushTargetsProtected(rest.slice(i + 1), gitCwd, branchUncertain)) {
+			} else if (
+				sub === "push" &&
+				pushTargetsProtected(rest.slice(i + 1), () => {
+					if (branchUncertain || !repoDirs.length) return ["main"];
+					const candidates: string[] = [];
+					for (const repoDir of repoDirs) {
+						candidates.push(...(predicted.get(gitIdentity(repoDir)) ?? []));
+						const actual = currentBranch(repoDir);
+						if (actual) candidates.push(actual);
+					}
+					return candidates.length ? candidates : ["main"];
+				})
+			) {
 				return "push_main";
 			}
 		}
 	}
 	return null;
+}
+
+// True when the call really runs `gh pr create` or `gh pr edit`, rather than
+// mentioning it in text, so the PR description is reformatted only on a write.
+function writesPrDescription(command: string): boolean {
+	return shellCommands(stripHeredocs(command)).some(({ words }) => {
+		const [program = "", ...rest] = programWords(words);
+		const isGh = /(^|\/)gh(-local\.py)?$/.test(program);
+		const viaPython = /(^|\/)python3?$/.test(program) && /gh-local\.py$/.test(rest[0] ?? "");
+		if (!isGh && !viaPython) return false;
+		const sub = ghSubcommandPath(viaPython ? rest.slice(1) : rest);
+		return sub[0] === "pr" && (sub[1] === "create" || sub[1] === "edit");
+	});
 }
 
 // ---- Bounded roborev review loops ------------------------------------------
@@ -388,7 +808,7 @@ type RoborevKind = "branch" | "loop" | "narrow" | "other";
 // the review; `review <sha>`, `--dirty` and `fix <job>` stay narrow.
 export function roborevInvocations(command: string, depth = 0): RoborevKind[] {
 	const kinds: RoborevKind[] = [];
-	for (const words of shellCommands(command)) {
+	for (const { words } of shellCommands(command)) {
 		const [program = "", ...rest] = programWords(words);
 		if (SHELLS.test(program) && depth < 3) {
 			const script = rest[rest.indexOf("-c") + 1];
@@ -428,7 +848,7 @@ export function roborevInvocations(command: string, depth = 0): RoborevKind[] {
 type ReviewFinding = { severity: string; path: string; problem: string };
 // Job ID shown by `roborev show [--job] <id>`, or 0.
 function showJobId(command: string): number {
-	for (const words of shellCommands(command)) {
+	for (const { words } of shellCommands(command)) {
 		const [program = "", sub = "", ...rest] = programWords(words);
 		if (/(^|\/)roborev$/.test(program) && sub === "show") {
 			const id = rest.find((arg) => /^\d+$/.test(arg));
@@ -905,7 +1325,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 			event?.toolName === "bash" &&
 			typeof event?.toolCallId === "string" &&
 			typeof event?.args?.command === "string" &&
-			/\bgh\s+pr\s+(?:create|edit)\b/.test(event.args.command)
+			writesPrDescription(event.args.command)
 		) {
 			pendingPrCommands.set(event.toolCallId, event.args.command);
 		}
