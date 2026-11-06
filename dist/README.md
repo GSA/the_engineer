@@ -279,7 +279,7 @@ On 2026-11-01 revision `8bfdd6d` installed end to end and `accept` passed
 That run fetched the `agentsview` pin from a local mirror, because the pin was
 not published on `kenn-io/agentsview`. The pin now names a commit published on
 the `biggestbinary/agentsview` fork, so a clean host must supply that fork as
-the mirror until the two carried commits land upstream.
+the mirror until the carried pricing commit lands upstream.
 
 ### Pin preflight, mirrors and receipts
 
@@ -289,7 +289,7 @@ URL (or a supplied mirror), and otherwise stops with one diagnostic per pin
 naming the repository, commit, source and the owner decision needed. It never
 pushes, publishes, resets or edits `.gitmodules`. After the owner publishes a
 commit (for example `git -C agentsview push APPROVED_REMOTE_URL
-22bc8212...:refs/heads/APPROVED_BRANCH`), either move the gitlink or rerun with
+49b1c6c8...:refs/heads/APPROVED_BRANCH`), either move the gitlink or rerun with
 `--submodule-mirror agentsview=APPROVED_REMOTE_URL`; the mirror is applied only
 to that run through git's `url.<mirror>.insteadOf` environment settings.
 
