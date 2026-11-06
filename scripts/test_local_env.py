@@ -397,6 +397,8 @@ class LocalEnvironmentTests(unittest.TestCase):
             "other": {"command": "/other", "args": ["x"]},
             "falcon-context": {"tools": ["status", "get"], "timeout": 60000, "type": "local",
                                "command": "/old", "args": ["--root", "/old"]}}, "theme": "kept"}))
+        # Copilot CLI writes its MCP config 0600; match it rather than the ambient umask.
+        copilot.chmod(0o600)
         self.configure_quietly(toolkit, audit=True, copilot_config=copilot)
         saved = json.loads(copilot.read_text())
         self.assertEqual(saved["theme"], "kept")
