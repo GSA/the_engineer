@@ -43,9 +43,11 @@ const BRAINSTORMING_OVERRIDE = [
 	"## Kenn Forge Workspace Override (Active)",
 	"",
 	"You are running inside an autonomous Kenn Forge workspace.",
-	"- Unless a genuine blocking requirement ambiguity cannot be resolved from the codebase or Kata/issue specification, `<HARD-GATE>` is satisfied by the workspace launch prompt: do **NOT** stop and wait for human approval of your path classification, in-chat design, or written spec.",
-	"- Save any working design/spec to ignored `.local/plans/` (never under `docs/superpowers/specs/` and never commit it to Git).",
-	"- Complete the inline spec self-review and immediately proceed to `writing-plans` and TDD implementation in the same turn.",
+	"- Unless a genuine blocking requirement ambiguity cannot be resolved from the codebase or Kata/issue specification, `<HARD-GATE>` is satisfied by the workspace launch prompt: do **NOT** stop and wait for human approval of your design or design doc.",
+	"- Do **NOT** open with questions, including why the work is wanted: the workspace launch prompt and Kata/issue description are the answers. State your calls as decisions in the design doc instead of asking.",
+	"- Save any working design doc to ignored `.local/plans/` (never under `docs/superpowers/specs/` and never commit it to Git).",
+	"- Run the builder check (a `subagent` with `model: \"inherit\"`, or read the doc as that builder yourself). Settle \"minor\" items yourself; bring a \"theirs\" item to the human only if it is a genuine blocking requirement ambiguity. Otherwise record it as your call.",
+	"- Then immediately proceed to `writing-plans` and TDD implementation in the same turn.",
 ].join("\n");
 
 const WRITING_PLANS_OVERRIDE = [
