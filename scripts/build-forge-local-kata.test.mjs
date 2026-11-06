@@ -20,6 +20,16 @@ test("permits only the explicit local Kata substitution without mutating inputs"
     expect({ original, derived }).toEqual(before);
 });
 
+test("permits only the local Kata package's own devDependency subtree", () => {
+    const { original, derived } = locks();
+    const local = "kenn-forge-frontend/@kenn-io/kata-ui";
+    derived.packages[local] = ["kata@file:../kata", { devDependencies: { "vite-plus": "1.2.0" } }];
+    derived.packages[`${local}/vite-plus`] = ["vite-plus@1.2.0", {}, "sha512-dev"];
+    verifyLocalLock(original, derived);
+    derived.packages[local] = ["kata@file:../kata", { dependencies: { "vite-plus": "1.2.0" } }];
+    expect(() => verifyLocalLock(original, derived)).toThrow();
+});
+
 test("rejects unrelated package integrity or version drift", () => {
     const { original, derived } = locks();
     derived.packages["@babel/runtime"][0] = "@babel/runtime@0.0.0";

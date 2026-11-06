@@ -37,7 +37,7 @@ Merged-PR reconciliation closed Librarian `9hqs`/`0nj8` and Engineer
 The owner accepted the external roborev hook/page for `avvp`; no native
 Kata-workspace Reviews tab is claimed.
 
-Forge `bf025d22` merges PRs and optionally cleans up workspaces, but its Kata
+Forge `3f58f438` merges PRs and optionally cleans up workspaces, but its Kata
 integration is read-only. Workspace/PR task links do not authorize completion.
 Use native `kata close` only after the task's acceptance is met, with PR/commit
 evidence; partial-delivery tasks stay open. `430a` records the planned upstream
@@ -48,10 +48,10 @@ or reconciliation service is installed.
 ## Live environment state
 
 - All four user systemd units are running on loopback:
-  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.20.0-37-g14844737`, schema 34, API `0.34.0`)
-  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.74.0-23-gd53ecfca`)
-  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.46.1-84-gc7f77ad0`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.5.1-118-gbf025d22-local-kata`)
+  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.22.0-20-g4853199e`, schema 48, API `0.41.0`)
+  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.74.0-161-gcaacbdae`)
+  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.46.1-283-g49b1c6c84`)
+  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.5.1-331-g3f58f438-local-kata`)
 - Registered Forge repositories: `gsa/the_engineer`, `gsa/the_librarian`,
   `gsa/aos-spud` and `gsa/supply-chain-user-interface`, each mapped to its Kata
   project (`the_engineer`, `the_librarian`, `spud`,
@@ -185,10 +185,12 @@ or reconciliation service is installed.
     `.local/environment/runtime/6hce-qualified-read-20261030.json`. No corpus,
     index or provider configuration changed. Compaction (`8vhd`) and the shared
     Librarian+Knowitall run (`hk33`) are tracked separately.
-- **Forge pin `bf025d22` (`v0.5.1-118`)**:
+- **Forge pin `3f58f438` (`v0.5.1-331`)**:
   - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
     local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
     empty `POSTHOG_PROJECT_KEY` so the binary carries no telemetry destination;
+    the lock check permits only the local Kata UI package's nested devDependency
+    subtree (Kata UI now declares `vite-plus`);
     the service environment also keeps `TELEMETRY_ENABLED=0`.
   - Upstream fixed the workspace-target MCP output schemas, so the local
     `tools_workspace_targets.go` patch is removed. Config, `serve` flags, the

@@ -16,11 +16,18 @@ export function verifyLocalLock(original, derived) {
     const expected = structuredClone(original);
     const actual = structuredClone(derived);
     assert.equal(actual.workspaces.frontend.dependencies[dependency], localDependency);
-    assert.deepEqual(actual.packages[localPackage], ["kata@file:../kata", {}]);
+    const [localSpec, localMetadata] = actual.packages[localPackage];
+    assert.equal(localSpec, "kata@file:../kata");
+    assert.deepEqual(Object.keys(localMetadata).filter((key) => key !== "devDependencies"), []);
     delete expected.workspaces.frontend.dependencies[dependency];
     delete actual.workspaces.frontend.dependencies[dependency];
     delete expected.packages[dependency];
-    delete actual.packages[localPackage];
+    // A file: dependency locks its own devDependencies as a nested subtree.
+    for (const key of Object.keys(actual.packages)) {
+        if (key === localPackage || key.startsWith(`${localPackage}/`)) {
+            delete actual.packages[key];
+        }
+    }
     assert.deepEqual(actual, expected, "Local substitution changed unrelated locked dependencies");
 }
 
