@@ -374,11 +374,11 @@ or reconciliation service is installed.
   `local_env.py accept`; container run of `8bfdd6d` passes 12/14 with only
   credentials missing, blocked on publishing the unfetchable `agentsview`
   pin `49b1c6c8` to `kenn-io/agentsview`; the pin is published on the
-  `biggestbinary/agentsview` fork, so clean hosts need
-  `--submodule-mirror agentsview=https://github.com/biggestbinary/agentsview.git`
-  until the carried pricing commit lands upstream; the installer now preflights pin
+  `biggestbinary/agentsview` fork, which the installer applies as its built-in
+  default `agentsview` mirror (receipt `applied_defaults`) until the carried
+  pricing commit lands upstream; the installer now preflights pin
   fetchability, accepts
-  `--submodule-mirror NAME=URL`, defaults `GOPROXY` to `...|direct` and writes
+  `--submodule-mirror NAME=URL` (overriding the default), defaults `GOPROXY` to `...|direct` and writes
   `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
   post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy

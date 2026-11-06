@@ -702,6 +702,26 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "credentials"):
             installer.parse_mirrors(["agentsview=https://user:pw@example.invalid/x.git"])
 
+    def test_default_agentsview_mirror_applies_without_flag_and_cli_overrides(self):
+        default = installer.DEFAULT_SUBMODULE_MIRRORS["agentsview"]
+        installer.RECEIPT.reset()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(installer.with_default_mirrors(installer.parse_mirrors([])),
+                             {"agentsview": default})
+        self.assertIn(f"submodule-mirror agentsview={default}", installer.RECEIPT.applied_defaults)
+        installer.RECEIPT.reset()
+        explicit = installer.with_default_mirrors(installer.parse_mirrors(["agentsview=/approved"]))
+        self.assertEqual(explicit, {"agentsview": "/approved"})
+        self.assertEqual(installer.RECEIPT.applied_defaults, [])
+
+    def test_default_mirror_is_skipped_when_repository_is_unpinned(self):
+        platform, _, _ = self.pinned_checkout()
+        self.git(platform, "rm", "--quiet", "--cached", "agentsview")
+        self.git(platform, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
+                 "commit", "--quiet", "-m", "unpin")
+        environment = installer.source_environment(platform, dict(installer.DEFAULT_SUBMODULE_MIRRORS), {})
+        self.assertEqual(environment.get("GIT_CONFIG_COUNT"), "0")
+
     def test_goproxy_defaults_to_direct_fallback_and_explicit_value_wins(self):
         installer.RECEIPT.reset()
         with patch.dict(installer.os.environ, {}, clear=False):

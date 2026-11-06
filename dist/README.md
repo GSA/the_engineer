@@ -278,8 +278,8 @@ On 2026-11-01 revision `8bfdd6d` installed end to end and `accept` passed
 12/14; the two failures are the expected missing USAi key and GitHub login.
 That run fetched the `agentsview` pin from a local mirror, because the pin was
 not published on `kenn-io/agentsview`. The pin now names a commit published on
-the `biggestbinary/agentsview` fork, so a clean host must supply that fork as
-the mirror until the carried pricing commit lands upstream.
+the `biggestbinary/agentsview` fork, which the installer uses as its built-in
+default `agentsview` mirror until the carried pricing commit lands upstream.
 
 ### Pin preflight, mirrors and receipts
 
@@ -293,6 +293,13 @@ commit (for example `git -C agentsview push APPROVED_REMOTE_URL
 `--submodule-mirror agentsview=APPROVED_REMOTE_URL`; the mirror is applied only
 to that run through git's `url.<mirror>.insteadOf` environment settings.
 
+`agentsview` defaults to the owner-approved mirror
+`https://github.com/biggestbinary/agentsview.git`, so a clean install needs no
+flag; an explicit `--submodule-mirror agentsview=URL` replaces it (pass the
+`.gitmodules` URL to fetch from upstream directly). The installer prints the
+default it applied and records it in the receipt's `applied_defaults` and
+`submodule_mirrors`. Other repositories have no default mirror.
+
 Source and build steps run with `GOPROXY=https://proxy.golang.org|direct` when
 `GOPROXY` is unset (`proxy,direct` only falls back on 404/410, so a TLS proxy's
 403 for `go.kenn.io` stops the build); an explicit `GOPROXY` is preserved.
@@ -302,7 +309,7 @@ Each install writes a private secret-free receipt to
 also on failure: UTC start/finish and elapsed seconds, per-phase seconds
 (`pin-preflight`, `sources`, `toolchains`, `build`, ...), hands-on seconds
 (interactive prompt wait), `manual_fixes` from repeatable `--record-fix TEXT`,
-applied defaults such as the GOPROXY value, mirrors, platform revision and pins.
+applied defaults such as the GOPROXY value and default mirrors, mirrors, platform revision and pins.
 Operators add other hands-on minutes and workarounds with `--record-fix`
 or in the Kata `ef0w` record; credential steps are timed separately by hand.
 
