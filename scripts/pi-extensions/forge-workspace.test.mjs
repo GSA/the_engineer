@@ -696,3 +696,58 @@ test("showing the original branch job again does not replace its recorded findin
     const out = await result(h, "roborev review abc123 --wait", finding(1, "Medium", "src/widget.ts", "The widget cache never invalidates when the store format changes."));
     expect(out.content.map((part) => part.text).join("\n")).toContain("recurring");
 });
+
+// Writing subagents get managed worktrees in Forge workspaces so they never
+// share the workspace checkout; read-only agents and explicit choices stay put.
+const launch = (h, input, ctx = makeCtx({ mode: "print" })) =>
+    h.tool_call({ toolName: "subagent", toolCallId: "s1", input }, ctx).then(() => input);
+
+test("writing subagents launch in a managed worktree by default", async () => {
+    const h = load();
+    expect((await launch(h, { agent: "worker", task: "t" })).worktree).toBe(true);
+    expect((await launch(h, { agent: "delegate", task: "t" })).worktree).toBe(true);
+    const fanout = await launch(h, {
+        workflow: "parallel",
+        args: { tasks: [{ agent: "scout", task: "a" }, { agent: "worker", task: "b" }] },
+    });
+    expect(fanout.worktree).toBe(true);
+});
+
+test("read-only, management, resume and explicit launches are left alone", async () => {
+    const h = load();
+    expect((await launch(h, { agent: "scout", task: "t" })).worktree).toBeUndefined();
+    expect((await launch(h, { agent: "reviewer", task: "t" })).worktree).toBeUndefined();
+    expect((await launch(h, {
+        workflow: "parallel", args: { tasks: [{ agent: "scout", task: "a" }, { agent: "oracle", task: "b" }] },
+    })).worktree).toBeUndefined();
+    expect((await launch(h, { action: "resume", id: "r1", message: "m" })).worktree).toBeUndefined();
+    expect((await launch(h, { action: "status", agent: "worker" })).worktree).toBeUndefined();
+    expect((await launch(h, { agent: "worker", task: "t", worktree: false })).worktree).toBe(false);
+    expect((await launch(h, { agent: "worker", task: "t", options: { isolation: "none" } })).worktree).toBeUndefined();
+    expect((await launch(h, { agent: "worker", task: "t", options: { worktree: false } })).worktree).toBeUndefined();
+});
+
+test("subagent worktrees are placed under the Pi agent dir, outside Forge worktrees", async () => {
+    delete process.env.PI_SUBAGENTS_WORKTREE_DIR;
+    process.env.PI_CODING_AGENT_DIR = join(cwd, "pi-agent");
+    await launch(load(), { agent: "worker", task: "t" });
+    expect(process.env.PI_SUBAGENTS_WORKTREE_DIR).toBe(join(cwd, "pi-agent", "subagent-worktrees"));
+    process.env.PI_SUBAGENTS_WORKTREE_DIR = "/custom";
+    await launch(load(), { agent: "worker", task: "t" });
+    expect(process.env.PI_SUBAGENTS_WORKTREE_DIR).toBe("/custom");
+});
+
+test("outside a Forge workspace subagent launches are unchanged", async () => {
+    rmSync(join(cwd, "AGENTS.override.md"));
+    const h = load();
+    expect((await launch(h, { agent: "worker", task: "t" })).worktree).toBeUndefined();
+});
+
+test("workspace policy explains how to land and clean up subagent worktree branches", async () => {
+    const event = { systemPromptOptions: { sections: {} } };
+    await load().before_agent_start(event, makeCtx());
+    const policy = event.systemPromptOptions.sections.forge_workspace;
+    expect(policy).toContain("`worker` and `delegate`");
+    expect(policy).toContain("git merge");
+    expect(policy).toContain("git worktree remove");
+});

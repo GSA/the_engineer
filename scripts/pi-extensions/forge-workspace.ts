@@ -35,6 +35,7 @@ const FORGE_WORKSPACE_SECTION = [
 	"- Make every edit and commit inside this workspace worktree on its branch. If the task needs changes in another repository, create a feature branch there (never commit on its `main` checkout), push it, and open a PR there.",
 	"- Never commit to, push to, or ask the human whether to push to `main` or the default branch, and never merge a PR; deliver through branches and pull requests.",
 	`- ${PR_DESCRIPTION_GUIDANCE} The automatic PR formatter uses the same guidance after \`gh pr create\` / \`gh pr edit\`.`,
+	"- Subagents are optional; use them only when the task benefits. In this workspace Pi launches `worker` and `delegate` subagents (and `parallel` fan-outs that include them) in managed worktrees under the Pi agent dir unless the call sets `worktree` itself; `scout`, `oracle` and `reviewer` run in place. In a `workflow: true` script, set `worktree: true` on each writing child yourself. Commit or stash first: an isolated launch refuses a dirty or untracked checkout. Tell each writing subagent to commit its work and report its branch. Then land it on the workspace branch with `git merge --ff-only <branch>` (or `git cherry-pick` for parallel lanes), verify, and clean up with `git worktree remove <path>` and `git branch -d <branch>` (`git worktree list` shows both).",
 	"- Forge links the workspace branch's PR to this workspace automatically. Register PRs in other repositories or extra stacked PRs with `mcp__kenn_forge__kenn_forge_add_workspace_target`, and worked GitHub issues or Kata tasks with it or `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using `mcp__kenn_forge__kenn_forge_list_repos` if needed to look up `platform_repo_id`), then confirm with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 ].join("\n");
 
@@ -72,6 +73,33 @@ const FINISHING_BRANCH_OVERRIDE = [
 	"3. Forge links the workspace branch's PR automatically. Register PRs in other repositories, extra stacked PRs, and any worked GitHub issue or Kata task with Forge using `mcp__kenn_forge__kenn_forge_add_workspace_target` and `mcp__kenn_forge__kenn_forge_add_workspace_kata_target` (using the `Workspace ID` and `Repository` from the Kenn Forge Workspace Context), then verify with `mcp__kenn_forge__kenn_forge_list_workspace_targets`.",
 	"4. Do not remove the Forge workspace worktree; Forge manages workspace worktree lifecycle.",
 ].join("\n");
+
+const WRITING_SUBAGENTS = new Set(["worker", "delegate"]);
+
+// Writing subagents get managed worktrees so they never share the workspace
+// checkout. Explicit worktree/isolation choices, read-only agents, resumes and
+// management actions are left as the caller wrote them.
+export function isolateWritingSubagents(input: any): void {
+	if (!input || typeof input !== "object" || input.action) {
+		return;
+	}
+	const options = input.options && typeof input.options === "object" ? input.options : {};
+	if ("worktree" in input || "isolation" in input || "worktree" in options || "isolation" in options) {
+		return;
+	}
+	const tasks = input.workflow === "parallel" && Array.isArray(input.args?.tasks) ? input.args.tasks : [];
+	const agents = [input.agent, ...tasks.map((task: any) => task?.agent)];
+	if (!agents.some((agent) => WRITING_SUBAGENTS.has(agent))) {
+		return;
+	}
+	input.worktree = true;
+	if (!process.env.PI_SUBAGENTS_WORKTREE_DIR?.trim()) {
+		const agentDir = process.env.PI_CODING_AGENT_DIR?.trim();
+		if (agentDir) {
+			process.env.PI_SUBAGENTS_WORKTREE_DIR = join(agentDir, "subagent-worktrees");
+		}
+	}
+}
 
 function isSubagentProcess(): boolean {
 	return Boolean(
@@ -1307,6 +1335,12 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	}
 
 	pi.on("tool_call", async (event: any, ctx: any) => {
+		if (event?.toolName === "subagent") {
+			if (!isSubagentProcess() && isForgeWorkspace(ctx.cwd)) {
+				isolateWritingSubagents(event.input);
+			}
+			return undefined;
+		}
 		const command = event?.toolName === "bash" ? event?.input?.command : undefined;
 		const action = typeof command === "string" ? humanOnlyPublication(command, ctx.cwd) : null;
 		if (!action) {
