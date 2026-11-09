@@ -37,6 +37,19 @@ class Daemon(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        path = json.loads(self.rfile.read(length)).get("start_path", "")
+        if self.path == "/api/v1/projects/resolve" and "/gitrepo" in path:
+            self.send_response(200)
+            body = {"project": {"name": "the_engineer"}}
+        else:
+            self.send_response(404)
+            body = {"error": {"message": "no .kata.toml ancestor and no git ancestor"}}
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(body).encode())
+
     def log_message(self, *args):
         pass
 
@@ -77,6 +90,18 @@ class HealthTests(unittest.TestCase):
         results = self.by_name(health.run_checks(server=self.url, cwd=self.tmp, project=None, index=None, ceiling=self.tmp))
         self.assertFalse(results["kata-project"]["ok"])
         self.assertIn("--project", results["kata-project"]["action"])
+
+    def test_unbound_directory_that_the_daemon_resolves_through_git_passes(self):
+        repo = self.tmp / "gitrepo"
+        repo.mkdir()
+        results = self.by_name(health.run_checks(server=self.url, cwd=repo, project=None, index=None, ceiling=self.tmp))
+        self.assertTrue(results["kata-project"]["ok"])
+        self.assertIn("daemon resolution", results["kata-project"]["detail"])
+
+    def test_unbound_directory_the_daemon_cannot_resolve_fails_with_its_message(self):
+        results = self.by_name(health.run_checks(server=self.url, cwd=self.tmp, project=None, index=None, ceiling=self.tmp))
+        self.assertFalse(results["kata-project"]["ok"])
+        self.assertIn("no .kata.toml ancestor", results["kata-project"]["detail"])
 
     def test_explicit_project_overrides_missing_binding(self):
         results = self.by_name(health.run_checks(server=self.url, cwd=self.tmp, project="the_engineer", index=None))
@@ -137,6 +162,33 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(health.index_from_mcp(mcp), {
             "python": str(root / ".venv/bin/python"), "root": str(root), "manifest": str(root / "sel.json")})
         self.assertIsNone(health.index_from_mcp(self.tmp / "missing.json"))
+
+    def test_index_config_without_a_manifest_is_still_checked(self):
+        root = self.tmp / "lib"
+        mcp = self.tmp / "mcp.json"
+        mcp.write_text(json.dumps({"mcpServers": {"falcon-context": {
+            "command": str(root / ".venv/bin/librarian-mcp"), "args": ["--root", str(root)]}}}))
+        index = health.index_from_mcp(mcp)
+        self.assertEqual(index["root"], str(root))
+        self.assertIsNone(index["manifest"])
+        script = self.tmp / "py"
+        script.write_text('#!/bin/sh\necho "$@" > "$0.args"\necho \'{"fresh": true}\'\n')
+        script.chmod(script.stat().st_mode | stat.S_IXUSR)
+        root.mkdir()
+        index["python"] = str(script)
+        self.assertTrue(health.check_index(index)["ok"])
+        self.assertNotIn("--manifest", Path(f"{script}.args").read_text())
+
+    def test_defaults_come_from_the_managed_environment_not_home(self):
+        saved = {key: os.environ.pop(key, None) for key in ("KATA_SERVER", "PI_CODING_AGENT_DIR")}
+        self.addCleanup(lambda: os.environ.update({k: v for k, v in saved.items() if v}))
+        server, mcp = health.environment_defaults()
+        self.assertTrue(server.startswith("http://127.0.0.1:"))
+        self.assertEqual(mcp.name, "mcp.json")
+        self.assertEqual(mcp.parent.name, "pi")
+        self.assertNotIn(".pi/agent", str(mcp))
+        os.environ["KATA_SERVER"] = "http://127.0.0.1:9"
+        self.assertEqual(health.environment_defaults()[0], "http://127.0.0.1:9")
 
     def test_main_prints_actions_and_returns_nonzero_on_failure(self):
         out = io.StringIO()

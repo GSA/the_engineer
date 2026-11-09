@@ -12,6 +12,7 @@ Exit 0 when no check failed (skipped checks do not fail), 1 otherwise.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -21,8 +22,20 @@ import tomllib
 import urllib.error
 import urllib.request
 
-DEFAULT_SERVER = "http://127.0.0.1:17777"
 INDEX_TIMEOUT = 60
+
+
+def environment_defaults():
+    """(Kata URL, Pi mcp.json) of this checkout, honouring the saved port offset.
+
+    Reuses local_env so a plain invocation outside the Pi launcher checks the
+    managed runtime rather than ~/.pi/agent or the default ports.
+    """
+    spec = importlib.util.spec_from_file_location("local_env", Path(__file__).with_name("local_env.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    agent_dir = os.environ.get("PI_CODING_AGENT_DIR") or str(module.STATE / "pi")
+    return os.environ.get("KATA_SERVER") or module.KATA_URL, Path(agent_dir) / "mcp.json"
 
 
 def result(name, ok, detail="", action="", skipped=False):
@@ -37,6 +50,27 @@ def result(name, ok, detail="", action="", skipped=False):
 def get_json(url, timeout=5):
     with urllib.request.urlopen(url, timeout=timeout) as response:
         return json.load(response)
+
+
+def resolve_from_path(server, cwd):
+    """Ask the daemon to resolve `cwd` as native Kata does (.kata.toml, then git alias).
+
+    Returns (project name, None) or (None, daemon message). Resolution creates
+    nothing: projects are never created by resolve.
+    """
+    request = urllib.request.Request(
+        f"{server}/api/v1/projects/resolve", data=json.dumps({"start_path": str(cwd)}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.load(response)["project"]["name"], None
+    except urllib.error.HTTPError as error:
+        try:
+            return None, json.load(error)["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            return None, f"HTTP {error.code}"
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return None, str(error)
 
 
 def find_binding(start, ceiling=None):
@@ -77,9 +111,12 @@ def check_project(server, cwd, project, ceiling=None):
                           "Fix the .kata.toml (version = 1, [project] name = \"...\") or pass --project NAME.")
         source = str(path)
     if not name:
-        return result("kata-project", False, f"no .kata.toml at or above {cwd}",
-                      "Run from the workspace worktree or a bound repository, or pass --project NAME "
-                      "(kata projects list shows names).")
+        name, why = resolve_from_path(server, cwd)
+        source = f"daemon resolution of {cwd}"
+    if not name:
+        return result("kata-project", False, f"{why}",
+                      "Run from the workspace worktree or a repository registered with Kata, or pass "
+                      "--project NAME (kata projects list shows names).")
     try:
         projects = get_json(f"{server}/api/v1/projects").get("projects", [])
     except (OSError, ValueError, AttributeError) as error:
@@ -91,11 +128,15 @@ def check_project(server, cwd, project, ceiling=None):
     return result("kata-project", True, f"{name} (from {source})")
 
 
+def manifest_args(index):
+    return ["--manifest", index["manifest"]] if index.get("manifest") else []
+
+
 def check_index(index):
     if not index:
         return result("index", True, "no Librarian index configured (pi/mcp.json has no falcon-context)", skipped=True)
     argv = [index["python"], "-B", "-m", "tools.context_index.context_index", "--root", index["root"],
-            "--manifest", index["manifest"], "status"]
+            *manifest_args(index), "status"]
     try:
         run = subprocess.run(argv, cwd=index["root"], capture_output=True, text=True,
                              stdin=subprocess.DEVNULL, timeout=INDEX_TIMEOUT)
@@ -113,7 +154,7 @@ def check_index(index):
     reasons = "; ".join(payload.get("reasons") or ["unknown"])
     return result("index", False, f"stale: {reasons}",
                   f"Rebuild the derived index: python -B -m tools.context_index.context_index "
-                  f"--root {index['root']} --manifest {index['manifest']} build")
+                  f"--root {index['root']} {' '.join(manifest_args(index))} build".replace("  ", " "))
 
 
 def index_from_mcp(path):
@@ -122,7 +163,8 @@ def index_from_mcp(path):
         server = json.loads(Path(path).read_text())["mcpServers"]["falcon-context"]
         args = server["args"]
         return {"python": str(Path(server["command"]).parent / "python"),
-                "root": args[args.index("--root") + 1], "manifest": args[args.index("--manifest") + 1]}
+                "root": args[args.index("--root") + 1],
+                "manifest": args[args.index("--manifest") + 1] if "--manifest" in args else None}
     except (OSError, ValueError, KeyError, IndexError, TypeError):
         return None
 
@@ -141,11 +183,11 @@ def exit_code(results):
 
 
 def main(argv=None):
-    default_mcp = Path(os.environ.get("PI_CODING_AGENT_DIR", Path.home() / ".pi/agent")) / "mcp.json"
+    default_server, default_mcp = environment_defaults()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--cwd", default=".", help="directory whose Kata binding is checked")
     parser.add_argument("--project", help="check this project instead of the directory's binding")
-    parser.add_argument("--server", default=os.environ.get("KATA_SERVER", DEFAULT_SERVER))
+    parser.add_argument("--server", default=default_server, help="Kata URL (default: KATA_SERVER, else this environment's port)")
     parser.add_argument("--mcp-config", default=str(default_mcp), help="Pi mcp.json naming the Librarian index")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
