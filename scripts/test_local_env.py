@@ -51,7 +51,7 @@ class PiVersionTests(unittest.TestCase):
     def test_approved_runtime_is_accepted(self):
         config = {"pi_executable": "/test/pi"}
         with patch.object(local_env.subprocess, "run",
-                          return_value=MagicMock(stdout="1.4.0\n")):
+                          return_value=MagicMock(stdout=local_env.PI_VERSION + "\n")):
             self.assertEqual(local_env.verify_pi(config, env={}), "/test/pi")
 
     def test_other_versions_are_rejected(self):
@@ -852,6 +852,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         path = self.state / "pi/settings.json"
         config = json.loads(path.read_text())
         config["theme"] = "retained"
+        config["packages"] = [*config.get("packages", []), "npm:pi-subagents@0.0.1"]
         config.pop("subagents", None)
         local_env.json_write(path, config, replace=True)
         before = config.copy()
@@ -894,6 +895,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(saved["theme"], before["theme"])
         self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
         self.assertNotIn(local_env.LEGACY_PI_REVIEW_EXTENSION, saved["packages"])
+        self.assertNotIn("npm:pi-subagents@0.0.1", saved["packages"])
         for extension in local_env.PI_EXTENSIONS:
             self.assertEqual(saved["packages"].count(extension), 1)
         self.assertEqual(saved["subagents"]["defaultProvider"], "usai")

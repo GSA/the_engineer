@@ -1373,6 +1373,14 @@ def structured_review_args(args):
     return [*REVIEW_ISOLATION_FLAGS, "--extension", schema_extension, *kept]
 
 
+def npm_package_name(spec):
+    """Return the npm package of an `npm:name@version` Pi package spec, else None."""
+    if not isinstance(spec, str) or not spec.startswith("npm:"):
+        return None
+    name = spec[len("npm:"):]
+    return name.rsplit("@", 1)[0] if "@" in name[1:] else name
+
+
 def install_pi_extensions():
     executable = verify_pi(settings())
     path = STATE / "pi/settings.json"
@@ -1396,8 +1404,11 @@ def install_pi_extensions():
             raise RuntimeError(f"Pi did not save {extension} in the isolated profile")
     config = json.loads(private_read(path))
     if "packages" in config and isinstance(config["packages"], list):
+        pinned = {npm_package_name(extension): extension for extension in PI_EXTENSIONS}
         config["packages"] = [
-            pkg for pkg in config["packages"] if pkg != LEGACY_PI_REVIEW_EXTENSION
+            pkg for pkg in config["packages"]
+            if pkg != LEGACY_PI_REVIEW_EXTENSION
+            and pinned.get(npm_package_name(pkg), pkg) == pkg
         ]
     config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
     json_write(path, config, replace=True)
