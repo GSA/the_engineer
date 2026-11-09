@@ -11,7 +11,8 @@ internal Go APIs. After rebasing the agentsview pin onto a newer upstream:
   3. a failing test names the hack to re-apply. Once upstream covers a hack,
      the test keeps passing and the carried commit can be dropped.
 
-Carried hack (agentsview fork biggestbinary/agentsview, local/usage-accuracy-v2):
+Carried hack (agentsview fork biggestbinary/agentsview, fix/price-guarded-sol-deployments;
+upstream PR kenn-io/agentsview#2929):
   * guarded-Sol pricing: USAi/Pi deployment names such as
     gpt-6.1-sol-latest-guardrails-defaultv2 must price like their base model
     instead of $0.00 (fixedPricingAliases in internal/pricing/supplemental.go).
