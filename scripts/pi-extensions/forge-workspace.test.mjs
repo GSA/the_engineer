@@ -743,11 +743,12 @@ test("outside a Forge workspace subagent launches are unchanged", async () => {
     expect((await launch(h, { agent: "worker", task: "t" })).worktree).toBeUndefined();
 });
 
-test("workspace policy explains how to land and clean up subagent worktree branches", async () => {
+test("workspace policy explains how to land subagent patches and clean up leftovers", async () => {
     const event = { systemPromptOptions: { sections: {} } };
     await load().before_agent_start(event, makeCtx());
     const policy = event.systemPromptOptions.sections.forge_workspace;
     expect(policy).toContain("`worker` and `delegate`");
-    expect(policy).toContain("git merge");
+    expect(policy).toContain("git apply --3way <patch>");
+    expect(policy).toContain("Worktree handoff");
     expect(policy).toContain("git worktree remove");
 });
