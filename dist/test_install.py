@@ -87,12 +87,12 @@ class InstallerTests(unittest.TestCase):
                 patch.object(installer, "check_c_toolchain"):
             errors = installer.prerequisites(self.corpus)
         self.assertTrue(any("24.11" in error for error in errors))
-        self.assertTrue(any("1.4.0" in error for error in errors))
+        self.assertTrue(any(installer.PI_VERSION in error for error in errors))
 
     def test_missing_c_headers_and_linker_are_reported(self):
         with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
                 patch.object(installer, "capture", side_effect=lambda command, **kw:
-                             "v26.9.0" if command[0] == "node" else "1.4.0"), \
+                             "v26.9.0" if command[0] == "node" else installer.PI_VERSION), \
                 patch.object(installer, "check_c_toolchain", side_effect=RuntimeError("missing header")):
             errors = installer.prerequisites(self.corpus)
         self.assertTrue(any("libc6-dev" in error for error in errors))
@@ -681,7 +681,7 @@ class InstallerTests(unittest.TestCase):
     def test_submodule_mirror_resolves_unfetchable_pin_without_editing_gitmodules(self):
         platform, upstream, sha = self.pinned_checkout(available=False)
         mirror = self.mirror_source
-        self.assertEqual(self.git(mirror, "rev-parse", "HEAD"), sha)
+        self.assertEqual(self.git(self.root, f"--git-dir={mirror}", "rev-parse", "HEAD"), sha)
         before = (platform / ".gitmodules").read_text()
         self.assertEqual(installer.check_submodule_pins(platform, {"agentsview": str(mirror)}), [])
         self.assertEqual((platform / ".gitmodules").read_text(), before)

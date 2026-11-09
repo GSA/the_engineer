@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PI_VERSION = "1.4.0"
+PI_VERSION = "1.5.0"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
 MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
 KATA_DAEMON_NAME = "local"
@@ -399,7 +399,7 @@ def pin_fetchable(checkout, project, sha, url, environment):
             # Commit and trees only, depth 1: enough to prove the pin is fetchable.
             filtering = [] if _is_local_path(url) else ["--filter=blob:none"]
             result = subprocess.run(
-                ["git", "-C", directory, "fetch", "--quiet", "--no-tags", "--depth=1", *filtering,
+                ["git", f"--git-dir={directory}", "fetch", "--quiet", "--no-tags", "--depth=1", *filtering,
                  "--", url, sha], capture_output=True, text=True, timeout=180, env=environment)
         except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
             return False, str(error)

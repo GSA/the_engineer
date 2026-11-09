@@ -34,6 +34,8 @@ HOME = RUN / "home"
 HOME.mkdir()
 WORKSPACE = RUN / "workspace"
 WORKSPACE.mkdir()
+# A git root bounds Kata's .kata.toml search, so the checkout's own binding stays out of reach.
+subprocess.run(["git", "init", "--quiet", str(WORKSPACE)], check=True)
 for name in ("tmp", "runtime"):
     (RUN / name).mkdir(mode=0o700)
 ENV = {
@@ -140,6 +142,8 @@ def start(name, binary, args, listener_ports, health, ui):
     try:
         for port in listener_ports:
             with socket.socket() as probe:
+                # Match the services' own bind: TIME_WAIT from an earlier run is not a conflict.
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 probe.bind(("127.0.0.1", port))
         log = open(RUN / f"{name}.log", "w")
         try:

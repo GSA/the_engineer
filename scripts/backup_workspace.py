@@ -25,9 +25,8 @@ DEPENDENCY_NAMES = {
 }
 GENERATED_PATHS = (
     ".local/cache", ".local/downloads", ".local/tools", ".local/builds",
-    ".local/include", ".local/forge-local-kata/kenn-forge",
-    ".local/forge-local-kata/kenn-forge-github-app", ".local/environment/tmp",
-    ".local/environment/pi/tmp", "agentsview/agentsview",
+    ".local/include", ".local/forge-local-kata/kenn-forge", ".local/upgrade/tree",
+    ".local/environment/tmp", ".local/environment/pi/tmp", "agentsview/agentsview",
     "agentsview/.sqlite-include", "agentsview/frontend/src/lib/paraglide",
     "agentsview/frontend/project.inlang/cache", "kata/kata", "roborev/bin",
     "forge/kenn-forge",

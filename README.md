@@ -18,7 +18,7 @@ Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 ## Requirements
 
 - Ubuntu 24.04+ on x86_64, or WSL2
-- Python 3.11+, Node.js 24.11+, Pi `1.4.0`
+- Python 3.11+, Node.js 24.11+, Pi `1.5.0`
 - A USAi API key
 - An approved local corpus path, passed as `--corpus` (always required).
   The default legacy `falcon-docs` binding requires
@@ -31,7 +31,7 @@ Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 sudo apt-get install git curl ca-certificates build-essential libc6-dev \
   tmux python3 python3-venv tar coreutils diffutils ripgrep fd-find
 mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
-npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.4.0
+npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.0
 export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 ```
 
@@ -438,7 +438,17 @@ guidance are in `context/demo-capture.md`.
   same command.
 - **Run smoke tests:** stop the four services, run
   `python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge`,
-  then start the services again. The smoke tests use the same ports.
+  then start the services again. The smoke tests use the same ports, unless
+  you set `KENN_KOPY_PORT_OFFSET` (for example `3000`) to run beside them.
+- **Upgrade the toolchain:** `python3 scripts/upgrade.py status` shows how far
+  the submodules, Pi and pi-subagents trail upstream. `python3 scripts/upgrade.py run`
+  snapshots binaries, data and configs; prepares the latest versions in a
+  separate worktree (`.local/upgrade/tree`) and builds and tests them there,
+  leaving the live checkout and services untouched; then switches the
+  services over. If the switch fails, it rolls back automatically.
+  Use `python3 scripts/upgrade.py rollback` to return to the last snapshot by
+  hand and `python3 scripts/upgrade.py drill` to rehearse a rollback. Review
+  and commit the staged submodule changes afterwards.
 - **Keep secrets out of Git:** never put credentials in Git, logs, or command
   arguments.
 

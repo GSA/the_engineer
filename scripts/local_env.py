@@ -61,11 +61,11 @@ RUNTIME_ROOT = resolve_runtime_root(ROOT)
 CODER_CONTRACT = ROOT / "scripts/pi-coder-contract.md"
 STATE = RUNTIME_ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
-PI_VERSION = "1.4.0"
+PI_VERSION = "1.5.0"
 LEGACY_PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_REVIEW_EXTENSION_PATH = RUNTIME_ROOT / "scripts/pi-extensions/json-schema.ts"
 PI_REVIEW_EXTENSION = str(PI_REVIEW_EXTENSION_PATH)
-PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
+PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.87.0"
 PI_EXTENSIONS = (PI_SUBAGENTS_EXTENSION,)
 PI_DISABLED_BUILTIN_SUBAGENTS = (
     "claude-code",
@@ -78,7 +78,7 @@ PI_DISABLED_BUILTIN_SUBAGENTS = (
     "researcher",
 )
 PI_PASSTHROUGH_SUBCOMMANDS = frozenset({"mcp", "list", "config", "install", "remove", "update"})
-USAI_EMBEDDING_MODELS = frozenset({"cohere_english_v3", "text-embedding-005"})
+USAI_EMBEDDING_MODELS = frozenset({"cohere-v4", "cohere_english_v3", "text-embedding-005"})
 ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
 USAI_CHAT_MODELS = (
     "claude-haiku-5.5",
@@ -100,6 +100,7 @@ USAI_CHAT_MODELS = (
     "gpt-5.6-terra",
     "gpt-6-astra",
     "gpt-6-luna",
+    "gpt-6-luna-guardrails-high",
     "gpt-6-sol-latest-guardrails-defaultv2",
     "gpt-6.1-sol-latest-guardrails-defaultv2",
     "gpt_5_2_default_v2",
@@ -1385,6 +1386,14 @@ def structured_review_args(args):
     return [*REVIEW_ISOLATION_FLAGS, "--extension", schema_extension, *kept]
 
 
+def npm_package_name(spec):
+    """Return the npm package of an `npm:name@version` Pi package spec, else None."""
+    if not isinstance(spec, str) or not spec.startswith("npm:"):
+        return None
+    name = spec[len("npm:"):]
+    return name.rsplit("@", 1)[0] if "@" in name[1:] else name
+
+
 def install_pi_extensions():
     executable = verify_pi(settings())
     path = STATE / "pi/settings.json"
@@ -1408,8 +1417,11 @@ def install_pi_extensions():
             raise RuntimeError(f"Pi did not save {extension} in the isolated profile")
     config = json.loads(private_read(path))
     if "packages" in config and isinstance(config["packages"], list):
+        pinned = {npm_package_name(extension): extension for extension in PI_EXTENSIONS}
         config["packages"] = [
-            pkg for pkg in config["packages"] if pkg != LEGACY_PI_REVIEW_EXTENSION
+            pkg for pkg in config["packages"]
+            if pkg != LEGACY_PI_REVIEW_EXTENSION
+            and pinned.get(npm_package_name(pkg), pkg) == pkg
         ]
     config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
     json_write(path, config, replace=True)

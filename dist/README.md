@@ -91,7 +91,7 @@ services. It does not prove corpus freshness, model access or service health.
 
 Required host tools include Bash, Git, curl, tar, coreutils, diffutils, make,
 a C compiler/development headers, tmux, ripgrep (`rg`), fd (`fd`), Node/npm,
-Python and **Pi 1.4.0**. Forge keeps Pi offline, so these search tools must be
+Python and **Pi 1.5.0**. Forge keeps Pi offline, so these search tools must be
 available on `PATH` rather than left for Pi to download at runtime.
 The script reports installation guidance; it does **not** run sudo, install
 Ubuntu packages, upgrade Node or replace global Pi. A typical Ubuntu OS-tools
@@ -112,7 +112,7 @@ Install an approved Node.js 24.11+ and compatible npm separately. Pi can be
 installed in a dedicated user-local prefix, without changing a global profile:
 
 ```sh
-npm install --prefix "$HOME/.local/engi-pi" @earendil-works/pi-coding-agent@1.4.0
+npm install --prefix "$HOME/.local/engi-pi" @earendil-works/pi-coding-agent@1.5.0
 export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 ```
 

@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import runpy
 import shutil
 import subprocess
@@ -51,15 +52,16 @@ class PiVersionTests(unittest.TestCase):
     def test_approved_runtime_is_accepted(self):
         config = {"pi_executable": "/test/pi"}
         with patch.object(local_env.subprocess, "run",
-                          return_value=MagicMock(stdout="1.4.0\n")):
+                          return_value=MagicMock(stdout=local_env.PI_VERSION + "\n")):
             self.assertEqual(local_env.verify_pi(config, env={}), "/test/pi")
 
     def test_other_versions_are_rejected(self):
-        for version in ("1.0.3", "1.4.1", ""):
+        for version in ("1.0.3", f"{local_env.PI_VERSION}.1", ""):
             with self.subTest(version=version), \
                     patch.object(local_env.subprocess, "run",
                                  return_value=MagicMock(stdout=version)), \
-                    self.assertRaisesRegex(RuntimeError, r"expected Pi 1\.4\.0"):
+                    self.assertRaisesRegex(
+                        RuntimeError, f"expected Pi {re.escape(local_env.PI_VERSION)};"):
                 local_env.verify_pi({"pi_executable": "/test/pi"}, env={})
 
 
@@ -852,6 +854,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         path = self.state / "pi/settings.json"
         config = json.loads(path.read_text())
         config["theme"] = "retained"
+        config["packages"] = [*config.get("packages", []), "npm:pi-subagents@0.0.1"]
         config.pop("subagents", None)
         local_env.json_write(path, config, replace=True)
         before = config.copy()
@@ -894,6 +897,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(saved["theme"], before["theme"])
         self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
         self.assertNotIn(local_env.LEGACY_PI_REVIEW_EXTENSION, saved["packages"])
+        self.assertNotIn("npm:pi-subagents@0.0.1", saved["packages"])
         for extension in local_env.PI_EXTENSIONS:
             self.assertEqual(saved["packages"].count(extension), 1)
         self.assertEqual(saved["subagents"]["defaultProvider"], "usai")
@@ -2010,7 +2014,8 @@ class LocalEnvironmentTests(unittest.TestCase):
             {
                 "base_url": "https://usai.example.test/v1",
                 "fetched_at": "2026-04-16T00:00:00+00:00",
-                "models": [*local_env.USAI_CHAT_MODELS, "cohere_english_v3", "text-embedding-005"],
+                "models": [*local_env.USAI_CHAT_MODELS, "cohere-v4", "cohere_english_v3",
+                           "text-embedding-005"],
             },
             replace=True,
         )
@@ -2024,7 +2029,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         ids = {entry["id"] for entry in entries}
         for chat_model in local_env.USAI_CHAT_MODELS:
             self.assertIn(chat_model, ids)
-        for embedding_model in local_env.USAI_EMBEDDING_MODELS:
+        for embedding_model in ("cohere-v4", "cohere_english_v3", "text-embedding-005"):
             self.assertNotIn(embedding_model, ids)
         for entry in entries:
             self.assertEqual(entry["compat"].get("supportsDeveloperRole"), False)

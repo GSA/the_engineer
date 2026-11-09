@@ -31,6 +31,18 @@ export function verifyLocalLock(original, derived) {
     assert.deepEqual(actual, expected, "Local substitution changed unrelated locked dependencies");
 }
 
+// Forge's single tagged go.kenn.io/kata requirement, substituted from local source.
+export function kataGoRequirement(goMod) {
+    assert.doesNotMatch(goMod, /^\s*replace\b.*go\.kenn\.io\/kata\b/m,
+        "Forge already replaces go.kenn.io/kata; re-evaluate the local Kata build");
+    const versions = [...goMod.matchAll(/^\s*(?:require\s+)?go\.kenn\.io\/kata (\S+)/gm)]
+        .map((match) => match[1]);
+    assert.equal(versions.length, 1, "Expected exactly one go.kenn.io/kata requirement");
+    assert.match(versions[0], /^v\d+\.\d+\.\d+$/,
+        "Forge requires an untagged go.kenn.io/kata; re-evaluate the local Kata build");
+    return versions[0];
+}
+
 function git(project, ...args) {
     return execFileSync("git", ["-C", join(root, project), ...args], {
         encoding: "utf8",
@@ -82,10 +94,11 @@ function main() {
         const goMod = readFileSync(goModPath, "utf8");
         const goSumPath = join(forge, "go.sum");
         const goSum = readFileSync(goSumPath);
-        const kataGoVersion = "v0.20.0";
-        const kataGoRevision = "976cd155e15c06ae95a62d887393a742d0144937";
-        assert.match(goMod, /^\tgo\.kenn\.io\/kata v0\.20\.0$/m,
-            "Re-evaluate the pinned local Kata Go dependency");
+        const kataGoVersion = kataGoRequirement(goMod);
+        const kataGoRevision = git("kata", "rev-parse", `refs/tags/${kataGoVersion}^{commit}`);
+        // Substitute only a release already contained in the pinned Kata submodule.
+        execFileSync("git", ["-C", join(root, "kata"), "merge-base", "--is-ancestor",
+            kataGoRevision, git("kata", "rev-parse", "HEAD")]);
         exportSource("kata", kataGoRevision, join(workspace, "kata-go"),
             join(workspace, "kata-go.tar"));
         run("go", ["mod", "edit", `-replace=go.kenn.io/kata@${kataGoVersion}=../kata-go`], forge);
@@ -133,9 +146,7 @@ function main() {
             version,
             lock_sha256: createHash("sha256").update(lock).digest("hex"),
         }, null, 2)}\n`);
-        for (const binary of ["kenn-forge", "kenn-forge-github-app"]) {
-            renameSync(join(forge, binary), join(output, binary));
-        }
+        renameSync(join(forge, "kenn-forge"), join(output, "kenn-forge"));
         completed = true;
         console.log(`Built ${join(output, "kenn-forge")}`);
     } finally {
