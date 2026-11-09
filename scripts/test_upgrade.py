@@ -144,7 +144,8 @@ class LiveRollbackTests(TempRoot):
         (self.state / "kata").mkdir(parents=True, mode=0o700)
         self.state.chmod(0o700)
         env_path = self.state / "environment.json"
-        env_path.write_text(json.dumps({"pi_executable": "/fake/pi", "forge_binary":
+        env_path.write_text(json.dumps({"pi_executable": "/fake/pi", "corpus": "/fake/corpus",
+                                        "forge_binary":
                                         str(checkout / ".local/forge-local-kata/kenn-forge")}))
         env_path.chmod(0o600)
         self.config = self.state / "kata/config.toml"
@@ -165,8 +166,10 @@ class LiveRollbackTests(TempRoot):
             "binaries": lambda config: [self.binary],
             "pi_version": lambda executable: self.pi["version"],
             "systemctl": lambda action, unit: self.calls.append((action, unit)),
-            "install_pi": lambda version, executable: self.calls.append(("install_pi", version)),
-            "sh": lambda command, **kw: self.calls.append(("sh", command[-1])) or "",
+            "install_pi": lambda version, executable: self.calls.append(("install_pi", version))
+            or self.pi.update(version=version),
+            # Every live command is `python local_env.py <subcommand> ...`.
+            "sh": lambda command, **kw: self.calls.append(("sh", command[2])) or "",
             "gate": lambda timeout=180: self.calls.append(("gate",)),
         }.items():
             patcher = patch.object(upgrade, name, value)
@@ -219,6 +222,43 @@ class LiveRollbackTests(TempRoot):
             *(("start", unit) for unit in units), ("gate",),
         ])
 
+    def test_failed_cutover_rolls_back_to_data_captured_at_cutover(self):
+        original = git(self.repo, "rev-parse", "HEAD")
+        manifest = self.snapshot()
+        # The live services keep writing while the candidate builds and verifies.
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.execute("insert into issues values ('during verify')")
+        self.config.write_text("listen = 'during'\n")
+        commit(self.upstream, "new.txt", "new\n", "upstream change")
+        upgrade.advance_submodule(self.repo)
+        upgrade.write_pin("pi", "1.5.0")
+        self.binary.write_text("new binary\n")
+
+        def gate(timeout=180):
+            self.calls.append(("gate",))
+            if self.calls.count(("gate",)) == 1:
+                with closing(sqlite3.connect(self.db)) as db, db:
+                    db.execute("create table migrated (x)")
+                raise upgrade.UpgradeError("gate failed: accept exited 1")
+
+        with patch.object(upgrade, "gate", gate), contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaisesRegex(upgrade.UpgradeError, "gate failed"):
+            upgrade.cutover(manifest)
+        self.assertEqual(self.rows(), ({"issues"}, ["before", "during verify"]))
+        self.assertEqual(self.config.read_text(), "listen = 'during'\n")
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), original)
+        self.assertEqual(upgrade.read_pins(), {"pi": "1.4.0"})
+        self.assertEqual(self.binary.read_text(), "old binary\n")
+        self.assertIn("state_captured_at", upgrade.load_snapshot(manifest["id"]))
+        units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
+        stops = [("stop", unit) for unit in reversed(units)]
+        self.assertEqual(self.calls, [
+            *stops, ("install_pi", "1.5.0"), ("sh", "setup"), ("sh", "install-pi-extensions"),
+            *(("restart", unit) for unit in units), ("gate",),
+            *stops, ("install_pi", "1.4.0"), ("sh", "install-pi-extensions"),
+            *(("start", unit) for unit in units), ("gate",),
+        ])
+
     def test_sources_only_rollback_leaves_services_and_data_alone(self):
         manifest = self.snapshot()
         self.simulate_upgrade()
@@ -263,9 +303,10 @@ class PipelineTests(unittest.TestCase):
                 steps.rollback.assert_called_once_with({"id": "snap"}, services=False, gate_timeout=180)
                 self.assertFalse(steps.cutover.called)
 
-    def test_failed_cutover_rolls_back_live_services(self):
+    def test_cutover_owns_live_rollback(self):
         steps = self.run_pipeline("cutover")
-        steps.rollback.assert_called_once_with({"id": "snap"}, services=True, gate_timeout=180)
+        steps.cutover.assert_called_once_with({"id": "snap"}, 180)
+        self.assertFalse(steps.rollback.called)
 
 
 class GateTests(unittest.TestCase):

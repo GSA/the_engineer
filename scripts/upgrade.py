@@ -213,9 +213,32 @@ def pi_version(executable):
 
 def backup_database(source, target):
     target.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(source, timeout=60)) as src, closing(sqlite3.connect(target)) as dst:
+    temporary = target.with_name(f".{target.name}.upgrade-backup")
+    temporary.unlink(missing_ok=True)
+    with closing(sqlite3.connect(source, timeout=60)) as src, closing(sqlite3.connect(temporary)) as dst:
         src.backup(dst)
-    os.chmod(target, source.stat().st_mode & 0o777)
+    os.chmod(temporary, source.stat().st_mode & 0o777)
+    os.replace(temporary, target)
+
+
+def capture_state(directory, manifest):
+    """Copy the live databases and configs into a snapshot directory."""
+    manifest["databases"], manifest["configs"] = [], []
+    for relative in DATABASES:
+        if (STATE / relative).is_file():
+            backup_database(STATE / relative, stored(directory, STATE / relative))
+            manifest["databases"].append(str(STATE / relative))
+    for relative in CONFIGS:
+        if (STATE / relative).is_file():
+            stored(directory, STATE / relative).parent.mkdir(parents=True, exist_ok=True)
+            replace_file(STATE / relative, stored(directory, STATE / relative))
+            manifest["configs"].append(str(STATE / relative))
+
+
+def write_manifest(directory, manifest):
+    temporary = directory / ".manifest.json.tmp"
+    temporary.write_text(json.dumps(manifest, indent=2) + "\n")
+    os.replace(temporary, directory / "manifest.json")
 
 
 def stored(snapshot_dir, path):
@@ -239,17 +262,9 @@ def snapshot(label="manual"):
         stored(directory, path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, stored(directory, path))
         manifest["binaries"].append(str(path))
-    for relative in DATABASES:
-        if (STATE / relative).is_file():
-            backup_database(STATE / relative, stored(directory, STATE / relative))
-            manifest["databases"].append(str(STATE / relative))
-    for relative in CONFIGS:
-        if (STATE / relative).is_file():
-            stored(directory, STATE / relative).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(STATE / relative, stored(directory, STATE / relative))
-            manifest["configs"].append(str(STATE / relative))
+    capture_state(directory, manifest)
     # The manifest is written last so an interrupted snapshot is never selected.
-    (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    write_manifest(directory, manifest)
     prune_snapshots(keep={snapshot_id})
     log(f"snapshot {snapshot_id}: {len(manifest['binaries'])} binaries, "
         f"{len(manifest['databases'])} databases, {len(manifest['configs'])} configs")
@@ -365,15 +380,33 @@ def restart_services():
         systemctl("restart", UNITS[name])
 
 
-def cutover(gate_timeout=180):
-    config = environment_config()
-    pins = read_pins()
-    if pi_version(config["pi_executable"]) != pins["pi"]:
-        install_pi(pins["pi"], config["pi_executable"])
-    sh(setup_command(config), timeout=300)
-    sh(local_env_command("install-pi-extensions"), timeout=600)
-    restart_services()
-    gate(gate_timeout)
+def cutover(manifest, gate_timeout=180):
+    """Switch live services to the checked-out candidate, rolling back to `manifest` on failure.
+
+    Services stop first and the snapshot's databases and configs are refreshed
+    while quiescent, so a rollback loses no writes made since the snapshot.
+    """
+    directory = UPGRADE_DIR / "snapshots" / manifest["id"]
+    try:
+        for name in reversed(SERVICES):
+            systemctl("stop", UNITS[name])
+        capture_state(directory, manifest)
+        manifest["state_captured_at"] = datetime.now(timezone.utc).isoformat()
+        write_manifest(directory, manifest)
+        log(f"snapshot {manifest['id']}: refreshed {len(manifest['databases'])} databases "
+            f"and {len(manifest['configs'])} configs with services stopped")
+        config = environment_config()
+        pins = read_pins()
+        if pi_version(config["pi_executable"]) != pins["pi"]:
+            install_pi(pins["pi"], config["pi_executable"])
+        sh(setup_command(config), timeout=300)
+        sh(local_env_command("install-pi-extensions"), timeout=600)
+        restart_services()
+        gate(gate_timeout)
+    except BaseException as error:
+        log(f"cutover FAILED: {error}")
+        rollback(manifest, services=True, gate_timeout=gate_timeout)
+        raise
 
 
 def rollback(manifest, *, services=True, gate_timeout=180):
@@ -493,16 +526,14 @@ def verify(*, build=True, smoke=True):
 
 def run(components=SUBMODULES, pi="latest", pi_subagents="latest", gate_timeout=180):
     manifest = snapshot("pre-upgrade")
-    live = False
     try:
         changes = apply(components, pi, pi_subagents)
         verify()
-        live = True
-        cutover(gate_timeout)
     except BaseException as error:
-        log(f"FAILED: {error}")
-        rollback(manifest, services=live, gate_timeout=gate_timeout)
+        log(f"FAILED before cutover: {error}")
+        rollback(manifest, services=False, gate_timeout=gate_timeout)
         raise
+    cutover(manifest, gate_timeout)
     log(f"upgrade complete; snapshot {manifest['id']} remains available for `rollback`")
     return changes
 
@@ -532,7 +563,9 @@ def main(argv=None):
     for name in ("cutover", "rollback", "drill", "run"):
         sub = commands.choices.get(name) or commands.add_parser(name)
         sub.add_argument("--gate-timeout", type=int, default=180)
-    commands.choices["rollback"].add_argument("snapshot", nargs="?", help="snapshot ID (default: latest)")
+    for name in ("cutover", "rollback"):
+        commands.choices[name].add_argument("snapshot", nargs="?",
+                                            help="snapshot ID to roll back to (default: latest)")
     commands.choices["rollback"].add_argument(
         "--sources-only", action="store_true",
         help="restore sources, pins and binaries without touching services or data")
@@ -558,7 +591,7 @@ def main(argv=None):
         elif args.command == "verify":
             verify(build=not args.no_build, smoke=not args.no_smoke)
         elif args.command == "cutover":
-            cutover(args.gate_timeout)
+            cutover(load_snapshot(args.snapshot), args.gate_timeout)
         elif args.command == "rollback":
             rollback(load_snapshot(args.snapshot), services=not args.sources_only,
                      gate_timeout=args.gate_timeout)
