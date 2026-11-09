@@ -157,6 +157,12 @@ class LiveRollbackTests(TempRoot):
         self.binary = self.repo / "kata"
         self.binary.write_text("old binary\n")
         (checkout / "pins.txt").write_text('PI = "1.4.0"\n')
+        # The checkout is a superproject whose committed gitlink pins kata.
+        (checkout / ".gitignore").write_text(".local/\n")
+        git(checkout, "init", "--quiet")
+        git(checkout, "-c", "advice.addEmbeddedRepo=false", "add", ".gitignore", "pins.txt", "kata")
+        git(checkout, "commit", "--quiet", "-m", "pin")
+        self.checkout = checkout
         self.calls = []
         self.pi = {"version": "1.4.0"}
         for name, value in {
@@ -176,9 +182,13 @@ class LiveRollbackTests(TempRoot):
             patcher.start()
             self.addCleanup(patcher.stop)
 
+    def staged(self):
+        return git(self.checkout, "diff", "--cached", "--name-only")
+
     def simulate_upgrade(self):
         commit(self.upstream, "new.txt", "new\n", "upstream change")
         upgrade.advance_submodule(self.repo)
+        upgrade.stage_gitlink("kata")
         upgrade.write_pin("pi", "1.5.0")
         self.pi["version"] = "1.5.0"
         self.binary.write_text("new binary\n")
@@ -205,8 +215,10 @@ class LiveRollbackTests(TempRoot):
         original = git(self.repo, "rev-parse", "HEAD")
         manifest = self.snapshot()
         self.simulate_upgrade()
+        self.assertEqual(self.staged(), "kata")
         self.rollback(manifest, services=True)
         self.assertEqual(git(self.repo, "rev-parse", "HEAD"), original)
+        self.assertEqual(self.staged(), "")
         self.assertEqual(upgrade.read_pins(), {"pi": "1.4.0"})
         self.assertEqual(self.binary.read_text(), "old binary\n")
         self.assertEqual(self.config.read_text(), "listen = 'old'\n")
@@ -222,6 +234,61 @@ class LiveRollbackTests(TempRoot):
             *(("start", unit) for unit in units), ("gate",),
         ])
 
+    def verify_candidate(self, manifest):
+        """Apply and verify: the build lands in the live path, then is stashed."""
+        commit(self.upstream, "new.txt", "new\n", "upstream change")
+        upgrade.advance_submodule(self.repo)
+        upgrade.stage_gitlink("kata")
+        upgrade.write_pin("pi", "1.5.0")
+        build = lambda command, **kw: self.binary.write_text("new binary\n") or ""
+        with patch.object(upgrade, "sh", build), patch.object(upgrade, "check_candidate"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            upgrade.verify(manifest, smoke=False)
+        self.assertEqual(self.binary.read_text(), "old binary\n")
+
+    def failing_cutover(self, manifest):
+        def gate(timeout=180):
+            self.calls.append(("gate",))
+            if self.calls.count(("gate",)) == 1:
+                self.assertEqual(self.binary.read_text(), "new binary\n")
+                with closing(sqlite3.connect(self.db)) as db, db:
+                    db.execute("create table if not exists migrated (x)")
+                raise upgrade.UpgradeError("gate failed: accept exited 1")
+
+        with patch.object(upgrade, "gate", gate), contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaisesRegex(upgrade.UpgradeError, "gate failed"):
+            upgrade.cutover(manifest)
+
+    def test_verify_restores_live_binaries_even_when_checks_fail(self):
+        manifest = self.snapshot()
+        build = lambda command, **kw: self.binary.write_text("new binary\n") or ""
+        with patch.object(upgrade, "sh", build), \
+                patch.object(upgrade, "check_candidate", side_effect=upgrade.UpgradeError("tests")), \
+                self.assertRaisesRegex(upgrade.UpgradeError, "tests"):
+            upgrade.verify(manifest)
+        self.assertEqual(self.binary.read_text(), "old binary\n")
+        self.assertFalse((upgrade.candidate_dir() / "manifest.json").exists())
+
+    def test_cutover_refuses_a_candidate_built_from_other_sources(self):
+        manifest = self.snapshot()
+        self.verify_candidate(manifest)
+        commit(self.upstream, "later.txt", "later\n", "later change")
+        upgrade.advance_submodule(self.repo)
+        with patch.object(upgrade, "gate"), contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaisesRegex(upgrade.UpgradeError, "verify` again"):
+            upgrade.cutover(manifest)
+        self.assertEqual(self.binary.read_text(), "old binary\n")
+
+    def test_failed_cutover_keeps_snapshot_copy_of_an_already_migrated_database(self):
+        manifest = self.snapshot()
+        self.verify_candidate(manifest)
+        # Something ran the candidate against live data before cutover.
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.execute("create table migrated (x)")
+            db.execute("insert into issues values ('migrated early')")
+        self.failing_cutover(manifest)
+        self.assertEqual(self.rows(), ({"issues"}, ["before"]))
+
     def test_failed_cutover_rolls_back_to_data_captured_at_cutover(self):
         original = git(self.repo, "rev-parse", "HEAD")
         manifest = self.snapshot()
@@ -229,21 +296,9 @@ class LiveRollbackTests(TempRoot):
         with closing(sqlite3.connect(self.db)) as db, db:
             db.execute("insert into issues values ('during verify')")
         self.config.write_text("listen = 'during'\n")
-        commit(self.upstream, "new.txt", "new\n", "upstream change")
-        upgrade.advance_submodule(self.repo)
-        upgrade.write_pin("pi", "1.5.0")
-        self.binary.write_text("new binary\n")
-
-        def gate(timeout=180):
-            self.calls.append(("gate",))
-            if self.calls.count(("gate",)) == 1:
-                with closing(sqlite3.connect(self.db)) as db, db:
-                    db.execute("create table migrated (x)")
-                raise upgrade.UpgradeError("gate failed: accept exited 1")
-
-        with patch.object(upgrade, "gate", gate), contextlib.redirect_stdout(io.StringIO()), \
-                self.assertRaisesRegex(upgrade.UpgradeError, "gate failed"):
-            upgrade.cutover(manifest)
+        self.verify_candidate(manifest)
+        self.failing_cutover(manifest)
+        self.assertEqual(self.staged(), "")
         self.assertEqual(self.rows(), ({"issues"}, ["before", "during verify"]))
         self.assertEqual(self.config.read_text(), "listen = 'during'\n")
         self.assertEqual(git(self.repo, "rev-parse", "HEAD"), original)
@@ -310,6 +365,13 @@ class PipelineTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
+    def test_gate_names_the_failing_acceptance_checks(self):
+        def sh(command, **kw):
+            raise upgrade.UpgradeError("accept exited 1", output="PASS pi\nFAIL submodules: drift\n")
+        with patch.object(upgrade, "sh", side_effect=sh), \
+                self.assertRaisesRegex(upgrade.UpgradeError, "FAIL submodules: drift"):
+            upgrade.gate(timeout=0)
+
     def test_gate_rejects_a_service_running_another_revision(self):
         status = {f"{name}_service": {"version": "v1.0.0-1-gaaaaaaa"} for name in upgrade.SERVICES}
         with patch.object(upgrade, "sh", side_effect=lambda command, **kw:

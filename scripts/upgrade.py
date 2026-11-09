@@ -16,6 +16,7 @@ Nothing is committed or pushed; review `git status` and commit the result.
 import argparse
 from contextlib import closing
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -66,7 +67,9 @@ PIN_SOURCES = {
 
 
 class UpgradeError(RuntimeError):
-    pass
+    def __init__(self, message, output=""):
+        super().__init__(message)
+        self.output = output
 
 
 def log(message):
@@ -83,7 +86,8 @@ def sh(command, *, cwd=None, env=None, capture=False, timeout=None):
     if result.returncode:
         detail = (result.stderr or result.stdout or "").strip().splitlines()[-1:] if capture else []
         raise UpgradeError(f"{' '.join(command[:6])} exited {result.returncode}"
-                           + (f": {detail[0]}" if detail else ""))
+                           + (f": {detail[0]}" if detail else ""),
+                           output=f"{result.stdout or ''}{result.stderr or ''}")
     return result.stdout if capture else ""
 
 
@@ -187,6 +191,12 @@ def restore_submodule(repo, sha):
     if git(repo, "rev-parse", "HEAD") != sha:
         require_clean(repo)
         git(repo, "checkout", "--quiet", "--detach", sha)
+    stage_gitlink(repo.name)
+
+
+def stage_gitlink(name):
+    """Stage (never commit) a submodule's gitlink so `git submodule status` and accept agree."""
+    git(ROOT, "add", "--", name)
 
 
 # ---------------------------------------------------------------- snapshots
@@ -221,13 +231,35 @@ def backup_database(source, target):
     os.replace(temporary, target)
 
 
-def capture_state(directory, manifest):
-    """Copy the live databases and configs into a snapshot directory."""
-    manifest["databases"], manifest["configs"] = [], []
+def schema_fingerprint(path):
+    with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=60)) as db:
+        rows = db.execute("select type, name, coalesce(sql, '') from sqlite_master "
+                          "order by type, name").fetchall()
+    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
+
+
+def capture_state(directory, manifest, *, refresh=False):
+    """Copy the live databases and configs into a snapshot directory.
+
+    On refresh, a database whose schema changed since the snapshot was already
+    migrated by something else; its original copy is kept so a rollback still
+    restores a schema the snapshot's binaries can open.
+    """
+    schemas = manifest.get("schemas", {}) if refresh else {}
+    manifest["databases"], manifest["configs"], manifest["schemas"] = [], [], {}
     for relative in DATABASES:
-        if (STATE / relative).is_file():
-            backup_database(STATE / relative, stored(directory, STATE / relative))
-            manifest["databases"].append(str(STATE / relative))
+        path = STATE / relative
+        if not path.is_file():
+            continue
+        fingerprint = schema_fingerprint(path)
+        if refresh and str(path) in schemas and schemas[str(path)] != fingerprint:
+            log(f"WARNING {path} changed schema since the snapshot; keeping the snapshot copy "
+                "(rows written since then are only kept in the pre-rollback copy)")
+            fingerprint = schemas[str(path)]
+        else:
+            backup_database(path, stored(directory, path))
+        manifest["databases"].append(str(path))
+        manifest["schemas"][str(path)] = fingerprint
     for relative in CONFIGS:
         if (STATE / relative).is_file():
             stored(directory, STATE / relative).parent.mkdir(parents=True, exist_ok=True)
@@ -297,6 +329,46 @@ def prune_snapshots(keep=()):
             shutil.rmtree(path)
 
 
+def candidate_dir():
+    return UPGRADE_DIR / "candidate"
+
+
+def stash_candidate(config):
+    """Copy the verified binaries aside for cutover."""
+    shutil.rmtree(candidate_dir(), ignore_errors=True)
+    built = binaries(config)
+    for path in built:
+        stored(candidate_dir(), path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, stored(candidate_dir(), path))
+    (candidate_dir() / "manifest.json").write_text(json.dumps({
+        "submodules": {name: git(ROOT / name, "rev-parse", "HEAD") for name in SUBMODULES},
+        "binaries": [str(path) for path in built]}, indent=2) + "\n")
+    log(f"candidate binaries stashed in {candidate_dir()}")
+
+
+def restore_live_binaries(manifest):
+    directory = UPGRADE_DIR / "snapshots" / manifest["id"]
+    for path in map(Path, manifest["binaries"]):
+        replace_file(stored(directory, path), path)
+
+
+def install_candidate(manifest):
+    """Install the verified binaries; refuse if the sources moved since verify."""
+    try:
+        candidate = json.loads((candidate_dir() / "manifest.json").read_text())
+    except FileNotFoundError:
+        raise UpgradeError("no verified candidate; run `upgrade.py verify` first") from None
+    heads = {name: git(ROOT / name, "rev-parse", "HEAD") for name in SUBMODULES}
+    if candidate["submodules"] != heads:
+        raise UpgradeError("sources changed since verify; run `upgrade.py verify` again")
+    for path in map(Path, candidate["binaries"]):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        replace_file(stored(candidate_dir(), path), path)
+    # Binaries the candidate no longer ships (rollback restores them).
+    for path in set(manifest["binaries"]) - set(candidate["binaries"]):
+        Path(path).unlink(missing_ok=True)
+
+
 def replace_file(source, target):
     temporary = target.with_name(f".{target.name}.upgrade-restore")
     shutil.copy2(source, temporary)
@@ -360,7 +432,8 @@ def gate(timeout=180, interval=5):
         try:
             sh(local_env_command("accept"), capture=True, timeout=300)
         except UpgradeError as error:
-            problems.append(f"accept: {error}")
+            failed = [line.strip() for line in error.output.splitlines() if line.startswith("FAIL")]
+            problems.append(f"accept: {'; '.join(failed) or error}")
         else:
             versions = running_versions()
             for name, source in SERVICE_SOURCES.items():
@@ -390,11 +463,12 @@ def cutover(manifest, gate_timeout=180):
     try:
         for name in reversed(SERVICES):
             systemctl("stop", UNITS[name])
-        capture_state(directory, manifest)
+        capture_state(directory, manifest, refresh=True)
         manifest["state_captured_at"] = datetime.now(timezone.utc).isoformat()
         write_manifest(directory, manifest)
         log(f"snapshot {manifest['id']}: refreshed {len(manifest['databases'])} databases "
             f"and {len(manifest['configs'])} configs with services stopped")
+        install_candidate(manifest)
         config = environment_config()
         pins = read_pins()
         if pi_version(config["pi_executable"]) != pins["pi"]:
@@ -473,6 +547,7 @@ def apply(components=SUBMODULES, pi="latest", pi_subagents="latest"):
     changes = {}
     for name in components:
         changes[name] = advance_submodule(ROOT / name)
+        stage_gitlink(name)
         result = changes[name]
         log(f"{name}: {result['from'][:9]} -> {result['to'][:9]}"
             + (f" ({len(result['carried'])} carried commits replayed)" if result["carried"] else ""))
@@ -497,12 +572,30 @@ def forge_target(config):
     return "forge-local-kata" if forge_binary(config).parent.name == "forge-local-kata" else "forge"
 
 
-def verify(*, build=True, smoke=True):
-    """Compatibility gate that leaves live services untouched."""
+def verify(manifest=None, *, build=True, smoke=True):
+    """Compatibility gate that leaves live services on their snapshot binaries.
+
+    Builds land in the live paths, so the candidates are stashed and the
+    snapshot's binaries restored afterwards; otherwise a service restart or a
+    CLI auto-starting a daemon would run (and migrate data with) the candidate
+    before cutover.
+    """
+    manifest = manifest or load_snapshot()
     config = environment_config()
-    if build:
-        sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target(config)],
-           cwd=ROOT, timeout=3600)
+    try:
+        if build:
+            sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target(config)],
+               cwd=ROOT, timeout=3600)
+        else:
+            install_candidate(manifest)
+        check_candidate(config, smoke)
+        stash_candidate(config)
+    finally:
+        restore_live_binaries(manifest)
+    log("verify passed")
+
+
+def check_candidate(config, smoke):
     for name, path in (("kata", ROOT / "kata/kata"), ("roborev", ROOT / "roborev/bin/roborev"),
                        ("agentsview", ROOT / "agentsview/agentsview"),
                        ("forge", forge_binary(config))):
@@ -521,14 +614,13 @@ def verify(*, build=True, smoke=True):
     if smoke:
         sh([sys.executable, "scripts/smoke.py", "--forge-binary", forge_binary(config)], cwd=ROOT,
            env={**env, "KENN_KOPY_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
-    log("verify passed")
 
 
 def run(components=SUBMODULES, pi="latest", pi_subagents="latest", gate_timeout=180):
     manifest = snapshot("pre-upgrade")
     try:
         changes = apply(components, pi, pi_subagents)
-        verify()
+        verify(manifest)
     except BaseException as error:
         log(f"FAILED before cutover: {error}")
         rollback(manifest, services=False, gate_timeout=gate_timeout)
@@ -563,7 +655,7 @@ def main(argv=None):
     for name in ("cutover", "rollback", "drill", "run"):
         sub = commands.choices.get(name) or commands.add_parser(name)
         sub.add_argument("--gate-timeout", type=int, default=180)
-    for name in ("cutover", "rollback"):
+    for name in ("verify", "cutover", "rollback"):
         commands.choices[name].add_argument("snapshot", nargs="?",
                                             help="snapshot ID to roll back to (default: latest)")
     commands.choices["rollback"].add_argument(
@@ -589,7 +681,7 @@ def main(argv=None):
             else:
                 run(components, args.pi, args.pi_subagents, args.gate_timeout)
         elif args.command == "verify":
-            verify(build=not args.no_build, smoke=not args.no_smoke)
+            verify(load_snapshot(args.snapshot), build=not args.no_build, smoke=not args.no_smoke)
         elif args.command == "cutover":
             cutover(load_snapshot(args.snapshot), args.gate_timeout)
         elif args.command == "rollback":
