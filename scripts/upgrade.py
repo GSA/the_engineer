@@ -3,12 +3,18 @@
 
   status    compare pinned versions with upstream (read-only)
   snapshot  save binaries, databases, private configs and pins under .local/upgrade/
-  apply     move submodules to upstream (rebasing carried commits) and bump Pi pins
-  verify    build, run the unit suites and the isolated smoke test
-  cutover   install Pi and extensions, restart services, gate on `local_env.py accept`
+  apply     prepare a candidate worktree (.local/upgrade/tree), move its submodules to
+            upstream (rebasing carried commits) and bump its Pi pins
+  verify    build the candidate tree and run its unit suites and isolated smoke test
+  cutover   stop services, move the live checkout and binaries to the verified
+            candidate, install Pi and extensions, restart, gate on `local_env.py accept`
   rollback  restore a snapshot, restart services and gate again
   drill     snapshot then roll back to it, proving rollback works on this host
-  run       snapshot -> apply -> verify -> cutover, rolling back on any failure
+  discard   remove the candidate worktree
+  run       snapshot -> apply -> verify -> cutover; cutover rolls back on failure
+
+The live checkout, pins and binaries stay untouched until cutover stops the
+services, so running agents and reviews keep working during apply and verify.
 
 Nothing is committed or pushed; review `git status` and commit the result.
 """
@@ -16,7 +22,6 @@ Nothing is committed or pushed; review `git status` and commit the result.
 import argparse
 from contextlib import closing
 from datetime import datetime, timezone
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -194,9 +199,71 @@ def restore_submodule(repo, sha):
     stage_gitlink(repo.name)
 
 
-def stage_gitlink(name):
+def stage_gitlink(name, root=None):
     """Stage (never commit) a submodule's gitlink so `git submodule status` and accept agree."""
-    git(ROOT, "add", "--", name)
+    git(ROOT if root is None else root, "add", "--", name)
+
+
+# ---------------------------------------------------------------- candidate tree
+
+def tree():
+    return UPGRADE_DIR / "tree"
+
+
+def candidate_marker():
+    return UPGRADE_DIR / "candidate.json"
+
+
+def remove_tree():
+    candidate_marker().unlink(missing_ok=True)
+    shutil.rmtree(tree(), ignore_errors=True)
+    for repo in (ROOT, *(ROOT / name for name in SUBMODULES)):
+        git(repo, "worktree", "prune")
+
+
+def prepare_tree():
+    """Check out the live revisions as a separate worktree with shared tools and caches."""
+    remove_tree()
+    path = tree()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    git(ROOT, "worktree", "add", "--quiet", "--detach", str(path), "HEAD")
+    for name in SUBMODULES:
+        (path / name).mkdir(exist_ok=True)
+        git(ROOT / name, "worktree", "add", "--quiet", "--detach", str(path / name),
+            git(ROOT / name, "rev-parse", "HEAD"))
+    (path / ".local").mkdir()
+    for name in ("tools", "cache"):
+        if (ROOT / ".local" / name).is_dir():
+            (path / ".local" / name).symlink_to(ROOT / ".local" / name)
+    return path
+
+
+def tree_heads():
+    return {name: git(tree() / name, "rev-parse", "HEAD") for name in SUBMODULES}
+
+
+def shipped(config):
+    """Live paths of the binaries a build produces."""
+    return [ROOT / "kata/kata", ROOT / "roborev/bin/roborev", ROOT / "agentsview/agentsview",
+            forge_binary(config)]
+
+
+def in_tree(path):
+    try:
+        return tree() / Path(path).relative_to(ROOT)
+    except ValueError:
+        raise UpgradeError(f"{path} is outside {ROOT}; the candidate tree cannot build it") from None
+
+
+def load_candidate():
+    """Return the verified candidate, refusing one whose tree changed after verify."""
+    try:
+        candidate = json.loads(candidate_marker().read_text())
+    except FileNotFoundError:
+        raise UpgradeError("no verified candidate; run `upgrade.py apply` and `verify` first") from None
+    if candidate["submodules"] != tree_heads() or candidate["pins"] != read_pins(tree()):
+        raise UpgradeError("candidate tree changed since verify; run `upgrade.py verify` again")
+    return candidate
 
 
 # ---------------------------------------------------------------- snapshots
@@ -211,9 +278,7 @@ def forge_binary(config):
 
 def binaries(config):
     forge = forge_binary(config)
-    paths = [ROOT / "kata/kata", ROOT / "roborev/bin/roborev", ROOT / "agentsview/agentsview",
-             forge, forge.with_name("kenn-forge-github-app")]
-    return [path for path in paths if path.is_file()]
+    return [path for path in shipped(config) if path.is_file()]
 
 
 def pi_version(executable):
@@ -231,35 +296,14 @@ def backup_database(source, target):
     os.replace(temporary, target)
 
 
-def schema_fingerprint(path):
-    with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=60)) as db:
-        rows = db.execute("select type, name, coalesce(sql, '') from sqlite_master "
-                          "order by type, name").fetchall()
-    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
-
-
-def capture_state(directory, manifest, *, refresh=False):
-    """Copy the live databases and configs into a snapshot directory.
-
-    On refresh, a database whose schema changed since the snapshot was already
-    migrated by something else; its original copy is kept so a rollback still
-    restores a schema the snapshot's binaries can open.
-    """
-    schemas = manifest.get("schemas", {}) if refresh else {}
-    manifest["databases"], manifest["configs"], manifest["schemas"] = [], [], {}
+def capture_state(directory, manifest):
+    """Copy the live databases and configs into a snapshot directory."""
+    manifest["databases"], manifest["configs"] = [], []
     for relative in DATABASES:
         path = STATE / relative
-        if not path.is_file():
-            continue
-        fingerprint = schema_fingerprint(path)
-        if refresh and str(path) in schemas and schemas[str(path)] != fingerprint:
-            log(f"WARNING {path} changed schema since the snapshot; keeping the snapshot copy "
-                "(rows written since then are only kept in the pre-rollback copy)")
-            fingerprint = schemas[str(path)]
-        else:
+        if path.is_file():
             backup_database(path, stored(directory, path))
-        manifest["databases"].append(str(path))
-        manifest["schemas"][str(path)] = fingerprint
+            manifest["databases"].append(str(path))
     for relative in CONFIGS:
         if (STATE / relative).is_file():
             stored(directory, STATE / relative).parent.mkdir(parents=True, exist_ok=True)
@@ -329,46 +373,6 @@ def prune_snapshots(keep=()):
             shutil.rmtree(path)
 
 
-def candidate_dir():
-    return UPGRADE_DIR / "candidate"
-
-
-def stash_candidate(config):
-    """Copy the verified binaries aside for cutover."""
-    shutil.rmtree(candidate_dir(), ignore_errors=True)
-    built = binaries(config)
-    for path in built:
-        stored(candidate_dir(), path).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, stored(candidate_dir(), path))
-    (candidate_dir() / "manifest.json").write_text(json.dumps({
-        "submodules": {name: git(ROOT / name, "rev-parse", "HEAD") for name in SUBMODULES},
-        "binaries": [str(path) for path in built]}, indent=2) + "\n")
-    log(f"candidate binaries stashed in {candidate_dir()}")
-
-
-def restore_live_binaries(manifest):
-    directory = UPGRADE_DIR / "snapshots" / manifest["id"]
-    for path in map(Path, manifest["binaries"]):
-        replace_file(stored(directory, path), path)
-
-
-def install_candidate(manifest):
-    """Install the verified binaries; refuse if the sources moved since verify."""
-    try:
-        candidate = json.loads((candidate_dir() / "manifest.json").read_text())
-    except FileNotFoundError:
-        raise UpgradeError("no verified candidate; run `upgrade.py verify` first") from None
-    heads = {name: git(ROOT / name, "rev-parse", "HEAD") for name in SUBMODULES}
-    if candidate["submodules"] != heads:
-        raise UpgradeError("sources changed since verify; run `upgrade.py verify` again")
-    for path in map(Path, candidate["binaries"]):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        replace_file(stored(candidate_dir(), path), path)
-    # Binaries the candidate no longer ships (rollback restores them).
-    for path in set(manifest["binaries"]) - set(candidate["binaries"]):
-        Path(path).unlink(missing_ok=True)
-
-
 def replace_file(source, target):
     temporary = target.with_name(f".{target.name}.upgrade-restore")
     shutil.copy2(source, temporary)
@@ -408,7 +412,7 @@ def install_pi(version, executable):
 
 def candidate_pi(version):
     """Return a PATH directory holding Pi `version`, isolated from the live install."""
-    prefix = UPGRADE_DIR / f"pi-{version}"
+    prefix = tree() / f".local/pi-{version}"
     bin_dir = prefix / "node_modules/.bin"
     if not (bin_dir / "pi").exists():
         sh(["npm", "install", "--prefix", prefix, "--no-fund", "--no-audit", "--no-save",
@@ -460,65 +464,73 @@ def cutover(manifest, gate_timeout=180):
     while quiescent, so a rollback loses no writes made since the snapshot.
     """
     directory = UPGRADE_DIR / "snapshots" / manifest["id"]
+    candidate = load_candidate()
     try:
         for name in reversed(SERVICES):
             systemctl("stop", UNITS[name])
-        capture_state(directory, manifest, refresh=True)
+        capture_state(directory, manifest)
         manifest["state_captured_at"] = datetime.now(timezone.utc).isoformat()
         write_manifest(directory, manifest)
         log(f"snapshot {manifest['id']}: refreshed {len(manifest['databases'])} databases "
             f"and {len(manifest['configs'])} configs with services stopped")
-        install_candidate(manifest)
+        for name, sha in candidate["submodules"].items():
+            restore_submodule(ROOT / name, sha)
+        for name, version in candidate["pins"].items():
+            write_pin(name, version)
+        for path in map(Path, candidate["binaries"]):
+            replace_file(in_tree(path), path)
+        # Binaries the candidate no longer ships (rollback restores them).
+        for path in set(manifest["binaries"]) - set(candidate["binaries"]):
+            Path(path).unlink(missing_ok=True)
         config = environment_config()
-        pins = read_pins()
-        if pi_version(config["pi_executable"]) != pins["pi"]:
-            install_pi(pins["pi"], config["pi_executable"])
+        if pi_version(config["pi_executable"]) != candidate["pins"]["pi"]:
+            install_pi(candidate["pins"]["pi"], config["pi_executable"])
         sh(setup_command(config), timeout=300)
         sh(local_env_command("install-pi-extensions"), timeout=600)
         restart_services()
         gate(gate_timeout)
     except BaseException as error:
         log(f"cutover FAILED: {error}")
-        rollback(manifest, services=True, gate_timeout=gate_timeout)
+        rollback(manifest, gate_timeout=gate_timeout)
         raise
+    remove_tree()
 
 
-def rollback(manifest, *, services=True, gate_timeout=180):
-    """Restore a snapshot. Without services, only sources, pins and binaries are restored."""
+def rollback(manifest, *, gate_timeout=180):
+    """Restore a snapshot's sources, pins, binaries, Pi, data and configs, then gate."""
     directory = UPGRADE_DIR / "snapshots" / manifest["id"]
-    log(f"rolling back to snapshot {manifest['id']} ({'live' if services else 'sources only'})")
-    if services:
-        for name in reversed(SERVICES):
-            systemctl("stop", UNITS[name])
-        keep = directory / f"pre-rollback-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
-        for path in map(Path, manifest["databases"] + manifest["configs"]):
-            for current in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
-                if current.is_file():
-                    (keep / current.relative_to("/")).parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(current, keep / current.relative_to("/"))
-        log(f"current databases and configs kept in {keep}")
-        for path in map(Path, manifest["databases"]):
-            for sidecar in (Path(f"{path}-wal"), Path(f"{path}-shm")):
-                sidecar.unlink(missing_ok=True)
-            replace_file(stored(directory, path), path)
-        for path in map(Path, manifest["configs"]):
-            replace_file(stored(directory, path), path)
+    log(f"rolling back to snapshot {manifest['id']}")
+    for name in reversed(SERVICES):
+        systemctl("stop", UNITS[name])
+    keep = directory / f"pre-rollback-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
+    for path in map(Path, manifest["databases"] + manifest["configs"]):
+        for current in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
+            if current.is_file():
+                (keep / current.relative_to("/")).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(current, keep / current.relative_to("/"))
+    log(f"current databases and configs kept in {keep}")
+    for path in map(Path, manifest["databases"]):
+        for sidecar in (Path(f"{path}-wal"), Path(f"{path}-shm")):
+            sidecar.unlink(missing_ok=True)
+        replace_file(stored(directory, path), path)
+    for path in map(Path, manifest["configs"]):
+        replace_file(stored(directory, path), path)
     for path in map(Path, manifest["binaries"]):
         replace_file(stored(directory, path), path)
     for name, sha in manifest["submodules"].items():
         restore_submodule(ROOT / name, sha)
-    current = read_pins()
+    # Rewritten unconditionally: an interrupted bump may have left mentions disagreeing.
     for name, version in manifest["pins"].items():
-        if current.get(name) != version:
-            write_pin(name, version)
-    if services:
-        executable = manifest["pi"]["executable"]
-        if pi_version(executable) != manifest["pi"]["version"]:
-            install_pi(manifest["pi"]["version"], executable)
-        sh(local_env_command("install-pi-extensions"), timeout=600)
-        for name in SERVICES:
-            systemctl("start", UNITS[name])
-        gate(gate_timeout)
+        write_pin(name, version)
+    executable = manifest["pi"]["executable"]
+    if pi_version(executable) != manifest["pi"]["version"]:
+        install_pi(manifest["pi"]["version"], executable)
+    sh(local_env_command("install-pi-extensions"), timeout=600)
+    for name in SERVICES:
+        systemctl("start", UNITS[name])
+    gate(gate_timeout)
+    if read_pins() != manifest["pins"]:
+        raise UpgradeError(f"pins after rollback are {read_pins()}, expected {manifest['pins']}")
     log(f"rollback to {manifest['id']} complete")
 
 
@@ -543,11 +555,15 @@ def status():
 
 
 def apply(components=SUBMODULES, pi="latest", pi_subagents="latest"):
+    """Prepare the candidate tree; the live checkout is not modified."""
     require_clean(ROOT)
+    for name in SUBMODULES:
+        require_clean(ROOT / name)
+    path = prepare_tree()
     changes = {}
     for name in components:
-        changes[name] = advance_submodule(ROOT / name)
-        stage_gitlink(name)
+        changes[name] = advance_submodule(path / name)
+        stage_gitlink(name, path)
         result = changes[name]
         log(f"{name}: {result['from'][:9]} -> {result['to'][:9]}"
             + (f" ({len(result['carried'])} carried commits replayed)" if result["carried"] else ""))
@@ -555,16 +571,17 @@ def apply(components=SUBMODULES, pi="latest", pi_subagents="latest"):
             log(f"WARNING {name} {result['to'][:9]} exists only locally; publish it to an approved "
                 f"remote (e.g. git -C {name} push fork {result['to']}:refs/heads/<branch>) "
                 "before committing the gitlink")
-    current = read_pins()
+    current = read_pins(path)
     for name, package, requested in (("pi", PI_PACKAGE, pi),
                                      ("pi-subagents", PI_SUBAGENTS_PACKAGE, pi_subagents)):
         if requested == "keep":
             continue
         version = npm_latest(package) if requested == "latest" else requested
         if version != current[name]:
-            write_pin(name, version)
+            write_pin(name, version, path)
             changes[name] = {"from": current[name], "to": version}
             log(f"{name}: {current[name]} -> {version}")
+    log(f"candidate tree ready in {path}")
     return changes
 
 
@@ -572,58 +589,55 @@ def forge_target(config):
     return "forge-local-kata" if forge_binary(config).parent.name == "forge-local-kata" else "forge"
 
 
-def verify(manifest=None, *, build=True, smoke=True):
-    """Compatibility gate that leaves live services on their snapshot binaries.
-
-    Builds land in the live paths, so the candidates are stashed and the
-    snapshot's binaries restored afterwards; otherwise a service restart or a
-    CLI auto-starting a daemon would run (and migrate data with) the candidate
-    before cutover.
-    """
-    manifest = manifest or load_snapshot()
+def verify(*, build=True, smoke=True):
+    """Build and test the candidate tree; live services and binaries are never touched."""
+    path = tree()
+    if not (path / ".git").exists():
+        raise UpgradeError("no candidate tree; run `upgrade.py apply` first")
+    # A stale marker must never authorize a candidate whose latest verify failed.
+    candidate_marker().unlink(missing_ok=True)
     config = environment_config()
-    try:
-        if build:
-            sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target(config)],
-               cwd=ROOT, timeout=3600)
-        else:
-            install_candidate(manifest)
-        check_candidate(config, smoke)
-        stash_candidate(config)
-    finally:
-        restore_live_binaries(manifest)
+    if build:
+        sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target(config)],
+           cwd=path, timeout=3600)
+    check_candidate(config, smoke)
+    marker = {"submodules": tree_heads(), "pins": read_pins(path),
+              "binaries": [str(binary) for binary in shipped(config)]}
+    temporary = candidate_marker().with_name(".candidate.json.tmp")
+    temporary.write_text(json.dumps(marker, indent=2) + "\n")
+    os.replace(temporary, candidate_marker())
     log("verify passed")
 
 
 def check_candidate(config, smoke):
-    for name, path in (("kata", ROOT / "kata/kata"), ("roborev", ROOT / "roborev/bin/roborev"),
-                       ("agentsview", ROOT / "agentsview/agentsview"),
-                       ("forge", forge_binary(config))):
-        head = git(ROOT / SERVICE_SOURCES[name], "rev-parse", "HEAD")
-        reported = sh([path, "version"], capture=True, timeout=30)
+    path = tree()
+    for name, binary in zip(SERVICE_SOURCES, shipped(config)):
+        candidate = in_tree(binary)
+        head = git(path / SERVICE_SOURCES[name], "rev-parse", "HEAD")
+        reported = sh([candidate, "version"], capture=True, timeout=30)
         if head[:7] not in reported:
-            raise UpgradeError(f"{path} reports {reported.strip()!r}, not source {head[:9]}")
+            raise UpgradeError(f"{candidate} reports {reported.strip()!r}, not source {head[:9]}")
     # Suites and smoke resolve `pi` from PATH, so they exercise the pinned candidate.
-    env = {**os.environ, "PATH": f"{candidate_pi(read_pins()['pi'])}{os.pathsep}{os.environ.get('PATH', '')}"}
+    pi_dir = candidate_pi(read_pins(path)["pi"])
+    env = {**os.environ, "PATH": f"{pi_dir}{os.pathsep}{os.environ.get('PATH', '')}"}
     python = [sys.executable, "-m", "unittest", "discover", "-p", "test_*.py"]
-    sh([*python, "-s", "scripts"], cwd=ROOT, env=env, timeout=1800)
-    sh([*python, "-s", "dist"], cwd=ROOT, env=env, timeout=1800)
-    bun = ROOT / ".local/tools/bun-1.4.4/node_modules/@oven/bun-linux-x64/bin/bun"
-    tests = sorted(ROOT.glob("scripts/*.test.mjs")) + sorted(ROOT.glob("scripts/pi-extensions/*.test.mjs"))
-    sh([bun, "test", *tests], cwd=ROOT, env=env, timeout=900)
+    sh([*python, "-s", "scripts"], cwd=path, env=env, timeout=1800)
+    sh([*python, "-s", "dist"], cwd=path, env=env, timeout=1800)
+    bun = path / ".local/tools/bun-1.4.4/node_modules/@oven/bun-linux-x64/bin/bun"
+    tests = sorted(path.glob("scripts/*.test.mjs")) + sorted(path.glob("scripts/pi-extensions/*.test.mjs"))
+    sh([bun, "test", *tests], cwd=path, env=env, timeout=900)
     if smoke:
-        sh([sys.executable, "scripts/smoke.py", "--forge-binary", forge_binary(config)], cwd=ROOT,
-           env={**env, "KENN_KOPY_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
+        sh([sys.executable, "scripts/smoke.py", "--forge-binary", in_tree(forge_binary(config))],
+           cwd=path, env={**env, "KENN_KOPY_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
 
 
 def run(components=SUBMODULES, pi="latest", pi_subagents="latest", gate_timeout=180):
     manifest = snapshot("pre-upgrade")
     try:
         changes = apply(components, pi, pi_subagents)
-        verify(manifest)
+        verify()
     except BaseException as error:
-        log(f"FAILED before cutover: {error}")
-        rollback(manifest, services=False, gate_timeout=gate_timeout)
+        log(f"FAILED before cutover; live services untouched, candidate kept in {tree()}: {error}")
         raise
     cutover(manifest, gate_timeout)
     log(f"upgrade complete; snapshot {manifest['id']} remains available for `rollback`")
@@ -634,8 +648,13 @@ def drill(gate_timeout=180):
     """Rehearse a live rollback onto the current versions; services stop first so no write is lost."""
     for name in reversed(SERVICES):
         systemctl("stop", UNITS[name])
-    manifest = snapshot("rollback-drill")
-    rollback(manifest, services=True, gate_timeout=gate_timeout)
+    try:
+        manifest = snapshot("rollback-drill")
+    except BaseException:
+        for name in SERVICES:
+            systemctl("start", UNITS[name])
+        raise
+    rollback(manifest, gate_timeout=gate_timeout)
 
 
 def main(argv=None):
@@ -645,6 +664,7 @@ def main(argv=None):
     commands.add_parser("status")
     commands.add_parser("snapshot")
     commands.add_parser("snapshots", help="list available snapshots")
+    commands.add_parser("discard", help="remove the candidate worktree")
     for name in ("apply", "run"):
         sub = commands.add_parser(name)
         sub.add_argument("--only", default=",".join(SUBMODULES),
@@ -658,12 +678,9 @@ def main(argv=None):
     for name in ("cutover", "rollback", "drill", "run"):
         sub = commands.choices.get(name) or commands.add_parser(name)
         sub.add_argument("--gate-timeout", type=int, default=180)
-    for name in ("verify", "cutover", "rollback"):
+    for name in ("cutover", "rollback"):
         commands.choices[name].add_argument("snapshot", nargs="?",
                                             help="snapshot ID to roll back to (default: latest)")
-    commands.choices["rollback"].add_argument(
-        "--sources-only", action="store_true",
-        help="restore sources, pins and binaries without touching services or data")
     args = parser.parse_args(argv)
     try:
         if args.command == "status":
@@ -684,14 +701,15 @@ def main(argv=None):
             else:
                 run(components, args.pi, args.pi_subagents, args.gate_timeout)
         elif args.command == "verify":
-            verify(load_snapshot(args.snapshot), build=not args.no_build, smoke=not args.no_smoke)
+            verify(build=not args.no_build, smoke=not args.no_smoke)
         elif args.command == "cutover":
             cutover(load_snapshot(args.snapshot), args.gate_timeout)
         elif args.command == "rollback":
-            rollback(load_snapshot(args.snapshot), services=not args.sources_only,
-                     gate_timeout=args.gate_timeout)
+            rollback(load_snapshot(args.snapshot), gate_timeout=args.gate_timeout)
         elif args.command == "drill":
             drill(args.gate_timeout)
+        elif args.command == "discard":
+            remove_tree()
     except UpgradeError as error:
         print(f"upgrade: {error}", file=sys.stderr)
         return 1

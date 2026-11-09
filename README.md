@@ -439,9 +439,10 @@ guidance are in `context/demo-capture.md`.
   you set `KENN_KOPY_PORT_OFFSET` (for example `3000`) to run beside them.
 - **Upgrade the toolchain:** `python3 scripts/upgrade.py status` shows how far
   the submodules, Pi and pi-subagents trail upstream. `python3 scripts/upgrade.py run`
-  snapshots binaries, data and configs; moves everything to the latest
-  versions; builds and tests the result away from the live services; then
-  switches the services over. If any step fails, it rolls back automatically.
+  snapshots binaries, data and configs; prepares the latest versions in a
+  separate worktree (`.local/upgrade/tree`) and builds and tests them there,
+  leaving the live checkout and services untouched; then switches the
+  services over. If the switch fails, it rolls back automatically.
   Use `python3 scripts/upgrade.py rollback` to return to the last snapshot by
   hand and `python3 scripts/upgrade.py drill` to rehearse a rollback. Review
   and commit the staged submodule changes afterwards.

@@ -84,8 +84,9 @@ or reconciliation service is installed.
   - USAi now advertises `gpt-6-luna-guardrails-high` (added) and the
     embedding model `cohere-v4` (excluded).
   - The first cutover exposed that freshly built binaries in the live paths
-    let roborev restart on `v0.75` and migrate its database before cutover;
-    the harness now stashes candidates and keeps pre-migration copies.
+    let roborev restart on `v0.75` and migrate its database before cutover.
+    The harness now builds and verifies in a separate candidate worktree, so
+    live binaries and pins change only after cutover stops the services.
 
 - **Tool-call failure diagnosis (`eynt`)**: `context/tool-failures.md` ranks
   failed tool calls from Pi and Copilot history; the Forge extension appends

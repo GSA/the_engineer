@@ -134,7 +134,7 @@ class SubmoduleTests(TempRoot):
 
 
 class LiveRollbackTests(TempRoot):
-    """Snapshot a fake environment, simulate an upgrade, then roll it back."""
+    """A fake live environment: a superproject pinning kata, services, data and a binary."""
 
     def setUp(self):
         super().setUp()
@@ -156,20 +156,23 @@ class LiveRollbackTests(TempRoot):
             db.execute("insert into issues values ('before')")
         self.binary = self.repo / "kata"
         self.binary.write_text("old binary\n")
-        (checkout / "pins.txt").write_text('PI = "1.4.0"\n')
+        (checkout / "pins.txt").write_text('PI = "1.4.0"\nnpm i pi@1.4.0\n')
         # The checkout is a superproject whose committed gitlink pins kata.
         (checkout / ".gitignore").write_text(".local/\n")
         git(checkout, "init", "--quiet")
         git(checkout, "-c", "advice.addEmbeddedRepo=false", "add", ".gitignore", "pins.txt", "kata")
         git(checkout, "commit", "--quiet", "-m", "pin")
         self.checkout = checkout
+        self.original = git(self.repo, "rev-parse", "HEAD")
         self.calls = []
         self.pi = {"version": "1.4.0"}
         for name, value in {
             "ROOT": checkout, "STATE": self.state, "UPGRADE_DIR": checkout / ".local/upgrade",
             "SUBMODULES": ("kata",), "DATABASES": ("kata/kata.db",), "CONFIGS": ("kata/config.toml",),
-            "PIN_SOURCES": {"pi": (("pins.txt", rf'PI = "{upgrade.SEMVER}"'),)},
-            "binaries": lambda config: [self.binary],
+            "PIN_SOURCES": {"pi": (("pins.txt", rf'PI = "{upgrade.SEMVER}"'),
+                                   ("pins.txt", rf"pi@{upgrade.SEMVER}"))},
+            "shipped": lambda config: [self.binary],
+            "npm_latest": lambda package: "1.5.0",
             "pi_version": lambda executable: self.pi["version"],
             "systemctl": lambda action, unit: self.calls.append((action, unit)),
             "install_pi": lambda version, executable: self.calls.append(("install_pi", version))
@@ -182,69 +185,35 @@ class LiveRollbackTests(TempRoot):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def staged(self):
-        return git(self.checkout, "diff", "--cached", "--name-only")
+    def staged(self, root=None):
+        return git(root or self.checkout, "diff", "--cached", "--name-only")
 
-    def simulate_upgrade(self):
-        commit(self.upstream, "new.txt", "new\n", "upstream change")
-        upgrade.advance_submodule(self.repo)
-        upgrade.stage_gitlink("kata")
-        upgrade.write_pin("pi", "1.5.0")
-        self.pi["version"] = "1.5.0"
-        self.binary.write_text("new binary\n")
-        self.config.write_text("listen = 'new'\n")
-        with closing(sqlite3.connect(self.db)) as db, db:
-            db.execute("pragma journal_mode=wal")
-            db.execute("create table migrated (x)")
-            db.execute("insert into issues values ('after')")
+    def quiet(self, function, *args, **kwargs):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return function(*args, **kwargs)
 
     def snapshot(self):
-        with contextlib.redirect_stdout(io.StringIO()):
-            return upgrade.snapshot("test")
-
-    def rollback(self, manifest, services):
-        with contextlib.redirect_stdout(io.StringIO()):
-            upgrade.rollback(manifest, services=services)
+        return self.quiet(upgrade.snapshot, "test")
 
     def rows(self):
         with closing(sqlite3.connect(self.db)) as db, db:
             tables = {row[0] for row in db.execute("select name from sqlite_master")}
             return tables, [row[0] for row in db.execute("select title from issues")]
 
-    def test_live_rollback_restores_everything_and_keeps_the_failed_state(self):
-        original = git(self.repo, "rev-parse", "HEAD")
-        manifest = self.snapshot()
-        self.simulate_upgrade()
-        self.assertEqual(self.staged(), "kata")
-        self.rollback(manifest, services=True)
-        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), original)
+    def assert_live_untouched(self):
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), self.original)
         self.assertEqual(self.staged(), "")
         self.assertEqual(upgrade.read_pins(), {"pi": "1.4.0"})
         self.assertEqual(self.binary.read_text(), "old binary\n")
-        self.assertEqual(self.config.read_text(), "listen = 'old'\n")
-        self.assertEqual(self.rows(), ({"issues"}, ["before"]))
-        self.assertFalse(Path(f"{self.db}-wal").exists())
-        kept = next((upgrade.UPGRADE_DIR / "snapshots" / manifest["id"]).glob("pre-rollback-*"))
-        with closing(sqlite3.connect(kept / self.db.relative_to("/"))) as db, db:
-            self.assertEqual([r[0] for r in db.execute("select title from issues")], ["before", "after"])
-        units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
-        self.assertEqual(self.calls, [
-            *(("stop", unit) for unit in reversed(units)),
-            ("install_pi", "1.4.0"), ("sh", "install-pi-extensions"),
-            *(("start", unit) for unit in units), ("gate",),
-        ])
 
-    def verify_candidate(self, manifest):
-        """Apply and verify: the build lands in the live path, then is stashed."""
-        commit(self.upstream, "new.txt", "new\n", "upstream change")
-        upgrade.advance_submodule(self.repo)
-        upgrade.stage_gitlink("kata")
-        upgrade.write_pin("pi", "1.5.0")
-        build = lambda command, **kw: self.binary.write_text("new binary\n") or ""
-        with patch.object(upgrade, "sh", build), patch.object(upgrade, "check_candidate"), \
-                contextlib.redirect_stdout(io.StringIO()):
-            upgrade.verify(manifest, smoke=False)
-        self.assertEqual(self.binary.read_text(), "old binary\n")
+    def apply_and_verify(self, check=None):
+        """Apply an upstream change and a Pi bump to the tree, then build and verify it."""
+        change = len(git(self.upstream, "rev-list", "HEAD").split())
+        self.new = commit(self.upstream, f"new{change}.txt", "new\n", "upstream change")
+        self.quiet(upgrade.apply, ("kata",), "latest", "keep")
+        build = lambda command, **kw: (upgrade.tree() / "kata/kata").write_text("new binary\n") or ""
+        with patch.object(upgrade, "sh", build), patch.object(upgrade, "check_candidate", check or MagicMock()):
+            self.quiet(upgrade.verify, smoke=False)
 
     def failing_cutover(self, manifest):
         def gate(timeout=180):
@@ -252,59 +221,76 @@ class LiveRollbackTests(TempRoot):
             if self.calls.count(("gate",)) == 1:
                 self.assertEqual(self.binary.read_text(), "new binary\n")
                 with closing(sqlite3.connect(self.db)) as db, db:
-                    db.execute("create table if not exists migrated (x)")
+                    db.execute("create table migrated (x)")
                 raise upgrade.UpgradeError("gate failed: accept exited 1")
 
         with patch.object(upgrade, "gate", gate), contextlib.redirect_stdout(io.StringIO()), \
                 self.assertRaisesRegex(upgrade.UpgradeError, "gate failed"):
             upgrade.cutover(manifest)
 
-    def test_verify_restores_live_binaries_even_when_checks_fail(self):
-        manifest = self.snapshot()
-        build = lambda command, **kw: self.binary.write_text("new binary\n") or ""
-        with patch.object(upgrade, "sh", build), \
-                patch.object(upgrade, "check_candidate", side_effect=upgrade.UpgradeError("tests")), \
+    def test_apply_and_verify_change_only_the_candidate_tree(self):
+        self.apply_and_verify()
+        self.assert_live_untouched()
+        tree = upgrade.tree()
+        self.assertEqual(git(tree / "kata", "rev-parse", "HEAD"), self.new)
+        self.assertEqual(self.staged(tree), "kata")
+        self.assertEqual(upgrade.read_pins(tree), {"pi": "1.5.0"})
+        self.assertEqual(upgrade.load_candidate()["pins"], {"pi": "1.5.0"})
+        self.assertEqual(self.calls, [])
+
+    def test_failed_verify_withdraws_the_previous_verification(self):
+        self.apply_and_verify()
+        failing = MagicMock(side_effect=upgrade.UpgradeError("tests"))
+        with patch.object(upgrade, "sh"), patch.object(upgrade, "check_candidate", failing), \
                 self.assertRaisesRegex(upgrade.UpgradeError, "tests"):
-            upgrade.verify(manifest)
-        self.assertEqual(self.binary.read_text(), "old binary\n")
-        self.assertFalse((upgrade.candidate_dir() / "manifest.json").exists())
+            self.quiet(upgrade.verify, smoke=False)
+        with self.assertRaisesRegex(upgrade.UpgradeError, "no verified candidate"):
+            upgrade.load_candidate()
 
-    def test_cutover_refuses_a_candidate_built_from_other_sources(self):
+    def test_cutover_refuses_a_candidate_changed_after_verify(self):
         manifest = self.snapshot()
-        self.verify_candidate(manifest)
-        commit(self.upstream, "later.txt", "later\n", "later change")
-        upgrade.advance_submodule(self.repo)
-        with patch.object(upgrade, "gate"), contextlib.redirect_stdout(io.StringIO()), \
-                self.assertRaisesRegex(upgrade.UpgradeError, "verify` again"):
-            upgrade.cutover(manifest)
-        self.assertEqual(self.binary.read_text(), "old binary\n")
+        for change in (lambda: upgrade.write_pin("pi", "1.6.0", upgrade.tree()),
+                       lambda: commit(upgrade.tree() / "kata", "later.txt", "later\n", "later")):
+            with self.subTest():
+                self.apply_and_verify()
+                change()
+                with self.assertRaisesRegex(upgrade.UpgradeError, "verify` again"):
+                    self.quiet(upgrade.cutover, manifest)
+                self.assertEqual(self.calls, [])
+                self.assert_live_untouched()
 
-    def test_failed_cutover_keeps_snapshot_copy_of_an_already_migrated_database(self):
+    def test_cutover_moves_the_live_checkout_to_the_candidate(self):
         manifest = self.snapshot()
-        self.verify_candidate(manifest)
-        # Something ran the candidate against live data before cutover.
-        with closing(sqlite3.connect(self.db)) as db, db:
-            db.execute("create table migrated (x)")
-            db.execute("insert into issues values ('migrated early')")
-        self.failing_cutover(manifest)
-        self.assertEqual(self.rows(), ({"issues"}, ["before"]))
+        self.apply_and_verify()
+        self.quiet(upgrade.cutover, manifest)
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), self.new)
+        self.assertEqual(self.staged(), "kata")
+        self.assertEqual(upgrade.read_pins(), {"pi": "1.5.0"})
+        self.assertEqual(self.binary.read_text(), "new binary\n")
+        self.assertFalse(upgrade.tree().exists())
+        self.assertFalse(upgrade.candidate_marker().exists())
+        units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
+        self.assertEqual(self.calls, [
+            *(("stop", unit) for unit in reversed(units)), ("install_pi", "1.5.0"),
+            ("sh", "setup"), ("sh", "install-pi-extensions"),
+            *(("restart", unit) for unit in units), ("gate",),
+        ])
 
     def test_failed_cutover_rolls_back_to_data_captured_at_cutover(self):
-        original = git(self.repo, "rev-parse", "HEAD")
         manifest = self.snapshot()
         # The live services keep writing while the candidate builds and verifies.
         with closing(sqlite3.connect(self.db)) as db, db:
             db.execute("insert into issues values ('during verify')")
         self.config.write_text("listen = 'during'\n")
-        self.verify_candidate(manifest)
+        self.apply_and_verify()
         self.failing_cutover(manifest)
-        self.assertEqual(self.staged(), "")
+        self.assert_live_untouched()
         self.assertEqual(self.rows(), ({"issues"}, ["before", "during verify"]))
         self.assertEqual(self.config.read_text(), "listen = 'during'\n")
-        self.assertEqual(git(self.repo, "rev-parse", "HEAD"), original)
-        self.assertEqual(upgrade.read_pins(), {"pi": "1.4.0"})
-        self.assertEqual(self.binary.read_text(), "old binary\n")
         self.assertIn("state_captured_at", upgrade.load_snapshot(manifest["id"]))
+        kept = next((upgrade.UPGRADE_DIR / "snapshots" / manifest["id"]).glob("pre-rollback-*"))
+        with closing(sqlite3.connect(kept / self.db.relative_to("/"))) as db, db:
+            self.assertIn("migrated", {r[0] for r in db.execute("select name from sqlite_master")})
         units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
         stops = [("stop", unit) for unit in reversed(units)]
         self.assertEqual(self.calls, [
@@ -314,9 +300,14 @@ class LiveRollbackTests(TempRoot):
             *(("start", unit) for unit in units), ("gate",),
         ])
 
+    def test_rollback_repairs_partially_written_pins(self):
+        manifest = self.snapshot()
+        (self.checkout / "pins.txt").write_text('PI = "1.5.0"\nnpm i pi@1.4.0\n')
+        self.quiet(upgrade.rollback, manifest)
+        self.assertEqual((self.checkout / "pins.txt").read_text(), 'PI = "1.4.0"\nnpm i pi@1.4.0\n')
+
     def test_drill_stops_services_before_snapshotting(self):
-        with contextlib.redirect_stdout(io.StringIO()):
-            upgrade.drill()
+        self.quiet(upgrade.drill)
         units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
         stops = [("stop", unit) for unit in reversed(units)]
         self.assertEqual(self.calls[:len(stops) * 2], stops * 2)
@@ -324,15 +315,13 @@ class LiveRollbackTests(TempRoot):
         self.assertEqual(self.rows(), ({"issues"}, ["before"]))
         self.assertEqual(self.staged(), "")
 
-    def test_sources_only_rollback_leaves_services_and_data_alone(self):
-        manifest = self.snapshot()
-        self.simulate_upgrade()
-        self.rollback(manifest, services=False)
-        self.assertEqual(self.binary.read_text(), "old binary\n")
-        self.assertEqual(upgrade.read_pins(), {"pi": "1.4.0"})
-        self.assertEqual(self.rows()[1], ["before", "after"])
-        self.assertEqual(self.config.read_text(), "listen = 'new'\n")
-        self.assertEqual(self.calls, [])
+    def test_drill_restarts_services_when_the_snapshot_fails(self):
+        with patch.object(upgrade, "snapshot", side_effect=OSError("disk full")), \
+                self.assertRaisesRegex(OSError, "disk full"):
+            upgrade.drill()
+        units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
+        self.assertEqual(self.calls, [*(("stop", u) for u in reversed(units)),
+                                      *(("start", u) for u in units)])
 
     def test_snapshots_are_pruned_and_latest_is_default(self):
         ids = [self.snapshot()["id"] for _ in range(upgrade.KEEP_SNAPSHOTS + 2)]
@@ -358,14 +347,16 @@ class PipelineTests(unittest.TestCase):
                 upgrade.run()
         return steps
 
-    def test_success_does_not_roll_back(self):
-        self.assertFalse(self.run_pipeline().rollback.called)
+    def test_success_cuts_over_without_rolling_back(self):
+        steps = self.run_pipeline()
+        steps.cutover.assert_called_once_with({"id": "snap"}, 180)
+        self.assertFalse(steps.rollback.called)
 
-    def test_failure_before_cutover_restores_sources_only(self):
+    def test_failure_before_cutover_touches_nothing_live(self):
         for step in ("apply", "verify"):
             with self.subTest(step=step):
                 steps = self.run_pipeline(step)
-                steps.rollback.assert_called_once_with({"id": "snap"}, services=False, gate_timeout=180)
+                self.assertFalse(steps.rollback.called)
                 self.assertFalse(steps.cutover.called)
 
     def test_cutover_owns_live_rollback(self):
@@ -418,7 +409,7 @@ class InstallPiTests(unittest.TestCase):
                 patch.object(upgrade, "sh") as sh, \
                 patch.object(upgrade, "pi_version", return_value="1.5.0"):
             bin_dir = upgrade.candidate_pi("1.5.0")
-            self.assertEqual(bin_dir, Path(tmp) / "pi-1.5.0/node_modules/.bin")
+            self.assertEqual(bin_dir, Path(tmp) / "tree/.local/pi-1.5.0/node_modules/.bin")
             command = [str(part) for part in sh.call_args.args[0]]
             self.assertNotIn("--global", command)
             self.assertEqual(command[-1], "@earendil-works/pi-coding-agent@1.5.0")

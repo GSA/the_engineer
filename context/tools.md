@@ -238,23 +238,30 @@ evidence.
 - Upgrades (`scripts/upgrade.py`; state in ignored `.local/upgrade/`):
   ```sh
   python3 scripts/upgrade.py status     # pins vs upstream/npm latest
-  python3 scripts/upgrade.py run        # snapshot, apply, verify, cutover; auto-rollback
-  python3 scripts/upgrade.py rollback [SNAPSHOT] [--sources-only]
+  python3 scripts/upgrade.py run        # snapshot, apply, verify, cutover
+  python3 scripts/upgrade.py rollback [SNAPSHOT]
   python3 scripts/upgrade.py drill      # rehearse a live rollback on current versions
+  python3 scripts/upgrade.py discard    # remove the candidate worktree
   ```
-  - `apply` moves submodules to upstream `origin/main`, replays carried commits
-    (warns until they are published to the `biggestbinary/agentsview` mirror),
-    stages but never commits gitlinks, and bumps every tracked Pi and
-    pi-subagents pin mention (`--pi`/`--pi-subagents` `latest|keep|X.Y.Z`).
-  - `verify` builds, checks each binary reports its source revision, runs the
-    Python and Bun suites and `smoke.py` (offset 3000) against the candidate Pi
-    in `.local/upgrade/pi-<version>`, then stashes the binaries in
-    `.local/upgrade/candidate/` and restores the live ones.
-  - `cutover` stops services, refreshes the snapshot's databases (SQLite backup
-    API; a database whose schema already changed keeps its snapshot copy) and
-    configs, installs the candidate, Pi and extensions, restarts, and gates on
-    `accept` plus running revisions; any failure restores binaries, sources,
-    pins, Pi, data and configs, keeping the failed state as `pre-rollback-*`.
+  - `apply` creates the candidate worktree `.local/upgrade/tree` (submodules
+    as worktrees of the live ones; `.local/tools` and `.local/cache` linked),
+    moves its submodules to upstream `origin/main`, replays carried commits
+    (warns until they are published to the `biggestbinary/agentsview`
+    mirror), stages its gitlinks and bumps every tracked Pi and pi-subagents
+    pin mention there (`--pi`/`--pi-subagents` `latest|keep|X.Y.Z`). The live
+    checkout is not modified.
+  - `verify` builds the tree, checks each binary reports its source revision,
+    runs the tree's Python and Bun suites and `smoke.py` (offset 3000) against
+    the candidate Pi in `.local/upgrade/tree/.local/pi-<version>`, and only
+    then records `.local/upgrade/candidate.json` (submodule revisions and pins).
+  - `cutover` refuses a tree changed since verify, stops services, refreshes
+    the snapshot's databases (SQLite backup API) and configs, moves the live
+    submodules, pins and binaries to the candidate, installs Pi and
+    extensions, restarts, and gates on `accept` plus running revisions; any
+    failure restores binaries, sources, pins, Pi, data and configs, keeping
+    the failed state as `pre-rollback-*`. Success removes the tree.
+  - A failed `apply` or `verify` changes nothing live; fix and rerun, or
+    `discard`.
   - Snapshots keep the newest 3. A database migrated by a newer service cannot
     be opened by the older one, so roll back from the pre-upgrade snapshot only.
 - Librarian (`~/the_librarian`):

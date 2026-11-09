@@ -147,8 +147,6 @@ function main() {
             lock_sha256: createHash("sha256").update(lock).digest("hex"),
         }, null, 2)}\n`);
         renameSync(join(forge, "kenn-forge"), join(output, "kenn-forge"));
-        // Forge now ships GitHub App setup as `kenn-forge github-app`.
-        rmSync(join(output, "kenn-forge-github-app"), { force: true });
         completed = true;
         console.log(`Built ${join(output, "kenn-forge")}`);
     } finally {
