@@ -312,6 +312,15 @@ Librarian grounding and `jira.*` metadata. A task with
 traceability to an existing Kata task instead of creating one. Launch work on a task from
 **Forge > Workspaces > New workspace**.
 
+## Tool-call failure diagnosis
+
+`python3 scripts/tool-health.py` checks Kata reachability, the current
+directory's Kata project binding and Librarian index freshness, and prints the
+fix for each failure. `python3 scripts/tool-failures.py --pi DIR --copilot DIR`
+reports the most common failed tool calls in agent history; the latest results
+are in `context/tool-failures.md`. The Forge Pi extension adds a one-line
+`Recovery:` hint to failed tool results for recurring causes.
+
 ## Value case
 
 `context/value-case.md` is a one-page template for the estimated value of a
