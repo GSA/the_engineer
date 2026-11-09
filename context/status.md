@@ -313,6 +313,9 @@ or reconciliation service is installed.
     `~/.pi/agent/settings.json` to inherit the active `usai/*` session model by
     default and documented `action: "resume"` and `reviewer` vs. `roborev`
     boundaries in `PI_SUBAGENT_DESCRIPTIONS`.
+  - Forge workspaces launch `worker`/`delegate` subagents in managed
+    worktrees under `.local/environment/pi/subagent-worktrees` and land their
+    patches with `git apply --3way` (see `context/tools.md`).
   - Disabled `~/.copilot/hooks/agenthook.json`, cleared global/repo custom hook
     wrappers, installed native `roborev init --no-daemon` hooks across all 8
     workspace repos, and configured `post_commit_batch_size = 5` with concise,

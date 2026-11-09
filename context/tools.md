@@ -119,6 +119,15 @@ adversarial pairing via `--review-model`:
 - Tool overrides (`PI_SUBAGENT_DESCRIPTIONS`): instruct agents to omit `model`
   or pass `"inherit"`, omit `model` on `action: "resume"`, and keep Superpowers
   `reviewer` subagents separate from native `roborev` CLI reviews.
+- Worktree isolation (`forge-workspace.ts`, Forge workspaces only): a
+  `subagent` call that launches `worker` or `delegate` (directly or in a
+  `parallel` fan-out) gets `worktree: true` unless it sets `worktree` or
+  `isolation` itself. `PI_SUBAGENTS_WORKTREE_DIR` defaults to
+  `.local/environment/pi/subagent-worktrees`. `scout`, `oracle`, `reviewer`,
+  management actions and `workflow: true` scripts are unchanged. The parent
+  checkout must be clean. Each child's work comes back as a patch plus a
+  `Worktree handoff` JSON; the parent applies it with `git apply --3way`, then
+  verifies and commits. Foreground runs remove the child worktree and branch.
 
 ## roborev configuration and hooks
 
