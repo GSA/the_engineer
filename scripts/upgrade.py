@@ -631,6 +631,9 @@ def run(components=SUBMODULES, pi="latest", pi_subagents="latest", gate_timeout=
 
 
 def drill(gate_timeout=180):
+    """Rehearse a live rollback onto the current versions; services stop first so no write is lost."""
+    for name in reversed(SERVICES):
+        systemctl("stop", UNITS[name])
     manifest = snapshot("rollback-drill")
     rollback(manifest, services=True, gate_timeout=gate_timeout)
 

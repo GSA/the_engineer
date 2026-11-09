@@ -314,6 +314,16 @@ class LiveRollbackTests(TempRoot):
             *(("start", unit) for unit in units), ("gate",),
         ])
 
+    def test_drill_stops_services_before_snapshotting(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            upgrade.drill()
+        units = [upgrade.UNITS[name] for name in upgrade.SERVICES]
+        stops = [("stop", unit) for unit in reversed(units)]
+        self.assertEqual(self.calls[:len(stops) * 2], stops * 2)
+        self.assertEqual(self.calls[-1], ("gate",))
+        self.assertEqual(self.rows(), ({"issues"}, ["before"]))
+        self.assertEqual(self.staged(), "")
+
     def test_sources_only_rollback_leaves_services_and_data_alone(self):
         manifest = self.snapshot()
         self.simulate_upgrade()
