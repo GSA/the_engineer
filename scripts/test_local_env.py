@@ -2029,6 +2029,27 @@ class LocalEnvironmentTests(unittest.TestCase):
         for entry in entries:
             self.assertEqual(entry["compat"].get("supportsDeveloperRole"), False)
 
+    def test_configure_provider_sets_capped_context_limits_for_known_models(self):
+        local_env.configure_provider(
+            "https://usai.example.test/v1",
+            "claude-opus-5.5",
+            "openai-completions",
+        )
+        entries = {
+            entry["id"]: entry
+            for entry in json.loads((self.state / "pi/models.json").read_text())["providers"]["usai"]["models"]
+        }
+        for model_id in ("claude-opus-5.5", "claude-opus-5", "claude-sonnet-5.5",
+                         "claude-haiku-5.5", "gemini-4-argon"):
+            self.assertEqual(entries[model_id]["contextWindow"], 400_000)
+            self.assertEqual(entries[model_id]["maxTokens"], 32_000)
+        for model_id in ("gpt-6.1-sol-latest-guardrails-defaultv2",
+                         "gpt-5.6-sol-latest-guardrails-defaultv2"):
+            self.assertEqual(entries[model_id]["contextWindow"], 272_000)
+            self.assertEqual(entries[model_id]["maxTokens"], 32_000)
+        self.assertNotIn("contextWindow", entries["llama_4_maverick"])
+        self.assertNotIn("maxTokens", entries["llama_4_maverick"])
+
     def test_configure_provider_supports_adversarial_coder_reviewer_pairings_and_rollback(self):
         self.key()
         for coder, reviewer, coder_family, reviewer_family in (
