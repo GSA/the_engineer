@@ -1436,11 +1436,6 @@ def install_pi_extensions():
     print(f"Installed {', '.join(PI_EXTENSIONS)} and Kata Pi attention in the isolated Pi profile; no model request was made.")
 
 
-def install_pi_review_extension():
-    """Compatibility entrypoint: install all Pi extensions required by Forge agents."""
-    install_pi_extensions()
-
-
 def roborev_warnings(*, proc_root=Path("/proc")):
     """Read-only diagnostics: never start or signal another daemon."""
     warnings = []
@@ -2642,7 +2637,6 @@ def main():
                                         help="enable the configured native roborev user service")
     review_install.add_argument("--binary", type=Path, help="select an existing native roborev executable")
     commands.add_parser("install-pi-extensions", help="install pinned extensions in private Pi only")
-    commands.add_parser("install-pi-review-extension", help="compatibility alias for install-pi-extensions")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
     commands.add_parser("install-forge-service", help="enable the configured Forge user service")
@@ -2716,7 +2710,7 @@ def main():
             agentsview_run()
         elif args.command == "install-roborev-service":
             install_roborev_service(args.binary)
-        elif args.command in ("install-pi-extensions", "install-pi-review-extension"):
+        elif args.command == "install-pi-extensions":
             install_pi_extensions()
         elif args.command == "roborev-run":
             roborev_run(args.node_executable)
