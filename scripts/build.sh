@@ -9,6 +9,9 @@ export GOCACHE="$root/.local/cache/go-build"
 export BUN_INSTALL_CACHE_DIR="$root/.local/cache/bun"
 export npm_config_cache="$root/.local/cache/npm"
 export GOENV=off GOTOOLCHAIN=local GOTELEMETRY=off
+# "|" falls back to a checksum-verified git fetch on any proxy error, not
+# only 404/410, so a filtering proxy that blocks one module zip is survivable.
+export GOPROXY="${GOPROXY:-https://proxy.golang.org|direct}"
 export GOMAXPROCS=2 GOFLAGS="-p=2" CGO_ENABLED=1
 
 if [[ "$(go version)" != "go version go1.27.3 linux/amd64" ]]; then

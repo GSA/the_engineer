@@ -82,7 +82,7 @@ def sh(command, *, cwd=None, env=None, capture=False, timeout=None):
                             capture_output=capture)
     if result.returncode:
         detail = (result.stderr or result.stdout or "").strip().splitlines()[-1:] if capture else []
-        raise UpgradeError(f"{' '.join(command[:4])} exited {result.returncode}"
+        raise UpgradeError(f"{' '.join(command[:6])} exited {result.returncode}"
                            + (f": {detail[0]}" if detail else ""))
     return result.stdout if capture else ""
 
@@ -319,6 +319,19 @@ def install_pi(version, executable):
         f"{PI_PACKAGE}@{version}"], env=env, timeout=600)
 
 
+def candidate_pi(version):
+    """Return a PATH directory holding Pi `version`, isolated from the live install."""
+    prefix = UPGRADE_DIR / f"pi-{version}"
+    bin_dir = prefix / "node_modules/.bin"
+    if not (bin_dir / "pi").exists():
+        sh(["npm", "install", "--prefix", prefix, "--no-fund", "--no-audit", "--no-save",
+            f"{PI_PACKAGE}@{version}"], timeout=600)
+    reported = pi_version(bin_dir / "pi")
+    if reported != version:
+        raise UpgradeError(f"candidate Pi at {bin_dir} reports {reported!r}, not {version}")
+    return bin_dir
+
+
 def running_versions():
     status = json.loads(sh(local_env_command("status"), capture=True, timeout=60))
     return {name: (status.get(f"{name}_service") or {}).get("version", "") for name in SERVICES}
@@ -464,16 +477,17 @@ def verify(*, build=True, smoke=True):
         reported = sh([path, "version"], capture=True, timeout=30)
         if head[:7] not in reported:
             raise UpgradeError(f"{path} reports {reported.strip()!r}, not source {head[:9]}")
-    read_pins()
+    # Suites and smoke resolve `pi` from PATH, so they exercise the pinned candidate.
+    env = {**os.environ, "PATH": f"{candidate_pi(read_pins()['pi'])}{os.pathsep}{os.environ.get('PATH', '')}"}
     python = [sys.executable, "-m", "unittest", "discover", "-p", "test_*.py"]
-    sh([*python, "-s", "scripts"], cwd=ROOT, timeout=1800)
-    sh([*python, "-s", "dist"], cwd=ROOT, timeout=1800)
+    sh([*python, "-s", "scripts"], cwd=ROOT, env=env, timeout=1800)
+    sh([*python, "-s", "dist"], cwd=ROOT, env=env, timeout=1800)
     bun = ROOT / ".local/tools/bun-1.4.4/node_modules/@oven/bun-linux-x64/bin/bun"
     tests = sorted(ROOT.glob("scripts/*.test.mjs")) + sorted(ROOT.glob("scripts/pi-extensions/*.test.mjs"))
-    sh([bun, "test", *tests], cwd=ROOT, timeout=900)
+    sh([bun, "test", *tests], cwd=ROOT, env=env, timeout=900)
     if smoke:
         sh([sys.executable, "scripts/smoke.py", "--forge-binary", forge_binary(config)], cwd=ROOT,
-           env={**os.environ, "KENN_KOPY_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
+           env={**env, "KENN_KOPY_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
     log("verify passed")
 
 

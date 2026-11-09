@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
-import { verifyLocalLock } from "./build-forge-local-kata.mjs";
+import { kataGoRequirement, verifyLocalLock } from "./build-forge-local-kata.mjs";
 
 function locks() {
     const original = Bun.JSONC.parse(readFileSync(
@@ -57,4 +57,18 @@ test("rejects retaining the remote Kata package alongside the local replacement"
     const { original, derived } = locks();
     derived.packages["@kenn-io/kata-ui"] = original.packages["@kenn-io/kata-ui"];
     expect(() => verifyLocalLock(original, derived)).toThrow();
+});
+
+test("derives the tagged Kata Go requirement from Forge's go.mod", () => {
+    const goMod = readFileSync(new URL("../forge/go.mod", import.meta.url), "utf8");
+    expect(kataGoRequirement(goMod)).toMatch(/^v\d+\.\d+\.\d+$/);
+    expect(kataGoRequirement("module m\n\nrequire go.kenn.io/kata v1.2.3\n")).toBe("v1.2.3");
+});
+
+test("rejects pseudo-versions, duplicates and existing Kata replacements", () => {
+    const require = (version) => `module m\n\nrequire (\n\tgo.kenn.io/kata ${version}\n)\n`;
+    expect(() => kataGoRequirement(require("v0.21.1-0.20260101000000-abcdef123456"))).toThrow();
+    expect(() => kataGoRequirement("module m\n")).toThrow();
+    expect(() => kataGoRequirement(`${require("v0.21.0")}require go.kenn.io/kata v0.22.0\n`)).toThrow();
+    expect(() => kataGoRequirement(`${require("v0.21.0")}replace go.kenn.io/kata => ../kata\n`)).toThrow();
 });

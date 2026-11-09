@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import runpy
 import shutil
 import subprocess
@@ -55,11 +56,12 @@ class PiVersionTests(unittest.TestCase):
             self.assertEqual(local_env.verify_pi(config, env={}), "/test/pi")
 
     def test_other_versions_are_rejected(self):
-        for version in ("1.0.3", "1.4.1", ""):
+        for version in ("1.0.3", f"{local_env.PI_VERSION}.1", ""):
             with self.subTest(version=version), \
                     patch.object(local_env.subprocess, "run",
                                  return_value=MagicMock(stdout=version)), \
-                    self.assertRaisesRegex(RuntimeError, r"expected Pi 1\.4\.0"):
+                    self.assertRaisesRegex(
+                        RuntimeError, f"expected Pi {re.escape(local_env.PI_VERSION)};"):
                 local_env.verify_pi({"pi_executable": "/test/pi"}, env={})
 
 

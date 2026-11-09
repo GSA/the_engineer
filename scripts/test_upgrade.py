@@ -299,6 +299,24 @@ class InstallPiTests(unittest.TestCase):
                 self.assertEqual(command[1:1 + len(expected)], expected)
                 self.assertEqual(command[-1], "@earendil-works/pi-coding-agent@1.5.0")
 
+    def test_candidate_pi_is_isolated_and_version_checked(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(upgrade, "UPGRADE_DIR", Path(tmp)), \
+                patch.object(upgrade, "sh") as sh, \
+                patch.object(upgrade, "pi_version", return_value="1.5.0"):
+            bin_dir = upgrade.candidate_pi("1.5.0")
+            self.assertEqual(bin_dir, Path(tmp) / "pi-1.5.0/node_modules/.bin")
+            command = [str(part) for part in sh.call_args.args[0]]
+            self.assertNotIn("--global", command)
+            self.assertEqual(command[-1], "@earendil-works/pi-coding-agent@1.5.0")
+            bin_dir.mkdir(parents=True)
+            (bin_dir / "pi").touch()
+            sh.reset_mock()
+            upgrade.candidate_pi("1.5.0")
+            sh.assert_not_called()
+            with self.assertRaisesRegex(upgrade.UpgradeError, "not 1.6.0"):
+                upgrade.candidate_pi("1.6.0")
+
     def test_unknown_layout_is_refused(self):
         with self.assertRaisesRegex(upgrade.UpgradeError, "npm prefix"):
             upgrade.install_pi("1.5.0", "/usr/bin/pi")
