@@ -6,10 +6,10 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 
 | Service | Loopback endpoint | Systemd unit | Persistent data under `.local/environment/` |
 | --- | --- | --- | --- |
-| Kata (`v0.22.0-20-g4853199e`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
-| roborev (`v0.74.0-161-gcaacbdae`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
-| AgentsView (`v0.46.1-283-g49b1c6c84`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge (`v0.5.1-331-g3f58f438-local-kata`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Kata (`v0.23.0-3-g08facefa`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
+| roborev (`v0.75.0-8-g0cb4d19b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
+| AgentsView (`v0.47.0-17-gecb57cdf4`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
+| Forge (`v0.6.0-49-g31c6ac38-local-kata`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `KENN_KOPY_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
@@ -93,7 +93,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 
 ## Pi and subagent configuration
 
-Pi is pinned to `PI_VERSION = "1.4.0"` in both `scripts/local_env.py` and
+Pi is pinned to `PI_VERSION = "1.5.0"` in both `scripts/local_env.py` and
 `dist/install.py`; `verify_pi()` rejects any other `--version`. When the saved
 `pi_executable` is upgraded in place, rerunning `setup` with the same arguments
 rewrites only the stale `pi_version` in `environment.json` after `verify_pi()`
@@ -101,9 +101,9 @@ passes; any other saved difference still aborts without mutation.
 
 `scripts/local_env.py` writes `default_pi_subagents_settings()` into
 `.local/environment/pi/settings.json` (and mirrors it in `~/.pi/agent/settings.json`
-for standalone `pi` invocations), populates all 25 advertised USAi chat models
+for standalone `pi` invocations), populates all 26 advertised USAi chat models
 into `.local/environment/pi/models.json` (excluding embedding models
-`cohere_english_v3` and `text-embedding-005`), and supports opposite-family
+`cohere_english_v3`, `cohere-v4` and `text-embedding-005`), and supports opposite-family
 adversarial pairing via `--review-model`:
 
 - `defaultProvider`: `"usai"`
@@ -235,6 +235,28 @@ evidence.
   cd .local/forge-local-kata/web && npm run build
   cd .local/forge-local-kata && go test ./internal/server ./internal/git ./internal/agent/... && go build -o kenn-forge ./cmd/kenn-forge
   ```
+- Upgrades (`scripts/upgrade.py`; state in ignored `.local/upgrade/`):
+  ```sh
+  python3 scripts/upgrade.py status     # pins vs upstream/npm latest
+  python3 scripts/upgrade.py run        # snapshot, apply, verify, cutover; auto-rollback
+  python3 scripts/upgrade.py rollback [SNAPSHOT] [--sources-only]
+  python3 scripts/upgrade.py drill      # rehearse a live rollback on current versions
+  ```
+  - `apply` moves submodules to upstream `origin/main`, replays carried commits
+    (warns until they are published to the `biggestbinary/agentsview` mirror),
+    stages but never commits gitlinks, and bumps every tracked Pi and
+    pi-subagents pin mention (`--pi`/`--pi-subagents` `latest|keep|X.Y.Z`).
+  - `verify` builds, checks each binary reports its source revision, runs the
+    Python and Bun suites and `smoke.py` (offset 3000) against the candidate Pi
+    in `.local/upgrade/pi-<version>`, then stashes the binaries in
+    `.local/upgrade/candidate/` and restores the live ones.
+  - `cutover` stops services, refreshes the snapshot's databases (SQLite backup
+    API; a database whose schema already changed keeps its snapshot copy) and
+    configs, installs the candidate, Pi and extensions, restarts, and gates on
+    `accept` plus running revisions; any failure restores binaries, sources,
+    pins, Pi, data and configs, keeping the failed state as `pre-rollback-*`.
+  - Snapshots keep the newest 3. A database migrated by a newer service cannot
+    be opened by the older one, so roll back from the pre-upgrade snapshot only.
 - Librarian (`~/the_librarian`):
   ```sh
   cargo test --manifest-path ~/the_librarian/Cargo.toml

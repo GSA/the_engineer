@@ -48,10 +48,10 @@ or reconciliation service is installed.
 ## Live environment state
 
 - All four user systemd units are running on loopback:
-  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.22.0-20-g4853199e`, schema 48, API `0.41.0`)
-  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.74.0-161-gcaacbdae`)
-  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.46.1-283-g49b1c6c84`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.5.1-331-g3f58f438-local-kata`)
+  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-3-g08facefa`, schema 50, API `0.44.0`)
+  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-8-g0cb4d19b`)
+  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-17-gecb57cdf4`)
+  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.6.0-49-g31c6ac38-local-kata`)
 - Registered Forge repositories: `gsa/the_engineer`, `gsa/the_librarian`,
   `gsa/aos-spud` and `gsa/supply-chain-user-interface`, each mapped to its Kata
   project (`the_engineer`, `the_librarian`, `spud`,
@@ -61,13 +61,31 @@ or reconciliation service is installed.
   coder = `claude-sonnet-5.5` (with `pi-argon` / `gemini-4-argon` also enabled as a
   first-class Forge workspace agent target), reviewer =
   `gpt-6.1-sol-latest-guardrails-defaultv2` (`https://api.gsa.usai.gov/api/v1`,
-  `openai-completions`), with all 25 advertised USAi chat models synced into
-  `.local/environment/pi/models.json` (excluding `cohere_english_v3` and
-  `text-embedding-005`), `gemini-4-argon` configured for concise PR body
+  `openai-completions`), with all 26 advertised USAi chat models synced into
+  `.local/environment/pi/models.json` (excluding `cohere_english_v3`, `cohere-v4`
+  and `text-embedding-005`), `gemini-4-argon` configured for concise PR body
   summarization in `forge-workspace.ts`, and `compat.supportsDeveloperRole = false`
   across all USAi model definitions.
 
 ## Recent completed milestones
+
+- **Toolchain upgrade harness and latest pins (`x0pe`)**:
+  - `scripts/upgrade.py` (tests in `scripts/test_upgrade.py`) snapshots,
+    applies, verifies, cuts over and rolls back; see `context/tools.md`.
+  - Live on Kata `v0.23.0-3` (schema 50), roborev `v0.75.0-8`, AgentsView
+    `v0.47.0-17` (carried pricing commit replayed as `ecb57cdf4`), Forge
+    `v0.6.0-49`, Pi `1.5.0` and pi-subagents `0.87.0`; acceptance 13/13 and a
+    live rollback drill passed.
+  - Forge now requires Kata Go `v0.21.0` and folds the GitHub App setup into
+    `kenn-forge github-app`; `build-forge-local-kata.mjs` derives the Kata Go
+    tag from Forge's `go.mod` (it must be contained in the Kata pin) and ships
+    only `kenn-forge`. `build.sh` uses `GOPROXY=proxy.golang.org|direct`
+    because the network proxy blocks the `go.kenn.io/kata` module zip.
+  - USAi now advertises `gpt-6-luna-guardrails-high` (added) and the
+    embedding model `cohere-v4` (excluded).
+  - The first cutover exposed that freshly built binaries in the live paths
+    let roborev restart on `v0.75` and migrate its database before cutover;
+    the harness now stashes candidates and keeps pre-migration copies.
 
 - **Tool-call failure diagnosis (`eynt`)**: `context/tool-failures.md` ranks
   failed tool calls from Pi and Copilot history; the Forge extension appends

@@ -61,11 +61,11 @@ RUNTIME_ROOT = resolve_runtime_root(ROOT)
 CODER_CONTRACT = ROOT / "scripts/pi-coder-contract.md"
 STATE = RUNTIME_ROOT / ".local/environment"
 GLOBAL_PI = Path.home() / ".pi/agent"
-PI_VERSION = "1.4.0"
+PI_VERSION = "1.5.0"
 LEGACY_PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_REVIEW_EXTENSION_PATH = RUNTIME_ROOT / "scripts/pi-extensions/json-schema.ts"
 PI_REVIEW_EXTENSION = str(PI_REVIEW_EXTENSION_PATH)
-PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.83.0"
+PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.87.0"
 PI_EXTENSIONS = (PI_SUBAGENTS_EXTENSION,)
 PI_DISABLED_BUILTIN_SUBAGENTS = (
     "claude-code",

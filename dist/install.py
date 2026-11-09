@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PI_VERSION = "1.4.0"
+PI_VERSION = "1.5.0"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
 MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
 KATA_DAEMON_NAME = "local"
