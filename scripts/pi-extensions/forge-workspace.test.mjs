@@ -752,3 +752,95 @@ test("workspace policy explains how to land subagent patches and clean up leftov
     expect(policy).toContain("Worktree handoff");
     expect(policy).toContain("git worktree remove");
 });
+
+// Recovery hints: a failed tool result gets one line saying how to recover,
+// for the causes that recur in session history (context/tool-failures.md).
+const failed = (h, toolName, input, text, ctx = makeCtx({ mode: "print" })) =>
+    h.tool_result({ toolName, toolCallId: "f1", isError: true, input, content: [{ type: "text", text }] }, ctx);
+const hintText = (out) => (out?.content ?? []).map((part) => part.text).join("\n");
+
+test("failed kata calls outside a bound workspace say how to bind or pass --project", async () => {
+    const h = load();
+    const out = await failed(h, "bash", { command: "kata list --agent" },
+        "ERR list not_found: no .kata.toml ancestor and no git ancestor\n\nCommand exited with code 4");
+    const text = hintText(out);
+    expect(text).toContain("Recovery:");
+    expect(text).toContain("--project");
+    expect(text).toContain("workspace worktree");
+});
+
+test("an unregistered kata project points at kata projects list", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "bash", { command: "kata list --project nope" },
+        "kata: project nope is not registered\nCommand exited with code 4"));
+    expect(text).toContain("kata projects list");
+});
+
+test("kata daemon_unavailable points at the service and the health check", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "bash", { command: "kata show abcd" },
+        "ERR show daemon_unavailable: connection refused\nCommand exited with code 7"));
+    expect(text).toContain("kenn-kopy-kata.service");
+    expect(text).toContain("tool-health.py");
+});
+
+test("kata argument-count errors point at kata <command> --help", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "bash", { command: "kata comment abcd 'long text'" },
+        "kata: accepts 1 arg(s), received 2\nCommand exited with code 2"));
+    expect(text).toContain("kata comment --help");
+    expect(text).toContain("-m");
+});
+
+test("git identity errors say to set the repository-local identity, not global", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "bash", { command: "git commit -m x" },
+        "Author identity unknown\nfatal: empty ident name\nCommand exited with code 128"));
+    expect(text).toContain("git config user.name");
+    expect(text).not.toContain("--global");
+});
+
+test("a read of a missing path names the working directory", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "read", { path: "context/project.md" },
+        "ENOENT: no such file or directory, access '/w/context/project.md'"));
+    expect(text).toContain(cwd);
+    expect(text).toContain("ls");
+});
+
+test("a read offset past the end says to read from line 1", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "read", { path: "a", offset: 200 },
+        "Offset 200 is beyond end of file (199 lines total)"));
+    expect(text).toContain("199");
+});
+
+test("edit text that does not match says to re-read and use unique context", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "edit", { path: "a" }, "Could not find the exact text in a."));
+    expect(text).toContain("Re-read");
+});
+
+test("edit with string edits says edits must be an array of objects", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "edit", { path: "a" },
+        'Validation failed for tool "edit":\n  - edits.0: must be object'));
+    expect(text).toContain("array of objects");
+});
+
+test("an output-token-limit failure says to split the call", async () => {
+    const h = load();
+    const text = hintText(await failed(h, "bash", { command: "cat <<E" },
+        'Tool call "bash" was not executed: the response hit the output token limit'));
+    expect(text).toContain("smaller");
+});
+
+test("unknown failures, successes and already-hinted results are left alone", async () => {
+    const h = load();
+    expect(await failed(h, "web_search", {}, "weird")).toBeUndefined();
+    expect(await h.tool_result({ toolName: "bash", toolCallId: "f1", input: { command: "kata list" },
+        content: [{ type: "text", text: "no .kata.toml ancestor" }] }, makeCtx({ mode: "print" }))).toBeUndefined();
+    const once = await failed(h, "bash", { command: "kata list" }, "no .kata.toml ancestor");
+    expect(await h.tool_result({ toolName: "bash", toolCallId: "f1", isError: true, input: { command: "kata list" },
+        content: once.content }, makeCtx({ mode: "print" }))).toBeUndefined();
+});

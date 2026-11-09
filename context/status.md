@@ -69,6 +69,10 @@ or reconciliation service is installed.
 
 ## Recent completed milestones
 
+- **Tool-call failure diagnosis (`eynt`)**: `context/tool-failures.md` ranks
+  failed tool calls from Pi and Copilot history; the Forge extension appends
+  `Recovery:` hints and `scripts/tool-health.py` checks Kata, project binding
+  and index freshness (PR #30).
 - **Knowitall archived; seam scanner retained (`wg6t`)**:
   - Removed the Knowitall code provider (`knowitall.py`, `bridge.py`, code
     queries, paging and associations) from `engineer-task-context` 0.2.0.

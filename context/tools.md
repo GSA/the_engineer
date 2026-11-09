@@ -66,6 +66,14 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 - `python3 scripts/gh-local.py`: runs `gh` with `GH_CONFIG_DIR` set to
   `.local/environment/gh` so Forge and operator GitHub checks share isolated
   authentication.
+- `python3 scripts/tool-health.py [--cwd DIR] [--project NAME]`: read-only check
+  of Kata daemon reachability, the directory's Kata project binding and
+  Librarian index freshness; prints a `fix:` line per failure (exit 1). Run it
+  when a `kata` or `falcon-context` call fails before retrying.
+- `scripts/tool-failures.py`: mines Pi and Copilot session history for failed tool
+  calls by tool and cause; the latest report and fixes are in
+  `context/tool-failures.md`. The Forge extension appends a `Recovery:` line to
+  failed tool results for the recurring causes (`recoveryHint`).
 - `scripts/jira-intake.py`: manual one-ticket Jira XML export to approved Kata
   tasks (`init`, `check`, `record --apply`); contract in `context/jira-intake.md`.
 - `local_env.py configure-librarian --audit [--copilot-config PATH]`: opt-in
