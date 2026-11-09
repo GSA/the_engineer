@@ -107,6 +107,18 @@ USAI_CHAT_MODELS = (
     "gpt_5_5_default_v2",
     "llama_4_maverick",
 )
+# Deliberate caps below the providers' ~1M windows: Pi compacts at
+# contextWindow - compaction.reserveTokens, and unset models default to 128k.
+# GPT stays at 272k, below the providers' higher-priced long-context tier.
+# Models without an entry keep Pi's 128k/16k defaults.
+USAI_MODEL_LIMITS = {
+    **{model: {"contextWindow": 400_000, "maxTokens": 32_000} for model in (
+        "claude-haiku-5.5", "claude-opus-5", "claude-opus-5.5", "claude-sonnet-5.5", "gemini-4-argon",
+    )},
+    **{model: {"contextWindow": 272_000, "maxTokens": 32_000} for model in (
+        "gpt-5.6-sol-latest-guardrails-defaultv2", "gpt-6.1-sol-latest-guardrails-defaultv2",
+    )},
+}
 PI_SUBAGENT_DESCRIPTIONS = {
     "delegate": (
         'Project-context-inheriting delegation subagent (USAi: omit model or pass model:"inherit" '
@@ -1229,6 +1241,7 @@ def configure_provider(base_url, model, api, *, review_model=None):
         if isinstance(entry, dict) and entry.get("id"):
             compat = entry.get("compat")
             entry["compat"] = {**(compat if isinstance(compat, dict) else {}), "supportsDeveloperRole": False}
+            entry.update(USAI_MODEL_LIMITS.get(entry["id"], {}))
     json_write(path, models, replace=True)
     settings_path = STATE / "pi/settings.json"
     pi_settings = json.loads(private_read(settings_path)) if settings_path.exists() else {}

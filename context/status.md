@@ -65,7 +65,8 @@ or reconciliation service is installed.
   `.local/environment/pi/models.json` (excluding `cohere_english_v3` and
   `text-embedding-005`), `gemini-4-argon` configured for concise PR body
   summarization in `forge-workspace.ts`, and `compat.supportsDeveloperRole = false`
-  across all USAi model definitions.
+  across all USAi model definitions, and `USAI_MODEL_LIMITS` context caps
+  (400k Claude/Gemini, 272k GPT Sol, 32k output) so Pi no longer compacts at its 128k default.
 
 ## Recent completed milestones
 

@@ -350,7 +350,10 @@ The alternate `Pi (Gemini 4 Argon)` target and the reviewer model are independen
    lists models; it does not test them.
 2. `configure-provider --base-url <url> --model <coder> [--review-model <reviewer>] --api openai-completions`
    writes every chat model (the built-in list plus the fetched catalog) to
-   `pi/models.json` and skips embedding models. It also sets the coder default
+   `pi/models.json` and skips embedding models. Main Claude and Gemini models
+   get a 400k `contextWindow` and GPT Sol models 272k, each with 32k
+   `maxTokens`, so Pi compacts near those caps rather than at its 128k
+   default (`USAI_MODEL_LIMITS` in `scripts/local_env.py`). It also sets the coder default
    in `pi/settings.json` and `usai.json`, and syncs `--review-model` to
    `roborev/config.toml`. Omitting `--review-model` clears a previously
    configured reviewer pairing.
