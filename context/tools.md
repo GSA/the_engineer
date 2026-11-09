@@ -9,7 +9,7 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 | Kata (`v0.23.0-3-g08facefa`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
 | roborev (`v0.75.0-8-g0cb4d19b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
 | AgentsView (`v0.47.0-17-gecb57cdf4`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge (`v0.6.0-49-g31c6ac38-local-kata`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Forge (`v0.6.0-49-g31c6ac38`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `KENN_KOPY_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
@@ -229,11 +229,6 @@ evidence.
   ```sh
   python -m unittest discover -s tests -p 'test_context_*.py'
   ENGINEER_LIBRARIAN_SOURCE=~/the_librarian PYTHONPATH=tests/integration python -m unittest test_context_real_providers
-  ```
-- Local Forge binary (`.local/forge-local-kata`, keeps `forge/` submodule clean):
-  ```sh
-  cd .local/forge-local-kata/web && npm run build
-  cd .local/forge-local-kata && go test ./internal/server ./internal/git ./internal/agent/... && go build -o kenn-forge ./cmd/kenn-forge
   ```
 - Upgrades (`scripts/upgrade.py`; state in ignored `.local/upgrade/`):
   ```sh

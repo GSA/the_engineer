@@ -146,7 +146,7 @@ class LiveRollbackTests(TempRoot):
         env_path = self.state / "environment.json"
         env_path.write_text(json.dumps({"pi_executable": "/fake/pi", "corpus": "/fake/corpus",
                                         "forge_binary":
-                                        str(checkout / ".local/forge-local-kata/kenn-forge")}))
+                                        str(checkout / "forge/kenn-forge")}))
         env_path.chmod(0o600)
         self.config = self.state / "kata/config.toml"
         self.config.write_text("listen = 'old'\n")

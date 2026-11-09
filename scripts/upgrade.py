@@ -585,10 +585,6 @@ def apply(components=SUBMODULES, pi="latest", pi_subagents="latest"):
     return changes
 
 
-def forge_target(config):
-    return "forge-local-kata" if forge_binary(config).parent.name == "forge-local-kata" else "forge"
-
-
 def verify(*, build=True, smoke=True):
     """Build and test the candidate tree; live services and binaries are never touched."""
     path = tree()
@@ -598,7 +594,7 @@ def verify(*, build=True, smoke=True):
     candidate_marker().unlink(missing_ok=True)
     config = environment_config()
     if build:
-        sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target(config)],
+        sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", "forge"],
            cwd=path, timeout=3600)
     check_candidate(config, smoke)
     marker = {"submodules": tree_heads(), "pins": read_pins(path),

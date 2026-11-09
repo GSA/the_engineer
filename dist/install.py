@@ -669,7 +669,7 @@ def load_environment(checkout):
     return module
 
 
-def install(checkout, corpus, forge_build, choice, librarian_executable=None,
+def install(checkout, corpus, choice, librarian_executable=None,
             librarian_reader=None, librarian_root=None, librarian_selection=None,
             provider=None, repos=(), mirrors=None):
     mirrors = mirrors or {}
@@ -693,13 +693,11 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
     print("\nInstalling workspace-local Go/Bun/GitHub CLI toolchains...")
     with RECEIPT.phase("toolchains"):
         run(["bash", "scripts/bootstrap-toolchains.sh"], cwd=checkout, env=child)
-    print("\nBuilding services (normal Forge remains the default; no automatic fallback)...")
-    forge_target = "forge" if forge_build == "normal" else "forge-local-kata"
+    print("\nBuilding services...")
     with RECEIPT.phase("build"):
-        run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target],
+        run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", "forge"],
             cwd=checkout, env=child)
-    forge = checkout / ("forge/kenn-forge" if forge_build == "normal"
-                        else ".local/forge-local-kata/kenn-forge")
+    forge = checkout / "forge/kenn-forge"
     for binary in (forge, checkout / "roborev/bin/roborev",
                    checkout / "kata/kata", checkout / "agentsview/agentsview"):
         if not binary.is_file() or not os.access(binary, os.X_OK):
@@ -845,8 +843,6 @@ def main(argv=None):
                              "the tracked .gitmodules is not changed")
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
-    parser.add_argument("--forge-build", choices=("normal", "local-kata"), default="normal",
-                        help="explicitly select the temporary local-Kata workaround if normal downloads are blocked")
     args = parser.parse_args(argv)
     checkout = args.checkout.expanduser().resolve()
     corpus = args.corpus.expanduser().resolve()
@@ -911,7 +907,7 @@ def main(argv=None):
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 raise RuntimeError("Another installer is using this checkout; wait for it to finish.") from error
-            install(checkout, corpus, args.forge_build, choice,
+            install(checkout, corpus, choice,
                     server if args.librarian_executable else None,
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,

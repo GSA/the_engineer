@@ -47,8 +47,8 @@ When reproducing this environment on a new Linux/WSL host via `dist/install.sh`:
    units (`install-kata-service`, `install-roborev-service`,
    `install-agentsview-service`, `install-forge-service`); otherwise use
    `python3 scripts/local_env.py run`. (Tracked in Kata `t14m`.)
-2. **Forge binary**: `kenn-kopy-forge.service` runs the locally built
-   `.local/forge-local-kata/kenn-forge` binary so Kata mappings and USAi provider
-   support remain available while keeping the upstream `forge/` submodule clean.
+2. **Forge binary**: `kenn-kopy-forge.service` runs the
+   `forge/kenn-forge` binary built from the pinned `forge/` submodule by
+   `scripts/build.sh forge`.
 3. **Private credentials**: `set-key` (`USAi`) and `gh-local.py auth login`
    (`GitHub`) are interactive post-install steps per machine.
