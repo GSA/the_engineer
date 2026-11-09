@@ -399,7 +399,7 @@ def pin_fetchable(checkout, project, sha, url, environment):
             # Commit and trees only, depth 1: enough to prove the pin is fetchable.
             filtering = [] if _is_local_path(url) else ["--filter=blob:none"]
             result = subprocess.run(
-                ["git", "-C", directory, "fetch", "--quiet", "--no-tags", "--depth=1", *filtering,
+                ["git", f"--git-dir={directory}", "fetch", "--quiet", "--no-tags", "--depth=1", *filtering,
                  "--", url, sha], capture_output=True, text=True, timeout=180, env=environment)
         except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
             return False, str(error)

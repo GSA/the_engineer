@@ -2010,7 +2010,8 @@ class LocalEnvironmentTests(unittest.TestCase):
             {
                 "base_url": "https://usai.example.test/v1",
                 "fetched_at": "2026-04-16T00:00:00+00:00",
-                "models": [*local_env.USAI_CHAT_MODELS, "cohere_english_v3", "text-embedding-005"],
+                "models": [*local_env.USAI_CHAT_MODELS, "cohere-v4", "cohere_english_v3",
+                           "text-embedding-005"],
             },
             replace=True,
         )
@@ -2024,7 +2025,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         ids = {entry["id"] for entry in entries}
         for chat_model in local_env.USAI_CHAT_MODELS:
             self.assertIn(chat_model, ids)
-        for embedding_model in local_env.USAI_EMBEDDING_MODELS:
+        for embedding_model in ("cohere-v4", "cohere_english_v3", "text-embedding-005"):
             self.assertNotIn(embedding_model, ids)
         for entry in entries:
             self.assertEqual(entry["compat"].get("supportsDeveloperRole"), False)

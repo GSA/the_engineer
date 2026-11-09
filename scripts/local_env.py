@@ -78,7 +78,7 @@ PI_DISABLED_BUILTIN_SUBAGENTS = (
     "researcher",
 )
 PI_PASSTHROUGH_SUBCOMMANDS = frozenset({"mcp", "list", "config", "install", "remove", "update"})
-USAI_EMBEDDING_MODELS = frozenset({"cohere_english_v3", "text-embedding-005"})
+USAI_EMBEDDING_MODELS = frozenset({"cohere-v4", "cohere_english_v3", "text-embedding-005"})
 ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
 USAI_CHAT_MODELS = (
     "claude-haiku-5.5",
@@ -100,6 +100,7 @@ USAI_CHAT_MODELS = (
     "gpt-5.6-terra",
     "gpt-6-astra",
     "gpt-6-luna",
+    "gpt-6-luna-guardrails-high",
     "gpt-6-sol-latest-guardrails-defaultv2",
     "gpt-6.1-sol-latest-guardrails-defaultv2",
     "gpt_5_2_default_v2",

@@ -681,7 +681,7 @@ class InstallerTests(unittest.TestCase):
     def test_submodule_mirror_resolves_unfetchable_pin_without_editing_gitmodules(self):
         platform, upstream, sha = self.pinned_checkout(available=False)
         mirror = self.mirror_source
-        self.assertEqual(self.git(mirror, "rev-parse", "HEAD"), sha)
+        self.assertEqual(self.git(self.root, f"--git-dir={mirror}", "rev-parse", "HEAD"), sha)
         before = (platform / ".gitmodules").read_text()
         self.assertEqual(installer.check_submodule_pins(platform, {"agentsview": str(mirror)}), [])
         self.assertEqual((platform / ".gitmodules").read_text(), before)
