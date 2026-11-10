@@ -1,6 +1,3 @@
-import { statSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
-
 // Programs that run another command, with the options that take a separate
 // value, so the real program is found rather than one of their arguments. Each
 // wrapper differs: `env -i` is valueless while `env -u` takes a name.
@@ -29,9 +26,6 @@ const GH_VALUE_FLAGS = new Set([
 	"--head", "--search", "--label", "-l", "--limit", "-L", "--state", "-s",
 	"--subject", "--match-field", "--cache",
 ]);
-// git global flags whose value is a separate word, so the value is not the
-// subcommand.
-export const GIT_VALUE_FLAGS = new Set(["-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix"]);
 export const SHELLS = /(^|\/)(ba|z|da)?sh$/;
 
 // A heredoc body is data for the program that reads it, so it is not scanned as
@@ -181,53 +175,15 @@ function runsShellStdin(line: string): boolean {
 	});
 }
 
-export function resolveDir(cwd: string, target: string): string | null {
-	const path = isAbsolute(target) ? target : resolve(cwd, target);
-	try {
-		return statSync(path).isDirectory() ? path : null;
-	} catch {
-		return null;
-	}
-}
-
-type SimpleCommand = { words: string[]; scope: string; piped: boolean; conditional: boolean };
-
 // Split a shell command into simple commands of words, keeping quoted text as
-// data inside one word. Each command records the identity of the shell scope it
-// runs in, whether it runs in a pipeline, and whether a preceding `&&` or `||`
-// can skip it, because `cd` in a subshell or a pipeline does not move the
-// directory the following commands run in, and a skipped `cd` moves nothing.
-// Scope identities are unique, so sibling subshells never share state.
-export function shellCommands(command: string): SimpleCommand[] {
-	const commands: SimpleCommand[] = [];
+// data inside one word. Subshells, command substitutions and backticks only
+// separate commands: nothing here needs to know which scope a command runs in.
+export function shellCommands(command: string): { words: string[] }[] {
+	const commands: { words: string[] }[] = [];
 	let words: string[] = [];
 	let word = "";
 	let inWord = false;
 	let quote = "";
-	const stack = [0];
-	let scopes = 0;
-	let inBacktick = false;
-	let commandScope = "0";
-	let started = false;
-	let piped = false;
-	let nextPiped = false;
-	let conditional = false;
-	let nextConditional = false;
-	const open = () => {
-		scopes++;
-		stack.push(scopes);
-	};
-	const close = () => {
-		if (stack.length > 1) stack.pop();
-	};
-	const note = () => {
-		if (!started) {
-			commandScope = stack.join("/");
-			piped = nextPiped;
-			conditional = nextConditional;
-			started = true;
-		}
-	};
 	const endWord = () => {
 		if (inWord) words.push(word);
 		word = "";
@@ -235,11 +191,8 @@ export function shellCommands(command: string): SimpleCommand[] {
 	};
 	const endCommand = () => {
 		endWord();
-		if (words.length) commands.push({ words, scope: commandScope, piped, conditional });
+		if (words.length) commands.push({ words });
 		words = [];
-		started = false;
-		piped = false;
-		conditional = false;
 	};
 	for (let i = 0; i < command.length; i++) {
 		const ch = command[i];
@@ -250,54 +203,23 @@ export function shellCommands(command: string): SimpleCommand[] {
 		} else if (ch === "'" || ch === '"') {
 			quote = ch;
 			inWord = true;
-			note();
 		} else if (ch === "\\" && i + 1 < command.length) {
 			word += command[++i];
 			inWord = true;
-			note();
-		} else if (ch === "|") {
-			const or = command[i + 1] === "|";
-			endCommand();
-			if (!or && commands.length) commands[commands.length - 1].piped = true;
-			nextPiped = !or;
-			nextConditional = or;
-			if (or) i++;
 		} else if (ch === "#" && !inWord) {
 			// a comment: the rest of the line is not a command
 			endCommand();
-			nextPiped = false;
-			nextConditional = false;
 			while (i < command.length && command[i] !== "\n") i++;
-		} else if (ch === "(" || (ch === "$" && command[i + 1] === "(")) {
+		} else if (ch === "$" && command[i + 1] === "(") {
 			endCommand();
-			nextPiped = false;
-			nextConditional = false;
-			open();
-			if (ch === "$") i++;
-		} else if (ch === ")") {
+			i++;
+		} else if (/[|;&\n()`]/.test(ch)) {
 			endCommand();
-			nextPiped = false;
-			nextConditional = false;
-			close();
-		} else if (ch === "`") {
-			endCommand();
-			nextPiped = false;
-			nextConditional = false;
-			if (inBacktick) close();
-			else open();
-			inBacktick = !inBacktick;
-		} else if (/[;&\n]/.test(ch)) {
-			const and = ch === "&" && command[i + 1] === "&";
-			endCommand();
-			nextPiped = false;
-			nextConditional = and;
-			if (and) i++;
 		} else if (/\s/.test(ch)) {
 			endWord();
 		} else {
 			word += ch;
 			inWord = true;
-			note();
 		}
 	}
 	endCommand();

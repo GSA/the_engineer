@@ -28,15 +28,9 @@ VALID_SURFACES = ("private_pi", "forge_workspace", "roborev_review")
 BRANCH_PUBLICATION_ACTIONS = ("push_branch", "pr_create", "pr_edit")
 HUMAN_ONLY_ACTIONS = ("push_main", "pr_merge")
 RUNTIME_GUARD_ALLOWED = (
+    "push_to_main_left_to_git_hook",
     "workspace_branch_push",
-    "cd_workspace_then_push",
-    "cd_subdir_then_push",
-    "new_branch_then_push",
-    "heredoc_text_then_push",
-    "comment_then_push",
-    "wrapped_workspace_push",
     "repo_flag_pr_create",
-    "quoted_heredoc_data_then_push",
     "pr_create",
     "human_confirmed_merge",
     "read_tool",
@@ -179,57 +173,30 @@ def _probe_forge_extension(surface: str) -> dict:
 
 
 def probe_publication_guard() -> dict:
-    """Drive the real forge-workspace.ts tool_call guard with synthetic commands."""
+    """Drive the real forge-workspace tool_call guard with synthetic commands."""
     with tempfile.TemporaryDirectory() as tmp:
         repo = Path(tmp) / "repo"
         for branch in ("main", "feature"):
             (repo / branch).mkdir(parents=True)
             _run_cmd(repo / branch, "git", "init", "-q", "-b", branch)
         (repo / "feature" / "nested").mkdir()
+        # Pushing main is enforced by the git pre-push hook (repo_init.py), not
+        # by the extension, so push commands are allowed here; only PR merges
+        # need the human confirmation the extension adds.
         cases = {
             "agent_pr_merge": ("feature", "gh pr merge 13 --squash", None),
             "chained_gh_merge": ("feature", "git status && python3 scripts/gh-local.py pr merge 13", None),
-            "push_refspec_to_main": ("feature", "git push origin HEAD:refs/heads/main", None),
-            "push_head_on_main": ("main", "git push -u origin HEAD", None),
-            "force_push_main": ("feature", "git push --force origin main", None),
             "human_declined_merge": ("feature", "gh pr merge 13", False),
-            "checkout_then_push_head": ("feature", "git checkout main && git push origin HEAD", None),
-            "cd_then_bare_push": ("feature", "cd ../main && git push", None),
-            "cd_expansion_then_push": ("feature", 'cd "$(git rev-parse --show-toplevel)/../main" && git push', None),
-            "worktree_then_push": ("feature", "git worktree add ../wt main && git push origin HEAD", None),
-            "subshell_cd_then_push": ("main", "(cd ../feature && git status) && git push origin HEAD", None),
-            "shell_heredoc_push_main": ("feature", "bash <<'EOF'\ngit push origin main\nEOF", None),
-            "quoted_heredoc_then_push_main": ("feature", "echo '<<EOF'\ngit push origin main", None),
-            "failed_checkout_then_push": ("main", "git checkout -b follow-up; git push origin HEAD", None),
-            "repo_option_refspec_to_main": ("feature", "git push --repo origin HEAD:main", None),
-            "repo_equals_refspec_to_main": ("feature", "git push --repo=origin HEAD:main", None),
             "nested_shell_merge": ("feature", "bash -c 'gh pr merge 13'", None),
-            "wrapped_push_main": ("feature", "timeout 60 git push origin main", None),
             "wrapped_merge": ("feature", "/usr/bin/timeout 2m gh pr merge 13 --merge", None),
-            "nice_wrapped_push_head_on_main": ("main", "nice -n 10 git push origin HEAD", None),
             "repo_flag_before_merge": ("feature", "gh --repo GSA/the_engineer pr merge 13 --squash", None),
-            "git_dir_push_main": ("feature", f"git --git-dir={repo / 'main' / '.git'} --work-tree={repo / 'main'} push origin HEAD", None),
-            "env_valueless_option_push_main": ("feature", f"env -i /usr/bin/git -C {repo / 'main'} push origin HEAD", None),
-            "skipped_cd_then_push": ("main", f"false && cd {repo / 'feature'}; git push origin HEAD", None),
-            "sibling_subshell_push": ("main", f"(cd {repo / 'feature'}); (git push origin HEAD)", None),
-            "heredoc_local_cd_then_push": ("main", f"bash <<'EOF'\ncd {repo / 'feature'}\nEOF\ngit push origin HEAD", None),
-            "expanded_heredoc_substitution": ("feature", "cat <<EOF\n$(git push origin main)\nEOF", None),
-            "quoted_merge_text": ("feature", "grep -n 'gh pr merge' README.md && printf '%s' \"git push origin main\"", None),
+            "api_merge": ("feature", "gh api --method PUT repos/GSA/the_engineer/pulls/13/merge", None),
+            "push_to_main_left_to_git_hook": ("feature", "git push origin main", None),
             "workspace_branch_push": ("feature", "git push -u origin HEAD", None),
-            "cd_workspace_then_push": ("feature", f"cd {repo / 'feature'} && git push -u origin HEAD", None),
-            "cd_subdir_then_push": ("feature", "cd nested && git status -sb && git push -u origin HEAD", None),
-            "new_branch_then_push": ("feature", "git checkout -b follow-up && git push -u origin HEAD", None),
-            "heredoc_text_then_push": (
-                "feature",
-                "python3 - <<'E'\nprint('git push origin main')\nE\ngit push -u origin HEAD",
-                None,
-            ),
-            "comment_then_push": ("feature", "git push -u origin HEAD # not git push origin main", None),
-            "wrapped_workspace_push": ("feature", "timeout 60 git push -u origin HEAD", None),
             "repo_flag_pr_create": ("feature", "gh --repo GSA/the_engineer pr create --fill", None),
-            "quoted_heredoc_data_then_push": ("feature", "cat <<'EOF'\n$(git push origin main)\nEOF\ngit push -u origin HEAD", None),
             "pr_create": ("feature", "gh pr create --fill", None),
             "human_confirmed_merge": ("feature", "gh pr merge 13", True),
+            "quoted_merge_text": ("feature", "grep -n 'gh pr merge' README.md", None),
             "read_tool": ("feature", None, None),
         }
         payload = [

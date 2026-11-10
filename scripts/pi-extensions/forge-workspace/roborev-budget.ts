@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { currentBranch } from "./publication-guard.ts";
 import { programWords, SHELLS, shellCommands } from "./shell.ts";
 
 // ---- Bounded roborev review loops ------------------------------------------
@@ -13,6 +12,17 @@ const ROBOREV_VALUE_FLAGS = new Set([
 	"--agent", "--base", "--model", "--panel", "--provider", "--reasoning", "--repo", "--sha",
 	"--since", "--spec", "--plan", "--type", "--min-severity", "--server",
 ]);
+function currentBranch(cwd: string): string {
+	try {
+		return execFileSync("git", ["-C", cwd, "symbolic-ref", "--short", "HEAD"], {
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+		}).trim();
+	} catch {
+		return "";
+	}
+}
+
 const BUDGET_FILE = "forge-roborev-budget.json";
 export const REVIEW_LOOP_PROMPT =
 	"Review loop self-check: Pi flagged a possible roborev review loop on this branch. Stop and assess whether you are in a review loop and need a human. Do not run further reviews or fix passes. Summarize the open findings (job IDs, severity, location, disposition) and hand off by PR comment, Forge or Kata, then wait for the human.";

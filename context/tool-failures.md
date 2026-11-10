@@ -32,7 +32,7 @@ AgentsView is not a source: its `tool_result_events` hold 486 `errored` rows
 
 | Cause | Change | Test |
 | --- | --- | --- |
-| `kata-binding`, `kata-daemon`, `kata-usage`, `git-identity`, `output-limit`, `missing-path`, `read-offset`, `edit-match`, `bad-arguments` | `recoveryHint` in `scripts/pi-extensions/forge-workspace.ts` appends one `Recovery:` line to the failed result | `scripts/pi-extensions/forge-workspace.test.mjs` (one test per cause) |
+| `kata-binding`, `kata-daemon`, `kata-usage`, `git-identity`, `output-limit`, `missing-path`, `read-offset`, `edit-match`, `bad-arguments` | `recoveryHint` in `scripts/pi-extensions/forge-workspace/recovery.ts` appends one `Recovery:` line to the failed result | `scripts/pi-extensions/forge-workspace/forge-workspace.test.mjs` (one test per cause) |
 | Kata reachability, project binding, index freshness | `python3 scripts/tool-health.py` (read-only; PASS/FAIL/SKIP plus a `fix:` line; stale index exit 1 is reported, not crashed) | `scripts/test_tool_health.py` |
 | Finding the next cause | `scripts/tool-failures.py` | `scripts/test_tool_failures.py` |
 

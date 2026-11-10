@@ -399,17 +399,17 @@ export default function forgeWorkspaceExtension(pi: any): void {
 			return undefined;
 		}
 		const command = event?.toolName === "bash" ? event?.input?.command : undefined;
-		const action = typeof command === "string" ? humanOnlyPublication(command, ctx.cwd) : null;
+		const action = typeof command === "string" ? humanOnlyPublication(command) : null;
 		if (!action) {
 			return typeof command === "string" ? guardReviewBudget(command, ctx) : undefined;
 		}
-		const label = action === "pr_merge" ? "Merge a pull request" : "Push to main";
+		const label = "Merge a pull request";
 		if (ctx.hasUI && (await ctx.ui.confirm(`${label}? Human approval required`, command))) {
 			return undefined;
 		}
 		return {
 			block: true,
-			reason: `${action} is human-controlled: the human must merge or push main, or approve it in the Pi UI`,
+			reason: `${action} is human-controlled: the human must merge the pull request, or approve it in the Pi UI`,
 		};
 	});
 
