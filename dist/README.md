@@ -163,10 +163,7 @@ After checks, the installer:
 10. Prints the `local_env.py accept` command (with each `--register-repo` as
     `--repo`) to run after the interactive credential steps.
 
-The normal Forge build is the default. If its known dependency-download path
-is blocked, `--forge-build local-kata` explicitly selects the existing temporary
-local-source build; there is no silent fallback. See
-[`context/tools.md`](../context/tools.md) for provenance and limitations.
+Forge is built from the pinned `forge/` submodule (`scripts/build.sh forge`).
 
 Concurrent installers for the same checkout are rejected. Occupied service
 ports abort installation before builds/configuration; the installer does not

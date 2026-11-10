@@ -49,7 +49,7 @@ See [dist/README.md](dist/README.md) for every option.
 ```sh
 # 1. Check prerequisites, then install.
 bash dist/install.sh --check --corpus ~/falcon-docs
-bash dist/install.sh --corpus ~/falcon-docs --forge-build local-kata --services user \
+bash dist/install.sh --corpus ~/falcon-docs --services user \
   --usai-base-url https://api.gsa.usai.gov/api/v1 --usai-model claude-sonnet-5.5 \
   --usai-review-model gpt-6.1-sol-latest-guardrails-defaultv2 \
   --register-repo ~/kenn-kopy --register-repo ~/the_librarian
@@ -437,7 +437,7 @@ guidance are in `context/demo-capture.md`.
   PR never asks, including when the push follows a `cd` or a new branch in the
   same command.
 - **Run smoke tests:** stop the four services, run
-  `python3 scripts/smoke.py --forge-binary .local/forge-local-kata/kenn-forge`,
+  `python3 scripts/smoke.py --forge-binary forge/kenn-forge`,
   then start the services again. The smoke tests use the same ports, unless
   you set `KENN_KOPY_PORT_OFFSET` (for example `3000`) to run beside them.
 - **Upgrade the toolchain:** `python3 scripts/upgrade.py status` shows how far

@@ -884,7 +884,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         with patch.object(local_env.subprocess, "run", side_effect=install) as run:
             with contextlib.redirect_stdout(io.StringIO()):
                 local_env.install_pi_extensions()
-                local_env.install_pi_review_extension()
+                local_env.install_pi_extensions()
         saved = json.loads(path.read_text())
         self.assertEqual(run.call_count, 2 * (len(local_env.PI_EXTENSIONS) + 2))
         self.assertEqual(installed, list(local_env.PI_EXTENSIONS) * 2)

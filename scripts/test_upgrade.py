@@ -146,7 +146,7 @@ class LiveRollbackTests(TempRoot):
         env_path = self.state / "environment.json"
         env_path.write_text(json.dumps({"pi_executable": "/fake/pi", "corpus": "/fake/corpus",
                                         "forge_binary":
-                                        str(checkout / ".local/forge-local-kata/kenn-forge")}))
+                                        str(checkout / "forge/kenn-forge")}))
         env_path.chmod(0o600)
         self.config = self.state / "kata/config.toml"
         self.config.write_text("listen = 'old'\n")
@@ -237,6 +237,16 @@ class LiveRollbackTests(TempRoot):
         self.assertEqual(upgrade.read_pins(tree), {"pi": "1.5.0"})
         self.assertEqual(upgrade.load_candidate()["pins"], {"pi": "1.5.0"})
         self.assertEqual(self.calls, [])
+
+    def test_retired_local_kata_forge_binary_is_refused_with_migration_steps(self):
+        self.apply_and_verify()
+        env_path = self.state / "environment.json"
+        config = json.loads(env_path.read_text())
+        config["forge_binary"] = str(upgrade.ROOT / ".local/forge-local-kata/kenn-forge")
+        env_path.write_text(json.dumps(config))
+        with patch.object(upgrade, "sh"), \
+                self.assertRaisesRegex(upgrade.UpgradeError, r"retired local-Kata.*forge/kenn-forge"):
+            self.quiet(upgrade.verify, smoke=False)
 
     def test_failed_verify_withdraws_the_previous_verification(self):
         self.apply_and_verify()
