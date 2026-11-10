@@ -16,7 +16,7 @@ import textwrap
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
-FORGE_EXTENSION_PATH = HERE / "pi-extensions" / "forge-workspace.ts"
+FORGE_EXTENSION_PATH = HERE / "pi-extensions" / "forge-workspace" / "index.ts"
 LOCAL_ENV_PATH = HERE / "local_env.py"
 
 TEMPORARY_PLAN_PREFIXES = (
@@ -84,7 +84,7 @@ def _node_executable() -> str:
 
 
 def _probe_forge_extension(surface: str) -> dict:
-    """Run the real forge-workspace.ts extension against a synthetic base or Forge worktree cwd."""
+    """Run the real forge-workspace extension against a synthetic base or Forge worktree cwd."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "repo"
         worktree = root / ".local" / "environment" / "forge" / "worktrees" / "github" / "org" / "repo" / "ws1"

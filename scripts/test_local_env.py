@@ -601,9 +601,34 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("cwd", mcp["mcpServers"]["kata"])
         self.assertEqual(mcp["mcpServers"]["kenn-forge"]["url"], "http://127.0.0.1:18092/mcp")
         self.assertEqual(mcp["mcpServers"]["kenn-forge"]["exposure"], "direct")
-        self.assertTrue((self.state / "pi/extensions/forge-workspace.ts").is_file())
+        # A linked worktree's RUNTIME_ROOT is the main checkout, so install from this checkout.
+        with patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        extension = self.state / "pi/extensions/forge-workspace"
+        self.assertTrue((extension / "index.ts").is_file())
+        self.assertEqual(extension.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((extension / "index.ts").stat().st_mode & 0o777, 0o600)
         self.assertIn("[mcp]\nenabled = true", (self.state / "forge/config.toml").read_text())
         self.assertEqual((self.state / "pi/mcp.json").stat().st_mode & 0o777, 0o600)
+
+    def test_forge_extension_directory_replaces_legacy_single_file(self):
+        patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT).start()
+        extensions = self.state / "pi/extensions"
+        legacy = extensions / "forge-workspace.ts"
+        local_env.private_write(legacy, "export default () => {};\n")
+        local_env.install_forge_extension()
+        stale = extensions / "forge-workspace/stale.ts"
+        local_env.private_write(stale, "export {};\n")
+        index = extensions / "forge-workspace/index.ts"
+        index.write_text("// edited\n")
+        local_env.install_forge_extension()
+        self.assertFalse(legacy.exists())
+        self.assertFalse(stale.exists())
+        source = local_env.RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
+        self.assertEqual(index.read_text(), (source / "index.ts").read_text())
+        self.assertEqual(sorted(path.name for path in (extensions / "forge-workspace").iterdir()),
+                         sorted(path.name for path in source.glob("*.ts")))
+        self.assertNotIn("forge-workspace.test.mjs", [path.name for path in (extensions / "forge-workspace").iterdir()])
 
     def test_isolated_gitconfig_and_forge_runtime_env_passthrough(self):
         (self.state / "home/.gitconfig").unlink(missing_ok=True)
@@ -733,7 +758,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                      "Pi enforces this", "addresses only the original findings",
                      "possible review loop"):
             self.assertIn(duty, text)
-        self.assertNotIn("gh pr create", text)  # Forge delivery lives in forge-workspace.ts
+        self.assertNotIn("gh pr create", text)  # Forge delivery lives in the forge-workspace extension
         self.assertLess(len(text), 4096)
         self.assertNotIn("repeat until", text)
 

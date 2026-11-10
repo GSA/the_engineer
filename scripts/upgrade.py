@@ -630,7 +630,7 @@ def check_candidate(config, smoke):
     sh([*python, "-s", "scripts"], cwd=path, env=env, timeout=1800)
     sh([*python, "-s", "dist"], cwd=path, env=env, timeout=1800)
     bun = path / ".local/tools/bun-1.4.4/node_modules/@oven/bun-linux-x64/bin/bun"
-    tests = sorted(path.glob("scripts/*.test.mjs")) + sorted(path.glob("scripts/pi-extensions/*.test.mjs"))
+    tests = sorted(path.glob("scripts/*.test.mjs")) + sorted(path.glob("scripts/pi-extensions/**/*.test.mjs"))
     sh([bun, "test", *tests], cwd=path, env=env, timeout=900)
     if smoke:
         sh([sys.executable, "scripts/smoke.py", "--forge-binary", in_tree(forge_binary(config))],

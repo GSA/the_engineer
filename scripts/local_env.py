@@ -241,6 +241,27 @@ def private_write(path, text, *, replace=False):
         temporary.unlink(missing_ok=True)
 
 
+def install_forge_extension():
+    """Install the Forge workspace extension directory; Pi loads extensions/forge-workspace/index.ts.
+
+    The superseded single-file extensions/forge-workspace.ts is removed so Pi never loads both.
+    """
+    source = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
+    destination = STATE / "pi/extensions/forge-workspace"
+    legacy = STATE / "pi/extensions/forge-workspace.ts"
+    if not source.is_dir():
+        return
+    private_dir(STATE / "pi/extensions")
+    private_dir(destination)
+    names = {path.name: path for path in source.glob("*.ts")}
+    for name, path in names.items():
+        private_write(destination / name, path.read_text(), replace=True)
+    for stale in destination.iterdir():
+        if stale.name not in names:
+            stale.unlink()
+    legacy.unlink(missing_ok=True)
+
+
 def json_write(path, value, *, replace=False):
     private_write(path, json.dumps(value, indent=2) + "\n", replace=replace)
 
@@ -612,13 +633,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         json_write(mcp_path, {"mcpServers": servers})
     private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
     private_dir(STATE / "pi/extensions")
-    forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
-    if forge_ext_src.is_file():
-        private_write(
-            STATE / "pi/extensions/forge-workspace.ts",
-            forge_ext_src.read_text(),
-            replace=True,
-        )
+    install_forge_extension()
     print(f"Persistent local settings/data: {STATE}")
     print(f"Private USAi key destination: {STATE / 'secrets/usai-api-key'}")
     print("Existing settings were preserved. No service or model request was started.")
@@ -1400,13 +1415,7 @@ def install_pi_extensions():
     private_read(path)
     private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
     private_dir(STATE / "pi/extensions")
-    forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
-    if forge_ext_src.is_file():
-        private_write(
-            STATE / "pi/extensions/forge-workspace.ts",
-            forge_ext_src.read_text(),
-            replace=True,
-        )
+    install_forge_extension()
     for extension in PI_EXTENSIONS:
         subprocess.run(
             [executable, "install", extension],
