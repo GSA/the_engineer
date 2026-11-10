@@ -9,6 +9,7 @@ through ``InitServices`` so the runner is testable with fakes.
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import re
 import subprocess
 import tomllib
 from typing import Callable
@@ -59,11 +60,11 @@ class ServiceUnavailable(RuntimeError):
     """A needed local service (Forge, Kata) is not reachable; the step degrades to a warning."""
 
 
-def git_output(repo, *args):
+def git_output(repo, *args, strip=True):
     result = subprocess.run(["git", "-C", str(repo), *args], text=True, capture_output=True, timeout=30)
     if result.returncode:
         raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
-    return result.stdout.strip()
+    return result.stdout.strip() if strip else result.stdout
 
 
 def hook_path(repo, name="pre-push"):
@@ -118,7 +119,11 @@ def install_guard(repo):
     head, _, rest = content.partition("\n")
     updated = f"{head}\n{GUARD_BLOCK}{rest}"
     if updated == existing:
-        return "unchanged"
+        if os.access(path, os.X_OK):
+            return "unchanged"
+        # Git ignores a non-executable hook, so matching text alone is not enforcement.
+        write_hook(path, updated)
+        return "updated"
     write_hook(path, updated)
     return "updated" if found else "installed"
 
@@ -155,7 +160,7 @@ class InitServices:
     register: Callable[[Path], tuple]             # -> (status, message); may raise ServiceUnavailable
     roborev_init: Callable[[Path], None]
     kata_init: Callable[[Path, str], None]        # may raise ServiceUnavailable
-    kata_mapping: Callable[[str], str]            # -> Forge mapping status or "" when unknown
+    kata_mapping: Callable[[str], tuple]          # -> (Forge mapping status or "", mapped repo_path or "")
     verify: Callable[[Path], None]
     roborev_template: Path = TEMPLATE_ROBOREV_TOML
 
@@ -168,7 +173,8 @@ def kata_project_name(repo, default):
 
 
 def changed_files(repo, names):
-    status = git_output(repo, "status", "--porcelain", "--", *names)
+    # Keep the leading status column: " M file" must not lose its first name character.
+    status = git_output(repo, "status", "--porcelain", "--", *names, strip=False)
     return [line[3:] for line in status.splitlines()]
 
 
@@ -266,9 +272,19 @@ def roborev_hook_present(repo, name):
     return path.exists() and "roborev" in path.read_text(errors="replace").lower()
 
 
+def origin_repo_path(repo):
+    """owner/name of the checkout's origin remote, lowercased, or "" when it is not a GitHub-style URL."""
+    try:
+        url = git_output(repo, "remote", "get-url", "origin")
+    except RuntimeError:
+        return ""
+    match = re.search(r"[:/]([^/:]+/[^/]+?)(?:\.git)?/?$", url)
+    return match.group(1).lower() if match else ""
+
+
 def report_kata_mapping(report, services, project, repo):
     try:
-        status = services.kata_mapping(project)
+        status, mapped_repo = services.kata_mapping(project)
     except ServiceUnavailable as error:
         report("WARN", "kata-mapping", f"{error}; check later with: {services.command} verify-handoff WORKSPACE")
         return
@@ -276,7 +292,15 @@ def report_kata_mapping(report, services, project, repo):
         report("ERROR", "kata-mapping", str(error))
         return
     if status == "mapped":
-        report("OK", "kata-mapping", f"Forge maps Kata project {project!r} to this repository")
+        here = origin_repo_path(repo)
+        if mapped_repo and here and mapped_repo.lower() != here:
+            report("WARN", "kata-mapping",
+                   f"Forge maps Kata project {project!r} to {mapped_repo}, not this repository ({here}); Kata "
+                   "workspaces will open there. Fix: change the mapping in Forge Settings > Kata project "
+                   "mappings, or choose another project name with --project")
+        else:
+            report("OK", "kata-mapping", f"Forge maps Kata project {project!r} to this repository"
+                   if mapped_repo else f"Forge maps Kata project {project!r}")
     elif status:
         report("WARN", "kata-mapping",
                f"Forge reports Kata project {project!r} as {status}; Forge maps it automatically from a registered "

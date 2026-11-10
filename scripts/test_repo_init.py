@@ -106,6 +106,14 @@ class GuardInstallTests(TempRepoCase):
         repo_init.remove_guard(self.repo)
         self.assertEqual(self.hook().read_text(), "#!/bin/sh\necho custom\n")
 
+    def test_reinstall_restores_a_lost_executable_bit(self):
+        repo_init.install_guard(self.repo)
+        self.hook().chmod(0o644)
+        self.assertFalse(repo_init.is_installed(self.repo))
+        self.assertEqual(repo_init.install_guard(self.repo), "updated")
+        self.assertTrue(repo_init.is_installed(self.repo))
+        self.assertTrue(os.access(self.hook(), os.X_OK))
+
     def test_is_installed_requires_the_guard_first_and_executable(self):
         repo_init.install_guard(self.repo)
         self.hook().chmod(0o644)
@@ -292,7 +300,7 @@ class InitRepoStepTests(TempRepoCase):
             (repo / ".kata.toml").write_text(f'version = 1\n\n[project]\nname = "{project}"\n')
 
         values = dict(command="local_env.py", register=lambda repo: ("OK", "registered with Forge"),
-                      roborev_init=roborev_init, kata_init=kata_init, kata_mapping=lambda project: "mapped",
+                      roborev_init=roborev_init, kata_init=kata_init, kata_mapping=lambda project: ("mapped", ""),
                       verify=lambda repo: None, roborev_template=template)
         values.update(overrides)
         services = repo_init.InitServices(**values)
@@ -363,10 +371,29 @@ class InitRepoStepTests(TempRepoCase):
         self.assertIn("OK    guard", output)
 
     def test_unmapped_kata_project_prints_the_manual_step(self):
-        status, output = self.run_init(self.services(kata_mapping=lambda project: "unmapped"))
+        status, output = self.run_init(self.services(kata_mapping=lambda project: ("unmapped", "")))
         self.assertEqual(status, 0, output)
         self.assertIn("WARN  kata-mapping", output)
         self.assertIn("Kata project mappings", output)
+
+    def test_mapping_to_another_repository_is_not_reported_as_success(self):
+        subprocess.run(["git", "-C", str(self.repo), "remote", "set-url", "origin",
+                        "https://github.com/GSA/this-repo.git"], check=True)
+        status, output = self.run_init(self.services(kata_mapping=lambda project: ("mapped", "gsa/elsewhere")))
+        self.assertEqual(status, 0, output)
+        self.assertIn("WARN  kata-mapping", output)
+        self.assertIn("gsa/elsewhere", output)
+        self.assertIn("not this repository (gsa/this-repo)", output)
+        status, output = self.run_init(self.services(kata_mapping=lambda project: ("mapped", "gsa/this-repo")))
+        self.assertIn("OK    kata-mapping", output)
+
+    def test_pending_file_list_keeps_the_first_character_of_a_modified_file(self):
+        (self.repo / ".gitignore").write_text("a\n")
+        subprocess.run(["git", "-C", str(self.repo), "add", ".gitignore"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "commit", "-qm", "x"], check=True)
+        (self.repo / ".gitignore").write_text("a\nb\n")
+        self.assertEqual(repo_init.changed_files(self.repo, (".gitignore",)), [".gitignore"])
 
     def test_error_in_a_step_sets_nonzero_exit_but_later_steps_still_run(self):
         def broken(repo):

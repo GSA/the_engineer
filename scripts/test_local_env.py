@@ -2290,12 +2290,14 @@ class AcceptanceTests(unittest.TestCase):
 
     def test_init_repo_reads_the_forge_kata_mapping_for_the_project(self):
         services = local_env.init_repo_services()
-        listing = {"projects": [{"project_name": "demo", "status": "mapped"},
+        listing = {"projects": [{"project_name": "demo", "status": "mapped",
+                                 "repo": {"repo_path": "GSA/Demo"}},
                                 {"project_name": "other", "status": "unmapped"}]}
         with patch.object(local_env, "forge_probe", return_value={"version": "1"}), \
                 patch.object(local_env, "handoff_get", return_value=listing):
-            self.assertEqual(services.kata_mapping("demo"), "mapped")
-            self.assertEqual(services.kata_mapping("absent"), "")
+            self.assertEqual(services.kata_mapping("demo"), ("mapped", "gsa/demo"))
+            self.assertEqual(services.kata_mapping("other"), ("unmapped", ""))
+            self.assertEqual(services.kata_mapping("absent"), ("", ""))
 
     def test_provider_requires_saved_model_entry(self):
         home = self.accepted_host()

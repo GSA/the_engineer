@@ -2238,7 +2238,10 @@ def init_repo_services():
             listing = handoff_get("forge", "/kata/project-mappings")
         except urllib.error.URLError as error:
             raise module.ServiceUnavailable(f"Forge could not read Kata project mappings: {error}") from error
-        return next((item["status"] for item in listing["projects"] if item["project_name"] == project), "")
+        item = next((item for item in listing["projects"] if item["project_name"] == project), None)
+        if item is None:
+            return "", ""
+        return item["status"], ((item.get("repo") or {}).get("repo_path") or "").lower()
 
     return module.InitServices(
         command=f"{sys.executable} {RUNTIME_ROOT / 'scripts/local_env.py'}",
