@@ -1,0 +1,12 @@
+agent = "pi"
+review_reasoning = "standard"
+review_min_severity = "medium"
+refine_min_severity = "medium"
+fix_min_severity = "medium"
+post_commit_review = "commit"
+post_commit_batch_size = 5
+exclude_patterns = [".local/**", ".roborev/**", "node_modules/**", "**/node_modules/**", ".venv/**", "**/.venv/**"]
+review_guidelines = "Report actionable defects introduced by the change with file/line evidence. Focus on concrete bugs, regressions, security and secret handling, and missing or misleading tests. Avoid speculative or adversarial edge cases outside the task contract."
+
+[auto_design_review]
+enabled = false

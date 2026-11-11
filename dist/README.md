@@ -158,8 +158,10 @@ After checks, the installer:
 8. Reports Pi MCP discovery and prints manual startup/stop instructions.
 9. Registers and starts user services only when explicitly selected. With
    `--services user`, each repeatable `--register-repo PATH` (an existing Git
-   checkout) is registered with Forge and receives roborev Git hooks
-   (`roborev init --no-daemon`), then `local_env.py status` runs.
+   checkout) runs `local_env.py init-repo PATH` (Forge registration, roborev
+   hooks and `.roborev.toml`, Kata `.kata.toml`, and the protected-branch push
+   guard; see the root README, "Initialize the platform in another
+   repository"), then `local_env.py status` runs.
 10. Prints the `local_env.py accept` command (with each `--register-repo` as
     `--repo`) to run after the interactive credential steps.
 

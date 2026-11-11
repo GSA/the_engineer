@@ -71,9 +71,9 @@ python3 scripts/local_env.py status
 submodule gitlinks, the native `kata`/`roborev` links, Pi MCP connections, all
 four user services, the saved USAi provider, the presence of the private USAi
 key and GitHub login (values are never printed), and, for each `--repo`, the
-Forge registration and roborev post-commit hook. It makes no model call and
-changes no service. Run it from a login shell so `systemctl --user` can reach
-the user manager.
+Forge registration, roborev post-commit hook and protected-branch push guard.
+It makes no model call and changes no service. Run it from a login shell so
+`systemctl --user` can reach the user manager.
 
 `python3 scripts/local_env.py verify-pi-policy [--cwd PATH]` shows the
 instructions, skills and Forge policy that coder Pi and roborev's structured
@@ -97,9 +97,60 @@ AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
 
 If the host has no systemd user services, install with `--services manual`, run
 `python3 scripts/local_env.py run` in the foreground, and use
-`python3 scripts/local_env.py stop` to stop it. Register each repo afterwards
-with `python3 scripts/local_env.py register <repo>` and
-`(cd <repo> && roborev init --no-daemon)`.
+`python3 scripts/local_env.py stop` to stop it. Initialize each repo afterwards
+with `python3 scripts/local_env.py init-repo <repo>` (see below).
+
+## Initialize the platform in another repository
+
+Prerequisites: the four services are up (`python3 scripts/local_env.py status`)
+and GitHub is signed in (`./scripts/gh-local.py auth status`). Then, for each
+Git checkout:
+
+```bash
+python3 scripts/local_env.py init-repo ~/some_repo [--project NAME] [--skip-kata]
+python3 scripts/local_env.py accept --repo ~/some_repo
+```
+
+`init-repo` is idempotent, never overwrites an existing file, prints one
+`OK`/`SKIP`/`WARN`/`ERROR` line per step and a next-steps list, and exits
+nonzero on `ERROR`. Its steps:
+
+1. Checks that the path is a non-bare Git checkout.
+2. Registers it with Forge (a `WARN` with the manual `register` command if
+   Forge is down).
+3. Installs the native roborev hooks (`roborev init --no-daemon`) and, when
+   absent, writes `.roborev.toml` from `scripts/templates/roborev.toml`.
+4. Runs `kata init --project NAME` (default: the directory name, matching
+   Kata project names to repository names) unless `.kata.toml` exists or
+   `--skip-kata` is given, then reports whether Forge maps that Kata project
+   to the repository. Forge derives the mapping from the registered checkout
+   and its committed `.kata.toml`; if it reports `unmapped`, add a GitHub
+   `origin` remote or map it in Forge Settings > Kata project mappings.
+   `.kata.toml` and `.roborev.toml` are committed files: land them through a
+   feature branch and pull request, never `main`.
+5. Installs the protected-branch push guard and runs the `accept --repo`
+   checks, which also report a missing guard.
+
+The guard is a marked block at the top of the repository's `pre-push` hook,
+in the common hooks directory, so every linked worktree (including Forge
+workspaces) shares it. It rejects a push, force push or deletion of `main` or
+`master` unless a person at a terminal types `yes`; agent tool subprocesses
+have no terminal and are blocked. It coexists with the roborev `pre-push`
+hook in either install order. Remove it with
+`python3 scripts/local_env.py init-repo <repo> --remove-guard`.
+
+The guard is a local speed bump: `git push --no-verify` bypasses it. The
+backstop is GitHub branch protection on `main`. The repository owner enables it
+once per repository, for example:
+
+```bash
+./scripts/gh-local.py api -X PUT repos/OWNER/REPO/branches/main/protection \
+  --input - <<'JSON'
+{"required_status_checks": null, "enforce_admins": true,
+ "required_pull_request_reviews": {"required_approving_review_count": 1},
+ "restrictions": null, "allow_force_pushes": false, "allow_deletions": false}
+JSON
+```
 
 ## Isolated Librarian MVP instance (Layer 1)
 
@@ -187,7 +238,7 @@ different root.
 | `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is the `${USAI_API_KEY}` placeholder. |
 | `pi/settings.json` | Pi default provider and model, Superpowers and extension packages (`pi-subagents`, `pi-json-schema`), and subagent defaults (`model: inherit`) |
 | `pi/mcp.json` | Pi MCP servers: `falcon-context` (Librarian-style corpus), `kata`, and `kenn-forge` |
-| `pi/extensions/forge-workspace.ts` | Forge workspace extension (session hooks, worktree isolation, PR/target registration) |
+| `pi/extensions/forge-workspace/` | Forge workspace extension (session hooks, worktree isolation, PR/target registration) |
 | `forge/config.toml` | Forge host and port, MCP, and agent launchers `pi` (default model) and `pi-argon` (`gemini-4-argon`) |
 | `roborev/config.toml` | Daemon address, `pi` agent command, and reviewer model (linked from `~/.roborev`) |
 | `kata/config.toml` | Kata listen address |

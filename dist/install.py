@@ -732,11 +732,9 @@ def install(checkout, corpus, choice, librarian_executable=None,
             run([*command, f"install-{name}-service"], cwd=checkout)
         print("User services are enabled and responsive. They start with your user manager/login.")
         print("Boot without login requires administrator-approved lingering; it was NOT enabled here.")
-        roborev = checkout / "roborev/bin/roborev"
         for repo in repos:
-            print(f"\nRegistering {repo} with Forge and installing roborev Git hooks...")
-            run([*command, "register", str(repo)], cwd=checkout)
-            run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
+            print(f"\nInitializing {repo}: Forge, roborev hooks, Kata binding and the protected-branch guard...")
+            run([*command, "init-repo", str(repo)], cwd=checkout)
         # Pi's kata MCP server binds to the checkout's committed .kata.toml project,
         # which a fresh Kata daemon has not registered yet (idempotent when it has).
         run([str(checkout / "kata/kata"), "init"], cwd=checkout)
@@ -828,8 +826,9 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="check prerequisites; no downloads/config/service changes")
     parser.add_argument("--services", choices=("ask", "manual", "user"), default="ask")
     parser.add_argument("--register-repo", type=Path, action="append", default=[],
-                        help="existing Git checkout to register with Forge and roborev "
-                             "(repeatable; requires --services user)")
+                        help="existing Git checkout to initialize with `local_env.py init-repo` "
+                             "(Forge, roborev hooks, Kata binding, protected-branch guard; "
+                             "repeatable; requires --services user)")
     parser.add_argument("--usai-base-url", help="approved USAi base URL (non-secret)")
     parser.add_argument("--usai-model", help="approved USAi coder model (requires --usai-base-url)")
     parser.add_argument("--usai-review-model", help="optional opposite-family roborev model")

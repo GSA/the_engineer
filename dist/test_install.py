@@ -894,10 +894,11 @@ class InstallerTests(unittest.TestCase):
                                           "--review-model", "reviewer"])
         services = max(i for i, c in enumerate(commands) if c[-1] == "install-forge-service")
         self.assertLess(commands.index(configure), services)
-        self.assertEqual(commands[services + 1][-2:], ["register", str(repo)])
+        self.assertEqual(calls[services + 1],
+                         ([sys.executable, str(self.root / "scripts/local_env.py"), "init-repo", str(repo)],
+                          self.root))
         roborev = self.root / "roborev/bin/roborev"
-        self.assertEqual(calls[services + 2],
-                         ([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], repo))
+        self.assertNotIn("register", [command[-2] for command in commands])
         self.assertEqual(commands[-1][-1], "status")
         self.assertIn(shlex.join([sys.executable, str(self.root / "scripts/local_env.py"),
                                   "accept", "--repo", str(repo)]), output.getvalue())
