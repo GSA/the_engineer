@@ -8,14 +8,13 @@ internal Go APIs. After rebasing the agentsview pin onto a newer upstream:
   1. rebuild (`make pricing-snapshot && make build` in agentsview/);
   2. run `python3 -m unittest scripts/test_agentsview_hacks.py -v`
      (AGENTSVIEW_BIN overrides the binary path);
-  3. a failing test names the hack to re-apply. Once upstream covers a hack,
-     the test keeps passing and the carried commit can be dropped.
 
-Carried hack (agentsview fork biggestbinary/agentsview, fix/price-guarded-sol-deployments;
-upstream PR kenn-io/agentsview#2929):
-  * guarded-Sol pricing: USAi/Pi deployment names such as
-    gpt-6.1-sol-latest-guardrails-defaultv2 must price like their base model
-    instead of $0.00 (fixedPricingAliases in internal/pricing/supplemental.go).
+Guarded-Sol pricing is configuration, not a carried patch: upstream
+kenn-io/agentsview#2951 added `price_as` to `custom_model_pricing`, and
+`local_env.py configure-agentsview-pricing` writes the three
+`gpt-*-sol-latest-guardrails-defaultv2` mappings. These tests apply the same
+mappings in a throwaway data directory. Requires an agentsview build that
+contains #2951.
 Dropped hacks: usage_record fallback (upstream #2537) and the Copilot
 session.usage_checkpoint credit fallback.
 Optional/not carried: Pi claude- dot-to-dash model normalization.
@@ -26,9 +25,12 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import local_env  # noqa: E402
 
 
 def find_binary():
@@ -70,6 +72,9 @@ class AgentsviewHackTests(unittest.TestCase):
             ]
             (tmp / f"pi/--tmp-x--/s{index}.jsonl").write_text(
                 "\n".join(json.dumps(line) for line in lines) + "\n")
+        (tmp / "data/config.toml").write_text("".join(
+            f'[custom_model_pricing."{model}"]\nprice_as = "{target}"\n\n'
+            for model, target in local_env.GUARDED_SOL_PRICE_AS.items()))
         env = dict(os.environ, HOME=str(tmp / "home"), AGENTSVIEW_DATA_DIR=str(tmp / "data"),
                    COPILOT_DIR=str(tmp / "copilot"), PI_DIR=str(tmp / "pi"),
                    AGENTSVIEW_NO_DAEMON="1")

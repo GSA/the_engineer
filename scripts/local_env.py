@@ -1647,6 +1647,38 @@ def configure_tracking(copilot_dir, pi_dirs, archive_content):
     print(f"Archive policy: {archive_content}. Restart AgentsView to enable ingestion.")
 
 
+GUARDED_SOL_PRICE_AS = {
+    "gpt-5.6-sol-latest-guardrails-defaultv2": "gpt-5.6-sol",
+    "gpt-6-sol-latest-guardrails-defaultv2": "gpt-6-sol",
+    "gpt-6.1-sol-latest-guardrails-defaultv2": "gpt-6.1-sol",
+}
+
+
+def configure_agentsview_pricing():
+    """Price guarded USAi Sol deployments as their catalog models (needs `price_as` upstream)."""
+    path = STATE / "agentsview/config.toml"
+    lock_fd = os.open(str(path) + ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "rb") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError("AgentsView config is busy; retry configure-agentsview-pricing") from error
+        text = private_read(path)
+        existing = tomllib.loads(text).get("custom_model_pricing", {})
+        suffix = ""
+        for model, target in GUARDED_SOL_PRICE_AS.items():
+            if model in existing:
+                if existing[model] != {"price_as": target}:
+                    raise RuntimeError(f"existing custom_model_pricing for {model} differs; review before changing it")
+            else:
+                suffix += f'\n[custom_model_pricing."{model}"]\nprice_as = "{target}"\n'
+        if suffix:
+            updated = text + suffix
+            tomllib.loads(updated)
+            private_write(path, updated, replace=True)
+    print("AgentsView prices guarded Sol deployments as their base models; restart AgentsView to apply.")
+
+
 def agentsview_environment():
     env = base_environment()
     # Native Pi home overrides configured multi-directory discovery.
@@ -2630,6 +2662,8 @@ def main():
     handoff.add_argument("--commit", help="commit whose review to check (default: worktree HEAD)")
     key = commands.add_parser("set-key", help="prompt privately for the USAi key; never supply it on the command line")
     key.add_argument("--private-only", action="store_true", help="do not link/change existing global Pi credentials")
+    commands.add_parser("configure-agentsview-pricing",
+                        help="price guarded USAi Sol deployments as their catalog models")
     commands.add_parser("configure-private-pi-tracking",
                         help="configure fresh AgentsView for private Pi usage only, without starting it")
     tracking = commands.add_parser("configure-tracking", help="configure explicit Copilot/Pi archive sources")
@@ -2706,6 +2740,8 @@ def main():
                 return 1
         elif args.command == "set-key":
             set_key(private_only=args.private_only)
+        elif args.command == "configure-agentsview-pricing":
+            configure_agentsview_pricing()
         elif args.command == "configure-private-pi-tracking":
             configure_private_pi_tracking()
         elif args.command == "configure-tracking":
