@@ -215,7 +215,7 @@ evidence.
 
 ## Build and test commands
 
-- Toolchain bootstrap and submodule builds (`Go 1.27.3`, `Bun 1.3.14 / 1.4.4`, `gh 2.102.0`, `jq 1.7.1`):
+- Toolchain bootstrap and submodule builds (`Go 1.27.4`, `Bun 1.3.14 / 1.4.4`, `gh 2.102.0`, `jq 1.7.1`):
   ```sh
   bash scripts/bootstrap-toolchains.sh
   bash scripts/build.sh agentsview kata

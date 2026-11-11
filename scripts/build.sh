@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 root="$PWD"
-export PATH="$root/.local/tools/go-1.27.3/bin:$PATH"
+export PATH="$root/.local/tools/go-1.27.4/bin:$PATH"
 export GOPATH="$root/.local/cache/go"
 export GOCACHE="$root/.local/cache/go-build"
 export BUN_INSTALL_CACHE_DIR="$root/.local/cache/bun"
@@ -14,8 +14,8 @@ export GOENV=off GOTOOLCHAIN=local GOTELEMETRY=off
 export GOPROXY="${GOPROXY:-https://proxy.golang.org|direct}"
 export GOMAXPROCS=2 GOFLAGS="-p=2" CGO_ENABLED=1
 
-if [[ "$(go version)" != "go version go1.27.3 linux/amd64" ]]; then
-    echo "Expected workspace-local Go 1.27.3 for Linux amd64; see context/tools.md." >&2
+if [[ "$(go version)" != "go version go1.27.4 linux/amd64" ]]; then
+    echo "Expected workspace-local Go 1.27.4 for Linux amd64; see context/tools.md." >&2
     exit 1
 fi
 
