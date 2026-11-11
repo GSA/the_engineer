@@ -93,7 +93,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 
 ## Pi and subagent configuration
 
-Pi is pinned to `PI_VERSION = "1.5.0"` in both `scripts/local_env.py` and
+Pi is pinned to `PI_VERSION = "1.5.2"` in both `scripts/local_env.py` and
 `dist/install.py`; `verify_pi()` rejects any other `--version`. When the saved
 `pi_executable` is upgraded in place, rerunning `setup` with the same arguments
 rewrites only the stale `pi_version` in `environment.json` after `verify_pi()`
