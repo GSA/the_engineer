@@ -245,9 +245,8 @@ evidence.
   ```
   - `apply` creates the candidate worktree `.local/upgrade/tree` (submodules
     as worktrees of the live ones; `.local/tools` and `.local/cache` linked),
-    moves its submodules to upstream `origin/main`, replays carried commits
-    (warns until they are published to the `biggestbinary/agentsview`
-    mirror), stages its gitlinks and bumps every tracked Pi and pi-subagents
+    moves its submodules to upstream `origin/main`, replays any carried
+    local commits (warns while unpublished), stages its gitlinks and bumps every tracked Pi and pi-subagents
     pin mention there (`--pi`/`--pi-subagents` `latest|keep|X.Y.Z`). The live
     checkout is not modified.
   - `verify` builds the tree, checks each binary reports its source revision,

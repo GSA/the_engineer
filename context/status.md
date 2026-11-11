@@ -74,11 +74,9 @@ or reconciliation service is installed.
   - `scripts/upgrade.py` (tests in `scripts/test_upgrade.py`) snapshots,
     applies, verifies, cuts over and rolls back; see `context/tools.md`.
   - Live on Kata `v0.23.0-3` (schema 50), roborev `v0.75.0-8`, AgentsView
-    `v0.47.0-19` (running the carried pricing commit `83d3756ed`; the repo pin is
-    now plain upstream `9c230242c` and guarded-Sol pricing moves to
-    `custom_model_pricing.price_as` config via upstream kenn-io/agentsview#2951.
-    Cutover is pending a Go 1.27.4 toolchain, which Forge/Kata/roborev `main`
-    require; then run `local_env.py configure-agentsview-pricing`), Forge
+    `v0.47.0-19`; since cut over to upstream `v0.47.0-64`, with guarded-Sol pricing
+    set by `custom_model_pricing.price_as` config via upstream
+    kenn-io/agentsview#2951 and no carried commit), Forge
     `v0.6.0-49`, Pi `1.5.0` and pi-subagents `0.87.0`; acceptance 13/13 and a
     live rollback drill passed.
   - Forge now requires Kata Go `v0.21.0` and folds the GitHub App setup into
@@ -403,13 +401,9 @@ or reconciliation service is installed.
 - Open MVP work: `d8v5` (uninterrupted Jira-to-PR demo on a fresh owner-selected ticket; awaits the export), `gamy` (PR #6 merged; close after
   verification), `p4ke` (fresh-host installer plus read-only
   `local_env.py accept`; container run of `8bfdd6d` passes 12/14 with only
-  credentials missing, blocked on publishing the unfetchable `agentsview`
-  pin `49b1c6c8` to `kenn-io/agentsview`; the pin is published on the
-  `biggestbinary/agentsview` fork, which the installer applies as its built-in
-  default `agentsview` mirror (receipt `applied_defaults`) until the carried
-  pricing commit lands upstream; the installer now preflights pin
-  fetchability, accepts
-  `--submodule-mirror NAME=URL` (overriding the default), defaults `GOPROXY` to `...|direct` and writes
+  credentials missing, the former unfetchable `agentsview` pin is gone
+  (all pins are now upstream); the installer preflights pin fetchability,
+  accepts an optional `--submodule-mirror NAME=URL` (no default mirror), defaults `GOPROXY` to `...|direct` and writes
   `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
   post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy

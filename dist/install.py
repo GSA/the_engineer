@@ -69,8 +69,6 @@ def run(command, *, cwd, env=None):
 
 
 GOPROXY_DEFAULT = "https://proxy.golang.org|direct"
-# Owner-approved sources for pins upstream cannot serve; --submodule-mirror NAME=URL overrides.
-DEFAULT_SUBMODULE_MIRRORS = {"agentsview": "https://github.com/biggestbinary/agentsview.git"}
 
 
 class Receipt:
@@ -275,17 +273,6 @@ def parse_mirrors(values):
     return mirrors
 
 
-def with_default_mirrors(mirrors):
-    """Explicit mirrors over DEFAULT_SUBMODULE_MIRRORS, recording each default applied."""
-    merged = dict(mirrors)
-    for name, url in DEFAULT_SUBMODULE_MIRRORS.items():
-        if name not in merged:
-            merged[name] = url
-            RECEIPT.default(f"submodule-mirror {name}={url}")
-            print(f"Using default {name} mirror {url} (override with --submodule-mirror {name}=URL).")
-    return merged
-
-
 def validate_source(source):
     if source.startswith("-") or any(char in source for char in "\n\r\x00"):
         raise RuntimeError("Invalid source repository path/URL.")
@@ -371,8 +358,6 @@ def source_environment(checkout, mirrors, base=None):
     entries = []
     for name, mirror in mirrors.items():
         if name not in pins:
-            if DEFAULT_SUBMODULE_MIRRORS.get(name) == mirror:
-                continue
             raise RuntimeError(f"--submodule-mirror names an unpinned repository: {name}")
         entries.append((f"url.{mirror}.insteadOf", pins[name][1]))
         if _is_local_path(mirror):
@@ -840,9 +825,7 @@ def main(argv=None):
     parser.add_argument("--submodule-mirror", action="append", default=[], metavar="NAME=URL",
                         help="owner-approved mirror for a pinned repository (for example "
                              "agentsview=URL) whose upstream remote lacks the pinned commit; "
-                             "repeatable; overrides the built-in default "
-                             f"{', '.join(f'{k}={v}' for k, v in DEFAULT_SUBMODULE_MIRRORS.items())}; "
-                             "the tracked .gitmodules is not changed")
+                             "repeatable; the tracked .gitmodules is not changed")
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
     parser.add_argument("--forge-build", choices=("normal", "local-kata"), default="normal",
@@ -853,7 +836,7 @@ def main(argv=None):
     RECEIPT.reset()
     RECEIPT.manual_fixes = list(args.record_fix)
     try:
-        mirrors = with_default_mirrors(parse_mirrors(args.submodule_mirror))
+        mirrors = parse_mirrors(args.submodule_mirror)
         repos = [repo.expanduser().resolve() for repo in args.register_repo]
         for repo in repos:
             if not (repo / ".git").exists():

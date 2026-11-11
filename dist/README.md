@@ -277,9 +277,8 @@ copies the installer's own receipt out of the container.
 On 2026-11-01 revision `8bfdd6d` installed end to end and `accept` passed
 12/14; the two failures are the expected missing USAi key and GitHub login.
 That run fetched the `agentsview` pin from a local mirror, because the pin was
-not published on `kenn-io/agentsview`. The pin now names a commit published on
-the `biggestbinary/agentsview` fork, which the installer uses as its built-in
-default `agentsview` mirror until the carried pricing commit lands upstream.
+not published on `kenn-io/agentsview`. Every pin now names a commit published
+upstream, so no mirror is needed.
 
 ### Pin preflight, mirrors and receipts
 
@@ -293,12 +292,8 @@ commit (for example `git -C agentsview push APPROVED_REMOTE_URL
 `--submodule-mirror agentsview=APPROVED_REMOTE_URL`; the mirror is applied only
 to that run through git's `url.<mirror>.insteadOf` environment settings.
 
-`agentsview` defaults to the owner-approved mirror
-`https://github.com/biggestbinary/agentsview.git`, so a clean install needs no
-flag; an explicit `--submodule-mirror agentsview=URL` replaces it (pass the
-`.gitmodules` URL to fetch from upstream directly). The installer prints the
-default it applied and records it in the receipt's `applied_defaults` and
-`submodule_mirrors`. Other repositories have no default mirror.
+No repository has a default mirror; `--submodule-mirror` applies only when
+given. The installer records any mirror in the receipt's `submodule_mirrors`.
 
 Source and build steps run with `GOPROXY=https://proxy.golang.org|direct` when
 `GOPROXY` is unset (`proxy,direct` only falls back on 404/410, so a TLS proxy's
