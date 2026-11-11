@@ -79,6 +79,10 @@ or reconciliation service is installed.
     kenn-io/agentsview#2951 and no carried commit), Forge
     `v0.6.0-49`, Pi `1.5.0` and pi-subagents `0.87.0`; acceptance 13/13 and a
     live rollback drill passed.
+  - Upstream Forge PRs from `biggestbinary/forge`: kenn-io/forge#1965 (list
+    configured Kata daemon IDs in the unknown-daemon error, #1896) and
+    kenn-io/forge#1966 (`kata` source for
+    `kenn_forge_spawn_workspace_with_agent`, #1719); roborev passed on both.
   - Forge now requires Kata Go `v0.21.0` and folds the GitHub App setup into
     `kenn-forge github-app`; `build-forge-local-kata.mjs` derives the Kata Go
     tag from Forge's `go.mod` (it must be contained in the Kata pin) and ships
