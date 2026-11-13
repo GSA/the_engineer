@@ -476,13 +476,10 @@ def librarian_binding(corpus, executable=None, reader=None, root=None, selection
     return server, reader, root, selection
 
 
-def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None,
-          librarian_root=None, librarian_selection=None):
-    corpus = corpus.expanduser().resolve()
-    forge_binary = forge_binary.resolve()
-    server, reader, root, selection = librarian_binding(
-        corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
-    for path in (server, forge_binary) + ((reader,) if reader is not None else ()):
+def check_librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
+    """Resolve and verify an optional Librarian binding before any configuration is written."""
+    server, reader, root, selection = librarian_binding(corpus, executable, reader, root, selection)
+    for path in (server,) + ((reader,) if reader is not None else ()):
         if not path.is_file() or not os.access(path, os.R_OK):
             raise RuntimeError(f"missing readable prerequisite: {path}")
     if not os.access(server, os.X_OK):
@@ -497,11 +494,28 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     except (OSError, subprocess.SubprocessError) as error:
         detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
         raise RuntimeError(f"Librarian runtime/dependencies unavailable: {detail}") from error
+    return server, reader, root, selection
+
+
+def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None,
+          librarian_root=None, librarian_selection=None):
+    """Create missing private settings; ``corpus=None`` installs without a Librarian binding."""
+    forge_binary = forge_binary.resolve()
+    if not forge_binary.is_file() or not os.access(forge_binary, os.R_OK):
+        raise RuntimeError(f"missing readable prerequisite: {forge_binary}")
+    if corpus is None and librarian_executable is None:
+        server = reader = root = selection = None
+    else:
+        corpus = corpus.expanduser().resolve() if corpus is not None else None
+        server, reader, root, selection = check_librarian_binding(
+            corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
     pi = shutil.which("pi")
     if pi is None:
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
-    config = {"corpus": str(corpus), "forge_binary": str(forge_binary),
+    config = {"forge_binary": str(forge_binary),
               "pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    if corpus is not None:
+        config = {"corpus": str(corpus), **config}
     if PORT_OFFSET:
         config["port_offset"] = PORT_OFFSET
     if librarian_executable is not None:
@@ -591,18 +605,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             "subagents": default_pi_subagents_settings(),
         },
     )
-    librarian_args = ["--root", str(root)]
-    if reader is not None:
-        librarian_args.extend(["--reader", str(reader)])
-    if selection is not None:
-        librarian_args.extend(["--manifest", str(selection)])
     servers = {
-        LIBRARIAN_MCP_SERVER: {
-            "command": str(server),
-            "args": librarian_args,
-            "exposure": "codemode",
-            "timeout": 60,
-        },
         "kata": {
             "command": str(RUNTIME_ROOT / "kata/kata"),
             "args": ["mcp", "serve"],
@@ -617,6 +620,13 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             "timeout": 60,
         },
     }
+    if server is not None:
+        servers[LIBRARIAN_MCP_SERVER] = {
+            "command": str(server),
+            "args": librarian_server_args(root, reader, selection),
+            "exposure": "codemode",
+            "timeout": 60,
+        }
     mcp_path = STATE / "pi/mcp.json"
     if mcp_path.exists():
         mcp = json.loads(private_read(mcp_path))
@@ -626,10 +636,11 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         saved = dict(saved)
         renamed = migrate_librarian_server(saved, mcp_path)
         saved_librarian = saved.get(LIBRARIAN_MCP_SERVER)
-        audited = {**servers[LIBRARIAN_MCP_SERVER],
-                   "args": servers[LIBRARIAN_MCP_SERVER]["args"] + audit_args(PI_AUDIT_LABEL)}
-        if saved_librarian is not None and saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
-            raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
+        if saved_librarian is not None and server is not None:
+            audited = {**servers[LIBRARIAN_MCP_SERVER],
+                       "args": servers[LIBRARIAN_MCP_SERVER]["args"] + audit_args(PI_AUDIT_LABEL)}
+            if saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
+                raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
         if missing or renamed:
             json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
@@ -741,7 +752,7 @@ def configure_librarian(librarian_root, librarian_executable=None,
     if selection is None and (root / "config/selection.local.json").is_file():
         selection = root / "config/selection.local.json"
     server, reader, root, selection = librarian_binding(
-        Path(config["corpus"]), executable, librarian_reader, root, selection,
+        None, executable, librarian_reader, root, selection,
     )
     for path in (server,) + ((reader,) if reader is not None else ()):
         if not path.is_file() or not os.access(path, os.R_OK):
@@ -2218,7 +2229,7 @@ def status():
 
 
 ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
-ACCEPT_MCP_SERVERS = (LIBRARIAN_MCP_SERVER, "kata", "kenn-forge")
+ACCEPT_MCP_SERVERS = ("kata", "kenn-forge")
 
 
 def accept_command_output(name):
@@ -2420,6 +2431,12 @@ def accept(home=None, repos=()):
               *((f"repo:{Path(repo).expanduser().resolve()}", lambda repo=repo: accept_repo(Path(repo)))
                 for repo in repos)]
     failures = []
+    try:
+        librarian_bound = LIBRARIAN_MCP_SERVER in json.loads(private_read(STATE / "pi/mcp.json"))["mcpServers"]
+    except (OSError, ValueError, KeyError, TypeError):
+        librarian_bound = True
+    if not librarian_bound:
+        print("SKIP librarian: optional; bind later with configure-librarian --librarian-root PATH")
     for name, check in checks:
         try:
             check()
@@ -2779,7 +2796,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("setup", help="create missing private settings without overwriting existing ones")
-    init.add_argument("--corpus", type=Path, required=True)
+    init.add_argument("--corpus", type=Path,
+                      help="optional legacy Falcon corpus checkout; omit to install without Librarian")
     init.add_argument("--forge-binary", type=Path, required=True)
     init.add_argument("--librarian-executable", type=Path)
     init.add_argument("--librarian-reader", type=Path)

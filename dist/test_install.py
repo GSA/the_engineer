@@ -103,6 +103,19 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("qualified-context-mcp" in error for error in errors))
         self.assertTrue(any("context_index.py" in error for error in errors))
 
+    def test_install_without_corpus_needs_no_librarian_prerequisites(self):
+        with patch.object(installer.shutil, "which", return_value=None):
+            errors = installer.prerequisites(None)
+        self.assertFalse(any("Librarian" in error for error in errors), errors)
+
+    def test_install_without_corpus_omits_corpus_from_setup(self):
+        self.installation()
+        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()) as output:
+            installer.install(self.root, None, "manual")
+        setup = next(call.args[0] for call in run.call_args_list if "setup" in call.args[0])
+        self.assertNotIn("--corpus", setup)
+        self.assertNotIn("provision-librarian-mvp", output.getvalue())
+
     def explicit_librarian(self):
         root = self.root / "empty toolkit"
         executable = root / ".venv/bin/librarian-mcp"

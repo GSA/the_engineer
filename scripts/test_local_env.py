@@ -211,6 +211,25 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.setup(self.corpus, self.binary)
         self.assertIn('command = ["/opt/company-agent/scripts/pi-local.py"]', forge.read_text())
         self.assertIn('pi_cmd = "/opt/review-agent/scripts/pi-local.py"', roborev.read_text())
+    def test_setup_without_corpus_omits_librarian_and_records_no_corpus(self):
+        state = self.root / "fresh-environment"
+        with patch.object(local_env, "STATE", state), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(None, self.binary)
+            environment = json.loads((state / "environment.json").read_text())
+            servers = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]
+            # Rerunning without a corpus is idempotent.
+            local_env.setup(None, self.binary)
+        self.assertNotIn("corpus", environment)
+        self.assertEqual(set(servers), {"kata", "kenn-forge"})
+
+    def test_setup_without_corpus_preserves_an_existing_librarian_binding(self):
+        before = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
+        with self.assertRaisesRegex(RuntimeError, "differs from saved"):
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_env.setup(None, self.binary)
+        after = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
+        self.assertEqual(before, after)
+
     def test_legacy_librarian_binding_keeps_saved_shape_and_command(self):
         environment = json.loads((self.state / "environment.json").read_text())
         self.assertEqual(environment, {
@@ -2297,6 +2316,16 @@ class AcceptanceTests(unittest.TestCase):
         for name in ("pi", "pi-extensions", "submodules", "native-links", "mcp",
                      "service:kata", "service:forge", "usai-provider", "usai-key", "github-login"):
             self.assertIn(f"PASS {name}", output)
+
+    def test_host_without_librarian_passes_and_reports_it_as_optional(self):
+        home = self.accepted_host()
+        local_env.json_write(self.state / "pi/mcp.json", {"mcpServers": {
+            name: value for name, value in json.loads(
+                (self.state / "pi/mcp.json").read_text())["mcpServers"].items()
+            if name != "falcon-librarian"}}, replace=True)
+        failures, output = self.run_accept(home)
+        self.assertEqual(failures, [], output)
+        self.assertIn("SKIP librarian", output)
 
     def test_missing_credentials_services_and_drift_are_each_reported(self):
         home = self.accepted_host()

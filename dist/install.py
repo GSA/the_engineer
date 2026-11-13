@@ -235,6 +235,8 @@ def prerequisites(corpus, librarian_executable=None, librarian_reader=None,
     certificates = ssl.get_default_verify_paths()
     if not certificates.cafile and not certificates.capath:
         errors.append("No system TLS trust store found; install ca-certificates.")
+    if corpus is None and librarian_executable is None:
+        return errors
     server, reader, root, selection = librarian_binding(
         corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
     for path in (server, reader, selection):
@@ -690,7 +692,9 @@ def install(checkout, corpus, choice, librarian_executable=None,
     provision_native_kata_client(checkout, url=environment.KATA_URL)
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print("\nCreating missing private configuration; existing settings are preserved...")
-    setup_command = [*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)]
+    setup_command = [*command, "setup", "--forge-binary", str(forge)]
+    if corpus is not None:
+        setup_command.extend(["--corpus", str(corpus)])
     if librarian_executable is not None:
         setup_command.extend(["--librarian-executable", str(librarian_executable)])
         if librarian_reader is not None:
@@ -788,8 +792,6 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
                              "--hostname", "github.com", "--web", "--git-protocol", "https",
                              "--insecure-storage"]))
     print("  systemctl --user restart kenn-kopy-forge.service")
-    print("Optional isolated Librarian (Layer 1):")
-    print("  " + shlex.join([*command, "provision-librarian-mvp", "--bind-mcp"]))
     print("Then verify the host (read-only; exits nonzero listing each remaining step):")
     print("  " + shlex.join([*command, "accept",
                              *(arg for repo in repos for arg in ("--repo", str(repo)))]))
@@ -800,7 +802,8 @@ def main(argv=None):
     parser.add_argument("--checkout", type=Path, default=ROOT, help="existing checkout or new clone destination")
     parser.add_argument("--source", help="approved platform Git URL/path; required for a new clone")
     parser.add_argument("--revision", help="exact platform commit for a new clone (never an implicit latest)")
-    parser.add_argument("--corpus", type=Path, required=True, help="existing approved local Librarian checkout")
+    parser.add_argument("--corpus", type=Path,
+                        help="optional legacy Falcon corpus checkout; omit to install without Librarian")
     parser.add_argument("--librarian-executable", type=Path,
                         help="explicit Librarian MCP executable (requires root)")
     parser.add_argument("--librarian-reader", type=Path,
@@ -828,7 +831,7 @@ def main(argv=None):
                         help="note a manual fix or workaround in the install receipt (repeatable)")
     args = parser.parse_args(argv)
     checkout = args.checkout.expanduser().resolve()
-    corpus = args.corpus.expanduser().resolve()
+    corpus = args.corpus.expanduser().resolve() if args.corpus is not None else None
     RECEIPT.reset()
     RECEIPT.manual_fixes = list(args.record_fix)
     try:
@@ -845,7 +848,9 @@ def main(argv=None):
         provider = None if args.usai_model is None else {
             "base_url": args.usai_base_url, "model": args.usai_model,
             "review_model": args.usai_review_model, "api": args.usai_api}
-        server, reader, root, selection = librarian_binding(
+        server, reader, root, selection = (None, None, None, None) if (
+            corpus is None and args.librarian_executable is None
+            and args.librarian_root is None) else librarian_binding(
             corpus, args.librarian_executable, args.librarian_reader,
             args.librarian_root, args.librarian_selection)
         errors = (prerequisites(corpus, server, reader, root, selection)
@@ -858,7 +863,9 @@ def main(argv=None):
             if not args.check:
                 write_failure_receipt(checkout, "; ".join(errors))
             return 1
-        print("Host tools, C headers/linker and Librarian executable prerequisites passed.")
+        print("Host tools and C headers/linker prerequisites passed"
+              + ("; Librarian is optional and not bound." if server is None
+                 else ", including the Librarian executable."))
         if args.check:
             pin_errors = check_submodule_pins(checkout, mirrors)
             if pin_errors:
