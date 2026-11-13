@@ -597,7 +597,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     if selection is not None:
         librarian_args.extend(["--manifest", str(selection)])
     servers = {
-        "falcon-context": {
+        LIBRARIAN_MCP_SERVER: {
             "command": str(server),
             "args": librarian_args,
             "exposure": "codemode",
@@ -623,13 +623,15 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         saved = mcp.get("mcpServers")
         if not isinstance(saved, dict):
             raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
-        saved_librarian = saved.get("falcon-context")
-        audited = {**servers["falcon-context"],
-                   "args": servers["falcon-context"]["args"] + audit_args(PI_AUDIT_LABEL)}
-        if saved_librarian is not None and saved_librarian not in (servers["falcon-context"], audited):
+        saved = dict(saved)
+        renamed = migrate_librarian_server(saved, mcp_path)
+        saved_librarian = saved.get(LIBRARIAN_MCP_SERVER)
+        audited = {**servers[LIBRARIAN_MCP_SERVER],
+                   "args": servers[LIBRARIAN_MCP_SERVER]["args"] + audit_args(PI_AUDIT_LABEL)}
+        if saved_librarian is not None and saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
             raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
-        if missing:
+        if missing or renamed:
             json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
     else:
         json_write(mcp_path, {"mcpServers": servers})
@@ -646,6 +648,23 @@ COPILOT_AUDIT_LABEL = "copilot"
 COPILOT_TOOLS = ["status", "search", "get", "get_many", "catalog", "review_events"]
 AUDIT_FLAGS = ("--audit-log", "--agent-label")
 LIBRARIAN_COMMANDS = ("librarian-mcp", "qualified-context-mcp")
+LIBRARIAN_MCP_SERVER = "falcon-librarian"
+LEGACY_LIBRARIAN_MCP_SERVERS = ("falcon-context",)
+
+
+def migrate_librarian_server(servers, path):
+    """Rename a legacy Librarian MCP server entry in ``servers`` in place; return whether it changed."""
+    renamed = False
+    for legacy in LEGACY_LIBRARIAN_MCP_SERVERS:
+        if legacy not in servers:
+            continue
+        entry = servers.pop(legacy)
+        current = servers.setdefault(LIBRARIAN_MCP_SERVER, entry)
+        if current != entry:
+            raise RuntimeError(f"both {legacy} and {LIBRARIAN_MCP_SERVER} are bound differently; "
+                               f"inspect {path} first")
+        renamed = True
+    return renamed
 
 
 def audit_args(label):
@@ -695,7 +714,8 @@ def unmanaged_binding_report(paths, managed=()):
             if not isinstance(server, dict):
                 continue
             command, args = str(server.get("command", "")), server.get("args", [])
-            if name != "falcon-context" and Path(command).name not in LIBRARIAN_COMMANDS:
+            if (name not in (LIBRARIAN_MCP_SERVER, *LEGACY_LIBRARIAN_MCP_SERVERS)
+                    and Path(command).name not in LIBRARIAN_COMMANDS):
                 continue
             args = args if isinstance(args, list) else []
             if "--audit-log" in args and "--agent-label" in args[:-1:]:
@@ -754,6 +774,8 @@ def configure_librarian(librarian_root, librarian_executable=None,
                 raise RuntimeError(f"invalid saved MCP settings; inspect {copilot_path} first")
         else:
             copilot = {}
+        copilot_servers = copilot.setdefault("mcpServers", {})
+        migrate_librarian_server(copilot_servers, copilot_path)
     updated_config = {
         **config,
         "librarian_executable": str(server),
@@ -767,7 +789,9 @@ def configure_librarian(librarian_root, librarian_executable=None,
     saved = mcp.get("mcpServers") if mcp else {}
     if not isinstance(saved, dict):
         raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
-    previously_audited = "--audit-log" in (saved.get("falcon-context") or {}).get("args", [])
+    saved = dict(saved)
+    migrate_librarian_server(saved, mcp_path)
+    previously_audited = "--audit-log" in (saved.get(LIBRARIAN_MCP_SERVER) or {}).get("args", [])
     json_write(STATE / "environment.json", updated_config, replace=True)
     json_write(
         mcp_path,
@@ -775,7 +799,7 @@ def configure_librarian(librarian_root, librarian_executable=None,
             **mcp,
             "mcpServers": {
                 **saved,
-                "falcon-context": {
+                LIBRARIAN_MCP_SERVER: {
                     "command": str(server),
                     "args": librarian_args,
                     "exposure": "codemode",
@@ -786,14 +810,14 @@ def configure_librarian(librarian_root, librarian_executable=None,
         replace=True,
     )
     if copilot_path is not None:
-        servers = copilot.setdefault("mcpServers", {})
-        entry = servers.get("falcon-context")
+        servers = copilot_servers
+        entry = servers.get(LIBRARIAN_MCP_SERVER)
         entry = dict(entry) if isinstance(entry, dict) else {"type": "local", "tools": COPILOT_TOOLS,
                                                               "timeout": 60000}
         entry.update({"command": str(server), "cwd": str(root),
                       "args": librarian_server_args(root, reader, selection,
                                                     COPILOT_AUDIT_LABEL if audit else None)})
-        servers["falcon-context"] = entry
+        servers[LIBRARIAN_MCP_SERVER] = entry
         copilot_path.parent.mkdir(parents=True, exist_ok=True)
         json_write(copilot_path, copilot, replace=True)
     print(f"Librarian MCP provider bound to {root}")
@@ -2137,7 +2161,7 @@ def status():
 
 
 ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
-ACCEPT_MCP_SERVERS = ("falcon-context", "kata", "kenn-forge")
+ACCEPT_MCP_SERVERS = (LIBRARIAN_MCP_SERVER, "kata", "kenn-forge")
 
 
 def accept_command_output(name):
@@ -2756,7 +2780,7 @@ def main():
     init_repo_parser.add_argument("--remove-guard", action="store_true",
                                   help="only remove the protected-branch push guard")
     lib_cfg = commands.add_parser("configure-librarian",
-                                  help="rebind the private falcon-context MCP server to an isolated Librarian instance")
+                                  help="rebind the private falcon-librarian MCP server to an isolated Librarian instance")
     lib_cfg.add_argument("--librarian-root", type=Path, required=True)
     lib_cfg.add_argument("--librarian-executable", type=Path)
     lib_cfg.add_argument("--librarian-reader", type=Path)
@@ -2764,7 +2788,7 @@ def main():
     lib_cfg.add_argument("--audit", action="store_true",
                          help="opt in to the Librarian's private full-text audit log for managed bindings")
     lib_cfg.add_argument("--copilot-config", type=Path,
-                         help="also bind this Copilot MCP config's falcon-context server (never implicit)")
+                         help="also bind this Copilot MCP config's falcon-librarian server (never implicit)")
     mvp = commands.add_parser("provision-librarian-mvp",
                               help="package and initialize an isolated Librarian MVP instance (Layer 1 isolation)")
     mvp.add_argument("--source", type=Path, default=Path.home() / "the_librarian")
@@ -2772,7 +2796,7 @@ def main():
     mvp.add_argument("--inbox", type=Path)
     mvp.add_argument("--repos-root", type=Path)
     mvp.add_argument("--bind-mcp", action="store_true",
-                     help="also rebind the private falcon-context MCP server to this instance")
+                     help="also rebind the private falcon-librarian MCP server to this instance")
     args = parser.parse_args()
     try:
         if args.command == "setup":

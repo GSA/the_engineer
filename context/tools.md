@@ -51,7 +51,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   `127.0.0.1:17373` daemon.
 - `python3 scripts/pi-local.py`: runs Pi with `PI_CODING_AGENT_DIR` set to
   `.local/environment/pi`, loading the isolated USAi models, MCP servers
-  (`falcon-context`, `kata`, and `kenn-forge` on `127.0.0.1:18092/mcp`),
+  (`falcon-librarian`, `kata`, and `kenn-forge` on `127.0.0.1:18092/mcp`),
   Superpowers skills, `pi-subagents`, and `extensions/forge-workspace/`
   (which loads `AGENTS.override.md` / Forge `SessionStart` context, overrides
   `finishing-a-development-branch` to push + create PR + register Forge targets,
@@ -69,7 +69,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 - `python3 scripts/tool-health.py [--cwd DIR] [--project NAME]`: read-only check
   of Kata daemon reachability, the directory's Kata project binding and
   Librarian index freshness; prints a `fix:` line per failure (exit 1). Run it
-  when a `kata` or `falcon-context` call fails before retrying.
+  when a `kata` or `falcon-librarian` call fails before retrying.
 - `scripts/tool-failures.py`: mines Pi and Copilot session history for failed tool
   calls by tool and cause; the latest report and fixes are in
   `context/tool-failures.md`. The Forge extension appends a `Recovery:` line to

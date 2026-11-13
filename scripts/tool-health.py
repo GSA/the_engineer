@@ -134,7 +134,7 @@ def manifest_args(index):
 
 def check_index(index):
     if not index:
-        return result("index", True, "no Librarian index configured (pi/mcp.json has no falcon-context)", skipped=True)
+        return result("index", True, "no Librarian index configured (pi/mcp.json has no falcon-librarian)", skipped=True)
     argv = [index["python"], "-B", "-m", "tools.context_index.context_index", "--root", index["root"],
             *manifest_args(index), "status"]
     try:
@@ -158,9 +158,10 @@ def check_index(index):
 
 
 def index_from_mcp(path):
-    """Index settings of the falcon-context server in a Pi mcp.json, if any."""
+    """Index settings of the falcon-librarian server (or its legacy falcon-context name) in a Pi mcp.json, if any."""
     try:
-        server = json.loads(Path(path).read_text())["mcpServers"]["falcon-context"]
+        servers = json.loads(Path(path).read_text())["mcpServers"]
+        server = servers.get("falcon-librarian") or servers["falcon-context"]
         args = server["args"]
         return {"python": str(Path(server["command"]).parent / "python"),
                 "root": args[args.index("--root") + 1],

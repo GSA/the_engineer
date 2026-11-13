@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Drives one fresh Pi SDK client process through the falcon-context binding in
+// Drives one fresh Pi SDK client process through the falcon-librarian binding in
 // AGENT_DIR/mcp.json: status, search, exact get and a failing get. Prints only
 // tool names, error flags, character counts and SHA-256 of what Pi received,
 // so the output can be compared with the Librarian audit log without bodies.
@@ -38,12 +38,12 @@ const { session } = await createAgentSession({
 try {
   await session.bindExtensions({});
   const deadline = Date.now() + 30_000;
-  while (!session.getToolDefinition("mcp__falcon_context__status")) {
-    assert.ok(Date.now() < deadline, "falcon-context tools did not become callable in Pi");
+  while (!session.getToolDefinition("mcp__falcon_librarian__status")) {
+    assert.ok(Date.now() < deadline, "falcon-librarian tools did not become callable in Pi");
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   async function call(name, args) {
-    const result = await session.getToolDefinition(`mcp__falcon_context__${name}`)
+    const result = await session.getToolDefinition(`mcp__falcon_librarian__${name}`)
       .execute(`audit-${name}`, args, AbortSignal.timeout(30_000));
     const complete = result.structuredContent;
     const text = complete.content.filter((block) => block.type === "text").map((b) => b.text).join("\n");
