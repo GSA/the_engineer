@@ -561,22 +561,8 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
                       for key, value in roborev_defaults.items() if key not in existing)
     if missing:
         private_write(roborev_path, missing + raw, replace=True)
-    managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
-    launcher_migrations = (
-        (STATE / "forge/config.toml",
-         re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi(?:-argon)?"\n.*?^command = \[)'
-                    rf'"{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"'),
-         lambda match: match.group(1) + json.dumps(str(wrapper))),
-        (STATE / "roborev/config.toml",
-         re.compile(rf'(?m)^pi_cmd = "{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"$'),
-         lambda _match: f'pi_cmd = {json.dumps(str(wrapper))}'),
-    )
-    for path, pattern, replacement in launcher_migrations:
-        if path.exists():
-            content = private_read(path)
-            migrated, count = pattern.subn(replacement, content)
-            if count and migrated != content:
-                private_write(path, migrated, replace=True)
+    migrate_managed_launcher(STATE / "forge/config.toml", wrapper)
+    migrate_managed_launcher(STATE / "roborev/config.toml", wrapper)
     private_write(
         STATE / "kata/config.toml",
         f'listen = "127.0.0.1:{KATA_PORT}"\nactive_daemon = "local"\n'
@@ -1223,6 +1209,48 @@ def discovered_usai_chat_models():
                 if cleaned and cleaned not in USAI_EMBEDDING_MODELS and cleaned not in models:
                     models.append(cleaned)
     return tuple(models)
+
+
+def migrate_managed_launcher(path, wrapper):
+    """Repoint a Pi launcher left in a deleted Forge worktree at the canonical wrapper.
+
+    The TOML is parsed to find the launchers (Forge agents ``pi``/``pi-argon`` and
+    roborev's ``pi_cmd``); only a path under the managed worktrees directory ending
+    in ``scripts/pi-local.py`` is stale. The file is edited in place so comments and
+    layout survive, and is left alone unless the edit changes exactly those values.
+    """
+    if not path.exists():
+        return
+    raw = private_read(path)
+    config = tomllib.loads(raw)
+    managed = RUNTIME_ROOT / ".local/environment/forge/worktrees"
+
+    def stale(value):
+        candidate = Path(value) if isinstance(value, str) else None
+        return (candidate is not None and candidate.is_relative_to(managed)
+                and candidate.parts[-2:] == ("scripts", "pi-local.py")
+                and str(candidate) != str(wrapper))
+
+    launchers = [agent["command"] for agent in config.get("agents", [])
+                 if agent.get("key") in ("pi", "pi-argon") and isinstance(agent.get("command"), list)]
+    values = {command[0] for command in launchers if command and stale(command[0])}
+    if stale(config.get("pi_cmd")):
+        values.add(config["pi_cmd"])
+    migrated = raw
+    for value in values:
+        for quoted in (json.dumps(value), f"'{value}'"):
+            migrated = migrated.replace(quoted, json.dumps(str(wrapper)))
+    if migrated == raw:
+        return
+    after = tomllib.loads(migrated)
+    for command in launchers:
+        if command and command[0] in values:
+            command[0] = str(wrapper)
+    if "pi_cmd" in config and config["pi_cmd"] in values:
+        config["pi_cmd"] = str(wrapper)
+    if after != config:
+        return
+    private_write(path, migrated, replace=True)
 
 
 def sync_roborev_review_model(review_model):

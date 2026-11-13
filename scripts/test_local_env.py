@@ -194,6 +194,36 @@ class LocalEnvironmentTests(unittest.TestCase):
             self.assertNotIn(stale, content)
             self.assertIn("# retained edit", content)
 
+    def test_setup_migrates_launchers_in_the_indented_toml_forge_writes(self):
+        stale = str(local_env.RUNTIME_ROOT / ".local/environment/forge/worktrees/host/repo/deleted/scripts/pi-local.py")
+        canonical = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
+        forge = self.state / "forge/config.toml"
+        roborev = self.state / "roborev/config.toml"
+        local_env.private_write(forge, (
+            "# retained comment\n"
+            "[[agents]]\n"
+            '  key = "pi"\n'
+            '  label = "Pi"\n'
+            f'  command = [ "{stale}" ]\n'
+            "[[agents]]\n"
+            '  command = ["' + stale + '", "--model", "gemini-4-argon"]\n'
+            '  key = "pi-argon"\n'
+            "[[agents]]\n"
+            '  key = "claude"\n'
+            '  command = ["/opt/claude/scripts/pi-local.py"]\n'
+        ), replace=True)
+        local_env.private_write(
+            roborev, roborev.read_text().replace(f'"{canonical}"', f'"{stale}"'), replace=True)
+        with patch.object(local_env, "ROOT", local_env.RUNTIME_ROOT), \
+                contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        agents = {agent["key"]: agent for agent in tomllib.loads(forge.read_text())["agents"]}
+        self.assertEqual(agents["pi"]["command"], [canonical])
+        self.assertEqual(agents["pi-argon"]["command"], [canonical, "--model", "gemini-4-argon"])
+        self.assertEqual(agents["claude"]["command"], ["/opt/claude/scripts/pi-local.py"])
+        self.assertIn("# retained comment", forge.read_text())
+        self.assertEqual(tomllib.loads(roborev.read_text())["pi_cmd"], canonical)
+
     def test_setup_preserves_custom_pi_launcher_commands(self):
         forge = self.state / "forge/config.toml"
         roborev = self.state / "roborev/config.toml"
