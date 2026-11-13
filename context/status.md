@@ -78,8 +78,8 @@ or reconciliation service is installed.
     `v0.47.0-70` (plain upstream; guarded-Sol pricing is
     `custom_model_pricing.price_as` config from kenn-io/agentsview#2951,
     written by `configure-agentsview-pricing`, which the installer runs; the
-    submodule is temporarily pinned to the `biggestbinary/agentsview` fork for
-    Direct API session tracking until the upstream PR merges),
+    submodule URL is upstream `kenn-io/agentsview`; the pin is the Direct API
+    commit of open PR kenn-io/agentsview#3100, fetchable as `refs/pull/3100/head`),
     Forge `v0.6.0-80`, Pi `1.5.2` and pi-subagents `0.88.0`. The previous
     upgrade passed acceptance 13/13 and a live rollback drill.
   - Upstream Forge PRs from `biggestbinary/forge`: kenn-io/forge#1965 (list
