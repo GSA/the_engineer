@@ -19,8 +19,7 @@ with qualified evidence and accountable human decisions:
   or `evidence` (data, command, output, before/after) for API/backend;
   `publish` posts it (owner pre-approved).
 - **Transfer and scale:** clean-host acceptance (`p4ke`, closed) then
-  second-team bootstrap-to-value (`7ygh`). The agentsview submodule tracks
-  upstream; `am2q` removes the remaining mirror text.
+  second-team bootstrap-to-value (`7ygh`), after teammate packaging (`9jqt`).
 - **Post-1.0:** private hosting (`jmga`), recovery checks (`vg0b`) and Librarian
   Drive/Confluence import (`the_librarian#qgr1`).
 
@@ -406,7 +405,8 @@ or reconciliation service is installed.
     scanned, and PR-description reformatting triggers on real `gh pr
     create`/`edit` calls rather than text that mentions them. Residual
     indirection (`gh alias`, `ssh host 'git push origin main'`, variable-
-    expanded program words) is tracked in `kt2r`, and the wider
+    expanded program words) is backstopped by server-side branch protection
+    on `main` (`kt2r`), and the wider
     enumerated-list/regex drift the scan surfaced in `c95c`.
 
 ## Active Kata queue (`the_engineer`)
