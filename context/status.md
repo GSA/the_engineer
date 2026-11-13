@@ -350,7 +350,7 @@ or reconciliation service is installed.
 - **Selective engineering memory and workspace backup (`5xrm`, `bc20`)**:
   - Documented the selective engineering memory architecture (`context/engineering-memory.md`)
     using repo-local `context/*.md`, Kata, and Librarian without sidecar memory containers.
-  - Verified `scripts/backup_workspace.py` archive generation (`bc20`).
+  - Workspace backup (`bc20`) lives in the owner's private tools repo.
 - **Synthetic prompt, temporary-plan, and publication gate verification (`mpew`)**:
   - Added `scripts/workflow-gates.py` and `scripts/test_workflow_gates.py` (18
     unit tests) to verify prompt and tool isolation across `private_pi`,

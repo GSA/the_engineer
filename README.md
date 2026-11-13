@@ -476,9 +476,6 @@ guidance are in `context/demo-capture.md`.
 
 ## Maintenance
 
-- **Back up:** `python3 scripts/backup_workspace.py <dest-dir>` creates a
-  verified `.tar.gz` archive (plus `.sha256` checksum) of the workspace,
-  including SQLite snapshots.
 - **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'`, the
   same command with `-s dist`, and `python -m unittest discover -s tests -p 'test_context_*.py'`
   in the `engineer-task-context` virtual environment.

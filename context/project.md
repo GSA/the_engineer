@@ -34,8 +34,6 @@ Forge. Engineer owns the stdlib-only cross-repository seam scanner
 - `scripts/pi-local.py`, `scripts/gh-local.py`, `scripts/terminal-local.py`,
   `scripts/usai-key.py`: targeted wrappers that isolate Pi, GitHub CLI, and
   tmux terminal sessions under `.local/environment/`.
-- `scripts/backup_workspace.py`: builds and verifies reproducible tar.zst
-  backups of workspace repos, SQLite databases, and local environment state.
 - `dist/`: self-contained host bundle (`install.sh` / `install.py`) for
   reproducing the Librarian + Engineer workspace on another Linux/WSL machine.
 - `forge/`, `kata/`, `roborev/`, `agentsview/`, `superpowers/`: upstream source
