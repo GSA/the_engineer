@@ -85,10 +85,9 @@ or reconciliation service is installed.
     kenn-io/forge#1966 (`kata` source for
     `kenn_forge_spawn_workspace_with_agent`, #1719); roborev passed on both.
   - Forge now requires Kata Go `v0.21.0` and folds the GitHub App setup into
-    `kenn-forge github-app`; `build-forge-local-kata.mjs` derives the Kata Go
-    tag from Forge's `go.mod` (it must be contained in the Kata pin) and ships
-    only `kenn-forge`. `build.sh` uses `GOPROXY=proxy.golang.org|direct`
-    because the network proxy blocks the `go.kenn.io/kata` module zip.
+    `kenn-forge github-app`. `build.sh` builds Forge normally with
+    `GOPROXY=proxy.golang.org|direct`, which fetches the `go.kenn.io/kata`
+    module; the former local-Kata build is retired.
   - USAi now advertises `gpt-6-luna-guardrails-high` (added) and the
     embedding model `cohere-v4` (excluded).
   - The first cutover exposed that freshly built binaries in the live paths
@@ -216,21 +215,6 @@ or reconciliation service is installed.
     `.local/environment/runtime/6hce-qualified-read-20261030.json`. No corpus,
     index or provider configuration changed. Compaction (`8vhd`) and the shared
     Librarian+Knowitall run (`hk33`) are tracked separately.
-- **Forge pin `3f58f438` (`v0.5.1-331`)**:
-  - `scripts/build-forge-local-kata.mjs` builds with Bun 1.4.4, substitutes
-    local Kata Go `v0.20.0` (`976cd155`) and Kata UI `v0.19.0`, and passes an
-    empty `POSTHOG_PROJECT_KEY` so the binary carries no telemetry destination;
-    the lock check permits only the local Kata UI package's nested devDependency
-    subtree (Kata UI now declares `vite-plus`);
-    the service environment also keeps `TELEMETRY_ENABLED=0`.
-  - Upstream fixed the workspace-target MCP output schemas, so the local
-    `tools_workspace_targets.go` patch is removed. Config, `serve` flags, the
-    MCP listener on `18092`, and the agent-hook/agent-sessions APIs are unchanged.
-  - Verified with the build script's Bun tests, 177 script and 52 distribution
-    unit tests, `smoke.py --only-forge`, a live MCP `tools/list` and
-    `kenn_forge_list_workspace_targets` call, and a clean GitHub sync. Forge's
-    hot spares were re-prepared at the rewritten `origin/HEAD` commits.
-
 - **Task-bound business and code evidence consumer (`k4mp`)** (code provider
   path since removed by `wg6t`):
   - Added `engineer-task-context` (`src/engineer_context/`, CLI

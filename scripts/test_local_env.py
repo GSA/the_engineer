@@ -216,7 +216,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             "pi_executable": "/usr/bin/pi",
             "pi_version": local_env.PI_VERSION,
         })
-        server = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        server = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(server, {
             "command": str(self.corpus / "tools/context-mcp/.venv/bin/qualified-context-mcp"),
             "args": ["--root", str(self.corpus), "--reader",
@@ -249,7 +249,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.setup(self.corpus, self.binary, executable, reader, toolkit, selection)
         self.assertEqual(json.loads(mcp_path.read_text())["mcpServers"]["unrelated"]["command"],
                          "/retained/tool")
-        binding = json.loads(mcp_path.read_text())["mcpServers"]["falcon-context"]
+        binding = json.loads(mcp_path.read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(binding["command"], str(executable))
         self.assertEqual(binding["args"], ["--root", str(toolkit), "--reader", str(reader),
                                            "--manifest", str(selection)])
@@ -262,10 +262,36 @@ class LocalEnvironmentTests(unittest.TestCase):
     def test_setup_rejects_conflicting_saved_mcp_binding_without_mutation(self):
         path = self.state / "pi/mcp.json"
         config = json.loads(path.read_text())
-        config["mcpServers"]["falcon-context"]["command"] = "/different/provider"
+        config["mcpServers"]["falcon-librarian"]["command"] = "/different/provider"
         local_env.json_write(path, config, replace=True)
         before = path.read_bytes()
         with self.assertRaisesRegex(RuntimeError, "Librarian binding differs"):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_setup_renames_legacy_falcon_context_binding(self):
+        path = self.state / "pi/mcp.json"
+        config = json.loads(path.read_text())
+        binding = config["mcpServers"].pop("falcon-librarian")
+        config["mcpServers"]["falcon-context"] = binding
+        local_env.json_write(path, config, replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        servers = json.loads(path.read_text())["mcpServers"]
+        self.assertNotIn("falcon-context", servers)
+        self.assertEqual(servers["falcon-librarian"], binding)
+        migrated = path.read_bytes()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.assertEqual(path.read_bytes(), migrated)
+
+    def test_setup_refuses_differing_legacy_and_current_bindings_without_mutation(self):
+        path = self.state / "pi/mcp.json"
+        config = json.loads(path.read_text())
+        config["mcpServers"]["falcon-context"] = {"command": "/other/provider", "args": []}
+        local_env.json_write(path, config, replace=True)
+        before = path.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "falcon-context and falcon-librarian"):
             local_env.setup(self.corpus, self.binary)
         self.assertEqual(path.read_bytes(), before)
 
@@ -277,7 +303,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         toolkit = executable.parents[2]
         with patch.object(local_env, "STATE", state), contextlib.redirect_stdout(io.StringIO()):
             local_env.setup(self.corpus, self.binary, executable, None, toolkit, selection)
-        binding = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        binding = json.loads((state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection)])
         saved = json.loads((state / "environment.json").read_text())
         self.assertIsNone(saved["librarian_reader"])
@@ -332,7 +358,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIsNone(saved["librarian_reader"])
         self.assertEqual(saved["librarian_root"], str(toolkit))
         self.assertEqual(saved["librarian_selection"], str(selection))
-        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(binding["command"], str(executable))
         self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection)])
 
@@ -345,7 +371,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         return executable, selection, executable.parents[2]
 
     def pi_binding(self):
-        return json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        return json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
 
     def configure_quietly(self, *args, **kwargs):
         out = io.StringIO()
@@ -397,7 +423,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         copilot.parent.mkdir()
         copilot.write_text(json.dumps({"mcpServers": {
             "other": {"command": "/other", "args": ["x"]},
-            "falcon-context": {"tools": ["status", "get"], "timeout": 60000, "type": "local",
+            "falcon-librarian": {"tools": ["status", "get"], "timeout": 60000, "type": "local",
                                "command": "/old", "args": ["--root", "/old"]}}, "theme": "kept"}))
         # Copilot CLI writes its MCP config 0600; match it rather than the ambient umask.
         copilot.chmod(0o600)
@@ -405,7 +431,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         saved = json.loads(copilot.read_text())
         self.assertEqual(saved["theme"], "kept")
         self.assertEqual(saved["mcpServers"]["other"], {"command": "/other", "args": ["x"]})
-        binding = saved["mcpServers"]["falcon-context"]
+        binding = saved["mcpServers"]["falcon-librarian"]
         self.assertEqual(binding["args"], ["--root", str(toolkit), "--manifest", str(selection),
                                            "--audit-log", "--agent-label", "copilot"])
         self.assertEqual((binding["command"], binding["tools"], binding["type"], binding["cwd"]),
@@ -416,11 +442,41 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(copilot.read_bytes(), first)
         self.assertEqual(copilot.stat().st_mode & 0o777, 0o600)
 
+    def test_configure_librarian_renames_legacy_copilot_and_pi_bindings(self):
+        _, _, toolkit = self.audit_librarian()
+        pi = local_env.STATE / "pi/mcp.json"
+        config = json.loads(pi.read_text())
+        config["mcpServers"]["falcon-context"] = config["mcpServers"].pop("falcon-librarian")
+        local_env.json_write(pi, config, replace=True)
+        copilot = self.root / "copilot/mcp.json"
+        copilot.parent.mkdir()
+        copilot.write_text(json.dumps({"mcpServers": {"falcon-context": {
+            "tools": ["status"], "timeout": 60000, "type": "local", "command": "/old", "args": []}}}))
+        self.configure_quietly(toolkit, copilot_config=copilot)
+        copilot_servers = json.loads(copilot.read_text())["mcpServers"]
+        self.assertEqual(set(copilot_servers), {"falcon-librarian"})
+        self.assertEqual(copilot_servers["falcon-librarian"]["tools"], ["status"])
+        self.assertNotIn("falcon-context", json.loads(pi.read_text())["mcpServers"])
+        self.assertIn("falcon-librarian", json.loads(pi.read_text())["mcpServers"])
+
+    def test_configure_librarian_copilot_legacy_conflict_changes_nothing(self):
+        _, _, toolkit = self.audit_librarian()
+        copilot = self.root / "copilot/mcp.json"
+        copilot.parent.mkdir()
+        copilot.write_text(json.dumps({"mcpServers": {
+            "falcon-context": {"command": "/a", "args": []},
+            "falcon-librarian": {"command": "/b", "args": []}}}))
+        files = (local_env.STATE / "environment.json", local_env.STATE / "pi/mcp.json", copilot)
+        before = {path: path.read_bytes() for path in files}
+        with self.assertRaisesRegex(RuntimeError, "falcon-context and falcon-librarian"):
+            self.configure_quietly(toolkit, copilot_config=copilot)
+        self.assertEqual({path: path.read_bytes() for path in files}, before)
+
     def test_configure_librarian_reports_unmanaged_bindings_without_modifying_them(self):
         _, _, toolkit = self.audit_librarian()
         glob = self.root / "global-copilot.json"
         repo = self.root / "repo-pi.json"
-        glob.write_text(json.dumps({"mcpServers": {"falcon-context": {
+        glob.write_text(json.dumps({"mcpServers": {"falcon-librarian": {
             "command": "/x/.venv/bin/librarian-mcp", "args": ["--root", "/x"]}}}))
         repo.write_text(json.dumps({"mcpServers": {"falcon": {
             "command": "/x/.venv/bin/librarian-mcp",
@@ -428,7 +484,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         before = (glob.read_bytes(), repo.read_bytes())
         output = self.configure_quietly(toolkit, audit=True, unmanaged=[glob, repo, self.root / "absent.json"])
         self.assertEqual((glob.read_bytes(), repo.read_bytes()), before)
-        self.assertIn(f"Unmanaged binding {glob}: falcon-context has no audit flags; not modified", output)
+        self.assertIn(f"Unmanaged binding {glob}: falcon-librarian has no audit flags; not modified", output)
         self.assertIn("--audit-log --agent-label", output)
         self.assertIn(f"Unmanaged binding {repo}: falcon audit label custom; not modified", output)
         self.assertEqual(output.count("Unmanaged binding"), 2)
@@ -441,7 +497,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             self.configure_quietly(toolkit, audit=True)
             local_env.setup(self.corpus, self.binary, executable, None, toolkit, selection)
             saved = json.loads((local_env.STATE / "pi/mcp.json").read_text())
-            self.assertEqual(saved["mcpServers"]["falcon-context"]["args"][-3:],
+            self.assertEqual(saved["mcpServers"]["falcon-librarian"]["args"][-3:],
                              ["--audit-log", "--agent-label", "pi-forge"])
 
     def test_provision_librarian_mvp_packages_initializes_and_optionally_binds_mcp(self):
@@ -505,7 +561,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(context_config["schema"], "engineer.context-config/v2")
         self.assertEqual(set(context_config), {"schema", "librarian"})
         self.assertFalse((source / ".local").exists())
-        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-context"]
+        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(binding["command"], str(dest / ".venv/bin/librarian-mcp"))
         self.assertEqual(binding["args"], ["--root", str(dest), "--manifest", str(dest / "config/selection.local.json")])
 
@@ -594,16 +650,41 @@ class LocalEnvironmentTests(unittest.TestCase):
         for path in (self.state, self.state / "secrets", self.state / "pi"):
             self.assertEqual(path.stat().st_mode & 0o777, 0o700)
         mcp = json.loads((self.state / "pi/mcp.json").read_text())
-        server = mcp["mcpServers"]["falcon-context"]
+        server = mcp["mcpServers"]["falcon-librarian"]
         self.assertIn(str(self.corpus), server["args"])
         self.assertEqual(server["exposure"], "codemode")
         self.assertEqual(mcp["mcpServers"]["kata"]["exposure"], "direct")
         self.assertNotIn("cwd", mcp["mcpServers"]["kata"])
         self.assertEqual(mcp["mcpServers"]["kenn-forge"]["url"], "http://127.0.0.1:18092/mcp")
         self.assertEqual(mcp["mcpServers"]["kenn-forge"]["exposure"], "direct")
-        self.assertTrue((self.state / "pi/extensions/forge-workspace.ts").is_file())
+        # A linked worktree's RUNTIME_ROOT is the main checkout, so install from this checkout.
+        with patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        extension = self.state / "pi/extensions/forge-workspace"
+        self.assertTrue((extension / "index.ts").is_file())
+        self.assertEqual(extension.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((extension / "index.ts").stat().st_mode & 0o777, 0o600)
         self.assertIn("[mcp]\nenabled = true", (self.state / "forge/config.toml").read_text())
         self.assertEqual((self.state / "pi/mcp.json").stat().st_mode & 0o777, 0o600)
+
+    def test_forge_extension_directory_replaces_legacy_single_file(self):
+        patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT).start()
+        extensions = self.state / "pi/extensions"
+        legacy = extensions / "forge-workspace.ts"
+        local_env.private_write(legacy, "export default () => {};\n")
+        local_env.install_forge_extension()
+        stale = extensions / "forge-workspace/stale.ts"
+        local_env.private_write(stale, "export {};\n")
+        index = extensions / "forge-workspace/index.ts"
+        index.write_text("// edited\n")
+        local_env.install_forge_extension()
+        self.assertFalse(legacy.exists())
+        self.assertFalse(stale.exists())
+        source = local_env.RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
+        self.assertEqual(index.read_text(), (source / "index.ts").read_text())
+        self.assertEqual(sorted(path.name for path in (extensions / "forge-workspace").iterdir()),
+                         sorted(path.name for path in source.glob("*.ts")))
+        self.assertNotIn("forge-workspace.test.mjs", [path.name for path in (extensions / "forge-workspace").iterdir()])
 
     def test_isolated_gitconfig_and_forge_runtime_env_passthrough(self):
         (self.state / "home/.gitconfig").unlink(missing_ok=True)
@@ -733,7 +814,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                      "Pi enforces this", "addresses only the original findings",
                      "possible review loop"):
             self.assertIn(duty, text)
-        self.assertNotIn("gh pr create", text)  # Forge delivery lives in forge-workspace.ts
+        self.assertNotIn("gh pr create", text)  # Forge delivery lives in the forge-workspace extension
         self.assertLess(len(text), 4096)
         self.assertNotIn("repeat until", text)
 
@@ -884,7 +965,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         with patch.object(local_env.subprocess, "run", side_effect=install) as run:
             with contextlib.redirect_stdout(io.StringIO()):
                 local_env.install_pi_extensions()
-                local_env.install_pi_review_extension()
+                local_env.install_pi_extensions()
         saved = json.loads(path.read_text())
         self.assertEqual(run.call_count, 2 * (len(local_env.PI_EXTENSIONS) + 2))
         self.assertEqual(installed, list(local_env.PI_EXTENSIONS) * 2)
@@ -2208,7 +2289,71 @@ class AcceptanceTests(unittest.TestCase):
         hook.chmod(0o755)
         with patch.object(local_env, "api", return_value=registered):
             failures, output = self.run_accept(home, [repo])
+        self.assertEqual(failures, [f"repo:{repo.resolve()}"])
+        self.assertIn("protected-branch push guard missing", output)
+        self.assertIn(f"init-repo {repo.resolve()}", output)
+        local_env.repo_init_module().install_guard(repo)
+        with patch.object(local_env, "api", return_value=registered):
+            failures, output = self.run_accept(home, [repo])
         self.assertEqual(failures, [], output)
+
+    def test_init_repo_command_passes_options_and_propagates_the_exit_status(self):
+        repo = self.root / "repo"
+        for status in (0, 1):
+            with patch.object(local_env, "init_repo", return_value=status) as init, \
+                    patch.object(sys, "argv", ["local_env.py", "init-repo", str(repo), "--project", "demo",
+                                               "--skip-kata", "--remove-guard"]):
+                self.assertEqual(local_env.main(), status)
+            init.assert_called_once_with(repo, project="demo", skip_kata=True, remove_guard=True)
+
+    def test_init_repo_registers_through_forge_and_degrades_when_forge_is_down(self):
+        repo = self.root / "repo"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        services = local_env.init_repo_services()
+        with patch.object(local_env, "forge_probe", return_value=None), \
+                self.assertRaises(local_env.repo_init_module().ServiceUnavailable):
+            services.register(repo.resolve())
+        with patch.object(local_env, "forge_probe", return_value={"version": "1"}), \
+                patch.object(local_env, "api", return_value={"projects": [{"local_path": str(repo)}]}):
+            self.assertEqual(services.register(repo.resolve())[0], "SKIP")
+        with patch.object(local_env, "forge_probe", return_value={"version": "1"}), \
+                patch.object(local_env, "api", return_value={"projects": []}), \
+                patch.object(local_env, "register_project") as register:
+            self.assertEqual(services.register(repo.resolve())[0], "OK")
+        register.assert_called_once_with(repo.resolve())
+
+    def test_init_repo_runs_native_roborev_and_kata_in_the_managed_environment(self):
+        repo = self.root / "repo"
+        repo.mkdir()
+        binary = self.root / "roborev"
+        binary.write_text("#!/bin/sh\n")
+        binary.chmod(0o755)
+        services = local_env.init_repo_services()
+        done = MagicMock(returncode=0, stdout="", stderr="")
+        with patch.object(local_env, "roborev_binary", return_value=binary), \
+                patch.object(local_env.subprocess, "run", return_value=done) as run:
+            services.roborev_init(repo)
+        self.assertEqual(run.call_args.args[0], [str(binary), "init", "--no-daemon", "--binary", str(binary)])
+        self.assertEqual(run.call_args.kwargs["cwd"], repo)
+        self.assertEqual(run.call_args.kwargs["env"]["ROBOREV_DATA_DIR"], str(self.state / "roborev"))
+        down = MagicMock(returncode=7, stdout="", stderr="kata: selected daemon is unavailable while connecting")
+        with patch.object(local_env.os, "access", return_value=True), \
+                patch.object(local_env.subprocess, "run", return_value=down) as run, \
+                self.assertRaises(local_env.repo_init_module().ServiceUnavailable):
+            services.kata_init(repo, "demo")
+        self.assertEqual(run.call_args.args[0][1:], ["init", "--project", "demo"])
+        self.assertEqual(run.call_args.kwargs["env"]["KATA_SERVER"], local_env.KATA_URL)
+
+    def test_init_repo_reads_the_forge_kata_mapping_for_the_project(self):
+        services = local_env.init_repo_services()
+        listing = {"projects": [{"project_name": "demo", "status": "mapped",
+                                 "repo": {"repo_path": "GSA/Demo"}},
+                                {"project_name": "other", "status": "unmapped"}]}
+        with patch.object(local_env, "forge_probe", return_value={"version": "1"}), \
+                patch.object(local_env, "handoff_get", return_value=listing):
+            self.assertEqual(services.kata_mapping("demo"), ("mapped", "gsa/demo"))
+            self.assertEqual(services.kata_mapping("other"), ("unmapped", ""))
+            self.assertEqual(services.kata_mapping("absent"), ("", ""))
 
     def test_provider_requires_saved_model_entry(self):
         home = self.accepted_host()
@@ -2221,7 +2366,7 @@ class AcceptanceTests(unittest.TestCase):
     def test_mcp_requires_every_stack_server_entry(self):
         home = self.accepted_host()
         mcp_path = self.state / "pi/mcp.json"
-        for removed in ({"kenn-forge"}, {"kata", "kenn-forge", "falcon-context"}):
+        for removed in ({"kenn-forge"}, {"kata", "kenn-forge", "falcon-librarian"}):
             with self.subTest(removed=removed):
                 mcp = json.loads(local_env.private_read(mcp_path))
                 servers = {name: value for name, value in mcp["mcpServers"].items()

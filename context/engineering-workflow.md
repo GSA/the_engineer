@@ -14,7 +14,7 @@
 - **Pi `subagent` tool (`pi-subagents`)**:
   - Uses `defaultProvider: "usai"`, `defaultModel: "inherit"`, and `toolActivation: "eager"` across
     `delegate`, `oracle`, `scout`, and `worker`, with `reviewer` routed to `usai/<review_model>` when a paired `review_model` is configured (and external-CLI/web builtin agents disabled).
-  - Background subagent runner processes (`PI_SUBAGENT_CHILD=1` / `PI_SUBAGENT_RUNNER_PID`) are isolated by `forge-workspace.ts` so they do not inherit `forge_workspace` delivery prompts, fire Forge session hooks, or receive the full Superpowers bootstrap.
+  - Background subagent runner processes (`PI_SUBAGENT_CHILD=1` / `PI_SUBAGENT_RUNNER_PID`) are isolated by `forge-workspace/` so they do not inherit `forge_workspace` delivery prompts, fire Forge session hooks, or receive the full Superpowers bootstrap.
   - When calling `subagent` with `action: "run"`, `action: "chain"`, or
     `action: "parallel"`, omit `model` or set `model: "inherit"` (or an active
     `usai/*` model ID).
@@ -40,7 +40,7 @@ followed by at most one focused fix pass for confirmed task-scoped
 medium/high/critical defects. Make additive fix commits and verify actual
 behavior with targeted tests. These allowances retain the previous one-review,
 one-fix boundary; severity filtering removes low findings from delivery gates.
-The Pi Forge-workspace extension (`scripts/pi-extensions/forge-workspace.ts`)
+The Pi Forge-workspace extension (`scripts/pi-extensions/forge-workspace/`)
 enforces the allowance for bash `roborev` commands; see "Enforced review
 budget" below.
 
@@ -102,7 +102,7 @@ Each Pi surface loads one policy set; check it with
 | Surface | Loaded policy |
 |---|---|
 | Private Pi (`scripts/pi-local.py` in a checkout) | private `.local/environment/pi/AGENTS.md` (installed coder contract), the repository `AGENTS.md`, Superpowers skills and bootstrap, `pi-subagents` |
-| Forge-launched Pi (`pi`, `pi-argon`) | the same coder policy with the Forge-generated `AGENTS.override.md` in place of the root `AGENTS.md`, plus the `forge_workspace` section and skill overrides from `forge-workspace.ts` |
+| Forge-launched Pi (`pi`, `pi-argon`) | the same coder policy with the Forge-generated `AGENTS.override.md` in place of the root `AGENTS.md`, plus the `forge_workspace` section and skill overrides from `forge-workspace/` |
 | roborev structured review (`--json-schema`) | Pi's base prompt, the roborev prompt with `.roborev.toml` `review_guidelines`, read-only tools and the pinned schema extension only |
 
 `pi_launch()` isolates every structured review with `--no-context-files
@@ -114,7 +114,7 @@ fixes, evaluating task-scoped roborev findings, removing temporary plans) live
 once in the tracked coder contract `scripts/pi-coder-contract.md`; `setup`
 installs it as the private `pi/AGENTS.md` and `verify-pi-policy` fails when the
 installed copy drifts. Forge delivery (push, PR, target registration) lives in
-the `forge_workspace` section of `forge-workspace.ts`; Superpowers supplies
+the `forge_workspace` section of `forge-workspace/`; Superpowers supplies
 TDD, design, planning and verification discipline.
 
 ### Source guidance dispositions
@@ -190,7 +190,7 @@ authorization.
   hygiene, review-finding dispositions, and publication/merge boundaries without
   live model traffic or external source access:
   - `check-prompts --surface <private_pi|forge_workspace|roborev_review>`:
-    exercises `scripts/pi-extensions/forge-workspace.ts` and
+    exercises `scripts/pi-extensions/forge-workspace/` and
     `scripts/local_env.py:validate_paired_models()` to confirm that `private_pi`
     loads repo policy without Forge overrides, `forge_workspace` filters
     ancestor `AGENTS.md` and applies autonomous skill overrides, and
@@ -211,7 +211,6 @@ authorization.
     through Red -> Green -> Refactor -> Review -> Plan Cleanup -> Publication
     gates in an isolated temporary Git repository and writes a mode `0600`
     receipt when requested. The publication stage also drives the real
-    `forge-workspace.ts` `tool_call` guard, which blocks agent PR merges and
-    pushes to `main` unless the human confirms them in the Pi UI, while leaving
-    workspace-branch pushes allowed even behind a `cd`, `git -C`, `git checkout
-    -b`, or heredoc in the same command.
+    `forge-workspace` `tool_call` guard, which blocks agent PR merges unless the
+    human confirms them in the Pi UI; pushes to `main` are left to the git
+    `pre-push` guard that `init-repo` installs.

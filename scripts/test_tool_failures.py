@@ -62,7 +62,7 @@ class ClassifyTests(unittest.TestCase):
             ("glob", {}, "rg: /x: Permission denied (os error 13)", "permission-denied"),
             ("web_fetch", {}, "Error: Failed to fetch https://x - status code 404", "web-fetch"),
             ("falcon-context-search", {}, "MCP server 'falcon-context': Error executing tool search: Reader failed (exit 2): bad", "librarian-reader"),
-            ("falcon-context-status", {}, "MCP server 'falcon-context': Error executing tool status: Reader failed (exit 1): context-index: Index is stale", "stale-index"),
+            ("falcon-librarian-status", {}, "MCP server 'falcon-librarian': Error executing tool status: Reader failed (exit 1): context-index: Index is stale", "stale-index"),
             ("web_search", {}, "weird", "other"),
         ]
         for tool, args, text, expected in cases:

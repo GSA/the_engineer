@@ -156,7 +156,7 @@ class HealthTests(unittest.TestCase):
         root = self.tmp / "lib"
         (root / ".venv/bin").mkdir(parents=True)
         mcp = self.tmp / "mcp.json"
-        mcp.write_text(json.dumps({"mcpServers": {"falcon-context": {
+        mcp.write_text(json.dumps({"mcpServers": {"falcon-librarian": {
             "command": str(root / ".venv/bin/librarian-mcp"),
             "args": ["--root", str(root), "--manifest", str(root / "sel.json")]}}}))
         self.assertEqual(health.index_from_mcp(mcp), {
@@ -166,6 +166,7 @@ class HealthTests(unittest.TestCase):
     def test_index_config_without_a_manifest_is_still_checked(self):
         root = self.tmp / "lib"
         mcp = self.tmp / "mcp.json"
+        # Legacy server name, from configs written before the falcon-librarian rename.
         mcp.write_text(json.dumps({"mcpServers": {"falcon-context": {
             "command": str(root / ".venv/bin/librarian-mcp"), "args": ["--root", str(root)]}}}))
         index = health.index_from_mcp(mcp)

@@ -654,7 +654,7 @@ def load_environment(checkout):
     return module
 
 
-def install(checkout, corpus, forge_build, choice, librarian_executable=None,
+def install(checkout, corpus, choice, librarian_executable=None,
             librarian_reader=None, librarian_root=None, librarian_selection=None,
             provider=None, repos=(), mirrors=None):
     mirrors = mirrors or {}
@@ -678,13 +678,11 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
     print("\nInstalling workspace-local Go/Bun/GitHub CLI toolchains...")
     with RECEIPT.phase("toolchains"):
         run(["bash", "scripts/bootstrap-toolchains.sh"], cwd=checkout, env=child)
-    print("\nBuilding services (normal Forge remains the default; no automatic fallback)...")
-    forge_target = "forge" if forge_build == "normal" else "forge-local-kata"
+    print("\nBuilding services...")
     with RECEIPT.phase("build"):
-        run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target],
+        run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", "forge"],
             cwd=checkout, env=child)
-    forge = checkout / ("forge/kenn-forge" if forge_build == "normal"
-                        else ".local/forge-local-kata/kenn-forge")
+    forge = checkout / "forge/kenn-forge"
     for binary in (forge, checkout / "roborev/bin/roborev",
                    checkout / "kata/kata", checkout / "agentsview/agentsview"):
         if not binary.is_file() or not os.access(binary, os.X_OK):
@@ -720,11 +718,9 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             run([*command, f"install-{name}-service"], cwd=checkout)
         print("User services are enabled and responsive. They start with your user manager/login.")
         print("Boot without login requires administrator-approved lingering; it was NOT enabled here.")
-        roborev = checkout / "roborev/bin/roborev"
         for repo in repos:
-            print(f"\nRegistering {repo} with Forge and installing roborev Git hooks...")
-            run([*command, "register", str(repo)], cwd=checkout)
-            run([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], cwd=repo)
+            print(f"\nInitializing {repo}: Forge, roborev hooks, Kata binding and the protected-branch guard...")
+            run([*command, "init-repo", str(repo)], cwd=checkout)
         # Pi's kata MCP server binds to the checkout's committed .kata.toml project,
         # which a fresh Kata daemon has not registered yet (idempotent when it has).
         run([str(checkout / "kata/kata"), "init"], cwd=checkout)
@@ -816,8 +812,9 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="check prerequisites; no downloads/config/service changes")
     parser.add_argument("--services", choices=("ask", "manual", "user"), default="ask")
     parser.add_argument("--register-repo", type=Path, action="append", default=[],
-                        help="existing Git checkout to register with Forge and roborev "
-                             "(repeatable; requires --services user)")
+                        help="existing Git checkout to initialize with `local_env.py init-repo` "
+                             "(Forge, roborev hooks, Kata binding, protected-branch guard; "
+                             "repeatable; requires --services user)")
     parser.add_argument("--usai-base-url", help="approved USAi base URL (non-secret)")
     parser.add_argument("--usai-model", help="approved USAi coder model (requires --usai-base-url)")
     parser.add_argument("--usai-review-model", help="optional opposite-family roborev model")
@@ -829,8 +826,6 @@ def main(argv=None):
                              "repeatable; the tracked .gitmodules is not changed")
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
-    parser.add_argument("--forge-build", choices=("normal", "local-kata"), default="normal",
-                        help="explicitly select the temporary local-Kata workaround if normal downloads are blocked")
     args = parser.parse_args(argv)
     checkout = args.checkout.expanduser().resolve()
     corpus = args.corpus.expanduser().resolve()
@@ -895,7 +890,7 @@ def main(argv=None):
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 raise RuntimeError("Another installer is using this checkout; wait for it to finish.") from error
-            install(checkout, corpus, args.forge_build, choice,
+            install(checkout, corpus, choice,
                     server if args.librarian_executable else None,
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,

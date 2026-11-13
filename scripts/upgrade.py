@@ -272,8 +272,17 @@ def environment_config():
     return json.loads(local_env.private_read(STATE / "environment.json"))
 
 
+RETIRED_FORGE_BINARY = ".local/forge-local-kata/kenn-forge"
+
+
 def forge_binary(config):
-    return Path(config["forge_binary"])
+    path = Path(config["forge_binary"])
+    if path == ROOT / RETIRED_FORGE_BINARY:
+        raise UpgradeError(
+            f"environment.json still runs the retired local-Kata Forge build ({path}); "
+            f"run `bash scripts/build.sh forge`, set forge_binary to {ROOT / 'forge/kenn-forge'} "
+            "in .local/environment/environment.json and restart kenn-kopy-forge.service, then retry")
+    return path
 
 
 def binaries(config):
@@ -585,10 +594,6 @@ def apply(components=SUBMODULES, pi="latest", pi_subagents="latest"):
     return changes
 
 
-def forge_target(config):
-    return "forge-local-kata" if forge_binary(config).parent.name == "forge-local-kata" else "forge"
-
-
 def verify(*, build=True, smoke=True):
     """Build and test the candidate tree; live services and binaries are never touched."""
     path = tree()
@@ -597,8 +602,9 @@ def verify(*, build=True, smoke=True):
     # A stale marker must never authorize a candidate whose latest verify failed.
     candidate_marker().unlink(missing_ok=True)
     config = environment_config()
+    forge_binary(config)  # refuse a retired binary path before spending a build
     if build:
-        sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", forge_target(config)],
+        sh(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", "forge"],
            cwd=path, timeout=3600)
     check_candidate(config, smoke)
     marker = {"submodules": tree_heads(), "pins": read_pins(path),
@@ -624,7 +630,7 @@ def check_candidate(config, smoke):
     sh([*python, "-s", "scripts"], cwd=path, env=env, timeout=1800)
     sh([*python, "-s", "dist"], cwd=path, env=env, timeout=1800)
     bun = path / ".local/tools/bun-1.4.4/node_modules/@oven/bun-linux-x64/bin/bun"
-    tests = sorted(path.glob("scripts/*.test.mjs")) + sorted(path.glob("scripts/pi-extensions/*.test.mjs"))
+    tests = sorted(path.glob("scripts/*.test.mjs")) + sorted(path.glob("scripts/pi-extensions/**/*.test.mjs"))
     sh([bun, "test", *tests], cwd=path, env=env, timeout=900)
     if smoke:
         sh([sys.executable, "scripts/smoke.py", "--forge-binary", in_tree(forge_binary(config))],

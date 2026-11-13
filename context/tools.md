@@ -56,8 +56,8 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   `127.0.0.1:17373` daemon.
 - `python3 scripts/pi-local.py`: runs Pi with `PI_CODING_AGENT_DIR` set to
   `.local/environment/pi`, loading the isolated USAi models, MCP servers
-  (`falcon-context`, `kata`, and `kenn-forge` on `127.0.0.1:18092/mcp`),
-  Superpowers skills, `pi-subagents`, and `extensions/forge-workspace.ts`
+  (`falcon-librarian`, `kata`, and `kenn-forge` on `127.0.0.1:18092/mcp`),
+  Superpowers skills, `pi-subagents`, and `extensions/forge-workspace/`
   (which loads `AGENTS.override.md` / Forge `SessionStart` context, overrides
   `finishing-a-development-branch` to push + create PR + register Forge targets,
   and posts live agent activity hooks via `KENN_FORGE_RUNTIME_SESSION_KEY`).
@@ -74,7 +74,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 - `python3 scripts/tool-health.py [--cwd DIR] [--project NAME]`: read-only check
   of Kata daemon reachability, the directory's Kata project binding and
   Librarian index freshness; prints a `fix:` line per failure (exit 1). Run it
-  when a `kata` or `falcon-context` call fails before retrying.
+  when a `kata` or `falcon-librarian` call fails before retrying.
 - `scripts/tool-failures.py`: mines Pi and Copilot session history for failed tool
   calls by tool and cause; the latest report and fixes are in
   `context/tool-failures.md`. The Forge extension appends a `Recovery:` line to
@@ -124,7 +124,7 @@ adversarial pairing via `--review-model`:
 - Tool overrides (`PI_SUBAGENT_DESCRIPTIONS`): instruct agents to omit `model`
   or pass `"inherit"`, omit `model` on `action: "resume"`, and keep Superpowers
   `reviewer` subagents separate from native `roborev` CLI reviews.
-- Worktree isolation (`forge-workspace.ts`, Forge workspaces only): a
+- Worktree isolation (`forge-workspace/subagents.ts`, Forge workspaces only): a
   `subagent` call that launches `worker` or `delegate` (directly or in a
   `parallel` fan-out) gets `worktree: true` unless it sets `worktree` or
   `isolation` itself. `PI_SUBAGENTS_WORKTREE_DIR` defaults to
@@ -158,11 +158,11 @@ adversarial pairing via `--review-model`:
   `pre-push`) in each repo's `.git/hooks/`. Global `core.hooksPath` and Copilot
   CLI's `~/.copilot/hooks/agenthook.json` remain unset/removed to prevent
   recursive review loops.
-- Forge workspace execution (`scripts/pi-extensions/forge-workspace.ts`):
+- Forge workspace execution (`scripts/pi-extensions/forge-workspace/`, modules: `index.ts` hooks, `prompts.ts`, `shell.ts` tokenizer, `publication-guard.ts` PR-merge gate, `roborev-budget.ts`, `pr-summary.ts`, `recovery.ts`, `subagents.ts`, `forge-api.ts`; installed as a directory by `install_forge_extension()`):
   - Preserves `KENN_FORGE_RUNTIME_SESSION_KEY` across `scripts/pi-local.py` (with API fallback by workspace ID) so Forge tracks live Pi session activity.
   - Reports lifecycle to Forge's native Pi hook profile (`/api/v1/agent-hooks/pi`), so Forge resumes a saved conversation with `pi --session <id>`; workspace context still comes from the Claude `SessionStart` renderer without a runtime key. Only interactive (`tui`) sessions with a saved session file report; earlier events are held until Pi saves the file. Reports post in order.
   - Maps Pi events: `session_start` → `SessionStart` (`resume`/`fork`/`clear`, or `resume` when startup opens a saved file), turns → `UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop` (aborted turns also settle to `Stop`), dialogs during a turn → `Notification elicitation_dialog` (Forge `input`). `session_shutdown` sends `SessionEnd` only for replacement (`new`/`fork` → `clear`, `resume` → `resume`) or SIGTERM/SIGHUP (`other`, so Forge resumes instead of forgetting); `/quit` and `/reload` keep the conversation resumable.
-  - Blocks agent `gh pr merge` (including `gh-local.py` and `gh api .../pulls/N/merge`) and `git push` to `main`/`master` (explicit refspec, `--all`/`--mirror`, or bare push from a `main` checkout) on every Pi surface unless the human confirms the call in the Pi UI; print/JSON sessions always block. Workspace-branch pushes and `gh pr create`/`gh pr edit` are unaffected, including after an earlier `cd`, `git -C`, or `git checkout -b`/`switch -c` in the same command: the guard follows literal directory and branch moves and resolves the real HEAD. It still treats HEAD as protected when the branch is genuinely unknowable (`cd` with no argument, `cd -`, an expansion such as `cd "$(...)"`, a missing directory, `pushd`/`popd`, `git worktree`, a detached checkout, or a `cd` whose effect does not reach the push because it ran in a subshell, backticks, or a pipeline stage), and when a checkout that could fail is followed by a push the pre-checkout branch still counts. A wrapper program (`timeout`, `stdbuf`, `nice`, `setsid`, `env`, `sudo`, `xargs`, and friends, by basename, with their own options — valued or valueless per wrapper — and `timeout`'s duration skipped) does not hide the push or merge it runs, `gh` flags such as `--repo` placed before or between subcommand words do not hide `pr merge`, `git -C` composes cumulatively, and an explicit `--git-dir` selects the repository whose HEAD the push moves. Each subshell gets its own directory scope, so a sibling subshell's `cd` does not leak, and a `cd` a preceding `&&`/`||` may skip leaves the pre-`cd` directory a candidate too. A heredoc body a program consumes is data, while a shell-executed body (`bash <<EOF`) runs in a child scope whose directory moves stay there, and an unquoted heredoc delimiter still exposes the command substitutions the shell expands in the body; heredoc syntax inside quotes or a comment never hides the commands after it. PR-description reformatting also triggers structurally, so `gh --repo … pr create`, a wrapped `gh pr edit`, and `gh-local.py pr create` are recognized while a mention of `gh pr create` in `echo` or `grep` text is not.
+  - Gates agent `gh pr merge` (including `gh-local.py` and `gh api .../pulls/N/merge`, through wrappers, subshells and `bash -c`) behind human confirmation in the Pi UI; print/JSON sessions always block. Pushing `main`/`master` is enforced by git, not by parsing shell: `local_env.py init-repo` installs a `pre-push` guard in each repository's common hooks directory (`scripts/repo_init.py`), shared by every worktree, which rejects the push unless a person types `yes` on `/dev/tty`. `accept --repo` reports a missing guard; GitHub branch protection is the backstop (README, "Initialize the platform in another repository").
   - Enforces the roborev review budget on bash `roborev` commands: one `review --branch`/`--since` per workspace branch (count kept in `forge-roborev-budget.json` in the worktree's git directory, so it survives reloads and resumes), then block unless the human confirms in the Pi UI (print/JSON always block); `refine` and unscoped `fix` are treated the same, `review <sha>`/`--dirty` and `fix <job>` are allowed. Medium-or-higher findings on a fix commit outside (or recurring from) the first review's findings are flagged for the owner and arm a loop self-check prompt in the workspace policy. Copilot has no runtime hook and follows the prose policy. See `context/engineering-workflow.md`.
   - Filters parent repo `AGENTS.md` files from child worktrees under `.local/environment/forge/worktrees/`.
   - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, share the bounded delivery review policy in `context/engineering-workflow.md`, format PR descriptions via `gemini-4-argon`, and register PR/Kata targets with Forge. The review/fix allowance survives skill transitions, reloads, and resumes; unresolved task-scoped medium/high/critical defects pause publication for owner handoff. Coder, finishing and formatter prompts share content-led guidance: no size tiers or paragraph/bullet quotas, concise prose for focused changes, optional lists/sections for independent concerns, and retained task references and actionable caveats.
@@ -234,11 +234,6 @@ evidence.
   ```sh
   python -m unittest discover -s tests -p 'test_context_*.py'
   ENGINEER_LIBRARIAN_SOURCE=~/the_librarian PYTHONPATH=tests/integration python -m unittest test_context_real_providers
-  ```
-- Local Forge binary (`.local/forge-local-kata`, keeps `forge/` submodule clean):
-  ```sh
-  cd .local/forge-local-kata/web && npm run build
-  cd .local/forge-local-kata && go test ./internal/server ./internal/git ./internal/agent/... && go build -o kenn-forge ./cmd/kenn-forge
   ```
 - Upgrades (`scripts/upgrade.py`; state in ignored `.local/upgrade/`):
   ```sh

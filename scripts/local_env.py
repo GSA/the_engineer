@@ -2,9 +2,11 @@
 """Manage the persistent, workspace-local engineering environment."""
 
 import argparse
+import contextlib
 from datetime import datetime, timezone
 import fcntl
 import getpass
+import io
 import json
 import os
 from pathlib import Path
@@ -239,6 +241,27 @@ def private_write(path, text, *, replace=False):
             os.link(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def install_forge_extension():
+    """Install the Forge workspace extension directory; Pi loads extensions/forge-workspace/index.ts.
+
+    The superseded single-file extensions/forge-workspace.ts is removed so Pi never loads both.
+    """
+    source = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
+    destination = STATE / "pi/extensions/forge-workspace"
+    legacy = STATE / "pi/extensions/forge-workspace.ts"
+    if not source.is_dir():
+        return
+    private_dir(STATE / "pi/extensions")
+    private_dir(destination)
+    names = {path.name: path for path in source.glob("*.ts")}
+    for name, path in names.items():
+        private_write(destination / name, path.read_text(), replace=True)
+    for stale in destination.iterdir():
+        if stale.name not in names:
+            stale.unlink()
+    legacy.unlink(missing_ok=True)
 
 
 def json_write(path, value, *, replace=False):
@@ -574,7 +597,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     if selection is not None:
         librarian_args.extend(["--manifest", str(selection)])
     servers = {
-        "falcon-context": {
+        LIBRARIAN_MCP_SERVER: {
             "command": str(server),
             "args": librarian_args,
             "exposure": "codemode",
@@ -600,25 +623,21 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         saved = mcp.get("mcpServers")
         if not isinstance(saved, dict):
             raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
-        saved_librarian = saved.get("falcon-context")
-        audited = {**servers["falcon-context"],
-                   "args": servers["falcon-context"]["args"] + audit_args(PI_AUDIT_LABEL)}
-        if saved_librarian is not None and saved_librarian not in (servers["falcon-context"], audited):
+        saved = dict(saved)
+        renamed = migrate_librarian_server(saved, mcp_path)
+        saved_librarian = saved.get(LIBRARIAN_MCP_SERVER)
+        audited = {**servers[LIBRARIAN_MCP_SERVER],
+                   "args": servers[LIBRARIAN_MCP_SERVER]["args"] + audit_args(PI_AUDIT_LABEL)}
+        if saved_librarian is not None and saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
             raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
-        if missing:
+        if missing or renamed:
             json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
     else:
         json_write(mcp_path, {"mcpServers": servers})
     private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
     private_dir(STATE / "pi/extensions")
-    forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
-    if forge_ext_src.is_file():
-        private_write(
-            STATE / "pi/extensions/forge-workspace.ts",
-            forge_ext_src.read_text(),
-            replace=True,
-        )
+    install_forge_extension()
     print(f"Persistent local settings/data: {STATE}")
     print(f"Private USAi key destination: {STATE / 'secrets/usai-api-key'}")
     print("Existing settings were preserved. No service or model request was started.")
@@ -629,6 +648,23 @@ COPILOT_AUDIT_LABEL = "copilot"
 COPILOT_TOOLS = ["status", "search", "get", "get_many", "catalog", "review_events"]
 AUDIT_FLAGS = ("--audit-log", "--agent-label")
 LIBRARIAN_COMMANDS = ("librarian-mcp", "qualified-context-mcp")
+LIBRARIAN_MCP_SERVER = "falcon-librarian"
+LEGACY_LIBRARIAN_MCP_SERVERS = ("falcon-context",)
+
+
+def migrate_librarian_server(servers, path):
+    """Rename a legacy Librarian MCP server entry in ``servers`` in place; return whether it changed."""
+    renamed = False
+    for legacy in LEGACY_LIBRARIAN_MCP_SERVERS:
+        if legacy not in servers:
+            continue
+        entry = servers.pop(legacy)
+        current = servers.setdefault(LIBRARIAN_MCP_SERVER, entry)
+        if current != entry:
+            raise RuntimeError(f"both {legacy} and {LIBRARIAN_MCP_SERVER} are bound differently; "
+                               f"inspect {path} first")
+        renamed = True
+    return renamed
 
 
 def audit_args(label):
@@ -678,7 +714,8 @@ def unmanaged_binding_report(paths, managed=()):
             if not isinstance(server, dict):
                 continue
             command, args = str(server.get("command", "")), server.get("args", [])
-            if name != "falcon-context" and Path(command).name not in LIBRARIAN_COMMANDS:
+            if (name not in (LIBRARIAN_MCP_SERVER, *LEGACY_LIBRARIAN_MCP_SERVERS)
+                    and Path(command).name not in LIBRARIAN_COMMANDS):
                 continue
             args = args if isinstance(args, list) else []
             if "--audit-log" in args and "--agent-label" in args[:-1:]:
@@ -737,6 +774,8 @@ def configure_librarian(librarian_root, librarian_executable=None,
                 raise RuntimeError(f"invalid saved MCP settings; inspect {copilot_path} first")
         else:
             copilot = {}
+        copilot_servers = copilot.setdefault("mcpServers", {})
+        migrate_librarian_server(copilot_servers, copilot_path)
     updated_config = {
         **config,
         "librarian_executable": str(server),
@@ -750,7 +789,9 @@ def configure_librarian(librarian_root, librarian_executable=None,
     saved = mcp.get("mcpServers") if mcp else {}
     if not isinstance(saved, dict):
         raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
-    previously_audited = "--audit-log" in (saved.get("falcon-context") or {}).get("args", [])
+    saved = dict(saved)
+    migrate_librarian_server(saved, mcp_path)
+    previously_audited = "--audit-log" in (saved.get(LIBRARIAN_MCP_SERVER) or {}).get("args", [])
     json_write(STATE / "environment.json", updated_config, replace=True)
     json_write(
         mcp_path,
@@ -758,7 +799,7 @@ def configure_librarian(librarian_root, librarian_executable=None,
             **mcp,
             "mcpServers": {
                 **saved,
-                "falcon-context": {
+                LIBRARIAN_MCP_SERVER: {
                     "command": str(server),
                     "args": librarian_args,
                     "exposure": "codemode",
@@ -769,14 +810,14 @@ def configure_librarian(librarian_root, librarian_executable=None,
         replace=True,
     )
     if copilot_path is not None:
-        servers = copilot.setdefault("mcpServers", {})
-        entry = servers.get("falcon-context")
+        servers = copilot_servers
+        entry = servers.get(LIBRARIAN_MCP_SERVER)
         entry = dict(entry) if isinstance(entry, dict) else {"type": "local", "tools": COPILOT_TOOLS,
                                                               "timeout": 60000}
         entry.update({"command": str(server), "cwd": str(root),
                       "args": librarian_server_args(root, reader, selection,
                                                     COPILOT_AUDIT_LABEL if audit else None)})
-        servers["falcon-context"] = entry
+        servers[LIBRARIAN_MCP_SERVER] = entry
         copilot_path.parent.mkdir(parents=True, exist_ok=True)
         json_write(copilot_path, copilot, replace=True)
     print(f"Librarian MCP provider bound to {root}")
@@ -1400,13 +1441,7 @@ def install_pi_extensions():
     private_read(path)
     private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
     private_dir(STATE / "pi/extensions")
-    forge_ext_src = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace.ts"
-    if forge_ext_src.is_file():
-        private_write(
-            STATE / "pi/extensions/forge-workspace.ts",
-            forge_ext_src.read_text(),
-            replace=True,
-        )
+    install_forge_extension()
     for extension in PI_EXTENSIONS:
         subprocess.run(
             [executable, "install", extension],
@@ -1434,11 +1469,6 @@ def install_pi_extensions():
                        timeout=60, stdout=subprocess.DEVNULL)
     private_dir(STATE / "pi/extensions")
     print(f"Installed {', '.join(PI_EXTENSIONS)} and Kata Pi attention in the isolated Pi profile; no model request was made.")
-
-
-def install_pi_review_extension():
-    """Compatibility entrypoint: install all Pi extensions required by Forge agents."""
-    install_pi_extensions()
 
 
 def roborev_warnings(*, proc_root=Path("/proc")):
@@ -2163,7 +2193,7 @@ def status():
 
 
 ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
-ACCEPT_MCP_SERVERS = ("falcon-context", "kata", "kenn-forge")
+ACCEPT_MCP_SERVERS = (LIBRARIAN_MCP_SERVER, "kata", "kenn-forge")
 
 
 def accept_command_output(name):
@@ -2194,6 +2224,90 @@ def accept_repo(repo):
     hook = Path(hook)
     if not os.access(hook, os.X_OK) or "roborev" not in hook.read_text(errors="replace"):
         raise RuntimeError("post-commit hook does not run roborev; run roborev init --no-daemon")
+    if not repo_init_module().is_installed(repo):
+        raise RuntimeError("protected-branch push guard missing; run "
+                           f"{sys.executable} {RUNTIME_ROOT / 'scripts/local_env.py'} init-repo {repo}")
+
+
+def repo_init_module():
+    """Import scripts/repo_init.py even when this file was loaded by path from elsewhere."""
+    scripts = str(Path(__file__).resolve().parent)
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import repo_init
+    return repo_init
+
+
+def run_native(command, repo, label):
+    """Run a native CLI in a repo with the managed environment; return stderr+stdout on success."""
+    result = subprocess.run(command, cwd=repo, env=base_environment(), text=True,
+                            capture_output=True, timeout=120)
+    if result.returncode:
+        raise RuntimeError(f"{label} failed (exit {result.returncode}): "
+                           f"{(result.stderr or result.stdout).strip()}")
+    return result.stdout + result.stderr
+
+
+def init_repo_services():
+    """Real service bindings for repo_init.init_repo; tests replace them with fakes."""
+    module = repo_init_module()
+
+    def forge_up():
+        try:
+            if forge_probe() is None:
+                raise module.ServiceUnavailable(f"Forge is not answering on 127.0.0.1:{FORGE_PORT}")
+        except urllib.error.URLError as error:
+            raise module.ServiceUnavailable(f"Forge is unreachable: {error}") from error
+
+    def register(repo):
+        settings()
+        forge_up()
+        try:
+            if any(Path(project["local_path"]).resolve() == repo for project in api("GET", "/projects")["projects"]):
+                return "SKIP", "already registered with Forge"
+            with contextlib.redirect_stdout(io.StringIO()):
+                register_project(repo)
+        except urllib.error.URLError as error:
+            raise module.ServiceUnavailable(f"Forge is unreachable: {error}") from error
+        return "OK", "registered with Forge"
+
+    def roborev_init(repo):
+        binary = roborev_binary()
+        if not (binary.is_file() and os.access(binary, os.X_OK)):
+            raise RuntimeError(f"missing executable roborev binary: {binary}")
+        run_native([str(binary), "init", "--no-daemon", "--binary", str(binary)], repo, "roborev init")
+
+    def kata_init(repo, project):
+        binary = RUNTIME_ROOT / "kata/kata"
+        if not os.access(binary, os.X_OK):
+            raise RuntimeError(f"missing executable kata binary: {binary}")
+        try:
+            run_native([str(binary), "init", "--project", project], repo, "kata init")
+        except RuntimeError as error:
+            if "unavailable" in str(error):
+                raise module.ServiceUnavailable("Kata daemon is not reachable") from error
+            raise
+
+    def kata_mapping(project):
+        forge_up()
+        try:
+            listing = handoff_get("forge", "/kata/project-mappings")
+        except urllib.error.URLError as error:
+            raise module.ServiceUnavailable(f"Forge could not read Kata project mappings: {error}") from error
+        item = next((item for item in listing["projects"] if item["project_name"] == project), None)
+        if item is None:
+            return "", ""
+        return item["status"], ((item.get("repo") or {}).get("repo_path") or "").lower()
+
+    return module.InitServices(
+        command=f"{sys.executable} {RUNTIME_ROOT / 'scripts/local_env.py'}",
+        register=register, roborev_init=roborev_init, kata_init=kata_init,
+        kata_mapping=kata_mapping, verify=accept_repo)
+
+
+def init_repo(path, *, project=None, skip_kata=False, remove_guard=False):
+    return repo_init_module().init_repo(path, init_repo_services(), project=project,
+                                        skip_kata=skip_kata, remove_guard_only=remove_guard)
 
 
 def accept(home=None, repos=()):
@@ -2676,7 +2790,6 @@ def main():
                                         help="enable the configured native roborev user service")
     review_install.add_argument("--binary", type=Path, help="select an existing native roborev executable")
     commands.add_parser("install-pi-extensions", help="install pinned extensions in private Pi only")
-    commands.add_parser("install-pi-review-extension", help="compatibility alias for install-pi-extensions")
     review_service = commands.add_parser("roborev-run", help="run the standalone configured roborev service")
     review_service.add_argument("--node-executable", type=Path, required=True)
     commands.add_parser("install-forge-service", help="enable the configured Forge user service")
@@ -2693,8 +2806,15 @@ def main():
                           choices=("openai-completions", "openai-responses", "anthropic-messages"))
     register = commands.add_parser("register", help="register an existing local Git project without editing it")
     register.add_argument("path", type=Path)
+    init_repo_parser = commands.add_parser(
+        "init-repo", help="initialize Forge, roborev, Kata and the protected-branch push guard in another Git repo")
+    init_repo_parser.add_argument("path", type=Path)
+    init_repo_parser.add_argument("--project", help="Kata project name (default: the repository directory name)")
+    init_repo_parser.add_argument("--skip-kata", action="store_true", help="do not create .kata.toml")
+    init_repo_parser.add_argument("--remove-guard", action="store_true",
+                                  help="only remove the protected-branch push guard")
     lib_cfg = commands.add_parser("configure-librarian",
-                                  help="rebind the private falcon-context MCP server to an isolated Librarian instance")
+                                  help="rebind the private falcon-librarian MCP server to an isolated Librarian instance")
     lib_cfg.add_argument("--librarian-root", type=Path, required=True)
     lib_cfg.add_argument("--librarian-executable", type=Path)
     lib_cfg.add_argument("--librarian-reader", type=Path)
@@ -2702,7 +2822,7 @@ def main():
     lib_cfg.add_argument("--audit", action="store_true",
                          help="opt in to the Librarian's private full-text audit log for managed bindings")
     lib_cfg.add_argument("--copilot-config", type=Path,
-                         help="also bind this Copilot MCP config's falcon-context server (never implicit)")
+                         help="also bind this Copilot MCP config's falcon-librarian server (never implicit)")
     mvp = commands.add_parser("provision-librarian-mvp",
                               help="package and initialize an isolated Librarian MVP instance (Layer 1 isolation)")
     mvp.add_argument("--source", type=Path, default=Path.home() / "the_librarian")
@@ -2710,7 +2830,7 @@ def main():
     mvp.add_argument("--inbox", type=Path)
     mvp.add_argument("--repos-root", type=Path)
     mvp.add_argument("--bind-mcp", action="store_true",
-                     help="also rebind the private falcon-context MCP server to this instance")
+                     help="also rebind the private falcon-librarian MCP server to this instance")
     args = parser.parse_args()
     try:
         if args.command == "setup":
@@ -2752,7 +2872,7 @@ def main():
             agentsview_run()
         elif args.command == "install-roborev-service":
             install_roborev_service(args.binary)
-        elif args.command in ("install-pi-extensions", "install-pi-review-extension"):
+        elif args.command == "install-pi-extensions":
             install_pi_extensions()
         elif args.command == "roborev-run":
             roborev_run(args.node_executable)
@@ -2771,6 +2891,9 @@ def main():
             if forge_probe() is None:
                 raise RuntimeError("start the Forge service or `forge-run` before registering a project")
             register_project(args.path)
+        elif args.command == "init-repo":
+            return init_repo(args.path, project=args.project, skip_kata=args.skip_kata,
+                             remove_guard=args.remove_guard)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1

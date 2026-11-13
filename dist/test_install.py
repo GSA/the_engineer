@@ -277,6 +277,15 @@ class InstallerTests(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_installer_pins_match_runtime(self):
+        # dist/install.py runs before the checkout is importable, so it keeps
+        # its own copies; this test is the single drift guard for them.
+        environment = installer.load_environment(installer.ROOT)
+        self.assertEqual(installer.PI_VERSION, environment.PI_VERSION)
+        for name, port in installer.DEFAULT_PORTS.items():
+            with self.subTest(port=name):
+                self.assertEqual(port, environment.DEFAULT_PORTS[name])
+
     def test_manual_instructions_quote_paths_and_cover_all_services(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
@@ -391,7 +400,7 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("missing git", errors.getvalue())
 
     def installation(self):
-        for name in ("forge/kenn-forge", ".local/forge-local-kata/kenn-forge",
+        for name in ("forge/kenn-forge",
                      "roborev/bin/roborev", "kata/kata", "agentsview/agentsview"):
             binary = self.root / name
             binary.parent.mkdir(parents=True, exist_ok=True)
@@ -580,9 +589,9 @@ class InstallerTests(unittest.TestCase):
         self.installation()
         executable, reader, root, selection = self.explicit_librarian()
         with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
-            installer.install(self.root, self.corpus, "normal", "manual",
+            installer.install(self.root, self.corpus, "manual",
                               executable, reader, root, selection)
-            installer.install(self.root, self.corpus, "normal", "manual",
+            installer.install(self.root, self.corpus, "manual",
                               executable, None, root, selection)
         setups = [call.args[0] for call in run.call_args_list if "setup" in call.args[0]]
         self.assertEqual(setups[0][-8:], [
@@ -601,7 +610,7 @@ class InstallerTests(unittest.TestCase):
         self.installation()
         with patch.object(installer, "run") as run, \
                 contextlib.redirect_stdout(io.StringIO()) as output:
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(commands[0], ["bash", "scripts/bootstrap-sources.sh"])
         self.assertEqual(commands[1], ["bash", "scripts/bootstrap-toolchains.sh"])
@@ -626,9 +635,9 @@ class InstallerTests(unittest.TestCase):
     def test_user_install_explicitly_enables_all_four_services(self):
         self.installation()
         with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
-            installer.install(self.root, self.corpus, "local-kata", "user")
+            installer.install(self.root, self.corpus, "user")
         commands = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(commands[2][-1], "forge-local-kata")
+        self.assertEqual(commands[2][-1], "forge")
         self.assertEqual([command[-1] for command in commands[-7:]], [
             "install-kata-service", "install-agentsview-service",
             "install-roborev-service", "install-forge-service", "init", "list", "status",
@@ -722,7 +731,7 @@ class InstallerTests(unittest.TestCase):
                 patch.object(installer, "check_submodule_pins", return_value=[]), \
                 patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
             installer.os.environ.pop("GOPROXY", None)
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         for call in run.call_args_list[:3]:
             self.assertEqual(call.kwargs["env"]["GOPROXY"], "https://proxy.golang.org|direct")
         self.assertEqual([phase["name"] for phase in installer.RECEIPT.phases],
@@ -733,7 +742,7 @@ class InstallerTests(unittest.TestCase):
         with patch.object(installer, "check_submodule_pins", return_value=["Pinned agentsview gone"]), \
                 patch.object(installer, "run") as run, \
                 self.assertRaisesRegex(RuntimeError, "Pinned agentsview gone"):
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         run.assert_not_called()
 
     def test_receipt_records_timing_fixes_and_failures_privately_without_secrets(self):
@@ -857,7 +866,7 @@ class InstallerTests(unittest.TestCase):
                     "review_model": "reviewer", "api": "openai-completions"}
         output = io.StringIO()
         with patch.object(installer, "run") as run, contextlib.redirect_stdout(output):
-            installer.install(self.root, self.corpus, "normal", "user",
+            installer.install(self.root, self.corpus, "user",
                               provider=provider, repos=[repo])
         calls = [(call.args[0], call.kwargs.get("cwd")) for call in run.call_args_list]
         commands = [command for command, _ in calls]
@@ -867,10 +876,11 @@ class InstallerTests(unittest.TestCase):
                                           "--review-model", "reviewer"])
         services = max(i for i, c in enumerate(commands) if c[-1] == "install-forge-service")
         self.assertLess(commands.index(configure), services)
-        self.assertEqual(commands[services + 1][-2:], ["register", str(repo)])
+        self.assertEqual(calls[services + 1],
+                         ([sys.executable, str(self.root / "scripts/local_env.py"), "init-repo", str(repo)],
+                          self.root))
         roborev = self.root / "roborev/bin/roborev"
-        self.assertEqual(calls[services + 2],
-                         ([str(roborev), "init", "--no-daemon", "--binary", str(roborev)], repo))
+        self.assertNotIn("register", [command[-2] for command in commands])
         self.assertEqual(commands[-1][-1], "status")
         self.assertIn(shlex.join([sys.executable, str(self.root / "scripts/local_env.py"),
                                   "accept", "--repo", str(repo)]), output.getvalue())
@@ -885,7 +895,7 @@ class InstallerTests(unittest.TestCase):
         (home / ".roborev").mkdir(parents=True)
         with patch.object(installer, "run") as run, \
                 self.assertRaisesRegex(RuntimeError, "already exists"):
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         run.assert_not_called()
 
     def test_register_repo_and_provider_options_are_validated_before_changes(self):
@@ -914,7 +924,7 @@ class InstallerTests(unittest.TestCase):
         environment = self.installation()
         environment.check_ports.side_effect = RuntimeError("occupied port")
         with patch.object(installer, "run") as run, self.assertRaisesRegex(RuntimeError, "occupied"):
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         run.assert_not_called()
 
     def test_runtime_service_drift_aborts_before_changes(self):
@@ -922,7 +932,7 @@ class InstallerTests(unittest.TestCase):
         environment.SERVICE_PORTS = {"kata": (17777,)}
         with patch.object(installer, "run") as run, \
                 self.assertRaisesRegex(RuntimeError, "services differ"):
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         environment.check_ports.assert_not_called()
         run.assert_not_called()
 
@@ -931,7 +941,7 @@ class InstallerTests(unittest.TestCase):
         with patch.object(installer, "run", side_effect=[
                 None, None, subprocess.CalledProcessError(1, "build")]) as run, \
                 contextlib.redirect_stdout(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
-            installer.install(self.root, self.corpus, "normal", "user")
+            installer.install(self.root, self.corpus, "user")
         self.assertEqual(run.call_count, 3)
 
     def test_successful_command_without_built_artifact_is_not_success(self):
@@ -939,7 +949,7 @@ class InstallerTests(unittest.TestCase):
         (self.root / "kata/kata").unlink()
         with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()), \
                 self.assertRaisesRegex(RuntimeError, "executable.*kata"):
-            installer.install(self.root, self.corpus, "normal", "manual")
+            installer.install(self.root, self.corpus, "manual")
         self.assertEqual(run.call_count, 3)
 
     def test_main_preserves_existing_readable_build_directory(self):
@@ -1002,8 +1012,6 @@ class InstallerTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         binary = root / "agentsview/agentsview"
         forge = root / "forge/kenn-forge"
-        if not forge.is_file():
-            forge = root / ".local/forge-local-kata/kenn-forge"
         if not binary.is_file() or not forge.is_file() or not installer.shutil.which("pi"):
             self.skipTest("Requires locally built binaries and Pi for the isolated runtime check")
         environment = installer.load_environment(root)

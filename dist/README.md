@@ -161,15 +161,14 @@ After checks, the installer:
 8. Reports Pi MCP discovery and prints manual startup/stop instructions.
 9. Registers and starts user services only when explicitly selected. With
    `--services user`, each repeatable `--register-repo PATH` (an existing Git
-   checkout) is registered with Forge and receives roborev Git hooks
-   (`roborev init --no-daemon`), then `local_env.py status` runs.
+   checkout) runs `local_env.py init-repo PATH` (Forge registration, roborev
+   hooks and `.roborev.toml`, Kata `.kata.toml`, and the protected-branch push
+   guard; see the root README, "Initialize the platform in another
+   repository"), then `local_env.py status` runs.
 10. Prints the `local_env.py accept` command (with each `--register-repo` as
     `--repo`) to run after the interactive credential steps.
 
-The normal Forge build is the default. If its known dependency-download path
-is blocked, `--forge-build local-kata` explicitly selects the existing temporary
-local-source build; there is no silent fallback. See
-[`context/tools.md`](../context/tools.md) for provenance and limitations.
+Forge is built from the pinned `forge/` submodule (`scripts/build.sh forge`).
 
 Concurrent installers for the same checkout are rejected. Occupied service
 ports abort installation before builds/configuration; the installer does not

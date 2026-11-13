@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import forgeWorkspaceExtension, { humanOnlyPublication } from "./forge-workspace.ts";
+import forgeWorkspaceExtension, { humanOnlyPublication } from "./index.ts";
 
 let server;
 let cwd;
@@ -137,112 +137,55 @@ for (const scenario of [
     });
 }
 
-// The guard must not stop the pre-authorized workspace PR flow: agents routinely
-// prefix a workspace push with `cd`, so a tracked `cd` has to resolve the real
-// branch instead of assuming `main`.
-test("a workspace-branch push stays allowed after cd, checkout -b, and heredoc text", () => {
-    const root = mkdtempSync(join(tmpdir(), "guard-allow-"));
-    const work = join(root, "work-kenn-forge");
-    mkdirSync(join(work, "nested"), { recursive: true });
-    execFileSync("git", ["init", "-q", "-b", "kenn-forge/work-5a30c3b8", work]);
-    const allowed = [
-        "cd " + work + " && git push -u origin HEAD",
-        "cd nested && git push -u origin HEAD",
-        "git checkout -b follow-up && git push -u origin HEAD",
-        "git switch -c follow-up && git push origin HEAD",
-        "git checkout -- README.md && git push -u origin HEAD",
-        "cat > notes.md <<'DOC'\ncd /tmp/main\ngit push origin main\nDOC\ngit push -u origin HEAD",
-        "echo '<<EOF' && git push -u origin HEAD",
-        "bash <<'EOF'\ngit push -u origin HEAD\nEOF",
-        "# git push origin main\ngit push -u origin HEAD",
-        "cd " + work + " && python3 - <<'E'\nprint(1)\nE\ngit push -u origin HEAD",
-        "git -C " + work + " push -u origin HEAD",
-        "git -C " + join(work, "nested") + " checkout -b follow-up && git -C " + work + " push origin HEAD",
-        "git push -u origin HEAD # not git push origin main",
-        "(cd nested && git status -sb) && git push -u origin HEAD",
-        "timeout 60 git push -u origin HEAD",
-        "gh --repo GSA/the_engineer pr create --fill",
-        "gh -R GSA/the_engineer pr edit 29 --body-file /tmp/body.md",
-        // --work-tree alone does not change the repository the push reads
-        "git --work-tree " + root + " push -u origin HEAD",
-        // a quoted heredoc a program consumes stays data
-        "cat <<'EOF'\n$(git push origin main)\nEOF\ngit push -u origin HEAD",
-    ];
-    try {
-        for (const command of allowed) {
-            expect([command, humanOnlyPublication(command, work)]).toEqual([command, null]);
-        }
-    } finally {
-        rmSync(root, { recursive: true, force: true });
+// Pushing main is enforced by the git pre-push hook that `local_env.py
+// init-repo` installs (scripts/repo_init.py), which sees the real destination.
+// The extension only gates `gh` PR merges, which no git hook can see.
+test("the extension no longer parses git push commands", () => {
+    for (const command of [
+        "git push origin main",
+        "git push -u origin HEAD",
+        "cd ../main-checkout && git push",
+        "git checkout main && git push origin HEAD",
+    ]) {
+        expect([command, humanOnlyPublication(command)]).toEqual([command, null]);
     }
 });
 
-test("pushing main still needs human approval however the branch is reached", () => {
-    const root = mkdtempSync(join(tmpdir(), "guard-block-"));
-    const work = join(root, "work-kenn-forge");
-    const trunk = join(root, "main-checkout");
-    mkdirSync(join(work, "nested"), { recursive: true });
-    mkdirSync(trunk, { recursive: true });
-    execFileSync("git", ["init", "-q", "-b", "kenn-forge/work-5a30c3b8", work]);
-    execFileSync("git", ["init", "-q", "-b", "main", trunk]);
-    const blocked = [
-        [work, "cd " + trunk + " && git push -u origin HEAD"],
-        [work, "cd ../main-checkout && git push"],
-        [work, "cd " + trunk + "; git push -u origin HEAD"],
-        [work, "git checkout main && git push origin HEAD"],
-        [work, "git switch master && git push"],
-        [work, 'cd "$(dirname ' + trunk + ')" && git push origin HEAD'],
-        [work, "cd && git push origin HEAD"],
-        [work, "cd " + join(root, "absent") + " && git push origin HEAD"],
-        [work, "git worktree add ../wt main && git push origin HEAD"],
-        [work, "git -C " + join(root, "absent") + " push origin HEAD"],
-        [work, "git checkout --detach && git push origin HEAD"],
-        [work, "cd " + trunk + " && git checkout -- README.md && git push origin HEAD"],
-        [work, "git push origin HEAD:refs/heads/main"],
-        // a wrapper program must not hide the push it runs
-        [trunk, "timeout 60 git push origin HEAD"],
-        [trunk, "stdbuf -o0 git push origin main"],
-        [trunk, "nice -n 10 git push origin main"],
-        [trunk, "setsid git push origin main"],
-        [trunk, "/usr/bin/timeout 5m git push origin main"],
-        [trunk, "timeout 120 gh pr merge 29 --merge", "pr_merge"],
-        // gh takes its own flags before and between subcommand words
-        [work, "gh --repo GSA/the_engineer pr merge 29 --merge", "pr_merge"],
-        [work, "gh -R GSA/the_engineer pr merge 29", "pr_merge"],
-        [work, "gh pr --repo GSA/the_engineer merge 29", "pr_merge"],
-        [work, "gh api --method PUT /repos/GSA/the_engineer/pulls/29/merge", "pr_merge"],
-        // --git-dir chooses the repository whose HEAD a push moves
-        [work, "git --git-dir=" + join(trunk, ".git") + " --work-tree=" + trunk + " push origin HEAD"],
-        // a wrapper's own valueless option must not swallow the program
-        [work, "env -i /usr/bin/git -C " + trunk + " push origin HEAD"],
-        // a cd a preceding && can skip leaves the earlier directory possible
-        [trunk, "false && cd " + work + "; git push origin HEAD"],
-        // sibling subshells each inherit the outer directory
-        [trunk, "(cd " + work + "); (git push origin HEAD)"],
-        // a shell heredoc's cd stays inside that shell
-        [trunk, "bash <<'EOF'\ncd " + work + "\nEOF\ngit push origin HEAD"],
-        // an unquoted heredoc expands, so its substitutions run
-        [work, "cat <<EOF\n$(git push origin main)\nEOF"],
-        // a checkout in a subdirectory moves the same repository's HEAD
-        [work, "git -C " + join(work, "nested") + " checkout main && git push origin HEAD"],
-        // a heredoc body a shell executes is still a command
-        [work, "bash <<'EOF'\ngit push origin main\nEOF"],
-        // quoted heredoc syntax must not swallow the commands that follow
-        [work, "echo '<<EOF'\ngit push origin main"],
-        // the checkout may fail, leaving HEAD on main, and ; runs the push anyway
-        [trunk, "git checkout -b follow-up; git push origin HEAD"],
-        // a cd inside a subshell, a backtick, or a pipeline stage does not move
-        // the directory the later push runs in
-        [trunk, "(cd " + work + " && git status) && git push origin HEAD"],
-        [trunk, "`cd " + work + "`; git push origin HEAD"],
-        [trunk, "cd " + work + " | cat; git push origin HEAD"],
-    ];
-    try {
-        for (const [dir, command, expected = "push_main"] of blocked) {
-            expect([command, humanOnlyPublication(command, dir)]).toEqual([command, expected]);
-        }
-    } finally {
-        rmSync(root, { recursive: true, force: true });
+test("PR creation, edits and mentions of a merge are not blocked", () => {
+    for (const command of [
+        "gh pr create --fill",
+        "gh --repo GSA/the_engineer pr create --fill",
+        "gh -R GSA/the_engineer pr edit 29 --body-file /tmp/body.md",
+        "gh pr view 29 && gh pr checks 29",
+        "grep -n 'gh pr merge' README.md",
+        "echo \"gh pr merge 29\"",
+        "# gh pr merge 29\ngh pr view 29",
+        "cat <<'EOF'\ngh pr merge 29\nEOF",
+        "gh api repos/GSA/the_engineer/pulls/29",
+    ]) {
+        expect([command, humanOnlyPublication(command)]).toEqual([command, null]);
+    }
+});
+
+test("merging a pull request needs human approval however gh is reached", () => {
+    for (const command of [
+        "gh pr merge 29 --merge",
+        "timeout 120 gh pr merge 29 --merge",
+        "/usr/bin/timeout 2m gh pr merge 29",
+        "env -i /usr/bin/gh pr merge 29",
+        "gh --repo GSA/the_engineer pr merge 29 --merge",
+        "gh -R GSA/the_engineer pr merge 29",
+        "gh pr --repo GSA/the_engineer merge 29",
+        "gh api --method PUT /repos/GSA/the_engineer/pulls/29/merge",
+        "python3 scripts/gh-local.py pr merge 29",
+        "git status && python3 scripts/gh-local.py pr merge 13",
+        "(cd /tmp && gh pr merge 29)",
+        "echo $(gh pr merge 29)",
+        "bash -c 'gh pr merge 29'",
+        "bash <<'EOF'\ngh pr merge 29\nEOF",
+        "cat <<EOF\n$(gh pr merge 29)\nEOF",
+    ]) {
+        expect([command, humanOnlyPublication(command)]).toEqual([command, "pr_merge"]);
     }
 });
 
