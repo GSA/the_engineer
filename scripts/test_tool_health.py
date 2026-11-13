@@ -83,7 +83,7 @@ class HealthTests(unittest.TestCase):
     def test_unreachable_daemon_fails_with_service_remediation_and_skips_project(self):
         results = self.by_name(health.run_checks(server="http://127.0.0.1:1", cwd=self.bound(), project=None, index=None))
         self.assertFalse(results["kata-daemon"]["ok"])
-        self.assertIn("kenn-kopy-kata.service", results["kata-daemon"]["action"])
+        self.assertIn("local_env.py status", results["kata-daemon"]["action"])
         self.assertTrue(results["kata-project"].get("skipped"))
 
     def test_no_binding_fails_and_says_to_pass_project(self):

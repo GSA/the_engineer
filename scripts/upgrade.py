@@ -281,7 +281,7 @@ def forge_binary(config):
         raise UpgradeError(
             f"environment.json still runs the retired local-Kata Forge build ({path}); "
             f"run `bash scripts/build.sh forge`, set forge_binary to {ROOT / 'forge/kenn-forge'} "
-            "in .local/environment/environment.json and restart kenn-kopy-forge.service, then retry")
+            "in .local/environment/environment.json and restart the Forge user service, then retry")
     return path
 
 
@@ -634,7 +634,7 @@ def check_candidate(config, smoke):
     sh([bun, "test", *tests], cwd=path, env=env, timeout=900)
     if smoke:
         sh([sys.executable, "scripts/smoke.py", "--forge-binary", in_tree(forge_binary(config))],
-           cwd=path, env={**env, "KENN_KOPY_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
+           cwd=path, env={**env, "ENGINEER_PORT_OFFSET": SMOKE_PORT_OFFSET}, timeout=600)
 
 
 def run(components=SUBMODULES, pi="latest", pi_subagents="latest", gate_timeout=180):

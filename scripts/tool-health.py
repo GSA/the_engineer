@@ -93,8 +93,8 @@ def check_daemon(server):
     except (OSError, ValueError) as error:
         reason = getattr(error, "reason", error)
         return result("kata-daemon", False, f"{server} unreachable: {reason}",
-                      "systemctl --user status kenn-kopy-kata.service; restart it if stopped "
-                      "(python3 scripts/local_env.py status shows every service). Do not start a second daemon.")
+                      "python3 scripts/local_env.py status shows every service and its unit; "
+                      "restart the stopped Kata unit with systemctl --user. Do not start a second daemon.")
     if not isinstance(ping, dict) or ping.get("service") != "kata":
         return result("kata-daemon", False, f"{server} answered but is not a Kata daemon",
                       "KATA_SERVER points at the wrong service; unset it or use the Kata URL from context/tools.md.")

@@ -31,16 +31,25 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def env_setting(environment, suffix):
+    """Read ENGINEER_<suffix>, falling back to the legacy KENN_KOPY_<suffix>; return (name, value)."""
+    for prefix in ("ENGINEER_", "KENN_KOPY_"):
+        value = environment.get(prefix + suffix, "").strip()
+        if value:
+            return prefix + suffix, value
+    return "ENGINEER_" + suffix, ""
+
+
 def resolve_runtime_root(source_root, environment=None):
     environment = os.environ if environment is None else environment
-    override = environment.get("KENN_KOPY_RUNTIME_ROOT")
+    name, override = env_setting(environment, "RUNTIME_ROOT")
     if override:
         runtime_root = Path(override).expanduser()
         if not runtime_root.is_absolute():
-            raise RuntimeError("KENN_KOPY_RUNTIME_ROOT must be an absolute path")
+            raise RuntimeError(f"{name} must be an absolute path")
         runtime_root = runtime_root.resolve()
         if not runtime_root.is_dir():
-            raise RuntimeError("KENN_KOPY_RUNTIME_ROOT must name an existing directory")
+            raise RuntimeError(f"{name} must name an existing directory")
         return runtime_root
     try:
         result = subprocess.run(
@@ -151,14 +160,38 @@ JQ_BINARY = RUNTIME_ROOT / f".local/tools/jq-{JQ_VERSION}/bin/jq"
 PYDEPS_DIR = RUNTIME_ROOT / ".local/tools/pydeps"
 DEFAULT_PORTS = {"roborev": 17373, "roborev_web": 17374, "kata": 17777,
                  "agentsview": 18080, "forge": 18091, "forge_mcp": 18092}
-AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
-ROBOREV_UNIT = "kenn-kopy-roborev.service"
-FORGE_UNIT = "kenn-kopy-forge.service"
-KATA_UNIT = "kenn-kopy-kata.service"
+# New installs use neutral engineer-* units; an install made before setup
+# recorded unit_prefix keeps its kenn-kopy-* units until an approved migration.
+DEFAULT_UNIT_PREFIX = "engineer"
+LEGACY_UNIT_PREFIX = "kenn-kopy"
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def parse_port_offset(value, source="KENN_KOPY_PORT_OFFSET"):
+def resolve_unit_prefix(config_path=None):
+    config_path = STATE / "environment.json" if config_path is None else Path(config_path)
+    try:
+        saved = json.loads(config_path.read_text())
+    except FileNotFoundError:
+        return DEFAULT_UNIT_PREFIX
+    except (OSError, ValueError):
+        return LEGACY_UNIT_PREFIX
+    prefix = saved.get("unit_prefix", LEGACY_UNIT_PREFIX)
+    if prefix not in (DEFAULT_UNIT_PREFIX, LEGACY_UNIT_PREFIX):
+        raise RuntimeError(f"unsupported unit_prefix {prefix!r} in {config_path}")
+    return prefix
+
+
+def configure_units(prefix):
+    global UNIT_PREFIX, AGENTSVIEW_UNIT, ROBOREV_UNIT, FORGE_UNIT, KATA_UNIT, TMUX_LABEL
+    UNIT_PREFIX = prefix
+    AGENTSVIEW_UNIT = f"{prefix}-agentsview.service"
+    ROBOREV_UNIT = f"{prefix}-roborev.service"
+    FORGE_UNIT = f"{prefix}-forge.service"
+    KATA_UNIT = f"{prefix}-kata.service"
+    TMUX_LABEL = f"{prefix}-local"
+
+
+def parse_port_offset(value, source="ENGINEER_PORT_OFFSET"):
     if isinstance(value, str):
         if not re.fullmatch(r"\d{1,5}", value.strip()):
             raise RuntimeError(f"{source} must be a non-negative integer")
@@ -175,10 +208,11 @@ def parse_port_offset(value, source="KENN_KOPY_PORT_OFFSET"):
 
 
 def resolve_port_offset(environment=None, config_path=None):
-    """Use KENN_KOPY_PORT_OFFSET, else the offset saved by setup, else 0."""
+    """Use ENGINEER_PORT_OFFSET (or legacy KENN_KOPY_PORT_OFFSET), else the saved offset, else 0."""
     environment = os.environ if environment is None else environment
-    if environment.get("KENN_KOPY_PORT_OFFSET", "").strip():
-        return parse_port_offset(environment["KENN_KOPY_PORT_OFFSET"])
+    name, value = env_setting(environment, "PORT_OFFSET")
+    if value:
+        return parse_port_offset(value, name)
     config_path = STATE / "environment.json" if config_path is None else config_path
     try:
         saved = json.loads(Path(config_path).read_text())
@@ -204,6 +238,7 @@ def configure_ports(offset):
 
 
 configure_ports(resolve_port_offset())
+configure_units(resolve_unit_prefix())
 
 
 def private_dir(path, *, create=True):
@@ -273,7 +308,7 @@ def settings(*, create=True):
     config = json.loads(private_read(STATE / "environment.json"))
     saved = parse_port_offset(config.get("port_offset", 0), "saved port_offset")
     if saved != PORT_OFFSET:
-        raise RuntimeError(f"KENN_KOPY_PORT_OFFSET={PORT_OFFSET} differs from the saved "
+        raise RuntimeError(f"ENGINEER_PORT_OFFSET={PORT_OFFSET} differs from the saved "
                            f"port_offset {saved}; unset it or rerun setup in a fresh environment")
     return config
 
@@ -351,7 +386,7 @@ def base_environment(roborev_executable=None):
                                 str(RUNTIME_ROOT / "kata"), str(RUNTIME_ROOT / "agentsview"),
                                 str(JQ_BINARY.parent), str(PYDEPS_DIR / "bin"),
                                 os.environ["PATH"], str(Path.home() / ".local/bin")]),
-        "KENN_KOPY_RUNTIME_ROOT": str(RUNTIME_ROOT),
+        "ENGINEER_RUNTIME_ROOT": str(RUNTIME_ROOT),
         "HOME": str(home),
         "USER": getpass.getuser(),
         "XDG_CONFIG_HOME": str(home / ".config"),
@@ -518,6 +553,10 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         config = {"corpus": str(corpus), **config}
     if PORT_OFFSET:
         config["port_offset"] = PORT_OFFSET
+    prefix = resolve_unit_prefix(STATE / "environment.json")
+    if prefix != LEGACY_UNIT_PREFIX:
+        config["unit_prefix"] = prefix
+    configure_units(prefix)
     if librarian_executable is not None:
         config.update({
             "librarian_executable": str(server),
@@ -549,7 +588,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         STATE / "forge/config.toml",
         f'host = "127.0.0.1"\nport = {FORGE_PORT}\n'
         f'[roborev]\nendpoint = "http://127.0.0.1:{ROBOREV_PORT}"\ninit_managed_clones = false\n'
-        '[tmux]\ncommand = ["tmux", "-L", "kenn-kopy-local"]\n'
+        f'[tmux]\ncommand = ["tmux", "-L", "{TMUX_LABEL}"]\n'
         f'[mcp]\nenabled = true\nhost = "127.0.0.1"\nport = {FORGE_MCP_PORT}\n'
         '[[agents]]\nkey = "pi"\nlabel = "Pi (USAi)"\nenabled = true\n'
         f'command = [{json.dumps(str(wrapper))}]\n'
@@ -1526,7 +1565,7 @@ def github_cli_launch(args):
     return [str(GH_BINARY), *args], env
 
 
-def terminal_launch(action, name="engi-platform"):
+def terminal_launch(action, name="engineer"):
     if action not in ("open", "list", "stop"):
         raise RuntimeError("terminal action must be open, list or stop")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,47}", name):
@@ -1793,7 +1832,7 @@ def install_agentsview_service():
     if not (STATE / "agentsview-tracking.json").exists():
         raise RuntimeError("configure-tracking before installing the AgentsView service")
     install_user_service(
-        AGENTSVIEW_UNIT, "agentsview-run", "Kenn Kopy local Copilot and Pi session tracking",
+        AGENTSVIEW_UNIT, "agentsview-run", "Engineer local agent session tracking",
         SERVICE_PORTS["agentsview"], lambda: managed_agentsview(required=True),
     )
     json_write(STATE / "agentsview-service.json", {"unit": AGENTSVIEW_UNIT}, replace=True)
@@ -1961,7 +2000,7 @@ def install_roborev_service(binary=None):
     env = node_environment(node, roborev_executable=binary)
     verify_pi(config, env=env)
     install_user_service(
-        ROBOREV_UNIT, None, "Engi Platform local code review",
+        ROBOREV_UNIT, None, "Engineer local code review",
         SERVICE_PORTS["roborev"], lambda: managed_roborev(required=True, binary=binary),
         executable=command, environment=tuple(f"{key}={value}" for key, value in env.items()),
         working_directory=STATE / "home",
@@ -2048,7 +2087,7 @@ def install_forge_service():
     forge_command(config)
     private_dir(STATE / "gh")
     install_user_service(
-        FORGE_UNIT, "forge-run", "Engi Platform local workspaces and coding agents",
+        FORGE_UNIT, "forge-run", "Engineer local workspaces and coding agents",
         SERVICE_PORTS["forge"], lambda: managed_forge(required=True),
         args=("--node-executable", node),
     )
@@ -2142,7 +2181,7 @@ def install_kata_service():
     settings()
     validate_kata_config()
     install_user_service(
-        KATA_UNIT, None, "Engi Platform local task ledger",
+        KATA_UNIT, None, "Engineer local task ledger",
         SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
         executable=kata_service_command(),
     )

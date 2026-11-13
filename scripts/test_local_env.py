@@ -35,7 +35,7 @@ class RuntimeRootTests(unittest.TestCase):
     def test_explicit_runtime_root_must_be_absolute_and_existing(self):
         with self.assertRaisesRegex(RuntimeError, "absolute"):
             local_env.resolve_runtime_root(Path("/checkout"),
-                                           {"KENN_KOPY_RUNTIME_ROOT": "relative"})
+                                           {"ENGINEER_RUNTIME_ROOT": "relative"})
         with self.assertRaisesRegex(RuntimeError, "existing directory"):
             local_env.resolve_runtime_root(
                 Path("/checkout"), {"KENN_KOPY_RUNTIME_ROOT": "/missing/runtime/root"})
@@ -86,6 +86,36 @@ class PortOffsetTests(unittest.TestCase):
             self.assertEqual(local_env.resolve_port_offset({}, path), 2000)
             self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 1000)
             self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": ""}, path), 2000)
+
+
+class IdentityTests(unittest.TestCase):
+    def test_unit_prefix_is_neutral_for_new_installs_and_legacy_for_existing_ones(self):
+        with tempfile.TemporaryDirectory(dir=local_env.ROOT / ".local") as directory:
+            path = Path(directory) / "environment.json"
+            self.assertEqual(local_env.resolve_unit_prefix(path), "engineer")
+            path.write_text('{"forge_binary": "/x"}')
+            self.assertEqual(local_env.resolve_unit_prefix(path), "kenn-kopy")
+            path.write_text('{"unit_prefix": "engineer"}')
+            self.assertEqual(local_env.resolve_unit_prefix(path), "engineer")
+
+    def test_unit_names_follow_the_prefix(self):
+        self.addCleanup(local_env.configure_units, local_env.UNIT_PREFIX)
+        local_env.configure_units("engineer")
+        self.assertEqual(local_env.FORGE_UNIT, "engineer-forge.service")
+        self.assertEqual(local_env.KATA_UNIT, "engineer-kata.service")
+        local_env.configure_units("kenn-kopy")
+        self.assertEqual(local_env.AGENTSVIEW_UNIT, "kenn-kopy-agentsview.service")
+        self.assertEqual(local_env.ROBOREV_UNIT, "kenn-kopy-roborev.service")
+
+    def test_engineer_environment_names_win_over_legacy_names(self):
+        with tempfile.TemporaryDirectory(dir=local_env.ROOT / ".local") as directory:
+            path = Path(directory) / "environment.json"
+            self.assertEqual(local_env.resolve_port_offset(
+                {"ENGINEER_PORT_OFFSET": "2000", "KENN_KOPY_PORT_OFFSET": "1000"}, path), 2000)
+            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 1000)
+            root = Path(directory)
+            self.assertEqual(local_env.resolve_runtime_root(
+                Path("/worktree"), {"ENGINEER_RUNTIME_ROOT": str(root)}), root)
 
 
 class LocalEnvironmentTests(unittest.TestCase):
@@ -222,6 +252,20 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("corpus", environment)
         self.assertEqual(set(servers), {"kata", "kenn-forge"})
 
+    def test_setup_keeps_legacy_identity_of_an_existing_install(self):
+        path = self.state / "environment.json"
+        legacy = json.loads(path.read_text())
+        legacy.pop("unit_prefix")
+        local_env.json_write(path, legacy, replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        self.addCleanup(local_env.configure_units, local_env.DEFAULT_UNIT_PREFIX)
+        self.assertNotIn("unit_prefix", json.loads(path.read_text()))
+        self.assertEqual(local_env.FORGE_UNIT, "kenn-kopy-forge.service")
+
+    def test_setup_names_new_installs_engineer(self):
+        self.assertIn('"tmux", "-L", "engineer-local"', (self.state / "forge/config.toml").read_text())
+
     def test_setup_without_corpus_preserves_an_existing_librarian_binding(self):
         before = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         with self.assertRaisesRegex(RuntimeError, "differs from saved"):
@@ -237,6 +281,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             "forge_binary": str(self.binary),
             "pi_executable": "/usr/bin/pi",
             "pi_version": local_env.PI_VERSION,
+            "unit_prefix": "engineer",
         })
         server = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(server, {
@@ -1062,7 +1107,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(local_env.roborev_command()[0], str(binary))
         env = local_env.base_environment()
         self.assertEqual(env["PATH"].split(os.pathsep)[1], str(binary.parent))
-        self.assertEqual(env["KENN_KOPY_RUNTIME_ROOT"], str(local_env.RUNTIME_ROOT))
+        self.assertEqual(env["ENGINEER_RUNTIME_ROOT"], str(local_env.RUNTIME_ROOT))
         binary.unlink()
         with self.assertRaisesRegex(RuntimeError, "missing executable"):
             local_env.roborev_command()

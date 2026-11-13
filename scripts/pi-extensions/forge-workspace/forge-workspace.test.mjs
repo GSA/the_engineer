@@ -757,7 +757,7 @@ test("kata daemon_unavailable points at the service and the health check", async
     const h = load();
     const text = hintText(await failed(h, "bash", { command: "kata show abcd" },
         "ERR show daemon_unavailable: connection refused\nCommand exited with code 7"));
-    expect(text).toContain("kenn-kopy-kata.service");
+    expect(text).toContain("local_env.py status");
     expect(text).toContain("tool-health.py");
 });
 

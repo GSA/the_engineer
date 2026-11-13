@@ -50,9 +50,9 @@ TOOLS = {
     "rg": "ripgrep",
     "fd": "fd-find, then expose Ubuntu's fdfind as fd: "
           "mkdir -p \"$HOME/.local/bin\" && ln -s /usr/bin/fdfind \"$HOME/.local/bin/fd\"",
-    "pi": f"Pi {PI_VERSION}: npm install --prefix \"$HOME/.local/engi-pi\" "
+    "pi": f"Pi {PI_VERSION}: npm install --prefix \"$HOME/.local/engineer-pi\" "
           f"@earendil-works/pi-coding-agent@{PI_VERSION}; "
-          "then add $HOME/.local/engi-pi/node_modules/.bin to PATH",
+          "then add $HOME/.local/engineer-pi/node_modules/.bin to PATH",
 }
 
 
@@ -625,13 +625,25 @@ def service_choice(choice):
     raise RuntimeError("Answer yes or no for service registration; no services were changed.")
 
 
+def unit_prefix(checkout):
+    """Mirror local_env.resolve_unit_prefix: engineer-* for new installs, kenn-kopy-* for older ones."""
+    path = checkout / ".local/environment/environment.json"
+    try:
+        saved = json.loads(path.read_text())
+    except FileNotFoundError:
+        return "engineer"
+    except (OSError, ValueError):
+        return "kenn-kopy"
+    return saved.get("unit_prefix", "kenn-kopy")
+
+
 def check_user_services(checkout):
     for tool in ("systemctl", "systemd-analyze"):
         if shutil.which(tool) is None:
             raise RuntimeError(f"{tool} is required for user services; use --services manual instead.")
     capture(["systemctl", "--user", "show-environment"])
     for project in MANAGED_SERVICES:
-        unit = f"kenn-kopy-{project}.service"
+        unit = f"{unit_prefix(checkout)}-{project}.service"
         # systemctl exits 1 with no output when no unit file matches (a fresh host).
         listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit],
                          empty_failure_ok=True)
@@ -776,7 +788,7 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
     print("  " + shlex.join([*command, "stop"]))
     print("Independent user services are NOT stopped by that command. For each installed unit:")
     for name in MANAGED_SERVICES:
-        print(f"  systemctl --user stop kenn-kopy-{name}.service")
+        print(f"  systemctl --user stop {unit_prefix(checkout)}-{name}.service")
     kata_url = f"http://127.0.0.1:{ports['kata']}"
     print(f"\nNative Kata client selects {kata_url} by default.")
     print(f"\nDashboards: Forge http://127.0.0.1:{ports['forge']}/ | Kata {kata_url}/kata")
@@ -791,7 +803,7 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
     print("  " + shlex.join([str(checkout / "scripts/gh-local.py"), "auth", "login",
                              "--hostname", "github.com", "--web", "--git-protocol", "https",
                              "--insecure-storage"]))
-    print("  systemctl --user restart kenn-kopy-forge.service")
+    print(f"  systemctl --user restart {unit_prefix(checkout)}-forge.service")
     print("Then verify the host (read-only; exits nonzero listing each remaining step):")
     print("  " + shlex.join([*command, "accept",
                              *(arg for repo in repos for arg in ("--repo", str(repo)))]))
