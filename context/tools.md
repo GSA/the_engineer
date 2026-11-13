@@ -23,6 +23,13 @@ AgentsView prices guarded USAi Sol deployments through
 `local_env.py configure-agentsview-pricing` (run by `dist/install.py`)
 appends the `GUARDED_SOL_PRICE_AS` mappings and refuses conflicting entries.
 
+AgentsView tracks Direct API sessions (`[agents.direct-api]` in
+`agentsview/config.toml`) from `~/.agentsview/direct-api` in the real home and
+`<state>/home/.agentsview/direct-api` for the service's home; `configure-tracking`
+and `configure-private-pi-tracking` write both. The agentsview submodule is
+temporarily pinned to the `biggestbinary/agentsview` fork until the upstream
+Direct API PR merges.
+
 Check live health across all four services with:
 
 ```sh
