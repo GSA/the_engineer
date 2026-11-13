@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PI_VERSION = "1.5.0"
+PI_VERSION = "1.5.2"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
 MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
 KATA_DAEMON_NAME = "local"
@@ -69,8 +69,6 @@ def run(command, *, cwd, env=None):
 
 
 GOPROXY_DEFAULT = "https://proxy.golang.org|direct"
-# Owner-approved sources for pins upstream cannot serve; --submodule-mirror NAME=URL overrides.
-DEFAULT_SUBMODULE_MIRRORS = {"agentsview": "https://github.com/biggestbinary/agentsview.git"}
 
 
 class Receipt:
@@ -275,17 +273,6 @@ def parse_mirrors(values):
     return mirrors
 
 
-def with_default_mirrors(mirrors):
-    """Explicit mirrors over DEFAULT_SUBMODULE_MIRRORS, recording each default applied."""
-    merged = dict(mirrors)
-    for name, url in DEFAULT_SUBMODULE_MIRRORS.items():
-        if name not in merged:
-            merged[name] = url
-            RECEIPT.default(f"submodule-mirror {name}={url}")
-            print(f"Using default {name} mirror {url} (override with --submodule-mirror {name}=URL).")
-    return merged
-
-
 def validate_source(source):
     if source.startswith("-") or any(char in source for char in "\n\r\x00"):
         raise RuntimeError("Invalid source repository path/URL.")
@@ -371,8 +358,6 @@ def source_environment(checkout, mirrors, base=None):
     entries = []
     for name, mirror in mirrors.items():
         if name not in pins:
-            if DEFAULT_SUBMODULE_MIRRORS.get(name) == mirror:
-                continue
             raise RuntimeError(f"--submodule-mirror names an unpinned repository: {name}")
         entries.append((f"url.{mirror}.insteadOf", pins[name][1]))
         if _is_local_path(mirror):
@@ -715,6 +700,7 @@ def install(checkout, corpus, choice, librarian_executable=None,
             setup_command.extend(["--librarian-selection", str(librarian_selection)])
     run(setup_command, cwd=checkout)
     run([*command, "configure-private-pi-tracking"], cwd=checkout)
+    run([*command, "configure-agentsview-pricing"], cwd=checkout)
     run([*command, "install-pi-extensions"], cwd=checkout)
     provision_native_roborev_client(checkout)
     if provider is not None:
@@ -837,9 +823,7 @@ def main(argv=None):
     parser.add_argument("--submodule-mirror", action="append", default=[], metavar="NAME=URL",
                         help="owner-approved mirror for a pinned repository (for example "
                              "agentsview=URL) whose upstream remote lacks the pinned commit; "
-                             "repeatable; overrides the built-in default "
-                             f"{', '.join(f'{k}={v}' for k, v in DEFAULT_SUBMODULE_MIRRORS.items())}; "
-                             "the tracked .gitmodules is not changed")
+                             "repeatable; the tracked .gitmodules is not changed")
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
     args = parser.parse_args(argv)
@@ -848,7 +832,7 @@ def main(argv=None):
     RECEIPT.reset()
     RECEIPT.manual_fixes = list(args.record_fix)
     try:
-        mirrors = with_default_mirrors(parse_mirrors(args.submodule_mirror))
+        mirrors = parse_mirrors(args.submodule_mirror)
         repos = [repo.expanduser().resolve() for repo in args.register_repo]
         for repo in repos:
             if not (repo / ".git").exists():

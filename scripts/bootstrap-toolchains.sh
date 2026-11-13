@@ -52,19 +52,19 @@ if [[ "$("$jq_binary" --version)" != "jq-$jq_version" ]]; then
 fi
 
 export npm_config_cache="$PWD/.local/cache/npm"
-mkdir -p .local/downloads .local/tools/go-1.27.3
-if [[ ! -x .local/tools/go-1.27.3/bin/go ]]; then
+mkdir -p .local/downloads .local/tools/go-1.27.4
+if [[ ! -x .local/tools/go-1.27.4/bin/go ]]; then
     curl --fail --location --silent --show-error --max-time 180 \
-        https://go.dev/dl/go1.27.3.linux-amd64.tar.gz \
-        -o .local/downloads/go1.27.3.linux-amd64.tar.gz
+        https://go.dev/dl/go1.27.4.linux-amd64.tar.gz \
+        -o .local/downloads/go1.27.4.linux-amd64.tar.gz
     printf '%s\n' \
-        '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40  .local/downloads/go1.27.3.linux-amd64.tar.gz' \
+        '7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840  .local/downloads/go1.27.4.linux-amd64.tar.gz' \
         | sha256sum --check
-    tar -xzf .local/downloads/go1.27.3.linux-amd64.tar.gz \
-        -C .local/tools/go-1.27.3 --strip-components=1
+    tar -xzf .local/downloads/go1.27.4.linux-amd64.tar.gz \
+        -C .local/tools/go-1.27.4 --strip-components=1
 fi
-if [[ "$(.local/tools/go-1.27.3/bin/go version)" != "go version go1.27.3 linux/amd64" ]]; then
-    echo "Go version mismatch in .local/tools/go-1.27.3." >&2
+if [[ "$(.local/tools/go-1.27.4/bin/go version)" != "go version go1.27.4 linux/amd64" ]]; then
+    echo "Go version mismatch in .local/tools/go-1.27.4." >&2
     exit 1
 fi
 

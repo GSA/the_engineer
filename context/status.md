@@ -7,19 +7,20 @@ seam scanner (`z6jw`) where needed. Knowitall is archived (`wg6t`).
 The priority is measurable value through the configured USAi model roles,
 with qualified evidence and accountable human decisions:
 
-- **P0:** usable corpus (`the_librarian#60h6`, `3y40`), full-context audit
-  integration (`the_librarian#9e3j` -> `s27j`), baseline/scorecard (`ef0w`) and
-  approved ticket inputs (`97fg`). Progress (`the_librarian#rvx5`), daily
-  snapshots (`the_librarian#9qg1`) and capture capability (`86ey`) are closed;
-  verify deployment rather than reopening their implementation.
-- **P1:** post-compaction retrieval (`8vhd`), real-ticket execution (`hk33`,
-  `d8v5`) and refinement-only evidence (`j4v3`), then capture/visuals/rehearsal
-  (`se6n`, `cgsr`, `eszx`). Establish measurement and audit integration before
-  the new run, using an existing approved run for `s27j` acceptance.
-- **Transfer and scale:** clean-host acceptance (`p4ke`) then second-team
-  bootstrap-to-value (`7ygh`); residual intake validation performance
-  (`the_librarian#2rye`) measured after the existing backup fix. The unavailable
-  published AgentsView pin remains a clean-host blocker; preserve local changes.
+- **P0:** full-context audit integration (`the_librarian#9e3j` -> `s27j`) and
+  baseline/scorecard (`ef0w`). Corpus (`the_librarian#60h6`, `3y40`), progress
+  (`the_librarian#rvx5`), daily snapshots (`the_librarian#9qg1`) and capture
+  capability (`86ey`) are closed; verify deployment rather than reopening them.
+- **P1:** post-compaction retrieval (`8vhd`), using an existing approved run
+  for `s27j` acceptance. The connected demo/presentation track (`pyzt`, `hk33`,
+  `d8v5`, `97fg`, `j4v3`, `se6n`, `cgsr`, `eszx`) is retired by owner decision.
+- **Tester visibility:** GIF/video walkthroughs of UI tickets built on
+  `demo-capture.py` (`8ya9`).
+- **Transfer and scale:** clean-host acceptance (`p4ke`, closed) then
+  second-team bootstrap-to-value (`7ygh`). The agentsview submodule tracks
+  upstream; `am2q` removes the remaining mirror text.
+- **Post-1.0:** private hosting (`jmga`), recovery checks (`vg0b`) and Librarian
+  Drive/Confluence import (`the_librarian#qgr1`).
 
 The operating-model hypothesis is that refined routine work moves into an
 agent-executable backlog, while trusted engineers own intent, consequential
@@ -48,10 +49,10 @@ or reconciliation service is installed.
 ## Live environment state
 
 - All four user systemd units are running on loopback:
-  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-3-g08facefa`, schema 50, API `0.44.0`)
-  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-8-g0cb4d19b`)
-  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-17-gecb57cdf4`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.6.0-49-g31c6ac38`)
+  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-20-g0d5893d1`, schema 50, API `0.44.0`)
+  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-21-g1d064c1b`)
+  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-70-g34408addb`)
+  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.6.0-80-gf42d6c06`)
 - Registered Forge repositories: `gsa/the_engineer`, `gsa/the_librarian`,
   `gsa/aos-spud` and `gsa/supply-chain-user-interface`, each mapped to its Kata
   project (`the_engineer`, `the_librarian`, `spud`,
@@ -73,10 +74,16 @@ or reconciliation service is installed.
 - **Toolchain upgrade harness and latest pins (`x0pe`)**:
   - `scripts/upgrade.py` (tests in `scripts/test_upgrade.py`) snapshots,
     applies, verifies, cuts over and rolls back; see `context/tools.md`.
-  - Live on Kata `v0.23.0-3` (schema 50), roborev `v0.75.0-8`, AgentsView
-    `v0.47.0-17` (carried pricing commit replayed as `ecb57cdf4`), Forge
-    `v0.6.0-49`, Pi `1.5.0` and pi-subagents `0.87.0`; acceptance 13/13 and a
-    live rollback drill passed.
+  - Live on Kata `v0.23.0-20` (schema 50), roborev `v0.75.0-21`, AgentsView
+    `v0.47.0-70` (plain upstream; guarded-Sol pricing is
+    `custom_model_pricing.price_as` config from kenn-io/agentsview#2951,
+    written by `configure-agentsview-pricing`, which the installer runs),
+    Forge `v0.6.0-80`, Pi `1.5.2` and pi-subagents `0.88.0`. The previous
+    upgrade passed acceptance 13/13 and a live rollback drill.
+  - Upstream Forge PRs from `biggestbinary/forge`: kenn-io/forge#1965 (list
+    configured Kata daemon IDs in the unknown-daemon error, #1896) and
+    kenn-io/forge#1966 (`kata` source for
+    `kenn_forge_spawn_workspace_with_agent`, #1719); roborev passed on both.
   - Forge now requires Kata Go `v0.21.0` and folds the GitHub App setup into
     `kenn-forge github-app`. `build.sh` builds Forge normally with
     `GOPROXY=proxy.golang.org|direct`, which fetches the `go.kenn.io/kata`
@@ -383,13 +390,9 @@ or reconciliation service is installed.
 - Open MVP work: `d8v5` (uninterrupted Jira-to-PR demo on a fresh owner-selected ticket; awaits the export), `gamy` (PR #6 merged; close after
   verification), `p4ke` (fresh-host installer plus read-only
   `local_env.py accept`; container run of `8bfdd6d` passes 12/14 with only
-  credentials missing, blocked on publishing the unfetchable `agentsview`
-  pin `49b1c6c8` to `kenn-io/agentsview`; the pin is published on the
-  `biggestbinary/agentsview` fork, which the installer applies as its built-in
-  default `agentsview` mirror (receipt `applied_defaults`) until the carried
-  pricing commit lands upstream; the installer now preflights pin
-  fetchability, accepts
-  `--submodule-mirror NAME=URL` (overriding the default), defaults `GOPROXY` to `...|direct` and writes
+  credentials missing, the former unfetchable `agentsview` pin is gone
+  (all pins are now upstream); the installer preflights pin fetchability,
+  accepts an optional `--submodule-mirror NAME=URL` (no default mirror), defaults `GOPROXY` to `...|direct` and writes
   `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
   post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy

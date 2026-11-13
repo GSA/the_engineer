@@ -91,7 +91,7 @@ services. It does not prove corpus freshness, model access or service health.
 
 Required host tools include Bash, Git, curl, tar, coreutils, diffutils, make,
 a C compiler/development headers, tmux, ripgrep (`rg`), fd (`fd`), Node/npm,
-Python and **Pi 1.5.0**. Forge keeps Pi offline, so these search tools must be
+Python and **Pi 1.5.2**. Forge keeps Pi offline, so these search tools must be
 available on `PATH` rather than left for Pi to download at runtime.
 The script reports installation guidance; it does **not** run sudo, install
 Ubuntu packages, upgrade Node or replace global Pi. A typical Ubuntu OS-tools
@@ -112,7 +112,7 @@ Install an approved Node.js 24.11+ and compatible npm separately. Pi can be
 installed in a dedicated user-local prefix, without changing a global profile:
 
 ```sh
-npm install --prefix "$HOME/.local/engi-pi" @earendil-works/pi-coding-agent@1.5.0
+npm install --prefix "$HOME/.local/engi-pi" @earendil-works/pi-coding-agent@1.5.2
 export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 ```
 
@@ -146,9 +146,12 @@ After checks, the installer:
    changed.
 4. Creates missing private configuration under `.local/environment/`, with
    Superpowers and Librarian access in private Pi.
-5. Configures **fresh** AgentsView for private Pi **usage metadata only** and
-   installs the pinned Pi structured-review extension. Existing configured
-   tracking/settings are preserved; incompatible unconfigured settings fail.
+5. Configures **fresh** AgentsView for private Pi **usage metadata only**,
+   prices guarded USAi Sol deployments as their base models
+   (`configure-agentsview-pricing`) and installs the pinned Pi
+   structured-review extension. Existing configured tracking/settings are
+   preserved; incompatible unconfigured settings or conflicting
+   `custom_model_pricing` entries fail.
 6. Links the native `~/.local/bin/roborev` CLI and `~/.roborev` (this
    install's roborev state). Exact existing links are reused; any other file,
    directory or link at either path stops installation before builds.
@@ -276,9 +279,8 @@ copies the installer's own receipt out of the container.
 On 2026-11-01 revision `8bfdd6d` installed end to end and `accept` passed
 12/14; the two failures are the expected missing USAi key and GitHub login.
 That run fetched the `agentsview` pin from a local mirror, because the pin was
-not published on `kenn-io/agentsview`. The pin now names a commit published on
-the `biggestbinary/agentsview` fork, which the installer uses as its built-in
-default `agentsview` mirror until the carried pricing commit lands upstream.
+not published on `kenn-io/agentsview`. Every pin now names a commit published
+upstream, so no mirror is needed.
 
 ### Pin preflight, mirrors and receipts
 
@@ -292,12 +294,8 @@ commit (for example `git -C agentsview push APPROVED_REMOTE_URL
 `--submodule-mirror agentsview=APPROVED_REMOTE_URL`; the mirror is applied only
 to that run through git's `url.<mirror>.insteadOf` environment settings.
 
-`agentsview` defaults to the owner-approved mirror
-`https://github.com/biggestbinary/agentsview.git`, so a clean install needs no
-flag; an explicit `--submodule-mirror agentsview=URL` replaces it (pass the
-`.gitmodules` URL to fetch from upstream directly). The installer prints the
-default it applied and records it in the receipt's `applied_defaults` and
-`submodule_mirrors`. Other repositories have no default mirror.
+No repository has a default mirror; `--submodule-mirror` applies only when
+given. The installer records any mirror in the receipt's `submodule_mirrors`.
 
 Source and build steps run with `GOPROXY=https://proxy.golang.org|direct` when
 `GOPROXY` is unset (`proxy,direct` only falls back on 404/410, so a TLS proxy's

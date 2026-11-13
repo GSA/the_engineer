@@ -84,7 +84,7 @@ for fix in "${fixes[@]}"; do record_fixes+=" --record-fix $(printf %q "$fix")"; 
     install_started=$(date +%s)
     user_exec "set -euxo pipefail
         mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
-        npm install --no-fund --no-audit --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.0
+        npm install --no-fund --no-audit --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.2
         git clone --quiet '$source_url' ~/kenn-kopy
         git -C ~/kenn-kopy checkout --quiet --detach '$revision'
         cd ~/kenn-kopy

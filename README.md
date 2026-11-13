@@ -18,7 +18,7 @@ Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 ## Requirements
 
 - Ubuntu 24.04+ on x86_64, or WSL2
-- Python 3.11+, Node.js 24.11+, Pi `1.5.0`
+- Python 3.11+, Node.js 24.11+, Pi `1.5.2`
 - A USAi API key
 - An approved local corpus path, passed as `--corpus` (always required).
   The default legacy `falcon-docs` binding requires
@@ -31,7 +31,7 @@ Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 sudo apt-get install git curl ca-certificates build-essential libc6-dev \
   tmux python3 python3-venv tar coreutils diffutils ripgrep fd-find
 mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
-npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.0
+npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.2
 export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
 ```
 
@@ -94,6 +94,10 @@ Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
 not edit shell files. The install tracks only Pi sessions from this install. To
 also track Copilot and other Pi transcripts, run `configure-tracking` after
 AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
+The installer also prices guarded USAi Sol deployments (for example
+`gpt-6.1-sol-latest-guardrails-defaultv2`) as their base models. Installs made
+before this change should run `python3 scripts/local_env.py
+configure-agentsview-pricing` once and restart AgentsView.
 
 If the host has no systemd user services, install with `--services manual`, run
 `python3 scripts/local_env.py run` in the foreground, and use

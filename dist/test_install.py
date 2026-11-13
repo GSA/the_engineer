@@ -615,7 +615,9 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(commands[0], ["bash", "scripts/bootstrap-sources.sh"])
         self.assertEqual(commands[1], ["bash", "scripts/bootstrap-toolchains.sh"])
         self.assertEqual(commands[2][-4:], ["roborev", "kata", "agentsview", "forge"])
-        self.assertTrue(any("configure-private-pi-tracking" in command for command in commands))
+        tracking = next(i for i, command in enumerate(commands) if "configure-private-pi-tracking" in command)
+        pricing = next(i for i, command in enumerate(commands) if "configure-agentsview-pricing" in command)
+        self.assertGreater(pricing, tracking)
         self.assertTrue(any("install-pi-extensions" in command for command in commands))
         self.assertFalse(any(any(arg.endswith("-service") for arg in command) for command in commands))
         # Kata and Forge MCP servers need running services; manual installs only print the probe.
@@ -710,26 +712,6 @@ class InstallerTests(unittest.TestCase):
             installer.parse_mirrors(["agentsview=/a", "agentsview=/b"])
         with self.assertRaisesRegex(RuntimeError, "credentials"):
             installer.parse_mirrors(["agentsview=https://user:pw@example.invalid/x.git"])
-
-    def test_default_agentsview_mirror_applies_without_flag_and_cli_overrides(self):
-        default = installer.DEFAULT_SUBMODULE_MIRRORS["agentsview"]
-        installer.RECEIPT.reset()
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(installer.with_default_mirrors(installer.parse_mirrors([])),
-                             {"agentsview": default})
-        self.assertIn(f"submodule-mirror agentsview={default}", installer.RECEIPT.applied_defaults)
-        installer.RECEIPT.reset()
-        explicit = installer.with_default_mirrors(installer.parse_mirrors(["agentsview=/approved"]))
-        self.assertEqual(explicit, {"agentsview": "/approved"})
-        self.assertEqual(installer.RECEIPT.applied_defaults, [])
-
-    def test_default_mirror_is_skipped_when_repository_is_unpinned(self):
-        platform, _, _ = self.pinned_checkout()
-        self.git(platform, "rm", "--quiet", "--cached", "agentsview")
-        self.git(platform, "-c", "user.name=T", "-c", "user.email=t@example.invalid",
-                 "commit", "--quiet", "-m", "unpin")
-        environment = installer.source_environment(platform, dict(installer.DEFAULT_SUBMODULE_MIRRORS), {})
-        self.assertEqual(environment.get("GIT_CONFIG_COUNT"), "0")
 
     def test_goproxy_defaults_to_direct_fallback_and_explicit_value_wins(self):
         installer.RECEIPT.reset()
