@@ -98,7 +98,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   workspace, Pi session, git, roborev and `gh`; absent links print `MISSING`.
 - `python3 scripts/demo-capture.py`: private screenshot/video demos of
   loopback web UIs (`capture`, `import`, `handoff`, `cleanup`, `doctor`,
-  `smoke`) into ignored `.local/demos/` with a provenance manifest; never
+  `smoke`, `walkthrough` GIF + PR-comment draft) into ignored `.local/demos/` with a provenance manifest; never
   uploads. Contract in `context/demo-capture.md`.
 - `python3 scripts/terminal-local.py`: manages persistent local `pi` and
   `copilot` tmux sessions via `.local/environment/runtime/terminal/tmux.sock`.

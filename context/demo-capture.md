@@ -33,9 +33,44 @@ python3 scripts/demo-capture.py capture --repo . --task the_engineer#86ey \
   suite (`scripts/test_demo_capture.py`) runs the same smoke when `doctor`
   passes.
 
+## Tester walkthrough (GIF)
+
+For a UI ticket, add `--walkthrough` (and optionally `--ticket JIRA-KEY`) to
+`capture` (or `smoke`). The driver saves `step-NN.png` after the page opens
+and after every step; the run then renders `walkthrough.gif` (looping, 960 px
+wide, one frame per step under a caption bar `n/N  caption`, 10 MiB cap) and
+`walkthrough.md`, a PR-comment draft with the behavior, task, ticket, commit
+and numbered steps. Both are recorded in `manifest.json` with SHA-256.
+
+```sh
+python3 scripts/demo-capture.py capture --repo . --task the_engineer#8ya9 \
+  --ticket JIRA-123 --demonstrates "Save updates the status line" --walkthrough \
+  --url http://127.0.0.1:8000/ --step 'fill:#name=Synthetic User' \
+  --step 'click:#save' --step 'waitfor:text=Saved'
+python3 scripts/demo-capture.py walkthrough .local/demos/<task>/<bundle>  # re-render
+```
+
+Choices (Kata `8ya9`): GIF over WebM/strip because GitHub inlines it in PR
+descriptions and comments with no player; the WebM stays as the full-motion
+artifact. Testers already open the PR, so the PR comment is the single
+"latest walkthrough + status" page; no dashboard or Jira/Kata upload.
+Needs Pillow (`doctor` reports `pillow`; `apt install python3-pil`). Imported
+manual captures have no steps and cannot be rendered.
+
+Delivery is a human-approved step. After reviewing every frame, with owner
+approval for that file and PR, run the printed command (gh >= 2.99, the
+`github-pr-media` flow):
+
+```sh
+cd <bundle> && gh pr comment <PR> --repo <OWNER/REPO> \
+  --body-file walkthrough.md --attach walkthrough.gif
+```
+
+`gh` rewrites `./walkthrough.gif` in the body to the uploaded asset URL.
+
 ## Toolchain
 
-`doctor` reports the Node.js binary, the `playwright-core` package and the
+`doctor` reports the Pillow availability, the Node.js binary, the `playwright-core` package and the
 browser directory. It reuses an existing `playwright-core` from the Engineer
 `.local/cache/bun/links/` cache (override with `ENGINEER_PLAYWRIGHT_CORE`) and
 browsers from `.local/tools/playwright-browsers` (override with

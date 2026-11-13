@@ -469,6 +469,12 @@ python3 scripts/demo-capture.py capture --task the_engineer#86ey \
 python3 scripts/demo-capture.py handoff .local/demos/<task>/<bundle>
 ```
 
+For a UI ticket, add `--walkthrough` to `capture`: it also renders a captioned,
+looping `walkthrough.gif` and a PR-comment draft (`walkthrough.md`) with the
+task, commit and steps, so testers can see the change on the PR without running
+the app. After reviewing every frame and approving the upload, post it with the
+printed `gh pr comment <PR> --body-file walkthrough.md --attach walkthrough.gif`.
+
 Bundles land in ignored `.local/demos/` with a provenance manifest and are
 never uploaded. Review every frame before sharing; attaching to a PR or issue
 needs your explicit approval. Manual capture, limits, retention and failure

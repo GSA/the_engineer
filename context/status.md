@@ -15,7 +15,8 @@ with qualified evidence and accountable human decisions:
   for `s27j` acceptance. The connected demo/presentation track (`pyzt`, `hk33`,
   `d8v5`, `97fg`, `j4v3`, `se6n`, `cgsr`, `eszx`) is retired by owner decision.
 - **Tester visibility:** GIF/video walkthroughs of UI tickets built on
-  `demo-capture.py` (`8ya9`).
+  `demo-capture.py` (`8ya9`): `capture --walkthrough` renders a captioned GIF
+  plus PR-comment draft; upload stays human-approved.
 - **Transfer and scale:** clean-host acceptance (`p4ke`, closed) then
   second-team bootstrap-to-value (`7ygh`). The agentsview submodule tracks
   upstream; `am2q` removes the remaining mirror text.
@@ -148,6 +149,9 @@ or reconciliation service is installed.
     imports a manual capture, into `.local/demos/` with an
     `engineer.demo-capture/v1` manifest. Handoff prints verified local links;
     nothing is uploaded. Contract: `context/demo-capture.md`.
+  - `capture --walkthrough` / `walkthrough BUNDLE` (`8ya9`) adds per-step
+    frames, a captioned `walkthrough.gif` and `walkthrough.md` (Pillow);
+    the PR comment is the tester-facing page.
 
 - **Content-led PR descriptions (`8gp7`)**:
   - Forge coder, branch-finishing and automatic formatter guidance share one

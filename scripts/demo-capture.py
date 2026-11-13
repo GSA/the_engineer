@@ -4,6 +4,8 @@
   capture   drive a loopback URL with headless Playwright Chromium and save a
             screenshot, optional video, and a provenance manifest
   import    register a manually captured screenshot or video (fallback)
+  walkthrough  render a captioned step-by-step GIF and PR-comment draft from a
+            bundle captured with --walkthrough
   handoff   verify a bundle and print reviewer-ready local references
   cleanup   list (default) or delete (--apply) bundles past retention
   doctor    check the Node/Playwright/browser toolchain
@@ -17,6 +19,7 @@ import argparse
 import datetime
 import hashlib
 import http.server
+import importlib.util
 import ipaddress
 import json
 import os
@@ -27,6 +30,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import urllib.parse
 import urllib.request
@@ -39,6 +43,10 @@ SCREENSHOT_LIMIT = 10 * 1024 * 1024
 VIDEO_LIMIT = 50 * 1024 * 1024
 MAX_WAIT_MS = 30_000
 DEFAULT_RETENTION_DAYS = 30
+WALKTHROUGH_LIMIT = 10 * 1024 * 1024  # GitHub's inline image ceiling
+WALKTHROUGH_WIDTH = 960
+FRAME_MS, LAST_FRAME_MS = 1800, 3500
+STEP_FRAME_RE = re.compile(r"^step-(\d{2,})\.png$")
 FORMATS = {".png": "screenshot", ".webm": "video", ".mp4": "video"}
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 MANUAL_FALLBACK = (
@@ -221,6 +229,7 @@ def doctor(env=None, node="auto", video=True):
         "node": node,
         "playwright_core": str(core) if core else None,
         "browsers_path": str(browsers),
+        "pillow": importlib.util.find_spec("PIL") is not None,
         "problems": problems,
     }
 
@@ -247,9 +256,9 @@ def bundle_dir(out_root, task, commit):
     return Path(out_root) / slug / f"{stamp}-{(commit or 'nocommit')[:12]}"
 
 
-def write_manifest(bundle, manifest):
+def write_manifest(bundle, manifest, replace=False):
     path = bundle / "manifest.json"
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | (os.O_TRUNC if replace else os.O_EXCL), 0o600)
     with os.fdopen(fd, "w") as handle:
         json.dump(manifest, handle, indent=2)
         handle.write("\n")
@@ -261,6 +270,7 @@ def base_manifest(args, repo, info, method):
         "schema": SCHEMA,
         "task": args.task,
         "demonstrates": args.demonstrates,
+        "ticket": getattr(args, "ticket", None),
         "repository": str(repo),
         **info,
         "method": method,
@@ -277,7 +287,7 @@ def base_manifest(args, repo, info, method):
 
 def describe(bundle, path, kind):
     path.chmod(0o600)
-    limit = VIDEO_LIMIT if kind == "video" else SCREENSHOT_LIMIT
+    limit = {"video": VIDEO_LIMIT, "walkthrough": WALKTHROUGH_LIMIT}.get(kind, SCREENSHOT_LIMIT)
     size = enforce_size(path, limit)
     return {"kind": kind, "file": path.name, "bytes": size, "sha256": sha256_file(path)}
 
@@ -308,6 +318,8 @@ def preflight(url, timeout):
 def capture(args, url=None):
     url = require_loopback(url or args.url)
     steps = parse_steps(args.step)
+    if args.walkthrough:
+        require_pillow()
     report = doctor(video=not args.no_video)
     if not report["ok"]:
         raise CaptureError("; ".join(report["problems"]))
@@ -329,6 +341,7 @@ def capture(args, url=None):
         "full_page": args.full_page,
         "step_timeout_ms": 10_000,
         "step_pause_ms": 600,
+        "step_shots": bool(args.walkthrough),
     }
     env = {**os.environ, "PLAYWRIGHT_BROWSERS_PATH": report["browsers_path"]}
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
@@ -360,6 +373,8 @@ def capture(args, url=None):
     }
     manifest["artifacts"] = [describe(bundle, bundle / a["file"], a["kind"]) for a in result["artifacts"]]
     write_manifest(bundle, manifest)
+    if args.walkthrough:
+        build_walkthrough(bundle)
     return bundle
 
 
@@ -384,6 +399,135 @@ def import_capture(args):
     manifest["artifacts"] = artifacts
     write_manifest(bundle, manifest)
     return bundle
+
+
+# --------------------------------------------------------------- walkthrough
+
+
+def require_pillow():
+    try:
+        import PIL  # noqa: F401
+    except ImportError:
+        raise CaptureError(
+            "Pillow is required for walkthroughs (Debian/Ubuntu: apt install python3-pil, "
+            "or pip install pillow); the PNG and WebM artifacts do not need it"
+        ) from None
+
+
+def step_caption(step):
+    """Tester-readable text for one scripted step."""
+    action = step["action"]
+    if action == "click":
+        return f"Click {step['selector']}"
+    if action == "fill":
+        return f"Enter \u201c{step['value']}\u201d in {step['selector']}"
+    if action == "press":
+        return f"Press {step['value']} in {step['selector']}"
+    if action == "waitfor":
+        return f"Wait for {step['selector']}"
+    if action == "wait":
+        return f"Wait {step['ms']} ms"
+    if action == "goto":
+        return f"Open {step['url']}"
+    return f"Screenshot: {step['name']}"
+
+
+def render_walkthrough(frames, captions, out_path, title=None):
+    """Write a looping GIF: each PNG frame under a caption bar ("n/N  caption")."""
+    require_pillow()
+    from PIL import Image, ImageDraw, ImageFont
+
+    if not frames or len(frames) != len(captions):
+        raise CaptureError("a walkthrough needs one caption per frame and at least one frame")
+    try:
+        font = ImageFont.load_default(size=18)
+    except TypeError:  # Pillow without FreeType sizing
+        font = ImageFont.load_default()
+    images = []
+    for path in frames:
+        with Image.open(path) as source:
+            image = source.convert("RGB")
+        if image.width > WALKTHROUGH_WIDTH:
+            image = image.resize((WALKTHROUGH_WIDTH, max(1, round(image.height * WALKTHROUGH_WIDTH / image.width))))
+        images.append(image)
+    width, height = images[0].size
+    bar = 64
+    total = len(images)
+    rendered = []
+    for number, (image, caption) in enumerate(zip(images, captions), 1):
+        text = f"{number}/{total}  {caption}"
+        if number == 1 and title:
+            text = f"{text}\n{title}"
+        canvas = Image.new("RGB", (width, height + bar), (24, 26, 31))
+        canvas.paste(image.resize((width, height)) if image.size != (width, height) else image, (0, 0))
+        draw = ImageDraw.Draw(canvas)
+        lines = []
+        for part in text.split("\n"):
+            lines += textwrap.wrap(part, max(20, width // 10)) or [""]
+        draw.multiline_text((12, height + 8), "\n".join(lines[:2]), fill=(235, 238, 245), font=font)
+        rendered.append(canvas.convert("P", palette=Image.ADAPTIVE, colors=128))
+    durations = [FRAME_MS] * (total - 1) + [LAST_FRAME_MS]
+    rendered[0].save(out_path, save_all=True, append_images=rendered[1:], duration=durations, loop=0, optimize=True)
+    return out_path
+
+
+def walkthrough_note(manifest):
+    commit = (manifest.get("commit") or "uncommitted")[:12]
+    ticket = manifest.get("ticket")
+    steps = manifest["capture"].get("steps") or []
+    lines = [
+        f"### Walkthrough: {manifest['demonstrates']}",
+        "",
+        f"Task `{manifest['task']}`" + (f" \u00b7 ticket `{ticket}`" if ticket else "")
+        + f" \u00b7 commit `{commit}`" + (" (dirty tree)" if manifest.get("dirty") else ""),
+        "",
+        "![Walkthrough of the change](./walkthrough.gif)",
+        "",
+        "Steps:",
+        "",
+        "1. Open the page",
+    ]
+    lines += [f"{i}. {step_caption(step)}" for i, step in enumerate(steps, 2)]
+    lines += ["", "_Captured with synthetic data only; frames reviewed before upload._"]
+    return "\n".join(lines) + "\n"
+
+
+def build_walkthrough(bundle):
+    """Render walkthrough.gif and walkthrough.md for a bundle with step frames."""
+    bundle, manifest = load_verified(bundle)
+    frames = sorted(p for p in bundle.iterdir() if STEP_FRAME_RE.match(p.name))
+    steps = (manifest.get("capture") or {}).get("steps")
+    if not frames or steps is None:
+        raise CaptureError(
+            f"{bundle} has no step frames; capture it with `capture --walkthrough` "
+            "(imported manual captures have no scripted steps)"
+        )
+    if len(frames) != len(steps) + 1:
+        raise CaptureError(f"{bundle} has {len(frames)} step frames for {len(steps)} steps; recapture")
+    captions = ["Open the page"] + [step_caption(step) for step in steps]
+    gif = bundle / "walkthrough.gif"
+    note = bundle / "walkthrough.md"
+    for path in (gif, note):
+        path.unlink(missing_ok=True)
+    manifest["artifacts"] = [a for a in manifest["artifacts"] if a["file"] not in (gif.name, note.name)]
+    render_walkthrough(frames, captions, gif, title=manifest["demonstrates"])
+    old = os.umask(0o077)
+    try:
+        note.write_text(walkthrough_note(manifest))
+    finally:
+        os.umask(old)
+    manifest["artifacts"] += [describe(bundle, gif, "walkthrough"), describe(bundle, note, "note")]
+    write_manifest(bundle, manifest, replace=True)
+    return bundle
+
+
+def walkthrough_instructions(bundle):
+    return "\n".join([
+        f"Walkthrough: {bundle / 'walkthrough.gif'} (caption draft: {bundle / 'walkthrough.md'})",
+        "Review every frame, then, with explicit owner approval, post it on the PR (gh >= 2.99):",
+        f"  cd {shlex.quote(str(bundle))} && gh pr comment <PR> --repo <OWNER/REPO> "
+        "--body-file walkthrough.md --attach walkthrough.gif",
+    ])
 
 
 def load_verified(bundle):
@@ -467,7 +611,7 @@ def smoke(args):
         args.demonstrates = "Synthetic save button updates the status line"
         args.repo = REPO_ROOT
         args.step = ["screenshot:before", "fill:#name=Synthetic User", "click:#save", "waitfor:text=Saved"]
-        args.viewport, args.no_video, args.full_page = "800x500", False, False
+        args.viewport, args.no_video, args.full_page, args.ticket = "800x500", False, False, None
         return capture(args, url=f"http://127.0.0.1:{server.server_address[1]}/")
     finally:
         server.shutdown()
@@ -485,6 +629,7 @@ def build_parser():
         p.add_argument("--repo", default=".", help="project being demonstrated (default: cwd)")
         p.add_argument("--task", required=True, help="Kata/PR reference, e.g. the_engineer#86ey")
         p.add_argument("--demonstrates", required=True, help="behavior the artifact shows")
+        p.add_argument("--ticket", help="optional Jira/tracker key recorded in the manifest")
         p.add_argument("--out-root", help="default <repo>/.local/demos")
         p.add_argument("--retention-days", type=int, default=DEFAULT_RETENTION_DAYS)
 
@@ -495,12 +640,17 @@ def build_parser():
     cap.add_argument("--viewport", default="1280x800")
     cap.add_argument("--no-video", action="store_true")
     cap.add_argument("--full-page", action="store_true")
+    cap.add_argument("--walkthrough", action="store_true",
+                     help="also save a frame per step and render a captioned walkthrough.gif")
     cap.add_argument("--timeout", type=int, default=120, help="seconds for the whole capture")
 
     imp = sub.add_parser("import", help="register a manual capture")
     common(imp)
     imp.add_argument("--steps", required=True, help="how the capture was made")
     imp.add_argument("files", nargs="+")
+
+    walk = sub.add_parser("walkthrough", help="render walkthrough.gif and a PR-comment draft from a bundle")
+    walk.add_argument("bundle")
 
     hand = sub.add_parser("handoff", help="verify a bundle and print reviewer references")
     hand.add_argument("bundle")
@@ -517,6 +667,7 @@ def build_parser():
     smk.add_argument("--out-root")
     smk.add_argument("--timeout", type=int, default=90)
     smk.add_argument("--retention-days", type=int, default=1)
+    smk.add_argument("--walkthrough", action="store_true")
     return parser
 
 
@@ -531,6 +682,8 @@ def main(argv=None):
             bundle = import_capture(args)
         elif args.command == "smoke":
             bundle = smoke(args)
+        elif args.command == "walkthrough":
+            bundle = build_walkthrough(args.bundle)
         elif args.command == "handoff":
             print(handoff(args.bundle))
             return 0
@@ -549,6 +702,8 @@ def main(argv=None):
         print(f"demo-capture: {exc}", file=sys.stderr)
         return 2
     print(handoff(bundle))
+    if (bundle / "walkthrough.gif").is_file():
+        print(walkthrough_instructions(bundle))
     print(bundle)
     return 0
 

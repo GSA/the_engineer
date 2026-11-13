@@ -157,6 +157,112 @@ class PrivacyAndLimitTests(unittest.TestCase):
             self.assertIn(".png", err)
 
 
+def synthetic_frames(directory, count, size=(1280, 800)):
+    from PIL import Image, ImageDraw
+
+    paths = []
+    for index in range(count):
+        image = Image.new("RGB", size, (246, 248, 250))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((40, 40, 40 + 100 * (index + 1), 140), fill=(30, 100, 200))
+        path = Path(directory) / f"step-{index:02d}.png"
+        image.save(path)
+        paths.append(path)
+    return paths
+
+
+@unittest.skipUnless(demo.doctor()["pillow"], "Pillow unavailable")
+class WalkthroughTests(unittest.TestCase):
+    def test_step_captions_are_tester_readable(self):
+        steps = demo.parse_steps(["fill:#name=Synthetic User", "click:#save", "waitfor:text=Saved",
+                                  "press:#name=Enter", "wait:500", "screenshot:after"])
+        captions = [demo.step_caption(s) for s in steps]
+        self.assertEqual(captions[0], "Enter \u201cSynthetic User\u201d in #name")
+        self.assertEqual(captions[1], "Click #save")
+        self.assertEqual(captions[2], "Wait for text=Saved")
+        self.assertEqual(captions[3], "Press Enter in #name")
+        self.assertEqual(captions[4], "Wait 500 ms")
+        self.assertEqual(captions[5], "Screenshot: after")
+
+    def test_render_makes_looping_captioned_gif(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = synthetic_frames(tmp, 3)
+            out = demo.render_walkthrough(frames, ["Open", "Click #save", "Saved"], Path(tmp) / "w.gif", title="T")
+            data = out.read_bytes()
+            self.assertTrue(data.startswith(b"GIF89a"))
+            with Image.open(out) as gif:
+                self.assertEqual(gif.n_frames, 3)
+                self.assertEqual(gif.info["loop"], 0)
+                self.assertEqual(gif.size[0], demo.WALKTHROUGH_WIDTH)  # downscaled from 1280
+                self.assertGreater(gif.size[1], 600)  # frame plus caption bar
+                gif.seek(2)
+                self.assertEqual(gif.info["duration"], demo.LAST_FRAME_MS)
+            self.assertLess(len(data), demo.WALKTHROUGH_LIMIT)
+
+    def test_render_rejects_mismatched_captions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frames = synthetic_frames(tmp, 2)
+            with self.assertRaises(demo.CaptureError):
+                demo.render_walkthrough(frames, ["only one"], Path(tmp) / "w.gif")
+
+    def _scripted_bundle(self, tmp, frames=3):
+        repo = make_repo(tmp)
+        bundle = Path(tmp) / "bundle"
+        bundle.mkdir(mode=0o700)
+        synthetic_frames(bundle, frames)
+        steps = demo.parse_steps(["fill:#name=Synthetic User", "click:#save"])
+        args = type("A", (), dict(task="the_engineer#8ya9", demonstrates="Save updates status",
+                                  retention_days=30, argv=["capture"], ticket="SYN-1"))
+        manifest = demo.base_manifest(args, repo, demo.git_info(repo)[1], "scripted")
+        manifest["capture"] = {"url": "http://127.0.0.1:1/", "steps": steps}
+        manifest["artifacts"] = [demo.describe(bundle, p, "screenshot") for p in sorted(bundle.glob("step-*.png"))]
+        demo.write_manifest(bundle, manifest)
+        return bundle
+
+    def test_walkthrough_command_adds_verified_gif_and_comment_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self._scripted_bundle(tmp)
+            code, out, err = run_main("walkthrough", str(bundle))
+            self.assertEqual(code, 0, err)
+            manifest = json.loads((bundle / "manifest.json").read_text())
+            kinds = {a["file"]: a["kind"] for a in manifest["artifacts"]}
+            self.assertEqual(kinds["walkthrough.gif"], "walkthrough")
+            self.assertEqual(kinds["walkthrough.md"], "note")
+            self.assertEqual(stat.S_IMODE((bundle / "walkthrough.gif").stat().st_mode), 0o600)
+            note = (bundle / "walkthrough.md").read_text()
+            for expected in ("Save updates status", "the_engineer#8ya9", "SYN-1", manifest["commit"][:12],
+                             "1. Open the page", "2. Enter \u201cSynthetic User\u201d in #name", "3. Click #save"):
+                self.assertIn(expected, note)
+            self.assertIn("--attach walkthrough.gif", out)
+            self.assertIn("explicit owner approval", out)
+            self.assertNotIn("uploaded to", out)
+            demo.load_verified(bundle)  # manifest hashes still verify
+            # rerun replaces rather than duplicates
+            self.assertEqual(run_main("walkthrough", str(bundle))[0], 0)
+            again = json.loads((bundle / "manifest.json").read_text())
+            self.assertEqual([a["file"] for a in again["artifacts"]].count("walkthrough.gif"), 1)
+
+    def test_walkthrough_refuses_bundle_without_step_frames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = make_repo(tmp)
+            source = Path(tmp) / "manual.png"
+            source.write_bytes(b"\x89PNG\r\n\x1a\n")
+            _, out, _ = run_main("import", "--repo", str(repo), "--task", "t#1",
+                                 "--demonstrates", "x", "--steps", "manual", str(source))
+            code, _, err = run_main("walkthrough", out.strip().splitlines()[-1])
+            self.assertEqual(code, 2)
+            self.assertIn("--walkthrough", err)
+
+    def test_walkthrough_refuses_frame_count_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self._scripted_bundle(tmp, frames=2)
+            code, _, err = run_main("walkthrough", str(bundle))
+            self.assertEqual(code, 2)
+            self.assertIn("recapture", err)
+
+
 class HandoffAndCleanupTests(unittest.TestCase):
     def _bundle(self, tmp):
         repo = make_repo(tmp)
@@ -288,6 +394,20 @@ class BoundedSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(manifest["capture"]["blocked_requests"], 1)
             self.assertGreaterEqual(manifest["capture"]["blocked_websockets"], 1)
             self.assertEqual(manifest["method"], "scripted")
+
+    @unittest.skipUnless(demo.doctor()["pillow"], "Pillow unavailable")
+    def test_smoke_walkthrough_renders_one_frame_per_step(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out, err = run_main("smoke", "--walkthrough", "--out-root", tmp, "--timeout", "90")
+            self.assertEqual(code, 0, err)
+            bundle = Path(out.strip().splitlines()[-1])
+            self.assertEqual(len(list(bundle.glob("step-*.png"))), 5)  # open + 4 steps
+            with Image.open(bundle / "walkthrough.gif") as gif:
+                self.assertEqual(gif.n_frames, 5)
+            self.assertIn("Enter \u201cSynthetic User\u201d in #name", (bundle / "walkthrough.md").read_text())
+            demo.load_verified(bundle)
 
 
 if __name__ == "__main__":
