@@ -7,19 +7,20 @@ seam scanner (`z6jw`) where needed. Knowitall is archived (`wg6t`).
 The priority is measurable value through the configured USAi model roles,
 with qualified evidence and accountable human decisions:
 
-- **P0:** usable corpus (`the_librarian#60h6`, `3y40`), full-context audit
-  integration (`the_librarian#9e3j` -> `s27j`), baseline/scorecard (`ef0w`) and
-  approved ticket inputs (`97fg`). Progress (`the_librarian#rvx5`), daily
-  snapshots (`the_librarian#9qg1`) and capture capability (`86ey`) are closed;
-  verify deployment rather than reopening their implementation.
-- **P1:** post-compaction retrieval (`8vhd`), real-ticket execution (`hk33`,
-  `d8v5`) and refinement-only evidence (`j4v3`), then capture/visuals/rehearsal
-  (`se6n`, `cgsr`, `eszx`). Establish measurement and audit integration before
-  the new run, using an existing approved run for `s27j` acceptance.
-- **Transfer and scale:** clean-host acceptance (`p4ke`) then second-team
-  bootstrap-to-value (`7ygh`); residual intake validation performance
-  (`the_librarian#2rye`) measured after the existing backup fix. The unavailable
-  published AgentsView pin remains a clean-host blocker; preserve local changes.
+- **P0:** full-context audit integration (`the_librarian#9e3j` -> `s27j`) and
+  baseline/scorecard (`ef0w`). Corpus (`the_librarian#60h6`, `3y40`), progress
+  (`the_librarian#rvx5`), daily snapshots (`the_librarian#9qg1`) and capture
+  capability (`86ey`) are closed; verify deployment rather than reopening them.
+- **P1:** post-compaction retrieval (`8vhd`), using an existing approved run
+  for `s27j` acceptance. The connected demo/presentation track (`pyzt`, `hk33`,
+  `d8v5`, `97fg`, `j4v3`, `se6n`, `cgsr`, `eszx`) is retired by owner decision.
+- **Tester visibility:** GIF/video walkthroughs of UI tickets built on
+  `demo-capture.py` (`8ya9`).
+- **Transfer and scale:** clean-host acceptance (`p4ke`, closed) then
+  second-team bootstrap-to-value (`7ygh`). The agentsview submodule tracks
+  upstream; `am2q` removes the remaining mirror text.
+- **Post-1.0:** private hosting (`jmga`), recovery checks (`vg0b`) and Librarian
+  Drive/Confluence import (`the_librarian#qgr1`).
 
 The operating-model hypothesis is that refined routine work moves into an
 agent-executable backlog, while trusted engineers own intent, consequential
