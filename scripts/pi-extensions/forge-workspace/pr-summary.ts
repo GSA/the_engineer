@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { PR_DESCRIPTION_GUIDANCE } from "./prompts.ts";
@@ -22,6 +24,44 @@ function readUsaiBaseUrl(): string {
 		}
 	}
 	return USAI_DEFAULT_BASE_URL;
+}
+
+// Body-free AgentsView "Direct API" session file: token counts only, never prompts or replies.
+function recordDirectApiUsage(name: string, provider: string, model: string, usage: unknown, cwd: string): void {
+	try {
+		const tokens: any = usage;
+		const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+		const cacheRead = count(tokens?.prompt_tokens_details?.cached_tokens);
+		const input = Math.max(count(tokens?.prompt_tokens) - cacheRead, 0);
+		const output = count(tokens?.completion_tokens);
+		const now = new Date();
+		const timestamp = now.toISOString();
+		const sessionId = randomUUID();
+		const infoId = randomUUID().slice(0, 8);
+		const lines = [
+			{ type: "session", version: 3, id: sessionId, timestamp, cwd },
+			{ type: "session_info", id: infoId, parentId: null, timestamp, name },
+			{
+				type: "message",
+				id: randomUUID().slice(0, 8),
+				parentId: infoId,
+				timestamp,
+				message: {
+					role: "assistant",
+					provider,
+					model,
+					content: [],
+					usage: { input, output, cacheRead, cacheWrite: 0, totalTokens: input + output + cacheRead },
+					timestamp: now.getTime(),
+				},
+			},
+		];
+		const dir = process.env.AGENTSVIEW_DIRECT_API_DIR?.trim() || join(homedir(), ".agentsview", "direct-api");
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, `${sessionId}.jsonl`), lines.map((line) => `${JSON.stringify(line)}\n`).join(""));
+	} catch {
+		// Usage logging must never affect the PR description
+	}
 }
 
 export function extractResultText(result: any): string {
@@ -109,6 +149,7 @@ export async function summarizePrWithGemini(cwd: string, commandOutput: string):
 			return;
 		}
 		const payload: any = await response.json();
+		recordDirectApiUsage("forge PR description", "usai", GEMINI_SUMMARY_MODEL, payload?.usage, cwd);
 		const summary = payload?.choices?.[0]?.message?.content;
 		if (typeof summary === "string" && summary.trim()) {
 			runGitOrGh("gh", ["pr", "edit", pr.url, "--body-file", "-"], cwd, `${summary.trim()}\n`);
