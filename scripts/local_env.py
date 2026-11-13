@@ -774,6 +774,8 @@ def configure_librarian(librarian_root, librarian_executable=None,
                 raise RuntimeError(f"invalid saved MCP settings; inspect {copilot_path} first")
         else:
             copilot = {}
+        copilot_servers = copilot.setdefault("mcpServers", {})
+        migrate_librarian_server(copilot_servers, copilot_path)
     updated_config = {
         **config,
         "librarian_executable": str(server),
@@ -808,8 +810,7 @@ def configure_librarian(librarian_root, librarian_executable=None,
         replace=True,
     )
     if copilot_path is not None:
-        servers = copilot.setdefault("mcpServers", {})
-        migrate_librarian_server(servers, copilot_path)
+        servers = copilot_servers
         entry = servers.get(LIBRARIAN_MCP_SERVER)
         entry = dict(entry) if isinstance(entry, dict) else {"type": "local", "tools": COPILOT_TOOLS,
                                                               "timeout": 60000}

@@ -459,6 +459,19 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("falcon-context", json.loads(pi.read_text())["mcpServers"])
         self.assertIn("falcon-librarian", json.loads(pi.read_text())["mcpServers"])
 
+    def test_configure_librarian_copilot_legacy_conflict_changes_nothing(self):
+        _, _, toolkit = self.audit_librarian()
+        copilot = self.root / "copilot/mcp.json"
+        copilot.parent.mkdir()
+        copilot.write_text(json.dumps({"mcpServers": {
+            "falcon-context": {"command": "/a", "args": []},
+            "falcon-librarian": {"command": "/b", "args": []}}}))
+        files = (local_env.STATE / "environment.json", local_env.STATE / "pi/mcp.json", copilot)
+        before = {path: path.read_bytes() for path in files}
+        with self.assertRaisesRegex(RuntimeError, "falcon-context and falcon-librarian"):
+            self.configure_quietly(toolkit, copilot_config=copilot)
+        self.assertEqual({path: path.read_bytes() for path in files}, before)
+
     def test_configure_librarian_reports_unmanaged_bindings_without_modifying_them(self):
         _, _, toolkit = self.audit_librarian()
         glob = self.root / "global-copilot.json"
