@@ -6,10 +6,10 @@ All four persistent services run under user systemd and bind to `127.0.0.1`:
 
 | Service | Loopback endpoint | Systemd unit | Persistent data under `.local/environment/` |
 | --- | --- | --- | --- |
-| Kata (`v0.23.0-3-g08facefa`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
-| roborev (`v0.75.0-8-g0cb4d19b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
-| AgentsView (`v0.47.0-19-g83d3756ed`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge (`v0.6.0-49-g31c6ac38-local-kata`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Kata (`v0.23.0-20-g0d5893d1`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
+| roborev (`v0.75.0-21-g1d064c1b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
+| AgentsView (`v0.47.0-70-g34408addb`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
+| Forge (`v0.6.0-80-gf42d6c06`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `KENN_KOPY_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
@@ -17,6 +17,11 @@ All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `pi/mcp.json`, `KATA_SERVER`/`KENN_FORGE_API_URL`), unit, probe, `smoke.py`, and
 `dist/install.py` uses the shifted ports. A second WSL2 distro shares this
 `127.0.0.1`, so it uses offset `1000` (`docs/wsl2-rehearsal.md`, deferred `t592`).
+
+AgentsView prices guarded USAi Sol deployments through
+`custom_model_pricing.<model>.price_as` in `agentsview/config.toml`.
+`local_env.py configure-agentsview-pricing` (run by `dist/install.py`)
+appends the `GUARDED_SOL_PRICE_AS` mappings and refuses conflicting entries.
 
 Check live health across all four services with:
 

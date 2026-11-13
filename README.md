@@ -94,6 +94,10 @@ Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
 not edit shell files. The install tracks only Pi sessions from this install. To
 also track Copilot and other Pi transcripts, run `configure-tracking` after
 AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
+The installer also prices guarded USAi Sol deployments (for example
+`gpt-6.1-sol-latest-guardrails-defaultv2`) as their base models. Installs made
+before this change should run `python3 scripts/local_env.py
+configure-agentsview-pricing` once and restart AgentsView.
 
 If the host has no systemd user services, install with `--services manual`, run
 `python3 scripts/local_env.py run` in the foreground, and use

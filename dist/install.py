@@ -702,6 +702,7 @@ def install(checkout, corpus, forge_build, choice, librarian_executable=None,
             setup_command.extend(["--librarian-selection", str(librarian_selection)])
     run(setup_command, cwd=checkout)
     run([*command, "configure-private-pi-tracking"], cwd=checkout)
+    run([*command, "configure-agentsview-pricing"], cwd=checkout)
     run([*command, "install-pi-extensions"], cwd=checkout)
     provision_native_roborev_client(checkout)
     if provider is not None:

@@ -146,9 +146,12 @@ After checks, the installer:
    changed.
 4. Creates missing private configuration under `.local/environment/`, with
    Superpowers and Librarian access in private Pi.
-5. Configures **fresh** AgentsView for private Pi **usage metadata only** and
-   installs the pinned Pi structured-review extension. Existing configured
-   tracking/settings are preserved; incompatible unconfigured settings fail.
+5. Configures **fresh** AgentsView for private Pi **usage metadata only**,
+   prices guarded USAi Sol deployments as their base models
+   (`configure-agentsview-pricing`) and installs the pinned Pi
+   structured-review extension. Existing configured tracking/settings are
+   preserved; incompatible unconfigured settings or conflicting
+   `custom_model_pricing` entries fail.
 6. Links the native `~/.local/bin/roborev` CLI and `~/.roborev` (this
    install's roborev state). Exact existing links are reused; any other file,
    directory or link at either path stops installation before builds.

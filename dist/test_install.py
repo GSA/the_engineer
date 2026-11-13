@@ -606,7 +606,9 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(commands[0], ["bash", "scripts/bootstrap-sources.sh"])
         self.assertEqual(commands[1], ["bash", "scripts/bootstrap-toolchains.sh"])
         self.assertEqual(commands[2][-4:], ["roborev", "kata", "agentsview", "forge"])
-        self.assertTrue(any("configure-private-pi-tracking" in command for command in commands))
+        tracking = next(i for i, command in enumerate(commands) if "configure-private-pi-tracking" in command)
+        pricing = next(i for i, command in enumerate(commands) if "configure-agentsview-pricing" in command)
+        self.assertGreater(pricing, tracking)
         self.assertTrue(any("install-pi-extensions" in command for command in commands))
         self.assertFalse(any(any(arg.endswith("-service") for arg in command) for command in commands))
         # Kata and Forge MCP servers need running services; manual installs only print the probe.

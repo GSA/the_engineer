@@ -49,10 +49,10 @@ or reconciliation service is installed.
 ## Live environment state
 
 - All four user systemd units are running on loopback:
-  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-3-g08facefa`, schema 50, API `0.44.0`)
-  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-8-g0cb4d19b`)
-  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-19-g83d3756ed`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.6.0-49-g31c6ac38-local-kata`)
+  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-20-g0d5893d1`, schema 50, API `0.44.0`)
+  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-21-g1d064c1b`)
+  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-70-g34408addb`)
+  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.6.0-80-gf42d6c06`)
 - Registered Forge repositories: `gsa/the_engineer`, `gsa/the_librarian`,
   `gsa/aos-spud` and `gsa/supply-chain-user-interface`, each mapped to its Kata
   project (`the_engineer`, `the_librarian`, `spud`,
@@ -74,12 +74,12 @@ or reconciliation service is installed.
 - **Toolchain upgrade harness and latest pins (`x0pe`)**:
   - `scripts/upgrade.py` (tests in `scripts/test_upgrade.py`) snapshots,
     applies, verifies, cuts over and rolls back; see `context/tools.md`.
-  - Live on Kata `v0.23.0-3` (schema 50), roborev `v0.75.0-8`, AgentsView
-    `v0.47.0-19`; since cut over to upstream `v0.47.0-64`, with guarded-Sol pricing
-    set by `custom_model_pricing.price_as` config via upstream
-    kenn-io/agentsview#2951 and no carried commit), Forge
-    `v0.6.0-49`, Pi `1.5.0` and pi-subagents `0.87.0`; acceptance 13/13 and a
-    live rollback drill passed.
+  - Live on Kata `v0.23.0-20` (schema 50), roborev `v0.75.0-21`, AgentsView
+    `v0.47.0-70` (plain upstream; guarded-Sol pricing is
+    `custom_model_pricing.price_as` config from kenn-io/agentsview#2951,
+    written by `configure-agentsview-pricing`, which the installer runs),
+    Forge `v0.6.0-80`, Pi `1.5.2` and pi-subagents `0.88.0`. The previous
+    upgrade passed acceptance 13/13 and a live rollback drill.
   - Upstream Forge PRs from `biggestbinary/forge`: kenn-io/forge#1965 (list
     configured Kata daemon IDs in the unknown-daemon error, #1896) and
     kenn-io/forge#1966 (`kata` source for
