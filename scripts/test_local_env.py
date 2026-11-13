@@ -210,7 +210,7 @@ class LocalEnvironmentTests(unittest.TestCase):
             '  key = "pi-argon"\n'
             "[[agents]]\n"
             '  key = "claude"\n'
-            '  command = ["/opt/claude/scripts/pi-local.py"]\n'
+            f'  command = ["{stale}"]\n'
         ), replace=True)
         local_env.private_write(
             roborev, roborev.read_text().replace(f'"{canonical}"', f'"{stale}"'), replace=True)
@@ -220,7 +220,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         agents = {agent["key"]: agent for agent in tomllib.loads(forge.read_text())["agents"]}
         self.assertEqual(agents["pi"]["command"], [canonical])
         self.assertEqual(agents["pi-argon"]["command"], [canonical, "--model", "gemini-4-argon"])
-        self.assertEqual(agents["claude"]["command"], ["/opt/claude/scripts/pi-local.py"])
+        self.assertEqual(agents["claude"]["command"], [stale])
         self.assertIn("# retained comment", forge.read_text())
         self.assertEqual(tomllib.loads(roborev.read_text())["pi_cmd"], canonical)
 

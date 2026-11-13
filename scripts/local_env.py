@@ -1221,10 +1221,13 @@ def discovered_usai_chat_models():
 def migrate_managed_launcher(path, wrapper):
     """Repoint a Pi launcher left in a deleted Forge worktree at the canonical wrapper.
 
-    The TOML is parsed to find the launchers (Forge agents ``pi``/``pi-argon`` and
-    roborev's ``pi_cmd``); only a path under the managed worktrees directory ending
-    in ``scripts/pi-local.py`` is stale. The file is edited in place so comments and
-    layout survive, and is left alone unless the edit changes exactly those values.
+    Only the managed launchers are touched: Forge agents ``pi``/``pi-argon`` (first
+    command element) and roborev's root ``pi_cmd``, and only when the value is a
+    ``scripts/pi-local.py`` under the managed worktrees directory. The file is split
+    into its TOML tables, each parsed on its own, and the stale string is replaced
+    inside that table's source text, so comments, layout and any other agent that
+    happens to share the path survive. The result must parse to the expected config
+    or nothing is written.
     """
     if not path.exists():
         return
@@ -1238,26 +1241,38 @@ def migrate_managed_launcher(path, wrapper):
                 and candidate.parts[-2:] == ("scripts", "pi-local.py")
                 and str(candidate) != str(wrapper))
 
-    launchers = [agent["command"] for agent in config.get("agents", [])
-                 if agent.get("key") in ("pi", "pi-argon") and isinstance(agent.get("command"), list)]
-    values = {command[0] for command in launchers if command and stale(command[0])}
-    if stale(config.get("pi_cmd")):
-        values.add(config["pi_cmd"])
-    migrated = raw
-    for value in values:
+    def retarget(table_text, value):
         for quoted in (json.dumps(value), f"'{value}'"):
-            migrated = migrated.replace(quoted, json.dumps(str(wrapper)))
-    if migrated == raw:
-        return
-    after = tomllib.loads(migrated)
-    for command in launchers:
-        if command and command[0] in values:
+            if quoted in table_text:
+                return table_text.replace(quoted, json.dumps(str(wrapper)), 1)
+        return table_text
+
+    expected = tomllib.loads(raw)
+    for agent in expected.get("agents", []):
+        command = agent.get("command")
+        if agent.get("key") in ("pi", "pi-argon") and isinstance(command, list) and command and stale(command[0]):
             command[0] = str(wrapper)
-    if "pi_cmd" in config and config["pi_cmd"] in values:
-        config["pi_cmd"] = str(wrapper)
-    if after != config:
+    if stale(expected.get("pi_cmd")):
+        expected["pi_cmd"] = str(wrapper)
+    if expected == config:
         return
-    private_write(path, migrated, replace=True)
+    tables = re.split(r"(?m)^(?=\s*\[)", raw)
+    migrated = []
+    for table in tables:
+        parsed = tomllib.loads(table)
+        is_agent = re.match(r"\s*\[\[agents\]\]", table) is not None
+        agent = parsed["agents"][0] if is_agent else {}
+        command = agent.get("command")
+        value = None
+        if (agent.get("key") in ("pi", "pi-argon") and isinstance(command, list)
+                and command and stale(command[0])):
+            value = command[0]
+        elif not table.lstrip().startswith("[") and stale(parsed.get("pi_cmd")):
+            value = parsed["pi_cmd"]
+        migrated.append(retarget(table, value) if value else table)
+    migrated = "".join(migrated)
+    if tomllib.loads(migrated) == expected:
+        private_write(path, migrated, replace=True)
 
 
 def sync_roborev_review_model(review_model):

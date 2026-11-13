@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import local_env
 
-SUPERPOWERS = local_env.RUNTIME_ROOT / "superpowers"
+SUPERPOWERS = local_env.ROOT / "superpowers"
 EXTENSION = Path(__file__).resolve().parent / "pi-extensions/forge-workspace"
 
 
@@ -17,6 +17,8 @@ def quoted_constant(source, name):
 
 
 @unittest.skipUnless((SUPERPOWERS / "skills").is_dir(), "superpowers submodule not checked out")
+# Resolve against the checkout holding these tests, not the live runtime root, so
+# upgrade candidates are compared with their own pinned Superpowers.
 class SuperpowersDriftTests(unittest.TestCase):
     def test_bootstrap_marker_matches_pinned_superpowers(self):
         upstream = quoted_constant((SUPERPOWERS / ".pi/extensions/superpowers.ts").read_text(), "BOOTSTRAP_MARKER")
