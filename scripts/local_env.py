@@ -1629,18 +1629,28 @@ def agentsview_command():
     return args
 
 
+def direct_api_dirs():
+    """Direct API session drop directories: the user's real home and the AgentsView service home."""
+    real_home = pwd.getpwuid(os.getuid()).pw_dir
+    return [f"{real_home}/.agentsview/direct-api", str(STATE / "home/.agentsview/direct-api")]
+
+
 def configure_tracking(copilot_dir, pi_dirs, archive_content):
     settings()
     copilot_dir = copilot_dir.expanduser().resolve()
     if not (copilot_dir / "session-state").is_dir():
         raise RuntimeError("Copilot source must contain its existing session-state directory")
     private_dir(STATE / "pi/sessions")
+    direct_api = direct_api_dirs()
+    for directory in direct_api:
+        # Writers may already have created these with default permissions, so do not require 0700.
+        Path(directory).mkdir(mode=0o700, parents=True, exist_ok=True)
     pi_dirs = list(dict.fromkeys(str(path.expanduser().resolve()) for path in pi_dirs))
     if not pi_dirs or any(not Path(path).is_dir() for path in pi_dirs):
         raise RuntimeError("each Pi source must be an existing sessions directory")
     saved = agentsview_request("GET", "/settings")
     excluded = sorted(provider["id"] for provider in saved["session_providers"]
-                      if provider["id"] not in ("copilot", "pi"))
+                      if provider["id"] not in ("copilot", "pi", "direct-api"))
     path = STATE / "agentsview/config.toml"
     # Share the application's config lock so UI settings writes cannot be lost.
     lock_fd = os.open(str(path) + ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
@@ -1659,7 +1669,8 @@ def configure_tracking(copilot_dir, pi_dirs, archive_content):
             else:
                 prefix += f"{key} = {json.dumps(value)}\n"
         suffix = ""
-        for agent, dirs in (("copilot", [str(copilot_dir)]), ("pi", pi_dirs)):
+        for agent, dirs in (("copilot", [str(copilot_dir)]), ("pi", pi_dirs),
+                           ("direct-api", direct_api)):
             existing = config.get("agents", {}).get(agent)
             if existing is not None:
                 if existing.get("dirs") != dirs:
@@ -1722,7 +1733,12 @@ def configure_private_pi_tracking():
     private_dir(sessions)
     path = STATE / "agentsview/config.toml"
     metadata = STATE / "agentsview-tracking.json"
-    expected = {"archive_content": "usage", "agents": {"pi": {"dirs": [str(sessions)]}}}
+    direct_api = direct_api_dirs()
+    for directory in direct_api:
+        # Writers may already have created these with default permissions, so do not require 0700.
+        Path(directory).mkdir(mode=0o700, parents=True, exist_ok=True)
+    expected = {"archive_content": "usage", "agents": {
+        "pi": {"dirs": [str(sessions)]}, "direct-api": {"dirs": direct_api}}}
     lock_fd = os.open(str(path) + ".lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     with os.fdopen(lock_fd, "rb") as lock:
         try:
@@ -1734,12 +1750,21 @@ def configure_private_pi_tracking():
             tracking = json.loads(private_read(metadata))
             if config.get("archive_content") != tracking["archive_content"]:
                 raise RuntimeError("existing AgentsView archive policy differs from tracking metadata")
+            existing = config.get("agents", {}).get("direct-api")
+            if existing is None:
+                updated = private_read(path) + f'\n[agents.direct-api]\ndirs = {json.dumps(direct_api)}\n'
+                tomllib.loads(updated)
+                private_write(path, updated, replace=True)
+                print("Added Direct API usage directories to existing AgentsView tracking.")
+            elif existing.get("dirs") != direct_api:
+                raise RuntimeError("existing AgentsView direct-api directories differ; review before changing them")
             print("Existing configured AgentsView tracking preserved; no sources or archive policy changed.")
             return
         if config and config != expected:
             raise RuntimeError("existing AgentsView settings require explicit tracking configuration; not overwritten")
         private_write(path, 'archive_content = "usage"\n\n[agents.pi]\n'
-                      f'dirs = {json.dumps([str(sessions)])}\n')
+                      f'dirs = {json.dumps([str(sessions)])}\n\n[agents.direct-api]\n'
+                      f'dirs = {json.dumps(direct_api)}\n')
         json_write(metadata, {"copilot_dir": None, "pi_dirs": [str(sessions)],
                               "archive_content": "usage"})
     print("AgentsView configured offline for private Pi usage metadata only; no global sessions imported.")

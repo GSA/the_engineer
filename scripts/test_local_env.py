@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import tomllib
 import unittest
 from unittest.mock import MagicMock, patch
@@ -97,6 +98,8 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.state = self.root / "environment"
         self.addCleanup(patch.stopall)
         patch.object(local_env, "STATE", self.state).start()
+        patch.object(local_env.pwd, "getpwuid",
+                     return_value=SimpleNamespace(pw_dir=str(self.root / "real-home"))).start()
         self.global_pi = self.root / "global-pi"
         self.global_pi.mkdir()
         patch.object(local_env, "GLOBAL_PI", self.global_pi).start()
@@ -1368,6 +1371,10 @@ class LocalEnvironmentTests(unittest.TestCase):
                         local_env.list_models("https://usai.example.test/v1")
                 self.assertEqual(saved.read_bytes(), before)
 
+    def direct_api_dirs(self):
+        return [str(self.root / "real-home/.agentsview/direct-api"),
+                str(self.state / "home/.agentsview/direct-api")]
+
     def tracking_sources(self):
         copilot = self.root / "copilot"
         (copilot / "session-state").mkdir(parents=True)
@@ -1376,18 +1383,20 @@ class LocalEnvironmentTests(unittest.TestCase):
         path = self.state / "agentsview/config.toml"
         local_env.private_write(path, '# retained comment\ncursor_secret = "test-only-secret"\n')
         patch.object(local_env, "agentsview_request", return_value={
-            "session_providers": [{"id": "copilot"}, {"id": "pi"}, {"id": "claude"}],
+            "session_providers": [{"id": "copilot"}, {"id": "pi"}, {"id": "direct-api"}, {"id": "claude"}],
         }).start()
         return copilot, pi, path
 
     def test_private_pi_tracking_is_offline_and_only_uses_private_sessions(self):
+        direct_api = self.direct_api_dirs()
         with patch.object(local_env, "agentsview_request", side_effect=AssertionError("network")), \
                 contextlib.redirect_stdout(io.StringIO()):
             local_env.configure_private_pi_tracking()
         config_path = self.state / "agentsview/config.toml"
         config = local_env.tomllib.loads(config_path.read_text())
         self.assertEqual(config["archive_content"], "usage")
-        self.assertEqual(config["agents"], {"pi": {"dirs": [str(self.state / "pi/sessions")]}})
+        self.assertEqual(config["agents"], {"pi": {"dirs": [str(self.state / "pi/sessions")]},
+                                            "direct-api": {"dirs": direct_api}})
         self.assertEqual(config_path.stat().st_mode & 0o777, 0o600)
         metadata = self.state / "agentsview-tracking.json"
         self.assertEqual(json.loads(metadata.read_text())["pi_dirs"], [str(self.state / "pi/sessions")])
@@ -1406,6 +1415,22 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.configure_private_pi_tracking()
         self.assertEqual(before, (config.read_bytes(), metadata.read_bytes()))
 
+    def test_private_pi_tracking_adds_direct_api_to_existing_pi_only_config(self):
+        config = self.state / "agentsview/config.toml"
+        sessions = json.dumps([str(self.state / "pi/sessions")])
+        old = f'archive_content = "usage"\n\n[agents.pi]\ndirs = {sessions}\n'
+        local_env.private_write(config, old)
+        local_env.json_write(self.state / "agentsview-tracking.json",
+                             {"copilot_dir": None, "pi_dirs": [], "archive_content": "usage"})
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_private_pi_tracking()
+        parsed = local_env.tomllib.loads(config.read_text())
+        self.assertTrue(config.read_text().startswith(old))
+        self.assertEqual(parsed["agents"]["direct-api"], {"dirs": self.direct_api_dirs()})
+        local_env.private_write(config, old + '\n[agents.direct-api]\ndirs = ["/elsewhere"]\n', replace=True)
+        with self.assertRaisesRegex(RuntimeError, "direct-api directories differ"):
+            local_env.configure_private_pi_tracking()
+
     def test_private_pi_tracking_rejects_unconfigured_existing_settings(self):
         config = self.state / "agentsview/config.toml"
         local_env.private_write(config, 'archive_content = "full"\n')
@@ -1416,6 +1441,7 @@ class LocalEnvironmentTests(unittest.TestCase):
 
     def test_tracking_preserves_config_and_scopes_sources(self):
         copilot, pi, path = self.tracking_sources()
+        direct_api = self.direct_api_dirs()
         before = path.read_text()
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
@@ -1424,6 +1450,9 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIn(before, path.read_text())
         self.assertEqual(config["archive_content"], "usage")
         self.assertEqual(config["disabled_agents"], ["claude"])
+        self.assertEqual(config["agents"]["direct-api"]["dirs"], direct_api)
+        for directory in direct_api:
+            self.assertTrue(Path(directory).is_dir())
         self.assertEqual(config["agents"]["copilot"]["dirs"], [str(copilot)])
         self.assertEqual(config["agents"]["pi"]["dirs"], [str(pi), str(self.state / "pi/sessions")])
         self.assertNotIn("test-only-secret", output.getvalue())
@@ -1460,6 +1489,17 @@ class LocalEnvironmentTests(unittest.TestCase):
                 local_env.configure_tracking(copilot, [pi], "usage")
         self.assertEqual(path.read_bytes(), before)
         self.assertFalse((self.state / "agentsview-tracking.json").exists())
+
+    def test_tracking_adds_direct_api_to_config_that_lacks_it(self):
+        copilot, pi, path = self.tracking_sources()
+        direct_api = self.direct_api_dirs()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_tracking(copilot, [pi], "usage")
+        text = path.read_text().split("\n[agents.direct-api]")[0] + "\n"
+        local_env.private_write(path, text, replace=True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_tracking(copilot, [pi], "usage")
+        self.assertEqual(local_env.tomllib.loads(path.read_text())["agents"]["direct-api"]["dirs"], direct_api)
 
     def test_tracking_refuses_changing_existing_sources(self):
         copilot, pi, path = self.tracking_sources()

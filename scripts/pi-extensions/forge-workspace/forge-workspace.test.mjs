@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import forgeWorkspaceExtension, { humanOnlyPublication } from "./index.ts";
@@ -37,7 +37,7 @@ beforeEach(() => {
             if (path === "/chat/completions") {
                 summaryRequests.push(await req.json());
                 return Response.json(
-                    { choices: [{ message: { content: summaryResponse.text } }] },
+                    { choices: [{ message: { content: summaryResponse.text } }], usage: { prompt_tokens: 120, completion_tokens: 30 } },
                     { status: summaryResponse.status },
                 );
             }
@@ -67,6 +67,7 @@ beforeEach(() => {
     delete process.env.PI_SUBAGENT_CHILD;
     delete process.env.PI_SUBAGENT_RUNNER_PID;
     process.env.KENN_FORGE_API_URL = `http://127.0.0.1:${server.port}`;
+    process.env.AGENTSVIEW_DIRECT_API_DIR = join(cwd, "direct-api");
 });
 
 async function summarizePr({ shortStat, draft, summary, status = 200, command = "gh pr create --body-file draft.md" }) {
@@ -187,6 +188,39 @@ test("merging a pull request needs human approval however gh is reached", () => 
     ]) {
         expect([command, humanOnlyPublication(command)]).toEqual([command, "pr_merge"]);
     }
+});
+
+test("PR summary call records a Direct API session", async () => {
+    const usageDir = mkdtempSync(join(tmpdir(), "direct-api-"));
+    process.env.AGENTSVIEW_DIRECT_API_DIR = usageDir;
+    const draft = "Secret draft body text.";
+    try {
+        await summarizePr({ shortStat: "1 file changed", draft, summary: "Summary." });
+        const files = readdirSync(usageDir);
+        expect(files).toHaveLength(1);
+        const raw = readFileSync(join(usageDir, files[0]), "utf8");
+        const lines = raw.trim().split("\n").map((line) => JSON.parse(line));
+        expect(lines.map((line) => line.type)).toEqual(["session", "session_info", "message"]);
+        expect(lines[1].name).toBe("forge PR description");
+        expect(lines[2].parentId).toBe(lines[1].id);
+        expect(lines[2].message).toMatchObject({
+            role: "assistant",
+            provider: "usai",
+            model: "gemini-4-argon",
+            usage: { input: 120, output: 30, cacheRead: 0, cacheWrite: 0, totalTokens: 150 },
+        });
+        expect(raw).not.toContain(draft);
+        expect(raw).not.toContain("Summary.");
+    } finally {
+        rmSync(usageDir, { recursive: true, force: true });
+    }
+});
+
+test("PR summary still applies when the usage directory is unwritable", async () => {
+    const blocker = join(cwd, "not-a-dir");
+    writeFileSync(blocker, "");
+    process.env.AGENTSVIEW_DIRECT_API_DIR = blocker;
+    expect(await summarizePr({ shortStat: "1 file changed", draft: "Draft.", summary: "Summary." })).toBe("Summary.\n");
 });
 
 test("PR formatter leaves the existing description alone when the model route fails", async () => {
