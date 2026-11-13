@@ -1415,6 +1415,22 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.configure_private_pi_tracking()
         self.assertEqual(before, (config.read_bytes(), metadata.read_bytes()))
 
+    def test_private_pi_tracking_adds_direct_api_to_existing_pi_only_config(self):
+        config = self.state / "agentsview/config.toml"
+        sessions = json.dumps([str(self.state / "pi/sessions")])
+        old = f'archive_content = "usage"\n\n[agents.pi]\ndirs = {sessions}\n'
+        local_env.private_write(config, old)
+        local_env.json_write(self.state / "agentsview-tracking.json",
+                             {"copilot_dir": None, "pi_dirs": [], "archive_content": "usage"})
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_private_pi_tracking()
+        parsed = local_env.tomllib.loads(config.read_text())
+        self.assertTrue(config.read_text().startswith(old))
+        self.assertEqual(parsed["agents"]["direct-api"], {"dirs": self.direct_api_dirs()})
+        local_env.private_write(config, old + '\n[agents.direct-api]\ndirs = ["/elsewhere"]\n', replace=True)
+        with self.assertRaisesRegex(RuntimeError, "direct-api directories differ"):
+            local_env.configure_private_pi_tracking()
+
     def test_private_pi_tracking_rejects_unconfigured_existing_settings(self):
         config = self.state / "agentsview/config.toml"
         local_env.private_write(config, 'archive_content = "full"\n')

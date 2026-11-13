@@ -1750,6 +1750,14 @@ def configure_private_pi_tracking():
             tracking = json.loads(private_read(metadata))
             if config.get("archive_content") != tracking["archive_content"]:
                 raise RuntimeError("existing AgentsView archive policy differs from tracking metadata")
+            existing = config.get("agents", {}).get("direct-api")
+            if existing is None:
+                updated = private_read(path) + f'\n[agents.direct-api]\ndirs = {json.dumps(direct_api)}\n'
+                tomllib.loads(updated)
+                private_write(path, updated, replace=True)
+                print("Added Direct API usage directories to existing AgentsView tracking.")
+            elif existing.get("dirs") != direct_api:
+                raise RuntimeError("existing AgentsView direct-api directories differ; review before changing them")
             print("Existing configured AgentsView tracking preserved; no sources or archive policy changed.")
             return
         if config and config != expected:
