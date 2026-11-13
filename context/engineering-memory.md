@@ -12,7 +12,7 @@ task trackers.
 | --- | --- |
 | `AGENTS.md` + `context/{project,tools,status}.md` | Current-state operating agreements, tool commands, and active service/queue summary (kept compact and updated in place). |
 | **Kata** (`http://127.0.0.1:17777`) | Actionable work items, dependencies, claims, and closure verification evidence. |
-| **Librarian** (`falcon-context`) | Versioned corpus documents and recorded review coverage packets. |
+| **Librarian** (`falcon-librarian`) | Versioned corpus documents and recorded review coverage packets. |
 | **AgentsView** (`http://127.0.0.1:18080`) | Historical session transcripts and token/cost telemetry (`transcripts` archive policy). |
 
 ## Phase 1 contract (`5xrm`)

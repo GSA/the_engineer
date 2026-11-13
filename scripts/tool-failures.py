@@ -30,7 +30,7 @@ CAUSES = (
     ("kata-daemon", r"daemon_unavailable|kata: .*connection refused|cannot reach (the )?kata"),
     ("kata-usage", r"kata: accepts \d+ arg|kata: unknown flag|kata: if any flags in the group|kata: evidence not allowed|X-Kata-Confirm"),
     ("stale-index", r"Index is stale"),
-    ("librarian-reader", r"MCP server 'falcon-context': .*Reader (failed|timed out)"),
+    ("librarian-reader", r"MCP server 'falcon-(librarian|context)': .*Reader (failed|timed out)"),
     ("codemode-tool-name", r"tools\.\S+ does not exist|Tool '\S+' does not exist"),
     ("bad-arguments", r"Validation failed for tool|must have required propert|\"path\": Required|Expected property name|Multiple validation errors|Invalid input"),
     ("edit-match", r"Could not find the exact text|No match found|Found \d+ occurrences|Failed to apply patch|Failed to find expected lines"),

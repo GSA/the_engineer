@@ -4,7 +4,7 @@
 
 | Product | Repository / Checkout | Kata project | Role |
 | --- | --- | --- | --- |
-| **Librarian** | `GSA/the_librarian` (`~/the_librarian`) | `librarian` | Rust CLI and MCP server (`falcon-context`) that indexes documentation and recorded review coverage for low-token retrieval (`catalog`, `search`, `get`, `get_many`, `coverage`, `review_events`, `status`). |
+| **Librarian** | `GSA/the_librarian` (`~/the_librarian`) | `librarian` | Rust CLI and MCP server (`falcon-librarian`) that indexes documentation and recorded review coverage for low-token retrieval (`catalog`, `search`, `get`, `get_many`, `coverage`, `review_events`, `status`). |
 | **Engineer** | `GSA/the_engineer` (`~/kenn-kopy`) | `engi-platform` | Local engineering platform combining Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView under `.local/environment/`, plus the task-bound Librarian evidence consumer and cross-repository seam scanner (`engineer-context`). |
 
 Knowitall (`GSA/the_knowitall`) is archived on GitHub and has no local
@@ -17,7 +17,7 @@ checkout, Kata project or Forge registration.
 | Engineer (.local/environment/ + user systemd on 127.0.0.1)        |
 |                                                                   |
 |  Forge (:18091) ----> spawns Pi (scripts/pi-local.py, provider=usai)
-|    |                    |-- MCP: falcon-context (Librarian binary)|
+|    |                    |-- MCP: falcon-librarian (Librarian binary)|
 |    |                    |-- MCP: kata mcp serve (:17777)          |
 |    |                    `-- Extensions: pi-subagents, superpowers |
 |    |-- reads/maps ---> Kata daemon (:17777, kata/kata.db)         |
@@ -30,7 +30,7 @@ checkout, Kata project or Forge registration.
 ## Corpus and target repositories
 
 - **Historical Falcon documentation packet**: `~/falcon-docs` (bound to Kata
-  project `falcon-docs`), indexed by Librarian for `falcon-context` MCP queries.
+  project `falcon-docs`), indexed by Librarian for `falcon-librarian` MCP queries.
 - **Falcon application repositories**: `~/falcon/backend` (`falcon-backend`),
   `~/falcon/frontend` (`falcon-frontend`), `~/falcon/exec-dashboard`
   (`falcon-exec-dashboard`), and `~/falcon/mcp` (`falcon-mcp`).

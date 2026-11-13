@@ -8,7 +8,7 @@ environment and operator console for a human-directed, two-product federal
 engineering workflow:
 
 1. **Librarian** (`GSA/the_librarian`, `~/the_librarian`): Falcon documentation
-   and review-state corpus platform (`falcon-context` CLI and MCP server),
+   and review-state corpus platform (`falcon-librarian` CLI and MCP server),
    evaluated against the historical `~/falcon-docs` packet and live Falcon
    application repositories under `~/falcon/`.
 2. **Engineer** (`GSA/the_engineer`, `~/kenn-kopy`): local orchestration across
