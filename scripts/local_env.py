@@ -81,6 +81,8 @@ PI_DISABLED_BUILTIN_SUBAGENTS = (
 )
 PI_PASSTHROUGH_SUBCOMMANDS = frozenset({"mcp", "list", "config", "install", "remove", "update"})
 USAI_EMBEDDING_MODELS = frozenset({"cohere-v4", "cohere_english_v3", "text-embedding-005"})
+# Llama is classified (usai_model_family) but deliberately not adversarial-eligible:
+# it is not a coder/reviewer pairing target. A deliberate choice, pinned by tests.
 ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
 USAI_CHAT_MODELS = (
     "claude-haiku-5.5",
@@ -1148,6 +1150,11 @@ def list_models(base_url):
     }, replace=True)
     print(f"Saved {len(ids)} advertised model IDs to {STATE / 'usai-models.json'}")
     print("\n".join(ids))
+    unknown = [model for model in ids if model not in USAI_EMBEDDING_MODELS and model not in USAI_CHAT_MODELS
+               and usai_model_family(model) is None]
+    if unknown:
+        print("WARN unclassified models (add a family in usai_model_family or exclude them): "
+              + ", ".join(unknown))
     print("Discovery only: this does not verify a model's chat, streaming or tool-call protocol.")
     return ids
 

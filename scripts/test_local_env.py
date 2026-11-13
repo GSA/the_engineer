@@ -2257,6 +2257,28 @@ class LocalEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "saved USAi model"):
             local_env.pi_launch(["--model", "gpt-6.1-sol-latest-guardrails-defaultv2"])
 
+    def test_every_hardcoded_chat_model_has_a_family_and_llama_is_not_adversarial(self):
+        for model in local_env.USAI_CHAT_MODELS:
+            with self.subTest(model=model):
+                self.assertIsNotNone(local_env.usai_model_family(model))
+        self.assertEqual(local_env.usai_model_family("llama_4_maverick"), "llama")
+        self.assertNotIn("llama", local_env.ADVERSARIAL_MODEL_FAMILIES)
+        self.assertTrue(local_env.USAI_EMBEDDING_MODELS.isdisjoint(local_env.USAI_CHAT_MODELS))
+
+    def test_model_discovery_flags_models_without_a_known_family(self):
+        self.key()
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value.read.return_value = json.dumps({
+            "data": [{"id": "claude-opus-5"}, {"id": "mistral-9"}, {"id": "cohere-v4"}],
+        }).encode()
+        output = io.StringIO()
+        with patch.object(local_env.urllib.request, "build_opener", return_value=opener):
+            with contextlib.redirect_stdout(output):
+                local_env.list_models("https://usai.example.test/v1")
+        self.assertIn("WARN unclassified models", output.getvalue())
+        self.assertIn("mistral-9", output.getvalue().split("WARN")[1])
+        self.assertNotIn("cohere-v4", output.getvalue().split("WARN")[1])
+
     def test_configure_provider_rejects_same_family_or_invalid_review_models(self):
         for coder, reviewer in (
             ("claude-opus-5.5", "claude-sonnet-5.5"),
