@@ -53,7 +53,8 @@ class TempRoot(unittest.TestCase):
 
 class TrackedPinTests(unittest.TestCase):
     def test_every_tracked_pin_mention_agrees(self):
-        pins = upgrade.read_pins()
+        # Check the tracked files of this source tree, which is a linked worktree in Forge.
+        pins = upgrade.read_pins(Path(__file__).resolve().parent.parent)
         self.assertEqual(set(pins), {"pi", "pi-subagents"})
 
 

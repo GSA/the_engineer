@@ -59,10 +59,9 @@ PIN_SOURCES = {
         ("scripts/local_env.py", rf'^PI_VERSION = "{SEMVER}"$'),
         ("dist/install.py", rf'^PI_VERSION = "{SEMVER}"$'),
         ("context/tools.md", rf'PI_VERSION = "{SEMVER}"'),
-        ("README.md", rf"Pi `{SEMVER}`"),
-        ("README.md", rf"pi-coding-agent@{SEMVER}"),
-        ("dist/README.md", rf"\*\*Pi {SEMVER}\*\*"),
-        ("dist/README.md", rf"pi-coding-agent@{SEMVER}"),
+        ("docs/advanced.md", rf"Pi `{SEMVER}`"),
+        ("docs/advanced.md", rf"pi-coding-agent@{SEMVER}"),
+        ("dist/README.md", rf"Pi `{SEMVER}`"),
     ),
     "pi-subagents": (
         ("scripts/local_env.py", rf'"npm:pi-subagents@{SEMVER}"'),

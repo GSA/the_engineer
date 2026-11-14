@@ -48,7 +48,8 @@ or reconciliation service is installed.
 
 ## Live environment state
 
-- All four user systemd units are running on loopback:
+- The owner install keeps the legacy unit prefix until its approved
+  migration; all four user systemd units run on loopback:
   - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-20-g0d5893d1`, schema 50, API `0.44.0`)
   - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-21-g1d064c1b`)
   - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-70-g34408addb`)
@@ -70,6 +71,22 @@ or reconciliation service is installed.
   (400k Claude/Gemini, 272k GPT Sol, 32k output) so Pi no longer compacts at its 128k default.
 
 ## Recent completed milestones
+
+- **Teammate distribution (`9jqt`)**:
+  - `./engineer` front door (`scripts/engineer.py`, tests in
+    `scripts/test_engineer.py`): install, doctor, start/stop/status, key,
+    models, login, add-repo, pi, copilot, update and uninstall. Install asks
+    before using sudo, records what it creates in `.local/engineer-install.json`,
+    and uninstall reverses only that record.
+  - Copilot CLI on USAi (`scripts/copilot_env.py`): private `COPILOT_HOME`,
+    BYOK with `COPILOT_PROVIDER_API_KEY_COMMAND` -> `scripts/usai-key.py`,
+    Claude models only (live check: GPT Sol 422, Gemini rejects the tool schema).
+  - Librarian corpus optional; new installs use `engineer-*` units and
+    `ENGINEER_*` variables; agentsview submodule URL is upstream
+    `kenn-io/agentsview`; owner-only mirror/backup scripts moved to the private
+    `engineer-owner-tools` repository.
+  - Fresh-host container acceptance (`dist/container/run-acceptance.sh`) runs the
+    teammate path; it needs a host where rootless Podman user namespaces work.
 
 - **Toolchain upgrade harness and latest pins (`x0pe`)**:
   - `scripts/upgrade.py` (tests in `scripts/test_upgrade.py`) snapshots,
@@ -241,7 +258,7 @@ or reconciliation service is installed.
     build, compile and whitespace checks. Branch review job 384 passed;
     delivered as https://github.com/GSA/the_engineer/pull/4.
   - Merged current `main` into the branch, keeping main's compacted docs,
-    configurable ports (`KENN_KOPY_PORT_OFFSET`) and roborev wrapper removal,
+    configurable ports (`ENGINEER_PORT_OFFSET`) and roborev wrapper removal,
     and re-applying the explicit Librarian binding so `setup` preserves the
     other saved `pi/mcp.json` servers. Branch review job 399 passed.
   - Upstream Librarian `73597aa` dropped `--reader` from `librarian-mcp` and
@@ -384,7 +401,7 @@ or reconciliation service is installed.
     expanded program words) is tracked in `kt2r`, and the wider
     enumerated-list/regex drift the scan surfaced in `c95c`.
 
-## Active Kata queue (`engi-platform`)
+## Active Kata queue (`the_engineer`)
 
 - List current work with `kata ready --no-label blocked --no-label deferred --agent`.
 - MVP (`pyzt`) is Librarian plus Engineer plus the cross-repo seam scanner;
@@ -396,9 +413,10 @@ or reconciliation service is installed.
   (all pins are now upstream); the installer preflights pin fetchability,
   accepts an optional `--submodule-mirror NAME=URL` (no default mirror), defaults `GOPROXY` to `...|direct` and writes
   `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
-- `t592` (isolated WSL2 rehearsal, `docs/wsl2-rehearsal.md`) is deferred
-  post-MVP. `5xrm` (reproducible redeployment script) and `eb48` (legacy
-  identity/path migration during planned downtime) remain open.
+- `t592` (isolated WSL2 rehearsal, `docs/try-in-a-second-wsl-distro.md`) is
+  deferred post-MVP. The owner install's move to `engineer-*` units and the
+  `~/engineer` path follows `docs/owner-migration.md` after the owner approves
+  downtime.
 
 ## Repository history
 
