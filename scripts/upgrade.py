@@ -63,7 +63,6 @@ PIN_SOURCES = {
         ("README.md", rf"pi-coding-agent@{SEMVER}"),
         ("dist/README.md", rf"\*\*Pi {SEMVER}\*\*"),
         ("dist/README.md", rf"pi-coding-agent@{SEMVER}"),
-        ("dist/container/run-acceptance.sh", rf"pi-coding-agent@{SEMVER}"),
     ),
     "pi-subagents": (
         ("scripts/local_env.py", rf'"npm:pi-subagents@{SEMVER}"'),
