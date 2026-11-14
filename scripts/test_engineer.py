@@ -76,6 +76,23 @@ class CommandLineTests(EngineerTestCase):
         self.assertEqual(errors.getvalue(), "Problem: something is off\n")
 
 
+class EnvironmentTests(EngineerTestCase):
+    def test_main_puts_engineers_own_node_and_tools_first_on_path(self):
+        with patch.dict(os.environ, {"PATH": "/usr/bin:/bin"}), \
+                patch.object(engineer, "doctor", return_value=True):
+            engineer.main(["doctor"])
+            path = os.environ["PATH"].split(os.pathsep)
+        self.assertEqual(path[:2], [str(self.home / ".local/engineer/npm/bin"),
+                                    str(self.home / ".local/engineer/node/bin")])
+
+    def test_update_reruns_install_from_the_updated_code(self):
+        with patch.object(engineer.os, "execv") as execv:
+            engineer.update(engineer.build_parser().parse_args(["update", "--yes"]))
+        self.assertEqual(self.commands[0][-2:], ["pull", "--ff-only"])
+        argv = execv.call_args.args[1]
+        self.assertEqual(argv[1:], [str(engineer.ROOT / "scripts/engineer.py"), "install", "--yes"])
+
+
 class KeyTests(EngineerTestCase):
     def setUp(self):
         super().setUp()

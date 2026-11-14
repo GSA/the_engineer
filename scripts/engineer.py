@@ -385,7 +385,13 @@ def update(args):
     if result.returncode != 0:
         raise RuntimeError("could not download the update (local changes or no network?); "
                            "nothing was changed")
-    return install(args)
+    # Run install from the freshly downloaded code, not the copy already in memory.
+    argv = [sys.executable, str(ROOT / "scripts/engineer.py"), "install"]
+    if args.yes:
+        argv.append("--yes")
+    if args.copilot:
+        argv += ["--copilot", args.copilot]
+    os.execv(sys.executable, argv)
 
 
 def remove_link(link, target):
@@ -479,6 +485,8 @@ def build_parser():
 
 def main(argv=None):
     os.umask(0o077)
+    # Engineer's own Node.js, Pi and Copilot CLI come first for every step and child process.
+    os.environ["PATH"] = host_setup.tool_path(HOME)
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command is None:
