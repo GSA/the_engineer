@@ -189,6 +189,10 @@ class UninstallTests(EngineerTestCase):
         host_setup.write_shell_block(host_setup.shell_block("/opt/eng"), self.home)
         local_env.private_dir(self.state)
         (self.state / "keep.db").write_text("tasks")
+        units = self.home / ".config/systemd/user"
+        units.mkdir(parents=True)
+        (units / "engineer-kata.service").symlink_to(self.state / "systemd/engineer-kata.service")
+        (units / "other.service").write_text("[Unit]\n")
         with contextlib.redirect_stdout(io.StringIO()):
             engineer.uninstall(answers(True), purge=False)
         self.assertIn(["systemctl", "--user", "disable", "--now", "engineer-kata.service"], self.commands)
@@ -199,6 +203,8 @@ class UninstallTests(EngineerTestCase):
         self.assertFalse((self.home / ".local/engineer").exists())
         self.assertNotIn(host_setup.SHELL_START, (self.home / ".bashrc").read_text())
         self.assertTrue((self.state / "keep.db").exists())
+        self.assertFalse((units / "engineer-kata.service").is_symlink())
+        self.assertTrue((units / "other.service").exists())
         self.assertIsNone(engineer.load_manifest())
 
     def test_existing_kata_config_is_left_in_place(self):

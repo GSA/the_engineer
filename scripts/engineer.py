@@ -411,6 +411,9 @@ def uninstall(ask, *, purge):
         raise RuntimeError("your data was not deleted, and nothing else was changed")
     for unit in reversed(record.get("units", [])):
         run(["systemctl", "--user", "disable", "--now", unit])
+        linked = HOME / ".config/systemd/user" / unit
+        if linked.is_symlink() and Path(os.readlink(linked)).parent == local_env.STATE / "systemd":
+            linked.unlink()
     if record.get("units"):
         run(["systemctl", "--user", "daemon-reload"])
     repo_init = local_env.repo_init_module()
