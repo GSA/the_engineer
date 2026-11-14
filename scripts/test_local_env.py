@@ -268,11 +268,28 @@ class LocalEnvironmentTests(unittest.TestCase):
 
     def test_setup_without_corpus_preserves_an_existing_librarian_binding(self):
         before = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
-        with self.assertRaisesRegex(RuntimeError, "differs from saved"):
-            with contextlib.redirect_stdout(io.StringIO()):
-                local_env.setup(None, self.binary)
+        saved = (self.state / "environment.json").read_text()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(None, self.binary)
         after = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
         self.assertEqual(before, after)
+        self.assertEqual((self.state / "environment.json").read_text(), saved)
+
+    def test_setup_without_corpus_keeps_an_explicit_librarian_binding(self):
+        executable, _, selection = self.explicit_librarian()
+        toolkit = executable.parents[2]
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.configure_librarian(toolkit)
+            saved = (self.state / "environment.json").read_text()
+            local_env.setup(None, self.binary)
+        self.assertEqual((self.state / "environment.json").read_text(), saved)
+
+    def test_setup_still_rejects_a_conflicting_requested_corpus(self):
+        other = self.root / "other corpus"
+        shutil.copytree(self.corpus, other)
+        with self.assertRaisesRegex(RuntimeError, "differs from saved"):
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_env.setup(other, self.binary)
 
     def test_legacy_librarian_binding_keeps_saved_shape_and_command(self):
         environment = json.loads((self.state / "environment.json").read_text())

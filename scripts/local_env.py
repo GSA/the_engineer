@@ -511,6 +511,10 @@ def librarian_binding(corpus, executable=None, reader=None, root=None, selection
     return server, reader, root, selection
 
 
+LIBRARIAN_CONFIG_KEYS = ("corpus", "librarian_executable", "librarian_reader",
+                         "librarian_root", "librarian_selection")
+
+
 def check_librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
     """Resolve and verify an optional Librarian binding before any configuration is written."""
     server, reader, root, selection = librarian_binding(corpus, executable, reader, root, selection)
@@ -544,6 +548,8 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         corpus = corpus.expanduser().resolve() if corpus is not None else None
         server, reader, root, selection = check_librarian_binding(
             corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
+    config_path = STATE / "environment.json"
+    saved = json.loads(private_read(config_path)) if config_path.exists() else None
     pi = shutil.which("pi")
     if pi is None:
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
@@ -557,6 +563,9 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     if prefix != LEGACY_UNIT_PREFIX:
         config["unit_prefix"] = prefix
     configure_units(prefix)
+    if server is None and saved is not None:
+        # A rerun that names no Librarian keeps the binding saved by an earlier setup.
+        config.update({key: saved[key] for key in LIBRARIAN_CONFIG_KEYS if key in saved})
     if librarian_executable is not None:
         config.update({
             "librarian_executable": str(server),
@@ -570,9 +579,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         private_dir(STATE / name)
     seed_isolated_gitconfig(STATE / "home")
     verify_pi(config)
-    config_path = STATE / "environment.json"
-    if config_path.exists():
-        saved = json.loads(private_read(config_path))
+    if saved is not None:
         # verify_pi() proved the saved executable now runs PI_VERSION, so an
         # older recorded pi_version is the only difference setup migrates.
         if dict(saved, pi_version=PI_VERSION) != config:
