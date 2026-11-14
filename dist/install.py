@@ -670,7 +670,7 @@ def load_environment(checkout):
 
 def install(checkout, corpus, choice, librarian_executable=None,
             librarian_reader=None, librarian_root=None, librarian_selection=None,
-            provider=None, repos=(), mirrors=None):
+            provider=None, repos=(), mirrors=None, guided=False):
     mirrors = mirrors or {}
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
@@ -727,7 +727,8 @@ def install(checkout, corpus, choice, librarian_executable=None,
         run(provider_command, cwd=checkout)
     mcp_list = [sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"]
     node = Path(shutil.which("node")).resolve()
-    instructions(checkout, node, service_ports(environment), provider is not None, repos)
+    if not guided:
+        instructions(checkout, node, service_ports(environment), provider is not None, repos)
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
         for name in MANAGED_SERVICES:
@@ -839,6 +840,7 @@ def main(argv=None):
                         help="owner-approved mirror for a pinned repository (for example "
                              "agentsview=URL) whose upstream remote lacks the pinned commit; "
                              "repeatable; the tracked .gitmodules is not changed")
+    parser.add_argument("--guided", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
     args = parser.parse_args(argv)
@@ -914,7 +916,7 @@ def main(argv=None):
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,
                     selection if args.librarian_executable else None,
-                    provider, repos, mirrors)
+                    provider, repos, mirrors, guided=args.guided)
         path = RECEIPT.write(checkout, "success", services=choice)
         print(f"\nInstall receipt (elapsed {RECEIPT.document(checkout, 'success')['elapsed_seconds']}s): {path}")
         return 0

@@ -225,7 +225,7 @@ def shell_block(checkout, *, pi=False, copilot=False):
     lines = [
         SHELL_START,
         "# Added by Engineer; ./engineer uninstall removes this block.",
-        'export PATH="$HOME/.local/engineer/npm/bin:$HOME/.local/engineer/node/bin:$HOME/.local/bin:$PATH"',
+        'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$PATH:$HOME/.local/bin" ;; esac',
         f"alias engineer={json.dumps(engineer)}",
     ]
     if pi:

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Engineer: install, run, update and remove the local AI engineering workstation.
+# Run ./engineer with no arguments for the list of commands.
+set -euo pipefail
+
+if ! command -v python3 >/dev/null || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+    echo "Engineer needs Python 3.11 or newer. On Ubuntu run:  sudo apt-get install -y python3" >&2
+    exit 1
+fi
+here="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
+exec python3 "$here/scripts/engineer.py" "$@"

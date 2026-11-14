@@ -1174,8 +1174,8 @@ def load_usai_key():
         raise RuntimeError("USAi key file must contain a UTF-8 token; its value was not logged") from error
 
 
-def list_models(base_url):
-    settings()
+def fetch_usai_models(base_url, key):
+    """Return the sorted model IDs USAi advertises for ``key``; never logs the key or body."""
     base_url = validate_base_url(base_url)
 
     class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -1184,7 +1184,7 @@ def list_models(base_url):
 
     request = urllib.request.Request(
         base_url + "/models",
-        headers={"Authorization": "Bearer " + load_usai_key(), "Accept": "application/json"},
+        headers={"Authorization": "Bearer " + key, "Accept": "application/json"},
     )
     try:
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=30) as response:
@@ -1206,10 +1206,20 @@ def list_models(base_url):
         ids.append(model["id"])
     if not ids:
         raise RuntimeError("USAi returned an empty model list; no catalog was saved")
-    ids = sorted(set(ids))
+    return sorted(set(ids))
+
+
+def save_usai_catalog(base_url, ids):
     json_write(STATE / "usai-models.json", {
-        "base_url": base_url, "fetched_at": datetime.now(timezone.utc).isoformat(), "models": ids,
+        "base_url": validate_base_url(base_url), "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "models": list(ids),
     }, replace=True)
+
+
+def list_models(base_url):
+    settings()
+    ids = fetch_usai_models(base_url, load_usai_key())
+    save_usai_catalog(base_url, ids)
     print(f"Saved {len(ids)} advertised model IDs to {STATE / 'usai-models.json'}")
     print("\n".join(ids))
     print("Discovery only: this does not verify a model's chat, streaming or tool-call protocol.")

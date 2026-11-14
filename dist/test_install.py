@@ -108,6 +108,13 @@ class InstallerTests(unittest.TestCase):
             errors = installer.prerequisites(None)
         self.assertFalse(any("Librarian" in error for error in errors), errors)
 
+    def test_guided_install_leaves_next_steps_to_the_engineer_command(self):
+        self.installation()
+        with patch.object(installer, "run"), contextlib.redirect_stdout(io.StringIO()) as output:
+            installer.install(self.root, None, "manual", guided=True)
+        self.assertNotIn("set-key", output.getvalue())
+        self.assertNotIn("Manual startup", output.getvalue())
+
     def test_install_without_corpus_omits_corpus_from_setup(self):
         self.installation()
         with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()) as output:
