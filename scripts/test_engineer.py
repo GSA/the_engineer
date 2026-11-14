@@ -225,6 +225,8 @@ class UninstallTests(EngineerTestCase):
             self.commands.append(command)
             if "--property=FragmentPath" in command:
                 return subprocess.CompletedProcess(command, 0, self.fragments.get(command[3], "") + "\n", "")
+            if "--property=LoadState" in command:
+                return subprocess.CompletedProcess(command, 0, "loaded\n" if command[3] in self.fragments else "not-found\n", "")
             return subprocess.CompletedProcess(command, 0, "", "")
         engineer.run.side_effect = fake_run
 
@@ -285,7 +287,26 @@ class UninstallTests(EngineerTestCase):
         self.assertTrue((self.state / "keep.db").exists())
         self.assertFalse((units / "engineer-kata.service").is_symlink())
         self.assertTrue((units / "other.service").exists())
-        self.assertIsNone(engineer.load_manifest())
+        self.assertIsNone(engineer.load_active_manifest())
+        self.assertTrue(engineer.load_manifest()["uninstalled"])
+
+    def test_reinstall_after_a_data_keeping_uninstall_is_allowed(self):
+        self.manifest()
+        self.installed_state()
+        with contextlib.redirect_stdout(io.StringIO()):
+            engineer.uninstall(answers(True), purge=False)
+        engineer.check_install_owner()
+        with self.assertRaisesRegex(RuntimeError, "already removed"):
+            engineer.uninstall(answers(True), purge=False)
+
+    def test_retry_never_stops_services_owned_by_another_checkout(self):
+        self.manifest(units=["engineer-kata.service", "engineer-forge.service"])
+        self.fragments["engineer-forge.service"] = "/other/checkout/.local/environment/systemd/engineer-forge.service"
+        engineer.stop_services(quiet=True)
+        engineer.restart_agents()
+        stopped = [command for command in self.commands if command[2:3] in (["stop"], ["try-restart"])]
+        self.assertIn(["systemctl", "--user", "stop", "engineer-kata.service"], stopped)
+        self.assertFalse(any("engineer-forge.service" in command for command in stopped))
 
     def test_existing_kata_config_is_left_in_place(self):
         self.manifest(kata_config_existed=True)
@@ -323,12 +344,34 @@ class AddRepoTests(EngineerTestCase):
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
         hooks = repo / ".git/hooks"
         (hooks / "post-commit").write_text("#!/bin/sh\nroborev post-commit\n")
-        with patch.object(engineer.local_env, "init_repo", return_value=0), \
+
+        def init(path):
+            local_env.repo_init_module().install_guard(repo)
+            return 0
+        with patch.object(engineer.local_env, "init_repo", side_effect=init), \
                 contextlib.redirect_stdout(io.StringIO()):
             engineer.add_repo(engineer.build_parser().parse_args(["add-repo", str(repo)]))
         self.assertEqual(engineer.load_manifest()["repos"],
                          [{"path": str(repo.resolve()), "guard_added": True, "hooks_added": False}])
         self.assertEqual(engineer.repo_paths(), [str(repo.resolve())])
+
+    def test_add_repo_records_protections_it_added_even_when_a_later_step_fails(self):
+        self.installed_state()
+        engineer.save_manifest({"units": [], "repos": []})
+        repo = self.root / "repo"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+
+        def partial(path):
+            hook = repo / ".git/hooks/post-commit"
+            hook.write_text("#!/bin/sh\nroborev post-commit\n")
+            return 1
+        with patch.object(engineer.local_env, "init_repo", side_effect=partial), \
+                contextlib.redirect_stdout(io.StringIO()):
+            engineer.add_repo(engineer.build_parser().parse_args(["add-repo", str(repo)]))
+        with patch.object(engineer.local_env, "init_repo", return_value=0), \
+                contextlib.redirect_stdout(io.StringIO()):
+            engineer.add_repo(engineer.build_parser().parse_args(["add-repo", str(repo)]))
+        self.assertTrue(engineer.load_manifest()["repos"][0]["hooks_added"])
 
 
 class DoctorTests(EngineerTestCase):

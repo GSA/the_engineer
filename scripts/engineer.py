@@ -55,7 +55,7 @@ def save_manifest(record):
 
 
 def units():
-    record = load_manifest() or {}
+    record = load_active_manifest() or {}
     return record.get("units") or [f"{local_env.UNIT_PREFIX}-{name}.service" for name in SERVICES]
 
 
@@ -79,6 +79,11 @@ def make_ask(assume_yes):
                 return False
             print("Please answer y or n.")
     return ask
+
+
+def load_active_manifest():
+    record = load_manifest()
+    return None if record is None or record.get("uninstalled") else record
 
 
 def check_install_owner():
@@ -124,18 +129,29 @@ def owns_unit(unit):
 
 
 def repo_paths(record=None):
-    record = load_manifest() if record is None else record
+    record = load_active_manifest() if record is None else record
     return [entry["path"] if isinstance(entry, dict) else entry for entry in (record or {}).get("repos", [])]
 
 
+def owned_units():
+    """This install's units, skipping any the user manager loads from another checkout."""
+    return [unit for unit in units() if owns_unit(unit) or not unit_exists(unit)]
+
+
+def unit_exists(unit):
+    result = run(["systemctl", "--user", "show", unit, "--property=LoadState", "--value"],
+                 capture_output=True, text=True)
+    return (result.stdout or "").strip() not in ("", "not-found")
+
+
 def stop_services(quiet=False):
-    for unit in reversed(units()):
+    for unit in reversed(owned_units()):
         run(["systemctl", "--user", "stop", unit], capture_output=quiet)
 
 
 def restart_agents():
     """Forge and roborev start agents with the key and models; reload them if they run."""
-    for unit in units():
+    for unit in owned_units():
         if "-forge." in unit or "-roborev." in unit:
             run(["systemctl", "--user", "try-restart", unit])
 
@@ -144,6 +160,9 @@ def install(args):
     ask = make_ask(args.yes)
     check_install_owner()
     record = load_manifest() or {"units": [], "repos": []}
+    if record.pop("uninstalled", False):
+        # Reinstalling over data kept by an earlier uninstall: start a fresh record of what is created.
+        record = {"units": [], "repos": [], "choices": record.get("choices", {})}
     record.setdefault("kata_config_existed", (HOME / ".kata/config.toml").exists())
     choices = install_choices(ask, saved=record.get("choices", {}), copilot_flag=args.copilot)
     record["choices"] = choices
@@ -351,7 +370,7 @@ def dashboards():
 
 def start(args):
     require_installed()
-    for unit in units():
+    for unit in owned_units():
         run(["systemctl", "--user", "start", unit])
     status(args)
 
@@ -386,21 +405,34 @@ def add_repo(args):
         before = {"guard": repo_init.is_installed(repo), "hooks": roborev_hooked(repo)}
     except (OSError, RuntimeError, subprocess.SubprocessError):
         before = {"guard": True, "hooks": True}
-    code = local_env.init_repo(repo)
+    try:
+        code = local_env.init_repo(repo)
+    finally:
+        record_repo(repo, before)
     if code == 0:
-        record = load_manifest()
-        if record is not None:
-            entries = [entry for entry in record.get("repos", [])
-                       if (entry["path"] if isinstance(entry, dict) else entry) != str(repo)]
-            previous = next((entry for entry in record.get("repos", [])
-                             if isinstance(entry, dict) and entry["path"] == str(repo)), {})
-            entries.append({"path": str(repo),
-                            "guard_added": previous.get("guard_added", False) or not before["guard"],
-                            "hooks_added": previous.get("hooks_added", False) or not before["hooks"]})
-            record["repos"] = sorted(entries, key=lambda entry: entry["path"])
-            save_manifest(record)
         print("Commit the new .kata.toml and .roborev.toml files through a pull request, not on main.")
     return code == 0
+
+
+def record_repo(repo, before):
+    """Record which protections exist now that did not before, even after a failed step."""
+    repo_init = local_env.repo_init_module()
+    try:
+        after = {"guard": repo_init.is_installed(repo), "hooks": roborev_hooked(repo)}
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        after = {"guard": False, "hooks": False}
+    record = load_active_manifest()
+    if record is None:
+        return
+    entries = [entry for entry in record.get("repos", [])
+               if (entry["path"] if isinstance(entry, dict) else entry) != str(repo)]
+    previous = next((entry for entry in record.get("repos", [])
+                     if isinstance(entry, dict) and entry["path"] == str(repo)), {})
+    entries.append({"path": str(repo),
+                    "guard_added": previous.get("guard_added", False) or (after["guard"] and not before["guard"]),
+                    "hooks_added": previous.get("hooks_added", False) or (after["hooks"] and not before["hooks"])})
+    record["repos"] = sorted(entries, key=lambda entry: entry["path"])
+    save_manifest(record)
 
 
 def pi(args):
@@ -437,6 +469,9 @@ def remove_link(link, target):
 
 def uninstall(ask, *, purge):
     record = load_manifest()
+    if record is not None and record.get("uninstalled"):
+        raise RuntimeError("Engineer was already removed from this computer; your kept data is in "
+                           f"{local_env.STATE}. Run ./engineer install to use it again.")
     if record is None:
         raise RuntimeError("no ./engineer install record was found in this folder, so nothing was removed "
                            "(installs made with the older scripts are removed by hand; see dist/README.md)")
@@ -479,7 +514,7 @@ def uninstall(ask, *, purge):
     if purge:
         shutil.rmtree(LOCAL)
     else:
-        manifest_path().unlink()
+        save_manifest({"uninstalled": True, "choices": record.get("choices", {})})
     print("Removed: services, kata/roborev commands" + "".join(f", {item}" for item in removed) + ".")
     if not purge:
         print(f"Kept your data in {local_env.STATE}. To delete it too: rm -rf {LOCAL}")
