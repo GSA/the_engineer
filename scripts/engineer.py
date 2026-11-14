@@ -115,6 +115,19 @@ def install_choices(ask, *, saved, copilot_flag):
     return choices
 
 
+def owns_unit(unit):
+    """True when the user manager loads ``unit`` from this install's systemd directory."""
+    result = run(["systemctl", "--user", "show", unit, "--property=FragmentPath", "--value"],
+                 capture_output=True, text=True)
+    fragment = (result.stdout or "").strip()
+    return bool(fragment) and Path(fragment).parent == local_env.STATE / "systemd"
+
+
+def repo_paths(record=None):
+    record = load_manifest() if record is None else record
+    return [entry["path"] if isinstance(entry, dict) else entry for entry in (record or {}).get("repos", [])]
+
+
 def stop_services(quiet=False):
     for unit in reversed(units()):
         run(["systemctl", "--user", "stop", unit], capture_output=quiet)
@@ -146,6 +159,11 @@ def install(args):
           "(the first run takes 10-20 minutes)...")
     if record.get("units"):
         stop_services(quiet=True)
+    # Record the units before building, so a retry or uninstall after a partial failure
+    # can stop the services that did start. Uninstall checks each unit's owner first.
+    prefix = local_env.resolve_unit_prefix()
+    record["units"] = [f"{prefix}-{name}.service" for name in SERVICES]
+    save_manifest(record)
     command = [sys.executable, str(ROOT / "dist/install.py"), "--services", "user", "--guided"]
     if not (local_env.STATE / "usai.json").exists():
         command += ["--usai-base-url", USAI_BASE_URL, "--usai-model", DEFAULT_CODER,
@@ -153,9 +171,6 @@ def install(args):
     if run(command, cwd=ROOT, env=child_env()).returncode != 0:
         raise RuntimeError("the build or service setup stopped; read the message above, fix it, "
                            "then run ./engineer install again (it picks up where it left off)")
-    prefix = local_env.resolve_unit_prefix()
-    record["units"] = [f"{prefix}-{name}.service" for name in SERVICES]
-    save_manifest(record)
     if choices["copilot"]:
         copilot_env.configure_copilot()
     host_setup.write_shell_block(host_setup.shell_block(
@@ -305,8 +320,7 @@ def doctor(args=None):
     if not (local_env.STATE / "environment.json").exists():
         print("Engineer is not installed in this folder yet. Run: ./engineer install")
         return False
-    repos = (load_manifest() or {}).get("repos", [])
-    failures = local_env.accept(home=HOME, repos=repos)
+    failures = local_env.accept(home=HOME, repos=repo_paths())
     status, message = copilot_env.check()
     print(f"{status} copilot: {message}")
     if status == "FAIL":
@@ -356,14 +370,34 @@ def status(args):
     print("Dashboards: " + dashboards())
 
 
+def roborev_hooked(repo):
+    try:
+        hook = local_env.repo_init_module().hook_path(repo, "post-commit")
+        return "roborev" in hook.read_text(errors="replace")
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        return False
+
+
 def add_repo(args):
     require_installed()
-    code = local_env.init_repo(args.path)
+    repo = Path(args.path).expanduser().resolve()
+    repo_init = local_env.repo_init_module()
+    try:
+        before = {"guard": repo_init.is_installed(repo), "hooks": roborev_hooked(repo)}
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        before = {"guard": True, "hooks": True}
+    code = local_env.init_repo(repo)
     if code == 0:
         record = load_manifest()
         if record is not None:
-            path = str(Path(args.path).expanduser().resolve())
-            record["repos"] = sorted(set(record.get("repos", [])) | {path})
+            entries = [entry for entry in record.get("repos", [])
+                       if (entry["path"] if isinstance(entry, dict) else entry) != str(repo)]
+            previous = next((entry for entry in record.get("repos", [])
+                             if isinstance(entry, dict) and entry["path"] == str(repo)), {})
+            entries.append({"path": str(repo),
+                            "guard_added": previous.get("guard_added", False) or not before["guard"],
+                            "hooks_added": previous.get("hooks_added", False) or not before["hooks"]})
+            record["repos"] = sorted(entries, key=lambda entry: entry["path"])
             save_manifest(record)
         print("Commit the new .kata.toml and .roborev.toml files through a pull request, not on main.")
     return code == 0
@@ -416,6 +450,8 @@ def uninstall(ask, *, purge):
     if purge and input(f'Type "{PURGE_PHRASE}" to also delete your Engineer data: ').strip() != PURGE_PHRASE:
         raise RuntimeError("your data was not deleted, and nothing else was changed")
     for unit in reversed(record.get("units", [])):
+        if not owns_unit(unit):
+            continue
         run(["systemctl", "--user", "disable", "--now", unit])
         linked = HOME / ".config/systemd/user" / unit
         if linked.is_symlink() and Path(os.readlink(linked)).parent == local_env.STATE / "systemd":
@@ -423,10 +459,14 @@ def uninstall(ask, *, purge):
     if record.get("units"):
         run(["systemctl", "--user", "daemon-reload"])
     repo_init = local_env.repo_init_module()
-    for repo in record.get("repos", []):
-        if Path(repo).is_dir():
-            repo_init.remove_guard(Path(repo))
-            run([str(local_env.RUNTIME_ROOT / "roborev/bin/roborev"), "hook", "uninstall"], cwd=repo)
+    for entry in record.get("repos", []):
+        # Only protections this install added are removed; pre-existing ones stay.
+        if not isinstance(entry, dict) or not Path(entry["path"]).is_dir():
+            continue
+        if entry.get("guard_added"):
+            repo_init.remove_guard(Path(entry["path"]))
+        if entry.get("hooks_added"):
+            run([str(local_env.RUNTIME_ROOT / "roborev/bin/roborev"), "hook", "uninstall"], cwd=entry["path"])
     remove_link(HOME / ".local/bin/kata", local_env.RUNTIME_ROOT / "kata/kata")
     remove_link(HOME / ".local/bin/roborev", local_env.RUNTIME_ROOT / "roborev/bin/roborev")
     remove_link(HOME / ".roborev", local_env.STATE / "roborev")

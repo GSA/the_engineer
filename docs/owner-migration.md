@@ -82,10 +82,21 @@ again. It rewrites the roborev hooks to the new path and keeps `.kata.toml`,
 
 ## Rollback
 
-Stop the `engineer-*` units, `mv NEW OLD`, restore
-`.local/environment` from the backup, re-link the three symlinks to `OLD`,
-`systemctl --user enable --now P-{kata,agentsview,roborev,forge}.service`, run
-`init-repo` per repository, and confirm `accept` matches the baseline.
+```sh
+for n in kata agentsview roborev forge; do systemctl --user disable --now engineer-$n.service; done
+rm -f ~/.config/systemd/user/engineer-*.service
+mv NEW OLD && cd OLD
+tar --zstd -xf ~/engineer-migration-backup.tar.zst -C OLD     # restores the old environment.json and configs
+ln -sfn OLD/kata/kata ~/.local/bin/kata
+ln -sfn OLD/roborev/bin/roborev ~/.local/bin/roborev
+ln -sfn OLD/.local/environment/roborev ~/.roborev
+for n in kata agentsview roborev forge; do python3 scripts/local_env.py install-$n-service; done
+```
+
+The restored `environment.json` has no `unit_prefix`, so `install-*-service`
+recreates, links and starts the original `P-*.service` units. Run `init-repo`
+for each repository and `git worktree repair`, then confirm that `accept`
+matches the baseline.
 
 After migration the checkout still has no `.local/engineer-install.json`, so
 `./engineer install` and `./engineer uninstall` continue to refuse it. Keep

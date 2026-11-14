@@ -182,12 +182,75 @@ class InstallQuestionTests(EngineerTestCase):
             engineer.check_install_owner()
 
 
+class InstallRecordTests(EngineerTestCase):
+    def test_units_are_recorded_before_the_build_so_a_failed_install_can_be_undone(self):
+        seen = []
+
+        def fake_run(command, **kwargs):
+            self.commands.append(command)
+            if "dist/install.py" in " ".join(map(str, command)):
+                seen.append(list((engineer.load_manifest() or {}).get("units", [])))
+                return subprocess.CompletedProcess(command, 1, "", "")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        engineer.run.side_effect = fake_run
+        with patch.object(engineer.host_setup, "prepare", return_value={}), \
+                contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "build"):
+            engineer.install(engineer.build_parser().parse_args(["install", "--yes", "--copilot", "no"]))
+        self.assertEqual(seen, [[f"engineer-{name}.service" for name in engineer.SERVICES]])
+
+    def test_prefix_is_owned_only_when_this_install_created_it(self):
+        record = {}
+        (self.home / ".local/engineer").mkdir(parents=True)
+        with patch.object(engineer.host_setup, "install_apt_packages", return_value=[]), \
+                patch.object(engineer.host_setup, "ensure_systemd"), \
+                patch.object(engineer.host_setup, "install_node", return_value=False), \
+                patch.object(engineer.host_setup, "install_npm_package", return_value=False), \
+                patch.object(engineer.host_setup, "ensure_fd", return_value=False):
+            host_setup.prepare(lambda *a: True, want_copilot=False, record=record,
+                               pi_version="1.5.2", home=self.home)
+            self.assertFalse(record.get("prefix"))
+            other = self.root / "fresh-home"
+            other.mkdir()
+            host_setup.prepare(lambda *a: True, want_copilot=False, record=record,
+                               pi_version="1.5.2", home=other)
+        self.assertTrue(record["prefix"])
+
+
 class UninstallTests(EngineerTestCase):
+    def setUp(self):
+        super().setUp()
+        self.fragments = {"engineer-kata.service": str(self.state / "systemd/engineer-kata.service")}
+
+        def fake_run(command, **kwargs):
+            self.commands.append(command)
+            if "--property=FragmentPath" in command:
+                return subprocess.CompletedProcess(command, 0, self.fragments.get(command[3], "") + "\n", "")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        engineer.run.side_effect = fake_run
+
     def manifest(self, **extra):
         record = {"schema": engineer.MANIFEST_SCHEMA, "units": ["engineer-kata.service"],
                   "prefix": True, "kata_config_existed": False, "repos": [], **extra}
         engineer.save_manifest(record)
         return record
+
+    def test_units_owned_by_another_checkout_are_not_disabled(self):
+        self.manifest(units=["engineer-kata.service", "engineer-forge.service"])
+        self.fragments["engineer-forge.service"] = "/other/checkout/.local/environment/systemd/engineer-forge.service"
+        with contextlib.redirect_stdout(io.StringIO()):
+            engineer.uninstall(answers(True), purge=False)
+        self.assertIn(["systemctl", "--user", "disable", "--now", "engineer-kata.service"], self.commands)
+        self.assertNotIn(["systemctl", "--user", "disable", "--now", "engineer-forge.service"], self.commands)
+
+    def test_only_repository_hooks_added_by_add_repo_are_removed(self):
+        repo = self.root / "repo"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        self.manifest(repos=[{"path": str(repo), "guard_added": False, "hooks_added": True}])
+        with patch.object(local_env.repo_init_module(), "remove_guard") as remove_guard, \
+                contextlib.redirect_stdout(io.StringIO()):
+            engineer.uninstall(answers(True), purge=False)
+        remove_guard.assert_not_called()
+        self.assertTrue(any(command[-2:] == ["hook", "uninstall"] for command in self.commands))
 
     def test_uninstall_without_an_install_record_changes_nothing(self):
         with self.assertRaisesRegex(RuntimeError, "install record"):
@@ -250,6 +313,22 @@ class UninstallTests(EngineerTestCase):
         with patch("builtins.input", return_value="delete my data"), contextlib.redirect_stdout(io.StringIO()):
             engineer.uninstall(answers(True), purge=True)
         self.assertFalse(engineer.LOCAL.exists())
+
+
+class AddRepoTests(EngineerTestCase):
+    def test_add_repo_records_which_protections_it_added(self):
+        self.installed_state()
+        engineer.save_manifest({"units": [], "repos": []})
+        repo = self.root / "repo"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        hooks = repo / ".git/hooks"
+        (hooks / "post-commit").write_text("#!/bin/sh\nroborev post-commit\n")
+        with patch.object(engineer.local_env, "init_repo", return_value=0), \
+                contextlib.redirect_stdout(io.StringIO()):
+            engineer.add_repo(engineer.build_parser().parse_args(["add-repo", str(repo)]))
+        self.assertEqual(engineer.load_manifest()["repos"],
+                         [{"path": str(repo.resolve()), "guard_added": True, "hooks_added": False}])
+        self.assertEqual(engineer.repo_paths(), [str(repo.resolve())])
 
 
 class DoctorTests(EngineerTestCase):

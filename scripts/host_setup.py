@@ -256,12 +256,15 @@ def remove_shell_block(home=None):
 
 def prepare(ask, *, want_copilot, record, pi_version, home=None, run=subprocess.run, fetch=download):
     """Install host prerequisites; add what was created to ``record``."""
+    # Own the shared tool prefix only when this install creates it, so uninstalling a
+    # second checkout never deletes tools another install is using.
+    if not prefix(home).exists():
+        record["prefix"] = True
     installed = install_apt_packages(ask, run)
     record["apt_installed"] = sorted(set(record.get("apt_installed", [])) | set(installed))
     ensure_systemd(ask, run)
     if install_node(home, run, fetch):
         record["node"] = True
-    record["prefix"] = True
     install_npm_package(PI_PACKAGE, pi_version, "pi", home, run)
     if want_copilot:
         install_npm_package(COPILOT_PACKAGE, COPILOT_VERSION, "copilot", home, run)
