@@ -12,6 +12,7 @@ from pathlib import Path
 import shutil
 import sys
 
+import host_setup
 import local_env
 
 DEFAULT_COPILOT_MODEL = "claude-sonnet-5.5"
@@ -125,7 +126,7 @@ def copilot_launch(args):
         "COPILOT_PROVIDER_API_KEY_COMMAND": " ".join(
             [sys.executable, str(local_env.RUNTIME_ROOT / "scripts/usai-key.py")]),
         "COPILOT_MODEL": model,
-        "PATH": os.pathsep.join([str(TOOLS_BIN), env.get("PATH", "")]),
+        "PATH": host_setup.tool_path(path=os.pathsep.join([str(TOOLS_BIN), env.get("PATH", "")])),
     })
     if limits:
         env["COPILOT_PROVIDER_MAX_PROMPT_TOKENS"] = str(limits["contextWindow"] - limits["maxTokens"])

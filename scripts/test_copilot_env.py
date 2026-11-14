@@ -89,6 +89,9 @@ class CopilotEnvironmentTests(unittest.TestCase):
         self.assertNotIn("COPILOT_PROVIDER_API_KEY", env)
         self.assertNotIn("COPILOT_PROVIDER_BEARER_TOKEN", env)
         self.assertNotIn("test-only-token", json.dumps([command, env]))
+        path = env["PATH"].split(os.pathsep)
+        self.assertLess(path.index(str(copilot_env.host_setup.prefix() / "node/bin")),
+                        path.index("/usr/bin") if "/usr/bin" in path else len(path))
 
     def test_launch_explains_missing_setup_in_plain_language(self):
         with self.assertRaisesRegex(RuntimeError, "engineer install"):
