@@ -744,9 +744,8 @@ def evidence_note(manifest, bundle):
             except UnicodeDecodeError:
                 pass
     names = [f"path/to/{Path(item['source']).name}" for item in capture["data"]]
-    assign = f"EVIDENCE_DATA={shlex.quote(names[0])}"
-    if len(names) > 1:
-        assign += f" EVIDENCE_DATA_FILES={shlex.quote(os.pathsep.join(names))}"
+    assign = (f"EVIDENCE_DATA={shlex.quote(names[0])} "
+              f"EVIDENCE_DATA_FILES={shlex.quote(os.pathsep.join(names))}")
     lines += [
         "",
         "**How it was tested** (run from the repository root; point `EVIDENCE_DATA` at your own "

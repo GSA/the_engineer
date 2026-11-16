@@ -109,10 +109,12 @@ data only):
 - **Docs only:** no evidence comment.
 
 The Forge workspace Pi extension enforces this only for tickets that need it.
-After a successful `gh pr create`, it checks the workspace task (`KATA_REF`).
+After a successful `gh pr create`, it checks the workspace task (`KATA_REF`)
+and classifies against the PR's `--base` (default `origin/main`).
 If the task has `jira.key` metadata (set by `jira-intake.py`) or the
 `evidence` label, it runs `classify` and appends the evidence needed, with
-ready `capture --walkthrough` / `evidence --before` / `publish` commands, to
+ready `capture --walkthrough` / `evidence --before` / `publish` commands
+(using the Engineer runtime's `demo-capture.py`, so they work in any repository), to
 the tool result. Owner-requested tasks without either marker are untouched.
 The hook only advises, and does nothing if `kata` or `classify` fails.
 Opt a task in with `kata label add <id> evidence`.

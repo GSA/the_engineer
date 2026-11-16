@@ -870,3 +870,16 @@ test("PR evidence hook leaves owner-requested, docs-only, failed and non-create 
     delete process.env.KATA_REF;
     expect(await prCreated(load())).toBeUndefined();
 });
+
+test("PR evidence commands use the runtime script and the PR's own base", async () => {
+    evidenceFixture({ meta: { "jira.key": "SYN-7" }, classify: { base: "release", changes: { ui: ["a.css"], api: ["api/x.py"], backend: [], docs: [] }, evidence: ["walkthrough", "test-evidence"] } });
+    writeFileSync(join(process.env.KENN_KOPY_RUNTIME_ROOT, "scripts", "demo-capture.py"),
+        `import json,sys\nassert sys.argv[1:]==["classify","--base","origin/release"], sys.argv\nprint(json.dumps({"base":"origin/release","changes":{"ui":["a.css"],"api":["api/x.py"],"backend":[],"docs":[]},"evidence":["walkthrough","test-evidence"]}))\n`);
+    const text = hintText(await prCreated(load(), "gh pr create --base release --fill"));
+    const script = join(process.env.KENN_KOPY_RUNTIME_ROOT, "scripts", "demo-capture.py");
+    expect(text).toContain(`python3 ${script} capture --walkthrough --base origin/release`);
+    expect(text).toContain(`python3 ${script} evidence`);
+    expect(text).toContain("--before origin/release");
+    expect(text).toContain(`python3 ${script} publish <bundle> --pr 42`);
+    expect(text).not.toContain("python3 scripts/demo-capture.py");
+});

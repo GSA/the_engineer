@@ -443,6 +443,19 @@ class EvidenceTests(unittest.TestCase):
             note = (Path(out.strip().splitlines()[-1]) / "evidence.md").read_text()
             self.assertIn("EVIDENCE_DATA_FILES=path/to/input.json:path/to/second.json", note)
 
+    def test_single_file_reproduction_sets_data_files_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, data = self._repo_with_fix(tmp)
+            code, out, err = run_main("evidence", "--repo", str(repo), "--task", "t#1", "--demonstrates", "x",
+                                      "--data", str(data), "--command", 'cat "$EVIDENCE_DATA_FILES"')
+            self.assertEqual(code, 0, err)
+            note = (Path(out.strip().splitlines()[-1]) / "evidence.md").read_text()
+            line = next(l for l in note.splitlines() if l.startswith("EVIDENCE_DATA="))
+            self.assertIn("EVIDENCE_DATA_FILES=path/to/input.json", line)
+            run = subprocess.run(["bash", "-c", line.replace("path/to/input.json", str(data))], cwd=repo,
+                                 capture_output=True, text=True, env={"PATH": os.environ["PATH"]})
+            self.assertEqual(run.stdout, data.read_text())
+
     def test_evidence_requires_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo, _ = self._repo_with_fix(tmp)
