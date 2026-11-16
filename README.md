@@ -1,512 +1,163 @@
-# The Engineer (`kenn-kopy`)
+# Engineer
 
-Local, loopback-only engineering workstation for agent-driven work. It bundles:
+Engineer sets up a private AI engineering workstation on your Ubuntu computer
+(WSL on Windows, or an AWS WorkSpace). It gives you two AI coding assistants
+that use GSA's **USAi** models, plus the tools that keep their work
+organized and reviewed:
 
-- **Forge**: workspaces, agent sessions, and PRs
-- **Kata**: task tracker
-- **roborev**: automated code review
-- **AgentsView**: session and usage history
-- **Pi**: coding agent, using GSA **USAi** models
-- **Superpowers**: Pi skills
-
-It consumes business context from **The Librarian** and ships a dependency-free
-cross-repository seam scanner (`engineer-seams`) for code that spans repositories.
-
-GitHub: `GSA/the_engineer`. Local checkout: `~/kenn-kopy`. Kata project: `the_engineer`.
-Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
-
-## Requirements
-
-- Ubuntu 24.04+ on x86_64, or WSL2
-- Python 3.11+, Node.js 24.11+, Pi `1.5.2`
-- A USAi API key
-- An approved local corpus path, passed as `--corpus` (always required).
-  The default legacy `falcon-docs` binding requires
-  `tools/context-mcp/.venv/bin/qualified-context-mcp` and
-  `tools/context-index/context_index.py` beneath that path. To use an explicit
-  Librarian toolkit instead, also pass `--librarian-executable` and
-  `--librarian-root`; the legacy files are not required for that binding.
-
-```sh
-sudo apt-get install git curl ca-certificates build-essential libc6-dev \
-  tmux python3 python3-venv tar coreutils diffutils ripgrep fd-find
-mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
-npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.2
-export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"
-```
-
-## Stand it up
-
-Run these commands from `~/kenn-kopy`. `dist/install.sh` fetches the pinned
-submodules and toolchains (Go, Bun, gh, jq in `.local/tools`), builds the four
-services, creates private state in `.local/environment/`, links the native
-`kata` and `roborev` CLIs (`~/.local/bin`, `~/.kata/config.toml`, `~/.roborev`),
-saves the USAi connection, starts the systemd user services, registers repos
-with Forge, and installs roborev Git hooks. It stops rather than replace links
-or settings that belong to another install, and reruns keep existing state.
-See [dist/README.md](dist/README.md) for every option.
-
-```sh
-# 1. Check prerequisites, then install.
-bash dist/install.sh --check --corpus ~/falcon-docs
-bash dist/install.sh --corpus ~/falcon-docs --services user \
-  --usai-base-url https://api.gsa.usai.gov/api/v1 --usai-model claude-sonnet-5.5 \
-  --usai-review-model gpt-6.1-sol-latest-guardrails-defaultv2 \
-  --register-repo ~/kenn-kopy --register-repo ~/the_librarian
-
-# 2. Enter the USAi key (hidden prompt). To add models beyond the built-in list,
-#    see "Loading and changing USAi models" below.
-python3 scripts/local_env.py set-key
-
-# 3. Authenticate Forge's isolated GitHub CLI.
-./scripts/gh-local.py auth login --hostname github.com --web --git-protocol https --insecure-storage
-systemctl --user restart kenn-kopy-forge.service
-
-# 4. Accept the host: read-only PASS/FAIL per check, nonzero exit until done.
-python3 scripts/local_env.py accept --repo ~/kenn-kopy --repo ~/the_librarian
-python3 scripts/local_env.py status
-```
-
-`accept` checks the Pi pin and extensions, built executables, pinned
-submodule gitlinks, the native `kata`/`roborev` links, Pi MCP connections, all
-four user services, the saved USAi provider, the presence of the private USAi
-key and GitHub login (values are never printed), and, for each `--repo`, the
-Forge registration, roborev post-commit hook and protected-branch push guard.
-It makes no model call and changes no service. Run it from a login shell so
-`systemctl --user` can reach the user manager.
-
-`python3 scripts/local_env.py verify-pi-policy [--cwd PATH]` shows the
-instructions, skills and Forge policy that coder Pi and roborev's structured
-review Pi load at `PATH`, failing if a review would inherit coder policy or the
-installed coder contract differs from `scripts/pi-coder-contract.md` (rerun
-`setup` to reinstall it). It exits before any model request.
-
-`python3 scripts/local_env.py verify-handoff WORKSPACE_ID [--commit SHA]`
-checks one Forge Kata workspace end to end with read-only requests: Forge task
-detail and project mapping, the worktree branch, the Forge-recorded Pi session,
-its AgentsView record and saved resume file, the finished roborev job for the
-exact commit in that worktree, and a stored pass, close or comment
-disposition. It also reports `GAP native-review-ui`, because Forge renders its
-Reviews tab only for pull-request workspaces; open the printed roborev review
-link instead.
-
-Add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`; the installer does
-not edit shell files. The install tracks only Pi sessions from this install. To
-also track Copilot and other Pi transcripts, run `configure-tracking` after
-AgentsView is up (see `--help`), then restart `kenn-kopy-agentsview.service`.
-The installer also prices guarded USAi Sol deployments (for example
-`gpt-6.1-sol-latest-guardrails-defaultv2`) as their base models. Installs made
-before this change should run `python3 scripts/local_env.py
-configure-agentsview-pricing` once and restart AgentsView.
-
-If the host has no systemd user services, install with `--services manual`, run
-`python3 scripts/local_env.py run` in the foreground, and use
-`python3 scripts/local_env.py stop` to stop it. Initialize each repo afterwards
-with `python3 scripts/local_env.py init-repo <repo>` (see below).
-
-## Initialize the platform in another repository
-
-Prerequisites: the four services are up (`python3 scripts/local_env.py status`)
-and GitHub is signed in (`./scripts/gh-local.py auth status`). Then, for each
-Git checkout:
-
-```bash
-python3 scripts/local_env.py init-repo ~/some_repo [--project NAME] [--skip-kata]
-python3 scripts/local_env.py accept --repo ~/some_repo
-```
-
-`init-repo` is idempotent, never overwrites an existing file, prints one
-`OK`/`SKIP`/`WARN`/`ERROR` line per step and a next-steps list, and exits
-nonzero on `ERROR`. Its steps:
-
-1. Checks that the path is a non-bare Git checkout.
-2. Registers it with Forge (a `WARN` with the manual `register` command if
-   Forge is down).
-3. Installs the native roborev hooks (`roborev init --no-daemon`) and, when
-   absent, writes `.roborev.toml` from `scripts/templates/roborev.toml`.
-4. Runs `kata init --project NAME` (default: the directory name, matching
-   Kata project names to repository names) unless `.kata.toml` exists or
-   `--skip-kata` is given, then reports whether Forge maps that Kata project
-   to the repository. Forge derives the mapping from the registered checkout
-   and its committed `.kata.toml`; if it reports `unmapped`, add a GitHub
-   `origin` remote or map it in Forge Settings > Kata project mappings.
-   `.kata.toml` and `.roborev.toml` are committed files: land them through a
-   feature branch and pull request, never `main`.
-5. Installs the protected-branch push guard and runs the `accept --repo`
-   checks, which also report a missing guard.
-
-The guard is a marked block at the top of the repository's `pre-push` hook,
-in the common hooks directory, so every linked worktree (including Forge
-workspaces) shares it. It rejects a push, force push or deletion of `main` or
-`master` unless a person at a terminal types `yes`; agent tool subprocesses
-have no terminal and are blocked. It coexists with the roborev `pre-push`
-hook in either install order. Remove it with
-`python3 scripts/local_env.py init-repo <repo> --remove-guard`.
-
-The guard is a local speed bump: `git push --no-verify` bypasses it. The
-backstop is GitHub branch protection on `main`. The repository owner enables it
-once per repository, for example:
-
-```bash
-./scripts/gh-local.py api -X PUT repos/OWNER/REPO/branches/main/protection \
-  --input - <<'JSON'
-{"required_status_checks": null, "enforce_admins": true,
- "required_pull_request_reviews": {"required_approving_review_count": 1},
- "restrictions": null, "allow_force_pushes": false, "allow_deletions": false}
-JSON
-```
-
-## Isolated Librarian MVP instance (Layer 1)
-
-Keep `~/the_librarian` free of customer or corpus data. MVP demos use a separate
-instance (`~/falcon-librarian-mvp`) with private `.local/` stores (`LCAT`,
-`LREV`, `LCTX`) and ignored `config/policy.local.json` and
-`config/selection.local.json` for `~/falcon-docs/INBOX/` and `~/falcon/*`:
-
-```sh
-python3 scripts/local_env.py provision-librarian-mvp \
-  --source ~/the_librarian --dest ~/falcon-librarian-mvp \
-  --inbox ~/falcon-docs/INBOX --repos-root ~/falcon --bind-mcp
-```
-
-`--bind-mcp` routes the `falcon-librarian` MCP server in `scripts/pi-local.py` to
-that instance. To bind later, run
-`python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-librarian-mvp`.
-
-### Audit bindings and decision trail
-
-`librarian-mcp --audit-log --agent-label LABEL` (the_librarian#9e3j) records
-the full text each client received, with its SHA-256, in a private
-`<root>/.local/audit/<label>-mcp-access.jsonl`. Opt in per binding:
-
-```sh
-python3 scripts/local_env.py configure-librarian --librarian-root ~/falcon-librarian --audit \
-  [--copilot-config ~/.copilot/mcp-config.json]
-```
-
-- `--audit` adds the flags to the managed Pi/Forge binding (label `pi-forge`);
-  `--copilot-config PATH` adds a separate Copilot binding (label `copilot`) and
-  preserves other servers in that file. Rerunning is idempotent; omitting
-  `--audit` turns auditing off again.
-- The command refuses, without writing, when the installed `librarian-mcp`
-  lacks either flag (reinstall the adapter from a checkout containing 9e3j).
-- Global or repository bindings it does not own (`~/.copilot/mcp-config.json`
-  without `--copilot-config`, repo `.pi/mcp.json`, `GLOBAL_PI/mcp.json`,
-  `.github/mcp.json`) are listed as unmanaged and never modified.
-- Activation: flags take effect only when a client starts a new
-  `librarian-mcp` process. Restart or `/reload` Pi and restart Copilot, then
-  prove it:
-  `node scripts/verify-audit-binding.mjs <pi cli.js> <STATE>/pi <query> <audit log> [label]`
-  drives a fresh Pi client through status, search, exact get and a failing get
-  and checks that each audit record carries the hash of the payload Pi received.
-  If the log cannot be written the call returns an error and no document text.
-
-`python3 scripts/decision-trail.py --kata PROJECT#ID --repo DIR --commits RANGE
---pr OWNER/REPO#N --audit-log LOG --session-file FILE --workspace ID
-[--intake DIR] --name NAME` writes a private, read-only retrospective to
-`.local/decision-trail/NAME.md`: approved ticket and revision, what the
-Librarian returned (hashes, locators, qualification), task/workspace/session,
-commits with exact-commit reviews and dispositions, checks, the PR and the
-human decision, model roles and quoted rationale. Absent links print `MISSING`
-and are never inferred; labels do not prove task or session identity (only
-Forge's workspace link and session time overlap do); hidden reasoning is not
-captured; returned text is never copied.
-
-A second WSL2 distro for rehearsals (Layer 2, `the_engineer#t592`) is deferred
-until after the MVP; see [docs/wsl2-rehearsal.md](docs/wsl2-rehearsal.md).
-
-## Services
-
-| Service | URL | Unit |
-| --- | --- | --- |
-| Forge | http://127.0.0.1:18091/ (MCP `:18092/mcp`) | `kenn-kopy-forge.service` |
-| Kata | http://127.0.0.1:17777/kata | `kenn-kopy-kata.service` |
-| roborev | http://127.0.0.1:17374/reviews (API `:17373`) | `kenn-kopy-roborev.service` |
-| AgentsView | http://127.0.0.1:18080/ | `kenn-kopy-agentsview.service` |
-
-All services bind to `127.0.0.1`. `KENN_KOPY_PORT_OFFSET` shifts every port; see
-[docs/wsl2-rehearsal.md](docs/wsl2-rehearsal.md#ports-are-shared-with-your-primary-distro).
-
-## Configuration reference
-
-All state is under `.local/environment/`. Git ignores that directory, and the
-files are private (`0600`/`0700`). Set `KENN_KOPY_RUNTIME_ROOT` to use a
-different root.
-
-| File | Purpose |
+| Tool | What it does for you |
 | --- | --- |
-| `environment.json` | Corpus path, Forge binary, Pi executable and version, optional Librarian binding, and any `port_offset`, written by `setup`; rerunning `setup` after upgrading the saved Pi executable in place updates only an older `pi_version` |
-| `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
-| `usai.json` | Active coder `model` and `review_model` |
-| `usai-models.json` | Last model catalog fetched from USAi |
-| `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is the `${USAI_API_KEY}` placeholder. |
-| `pi/settings.json` | Pi default provider and model, Superpowers and extension packages (`pi-subagents`, `pi-json-schema`), and subagent defaults (`model: inherit`) |
-| `pi/mcp.json` | Pi MCP servers: `falcon-librarian` (Librarian-style corpus), `kata`, and `kenn-forge` |
-| `pi/extensions/forge-workspace/` | Forge workspace extension (session hooks, worktree isolation, PR/target registration) |
-| `forge/config.toml` | Forge host and port, MCP, and agent launchers `pi` (default model) and `pi-argon` (`gemini-4-argon`) |
-| `roborev/config.toml` | Daemon address, `pi` agent command, and reviewer model (linked from `~/.roborev`) |
-| `kata/config.toml` | Kata listen address |
-| `agentsview/config.toml` | AgentsView archive policy and session source directories (paired with `agentsview-tracking.json`) |
-| `gh/` | Isolated GitHub CLI login used by Forge and `scripts/gh-local.py` |
-| `systemd/` | Generated user units |
+| **Pi** | AI coding assistant in your terminal, using USAi |
+| **GitHub Copilot CLI** (optional) | Copilot's terminal assistant, also using USAi; no Copilot license needed |
+| **Forge** | Web dashboard: start an AI "workspace" for a task and watch it work |
+| **Kata** | Task list the AI and you share |
+| **roborev** | A second AI model reviews every change before you see it |
+| **AgentsView** | History and usage of every AI session |
+| **Superpowers** | Built-in skills that make the AI plan, test and verify, not just type |
 
-Each repo has its own `.roborev.toml` (agent `pi`, reviews batched every 5 commits) and
-`.kata.toml` (Kata project binding).
+Everything runs on your own computer and is reachable only from it
+(`127.0.0.1`). Your USAi key stays in one private file and is never shown,
+logged or put in Git.
 
-Forge's automatic PR formatter chooses detail and structure by the meaningful
-changes, not a file-count tier or bullet quota. A focused fix can stay a short
-paragraph; independent changes can use bullets or sections. It preserves task
-references and actionable compatibility, migration, and approval notes.
+## What you need
 
-## Task-bound business evidence and cross-repository seams
+- Ubuntu 24.04 or newer (WSL2 on Windows, or an AWS WorkSpace), with `sudo`
+- A **USAi API key**
+- A **GitHub account** (to open pull requests)
+- About 20 minutes and 10 GB of disk space for the first install
 
-`engineer-task-context` composes one task-bound evidence packet from the
-configured Librarian business corpus. It is a read-only consumer: it never
-acquires sources, indexes, extracts, or publishes, and it never mutates a Kata
-task. For code that crosses repository boundaries, it also ships the
-dependency-free `seams` scanner.
+## Install
 
-Install it into a private virtual environment (`python3 -m venv .local/context-venv && .local/context-venv/bin/pip install -e '.[test]'` with Python 3.12 or newer) and write
-an `engineer.context-config/v2` file naming the Librarian provider:
-
-```json
-{
-  "schema": "engineer.context-config/v2",
-  "librarian": {"project_id": "<business project>", "executable": "<librarian-mcp>",
-                "root": "<corpus root>", "reader": null, "selection": null}
-}
-```
-
-Relative paths resolve against the configuration file. The server program path
-keeps the link you select, so a virtual environment's entry point runs with
-that environment's prefix. Paths may contain spaces; every provider launch uses
-an argument list, never a shell. Leave `librarian.reader` null for a current
-Librarian toolkit, which loads its reader module from `root` and refuses an
-explicit `--reader`; set it only for a legacy release that requires that
-argument.
-
-A collection request names the task and the business locators to read:
-
-```json
-{"task": {"daemon_id": "...", "project_uid": "...", "issue_uid": "...", "workspace_id": "..."},
- "business": [{"locator": "documents/guide.md#overview", "required": true}]}
-```
+Open an Ubuntu terminal and run:
 
 ```sh
-engineer-context collect --config binding.json --request request.json --output packet.json
-engineer-context report --packet packet.json
-engineer-context revalidate --config binding.json --packet packet.json --task task.json --output recheck.json
-engineer-context seams --workspace-root ~/falcon --format markdown --max-chars 4000
+git clone https://github.com/GSA/the_engineer.git ~/engineer
+cd ~/engineer
+./engineer install
 ```
 
-`collect` exits 0 only when every required business locator returned
-evidence; it exits 2 when the packet is blocked and 1 on invalid input or I/O.
-`report` renders provenance, gaps and readiness; `--json` emits the machine
-form; raise `--max-bytes` when a packet exceeds the 1 MiB default.
-`revalidate` rechecks the Librarian binding and each whole qualified response
-against a sealed packet without changing it.
+The installer explains each step and asks before it changes anything:
 
-Packets (`engineer.task-context/v2`) preserve full provider responses, exact
-passages, locators, source hashes, line ranges, coverage and handling
-restrictions. Rendition pieces report their original source location next to
-the indexed extraction range, so citations name the real location. Assertions
-and contributions are reported as unavailable capabilities pending
-`the_librarian#923h` and `the_librarian#rjr5`. Packets can carry restricted
-source text, so write them only to private paths and never paste them into
-shared channels.
+1. **Ubuntu packages.** It lists the packages it needs and installs them with
+   `sudo`, so it may ask for your Ubuntu password. On WSL it can also turn on
+   systemd. If it does, it asks you to run `wsl --shutdown` in PowerShell,
+   reopen Ubuntu, and run `./engineer install` again.
+2. **Copilot.** It asks whether to set up GitHub Copilot CLI on USAi as well
+   (Pi is always set up). If you already use GitHub Copilot with your own
+   license, you can keep the plain `copilot` command as it is and use
+   `./engineer copilot` for USAi.
+3. **Build.** It builds and starts the four services. This takes 10–20 minutes
+   the first time.
+4. **Your USAi key.** It asks for the key at a hidden prompt and checks it
+   with USAi before saving it.
+5. **GitHub.** It shows a code and a link for signing in to GitHub.
+6. **Check.** It runs `./engineer doctor` and prints the dashboard links.
 
-`seams` scans local repositories for cross-repository and cross-layer edges (UI
-HTTP calls to API Gateway routes, CDK stacks to Lambda handlers, orphan or stub
-handler directories, async queue/stream wiring, and CloudFormation cross-stack
-imports). It prints compact `file:line` citations, and supports `--kind`,
-`--query` and `--format compact|markdown|json`.
+Open a new terminal afterwards so the `engineer` command works from any folder.
+If something stops the install, fix what the message says and run
+`./engineer install` again. It picks up where it left off.
 
-Agents reach the same four read-only operations (`collect`, `report`,
-`revalidate`, and `seams`) through a stdio MCP server configured once at
-startup (`engineer-seams` is also installed as a standalone CLI entry point
-for the same scanner):
+## Everyday use
 
 ```sh
-engineer-context-mcp --config binding.json
+./engineer pi          # start Pi (USAi)
+./engineer copilot     # start Copilot CLI (USAi), if you set it up
+./engineer status      # are the services running? (also prints the dashboard links)
+./engineer start       # start the services (they also start when you log in)
+./engineer stop        # stop them; nothing is lost
+./engineer doctor      # check everything; every problem comes with the command that fixes it
 ```
 
-Verify an actual Pi session's discovery and qualified read without any model
-call, writing a private receipt. The probe connects only the server it
-registers, so your own `mcp.json` entries are neither launched nor able to
-shadow it:
+Dashboards (open them in your browser):
+
+| Dashboard | Link |
+| --- | --- |
+| Forge (workspaces) | http://127.0.0.1:18091/ |
+| Kata (tasks) | http://127.0.0.1:17777/kata |
+| roborev (reviews) | http://127.0.0.1:17374/reviews |
+| AgentsView (history) | http://127.0.0.1:18080/ |
+
+### Work on a repository
+
+Set up each Git repository you want the AI to work in once:
 
 ```sh
-node scripts/verify-context-runtime.mjs <pi-install> <private agent dir> \
-  <engineer-context-mcp> <config> <request> <receipt.json>
+./engineer add-repo ~/path/to/your-repo
 ```
 
-## Manual Jira-to-Kata intake
+This connects the repository to Forge, Kata and roborev. It also adds a guard
+that stops anyone, human or AI, from pushing straight to `main`. The command
+creates `.kata.toml` and `.roborev.toml` in the repository: commit them through
+a pull request.
 
-`scripts/jira-intake.py` turns one owner-supplied Jira XML export (Jira's
-"Export > XML" for a single issue) into human-approved Kata tasks. The full
-contract is in `context/jira-intake.md`.
+Then, in Forge, open the repository, create a task, and click
+**Pi (USAi)** to start a workspace. The AI works on its own branch, its changes
+are reviewed by roborev, and it opens a pull request for you to review. **Only
+a person merges.**
+
+## Your USAi key and models
 
 ```sh
-# 1. Retain the export privately (.local/jira-intake/<KEY>/, mode 0600).
-scripts/jira-intake.py init ~/Downloads/CCSMFSSM-1290.xml \
-  --access-path "owner-supplied XML export"
-
-# 2. Record approved refinements, assumptions, questions and tasks.
-$EDITOR .local/jira-intake/CCSMFSSM-1290/intake.toml
-
-# 3. Validate, review the kata commands, then create the tasks.
-scripts/jira-intake.py check  .local/jira-intake/CCSMFSSM-1290/intake.toml
-scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml
-scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml --apply
+./engineer key       # add or replace your key (for example when it expires)
+./engineer models    # pick the coding and review models from a numbered list
 ```
 
-Each created task carries the ticket key, URL, export SHA-256, original
-description and acceptance criteria, approved refinements, assumptions,
-Librarian grounding and `jira.*` metadata. A task with
-`adopt = "<project>#<id>"` (and optional `pull_request`) attaches that
-traceability to an existing Kata task instead of creating one. Launch work on a task from
-**Forge > Workspaces > New workspace**.
+- `./engineer key` checks the new key with USAi before saving it. If USAi
+  rejects it, nothing is saved. After a change, close and reopen any Pi or
+  Copilot windows that were already open.
+- The key is stored only in `.local/environment/secrets/usai-api-key`, readable
+  only by you. Never paste it into a chat, a file in Git, or a command.
+- The defaults are `claude-sonnet-5.5` for coding and
+  `gpt-6.1-sol-latest-guardrails-defaultv2` for review. Coding and review use
+  different model families on purpose, so one model checks the other's work.
+  Copilot works only with Claude models on USAi, so its menu lists only those.
 
-## Tool-call failure diagnosis
-
-`python3 scripts/tool-health.py` checks Kata reachability, the current
-directory's Kata project binding and Librarian index freshness, and prints the
-fix for each failure. `python3 scripts/tool-failures.py --pi DIR --copilot DIR`
-reports the most common failed tool calls in agent history; the latest results
-are in `context/tool-failures.md`. The Forge Pi extension adds a one-line
-`Recovery:` hint to failed tool results for recurring causes.
-
-## Value case
-
-`context/value-case.md` is a one-page template for the estimated value of a
-run: labeled estimates, the mechanism, quick checks and what would falsify the
-claim. Fill private copies under ignored `.local/value-case/`.
-
-## USAi key management and rotation
-
-- `set-key` prompts for the key with hidden input. It rejects keys passed as an
-  argument or piped in. The key is written only to `secrets/usai-api-key` (`0600`).
-- `scripts/pi-local.py` reads the key file on every launch and passes the key
-  only to that Pi process as `USAI_API_KEY`. Config files never contain the key.
-- `set-key` also points any existing global Pi USAi provider in `~/.pi/agent/`
-  to `scripts/usai-key.py`, so global Pi reads the same file. Pass
-  `--private-only` to skip that.
-
-To rotate the key:
+## Update and uninstall
 
 ```sh
-python3 scripts/local_env.py set-key        # paste the new key
-python3 scripts/local_env.py list-models --base-url https://api.gsa.usai.gov/api/v1   # verify that the key works
+./engineer update                # get the latest Engineer and rebuild; your data is kept
+./engineer uninstall             # remove services, commands and shell settings; keeps your data
+./engineer uninstall --purge     # also delete tasks, reviews, sessions and settings
 ```
 
-New Forge agent sessions and roborev reviews use the new key automatically, and
-no service restart is needed. Restart any Pi sessions that are already running,
-such as the tmux `pi` session or open Forge workspaces. A USAi HTTP `401` means
-the key is expired or revoked; rotate it as shown above.
+Uninstall removes only what `./engineer install` added. Ubuntu packages,
+your own Pi or Copilot settings (`~/.pi`, `~/.copilot`), your repositories and
+their committed files are left alone. After uninstalling you can delete the
+`~/engineer` folder.
 
-## Loading and changing USAi models
+## What the AI can and cannot do here
 
-The default Forge coder (`Pi (USAi)`) uses `claude-sonnet-5.5`. New sessions
-pick up model changes automatically; restart an existing Pi session to switch.
-The alternate `Pi (Gemini 4 Argon)` target and the reviewer model are independent.
+Engineer is a good place to learn what AI coding assistants are good at and
+where they need you.
 
-1. `list-models` fetches `/models` from USAi into `usai-models.json`. It only
-   lists models; it does not test them.
-2. `configure-provider --base-url <url> --model <coder> [--review-model <reviewer>] --api openai-completions`
-   writes every chat model (the built-in list plus the fetched catalog) to
-   `pi/models.json` and skips embedding models. Main Claude and Gemini models
-   get a 400k `contextWindow` and GPT Sol models 272k, each with 32k
-   `maxTokens`, so Pi compacts near those caps rather than at its 128k
-   default (`USAI_MODEL_LIMITS` in `scripts/local_env.py`). It also sets the coder default
-   in `pi/settings.json` and `usai.json`, and syncs `--review-model` to
-   `roborev/config.toml`. Omitting `--review-model` clears a previously
-   configured reviewer pairing.
-3. When `--review-model` is set, the coder and the reviewer must come from
-   different model families (Claude, OpenAI, or Gemini), and both must appear
-   in `usai-models.json` when its advertised model list is nonempty.
-4. `pi-local.py --model` accepts only the coder model, the reviewer model, or
-   `gemini-4-argon`. To use another model, run `configure-provider` again.
+- **They are good at:** reading unfamiliar code, explaining it, writing first
+  drafts, writing and running tests, and following a plan step by step. Ask
+  Pi to "brainstorm" before building something. Superpowers makes it ask
+  questions, propose options and write a plan first.
+- **They need you for:** deciding what to build and why, judging whether a
+  change is right for users, approving anything risky, and merging. Treat every
+  answer as a draft from a fast, confident junior colleague: check it.
+- **Built-in guard rails:** a second model reviews each change (roborev),
+  agents cannot push to `main` or merge, every session is recorded in
+  AgentsView, and your key never leaves the private file.
+- **Limits:** models can be wrong while sounding sure, they forget earlier
+  details in very long sessions, and they only know what is in the repository,
+  the task and what you tell them. Keep tasks small and specific.
 
-To add newly published models or switch the coder or reviewer, run steps 1 and
-2 again, then run `systemctl --user restart kenn-kopy-roborev.service`.
+## Getting help
 
-## Daily use
+Run `./engineer doctor` first: it names each problem and the command that
+fixes it. Running `./engineer install` again is always safe. For anything
+else, ask in your team channel, and include the `doctor` output, which never
+contains your key.
 
-```sh
-python3 scripts/terminal-local.py open pi        # persistent tmux session; run scripts/pi-local.py inside it
-python3 scripts/terminal-local.py open copilot   # Copilot CLI, for non-sensitive work
-kata ready --no-label blocked --no-label deferred --agent && kata claim <id>
-roborev review --repo "$PWD" --branch --wait --min-severity medium  # only when existing evidence does not cover unchanged code
-```
+## More detail
 
-Delivery allows one branch review and one focused, tested fix pass, not
-repeated review-until-clean cycles. Record dispositions and revision/fix
-evidence in Kata; reuse them across resumes, reloads, and skill transitions.
-Leave valid out-of-scope findings open for the owner. Hand recurring or
-unresolved confirmed findings to the owner and pause publication for unresolved
-task-scoped medium/high/critical defects; low findings do not block delivery.
-See [review and disposition rules](context/engineering-workflow.md#bounded-delivery-review-and-dispositions).
-`setup` adds missing medium-severity and passing-review auto-close defaults to
-existing private roborev configs without replacing explicit overrides.
-
-In Forge, create a workspace from a Kata task and launch **Pi (USAi)** or
-**Pi (Gemini 4 Argon)**. The Forge workspace extension pushes the branch, opens
-the PR, and registers the PR and Kata task in Forge. In a Kata-task workspace,
-`scripts/pi-local.py` sets `KATA_REF` to the task, so Kata's Pi attention
-adapter (installed by `install-pi-extensions`) marks it `work.attention ok`
-while Pi runs and `needs-human` ("session ended without hand-off") after
-`/quit` or SIGHUP, keeping any explicit hand-off the agent already set.
-
-## Demo screenshots and video
-
-Agents can show changed behavior to reviewers as screenshots and a short
-video, captured headlessly from a loopback web UI:
-
-```sh
-python3 scripts/demo-capture.py doctor   # check Node, Playwright and browser
-python3 scripts/demo-capture.py capture --task the_engineer#86ey \
-  --demonstrates "What changed" --url http://127.0.0.1:8000/ --step 'click:#save'
-python3 scripts/demo-capture.py handoff .local/demos/<task>/<bundle>
-```
-
-Bundles land in ignored `.local/demos/` with a provenance manifest and are
-never uploaded. Review every frame before sharing; attaching to a PR or issue
-needs your explicit approval. Manual capture, limits, retention and failure
-guidance are in `context/demo-capture.md`.
-
-## Maintenance
-
-- **Back up:** `python3 scripts/backup_workspace.py <dest-dir>` creates a
-  verified `.tar.gz` archive (plus `.sha256` checksum) of the workspace,
-  including SQLite snapshots.
-- **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'`, the
-  same command with `-s dist`, and `python -m unittest discover -s tests -p 'test_context_*.py'`
-  in the `engineer-task-context` virtual environment.
-- **Verify prompt, temporary-plan, and publication gates:** run
-  `python3 scripts/workflow-gates.py check-plans --repo . --base main` to verify
-  no temporary working plans/specs remain under `.local/plans/` or
-  `docs/superpowers/`, or `python3 scripts/workflow-gates.py demo` to run the
-  non-model synthetic task demonstration across `private_pi`, `forge_workspace`,
-  and `roborev_review`. Pi agents cannot merge a PR or push to `main` unless
-  you confirm the call in the Pi UI; pushing a workspace branch and opening a
-  PR never asks, including when the push follows a `cd` or a new branch in the
-  same command.
-- **Run smoke tests:** stop the four services, run
-  `python3 scripts/smoke.py --forge-binary forge/kenn-forge`,
-  then start the services again. The smoke tests use the same ports, unless
-  you set `KENN_KOPY_PORT_OFFSET` (for example `3000`) to run beside them.
-- **Upgrade the toolchain:** `python3 scripts/upgrade.py status` shows how far
-  the submodules, Pi and pi-subagents trail upstream. `python3 scripts/upgrade.py run`
-  snapshots binaries, data and configs; prepares the latest versions in a
-  separate worktree (`.local/upgrade/tree`) and builds and tests them there,
-  leaving the live checkout and services untouched; then switches the
-  services over. If the switch fails, it rolls back automatically.
-  Use `python3 scripts/upgrade.py rollback` to return to the last snapshot by
-  hand and `python3 scripts/upgrade.py drill` to rehearse a rollback. Review
-  and commit the staged submodule changes afterwards.
-- **Keep secrets out of Git:** never put credentials in Git, logs, or command
-  arguments.
-
-More detail: [context/tools.md](context/tools.md),
-[context/status.md](context/status.md), and
-[context/system-architecture.md](context/system-architecture.md).
+- [docs/advanced.md](docs/advanced.md): the lower-level commands
+  `./engineer` uses, optional Librarian business context, Jira intake, demos
+  and maintenance.
+- [dist/README.md](dist/README.md): installer internals, receipts and
+  fresh-host acceptance testing.
+- [docs/try-in-a-second-wsl-distro.md](docs/try-in-a-second-wsl-distro.md):
+  test Engineer in a separate WSL distro.
+- `context/`: reference notes for AI agents working on this repository.

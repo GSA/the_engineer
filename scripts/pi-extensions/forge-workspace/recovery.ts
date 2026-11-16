@@ -17,7 +17,7 @@ export function recoveryHint(toolName: string, input: any, text: string, cwd: st
 	} else if (/project \S+ is not registered|kata: alias .* is not registered/.test(text)) {
 		advice = "the project name or alias is not known to the daemon: kata projects list shows the registered names; use one with --project, or kata init --project NAME in the repository";
 	} else if (/daemon_unavailable|daemon unavailable/.test(text) || (kata && /connection refused/.test(text))) {
-		advice = "the Kata daemon is not reachable: python3 scripts/tool-health.py shows what is down; systemctl --user status kenn-kopy-kata.service, then restart it if stopped (do not start a second daemon)";
+		advice = "the Kata daemon is not reachable: python3 scripts/tool-health.py shows what is down; python3 scripts/local_env.py status names the Kata unit, then restart it if stopped (do not start a second daemon)";
 	} else if (kata && /accepts \d+ arg\(s\), received \d+/.test(text)) {
 		const sub = command.match(/\bkata\s+(?:--?\S+\s+\S+\s+)*([a-z][\w-]*)/)?.[1] ?? "COMMAND";
 		advice = `wrong number of positional arguments: kata ${sub} --help shows the usage; text goes in -m/--body or --body-file, not as a second argument`;

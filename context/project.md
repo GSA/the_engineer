@@ -2,8 +2,8 @@
 
 ## Purpose
 
-**Engineer** (`engineer`, repository `GSA/the_engineer`, local checkout
-`/home/nkirrish/kenn-kopy`) provides the persistent local engineering
+**Engineer** (`engineer`, repository `GSA/the_engineer`, teammate checkout
+`~/engineer`) provides the persistent local engineering
 environment and operator console for a human-directed, two-product federal
 engineering workflow:
 
@@ -11,7 +11,7 @@ engineering workflow:
    and review-state corpus platform (`falcon-librarian` CLI and MCP server),
    evaluated against the historical `~/falcon-docs` packet and live Falcon
    application repositories under `~/falcon/`.
-2. **Engineer** (`GSA/the_engineer`, `~/kenn-kopy`): local orchestration across
+2. **Engineer** (`GSA/the_engineer`): local orchestration across
    Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView.
 
 Knowitall (`GSA/the_knowitall`) is archived on GitHub and unregistered from
@@ -23,21 +23,27 @@ Forge. Engineer owns the stdlib-only cross-repository seam scanner
 - Selected product name: **Engineer** (`engineer`), replacing Engi Platform and
   Kenn Kopy in user-facing documentation and UI copy.
 - Kata projects match repository names (`the_engineer`, `the_librarian`).
-  Checkout directory (`~/kenn-kopy`) and systemd unit prefix
-  (`kenn-kopy-*`) remain stable until the scheduled runtime/identifier
-  migration (`eb48`).
+- New installs use `engineer-*.service` units (`unit_prefix` in
+  `environment.json`); the owner's original install keeps its legacy unit
+  prefix and checkout path until an approved migration.
+- Teammates use the `./engineer` front door (`scripts/engineer.py`): install,
+  doctor, start/stop/status, key, models, login, add-repo, pi, copilot,
+  update, uninstall. Pi and the optional Copilot CLI both use USAi.
 
 ## Repository structure
 
 - `scripts/local_env.py`: configures and inspects the persistent `.local/environment/`
   stack (Forge, Kata, roborev, AgentsView, Pi/USAi, and user systemd units).
+- `engineer` / `scripts/engineer.py`: teammate front door; `scripts/host_setup.py`
+  (Ubuntu packages with consent, Node, Pi, Copilot CLI, `~/.bashrc` block) and
+  `scripts/copilot_env.py` (private `COPILOT_HOME` on USAi BYOK).
 - `scripts/pi-local.py`, `scripts/gh-local.py`, `scripts/terminal-local.py`,
   `scripts/usai-key.py`: targeted wrappers that isolate Pi, GitHub CLI, and
   tmux terminal sessions under `.local/environment/`.
-- `scripts/backup_workspace.py`: builds and verifies reproducible tar.zst
-  backups of workspace repos, SQLite databases, and local environment state.
-- `dist/`: self-contained host bundle (`install.sh` / `install.py`) for
-  reproducing the Librarian + Engineer workspace on another Linux/WSL machine.
+- `dist/`: lower-level source-build installer (`install.sh` / `install.py`)
+  that `./engineer install` runs, plus the fresh-host acceptance container.
+- Owner-only Helix mirror/sync and OneDrive backup scripts live in the owner's
+  private `engineer-owner-tools` repository, not here.
 - `forge/`, `kata/`, `roborev/`, `agentsview/`, `superpowers/`: upstream source
   submodules (pinned commits; keep upstream checkouts clean unless maintaining
   an explicit tracked fork/build).

@@ -31,16 +31,25 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def env_setting(environment, suffix):
+    """Read ENGINEER_<suffix>, falling back to the legacy KENN_KOPY_<suffix>; return (name, value)."""
+    for prefix in ("ENGINEER_", "KENN_KOPY_"):
+        value = environment.get(prefix + suffix, "").strip()
+        if value:
+            return prefix + suffix, value
+    return "ENGINEER_" + suffix, ""
+
+
 def resolve_runtime_root(source_root, environment=None):
     environment = os.environ if environment is None else environment
-    override = environment.get("KENN_KOPY_RUNTIME_ROOT")
+    name, override = env_setting(environment, "RUNTIME_ROOT")
     if override:
         runtime_root = Path(override).expanduser()
         if not runtime_root.is_absolute():
-            raise RuntimeError("KENN_KOPY_RUNTIME_ROOT must be an absolute path")
+            raise RuntimeError(f"{name} must be an absolute path")
         runtime_root = runtime_root.resolve()
         if not runtime_root.is_dir():
-            raise RuntimeError("KENN_KOPY_RUNTIME_ROOT must name an existing directory")
+            raise RuntimeError(f"{name} must name an existing directory")
         return runtime_root
     try:
         result = subprocess.run(
@@ -153,14 +162,38 @@ JQ_BINARY = RUNTIME_ROOT / f".local/tools/jq-{JQ_VERSION}/bin/jq"
 PYDEPS_DIR = RUNTIME_ROOT / ".local/tools/pydeps"
 DEFAULT_PORTS = {"roborev": 17373, "roborev_web": 17374, "kata": 17777,
                  "agentsview": 18080, "forge": 18091, "forge_mcp": 18092}
-AGENTSVIEW_UNIT = "kenn-kopy-agentsview.service"
-ROBOREV_UNIT = "kenn-kopy-roborev.service"
-FORGE_UNIT = "kenn-kopy-forge.service"
-KATA_UNIT = "kenn-kopy-kata.service"
+# New installs use neutral engineer-* units; an install made before setup
+# recorded unit_prefix keeps its kenn-kopy-* units until an approved migration.
+DEFAULT_UNIT_PREFIX = "engineer"
+LEGACY_UNIT_PREFIX = "kenn-kopy"
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def parse_port_offset(value, source="KENN_KOPY_PORT_OFFSET"):
+def resolve_unit_prefix(config_path=None):
+    config_path = STATE / "environment.json" if config_path is None else Path(config_path)
+    try:
+        saved = json.loads(config_path.read_text())
+    except FileNotFoundError:
+        return DEFAULT_UNIT_PREFIX
+    except (OSError, ValueError):
+        return LEGACY_UNIT_PREFIX
+    prefix = saved.get("unit_prefix", LEGACY_UNIT_PREFIX)
+    if prefix not in (DEFAULT_UNIT_PREFIX, LEGACY_UNIT_PREFIX):
+        raise RuntimeError(f"unsupported unit_prefix {prefix!r} in {config_path}")
+    return prefix
+
+
+def configure_units(prefix):
+    global UNIT_PREFIX, AGENTSVIEW_UNIT, ROBOREV_UNIT, FORGE_UNIT, KATA_UNIT, TMUX_LABEL
+    UNIT_PREFIX = prefix
+    AGENTSVIEW_UNIT = f"{prefix}-agentsview.service"
+    ROBOREV_UNIT = f"{prefix}-roborev.service"
+    FORGE_UNIT = f"{prefix}-forge.service"
+    KATA_UNIT = f"{prefix}-kata.service"
+    TMUX_LABEL = f"{prefix}-local"
+
+
+def parse_port_offset(value, source="ENGINEER_PORT_OFFSET"):
     if isinstance(value, str):
         if not re.fullmatch(r"\d{1,5}", value.strip()):
             raise RuntimeError(f"{source} must be a non-negative integer")
@@ -177,10 +210,11 @@ def parse_port_offset(value, source="KENN_KOPY_PORT_OFFSET"):
 
 
 def resolve_port_offset(environment=None, config_path=None):
-    """Use KENN_KOPY_PORT_OFFSET, else the offset saved by setup, else 0."""
+    """Use ENGINEER_PORT_OFFSET (or legacy KENN_KOPY_PORT_OFFSET), else the saved offset, else 0."""
     environment = os.environ if environment is None else environment
-    if environment.get("KENN_KOPY_PORT_OFFSET", "").strip():
-        return parse_port_offset(environment["KENN_KOPY_PORT_OFFSET"])
+    name, value = env_setting(environment, "PORT_OFFSET")
+    if value:
+        return parse_port_offset(value, name)
     config_path = STATE / "environment.json" if config_path is None else config_path
     try:
         saved = json.loads(Path(config_path).read_text())
@@ -206,6 +240,7 @@ def configure_ports(offset):
 
 
 configure_ports(resolve_port_offset())
+configure_units(resolve_unit_prefix())
 
 
 def private_dir(path, *, create=True):
@@ -275,7 +310,7 @@ def settings(*, create=True):
     config = json.loads(private_read(STATE / "environment.json"))
     saved = parse_port_offset(config.get("port_offset", 0), "saved port_offset")
     if saved != PORT_OFFSET:
-        raise RuntimeError(f"KENN_KOPY_PORT_OFFSET={PORT_OFFSET} differs from the saved "
+        raise RuntimeError(f"ENGINEER_PORT_OFFSET={PORT_OFFSET} differs from the saved "
                            f"port_offset {saved}; unset it or rerun setup in a fresh environment")
     return config
 
@@ -353,7 +388,7 @@ def base_environment(roborev_executable=None):
                                 str(RUNTIME_ROOT / "kata"), str(RUNTIME_ROOT / "agentsview"),
                                 str(JQ_BINARY.parent), str(PYDEPS_DIR / "bin"),
                                 os.environ["PATH"], str(Path.home() / ".local/bin")]),
-        "KENN_KOPY_RUNTIME_ROOT": str(RUNTIME_ROOT),
+        "ENGINEER_RUNTIME_ROOT": str(RUNTIME_ROOT),
         "HOME": str(home),
         "USER": getpass.getuser(),
         "XDG_CONFIG_HOME": str(home / ".config"),
@@ -478,13 +513,14 @@ def librarian_binding(corpus, executable=None, reader=None, root=None, selection
     return server, reader, root, selection
 
 
-def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None,
-          librarian_root=None, librarian_selection=None):
-    corpus = corpus.expanduser().resolve()
-    forge_binary = forge_binary.resolve()
-    server, reader, root, selection = librarian_binding(
-        corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
-    for path in (server, forge_binary) + ((reader,) if reader is not None else ()):
+LIBRARIAN_CONFIG_KEYS = ("corpus", "librarian_executable", "librarian_reader",
+                         "librarian_root", "librarian_selection")
+
+
+def check_librarian_binding(corpus, executable=None, reader=None, root=None, selection=None):
+    """Resolve and verify an optional Librarian binding before any configuration is written."""
+    server, reader, root, selection = librarian_binding(corpus, executable, reader, root, selection)
+    for path in (server,) + ((reader,) if reader is not None else ()):
         if not path.is_file() or not os.access(path, os.R_OK):
             raise RuntimeError(f"missing readable prerequisite: {path}")
     if not os.access(server, os.X_OK):
@@ -499,13 +535,39 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     except (OSError, subprocess.SubprocessError) as error:
         detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
         raise RuntimeError(f"Librarian runtime/dependencies unavailable: {detail}") from error
+    return server, reader, root, selection
+
+
+def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None,
+          librarian_root=None, librarian_selection=None):
+    """Create missing private settings; ``corpus=None`` installs without a Librarian binding."""
+    forge_binary = forge_binary.resolve()
+    if not forge_binary.is_file() or not os.access(forge_binary, os.R_OK):
+        raise RuntimeError(f"missing readable prerequisite: {forge_binary}")
+    if corpus is None and librarian_executable is None:
+        server = reader = root = selection = None
+    else:
+        corpus = corpus.expanduser().resolve() if corpus is not None else None
+        server, reader, root, selection = check_librarian_binding(
+            corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
+    config_path = STATE / "environment.json"
+    saved = json.loads(private_read(config_path)) if config_path.exists() else None
     pi = shutil.which("pi")
     if pi is None:
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
-    config = {"corpus": str(corpus), "forge_binary": str(forge_binary),
+    config = {"forge_binary": str(forge_binary),
               "pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    if corpus is not None:
+        config = {"corpus": str(corpus), **config}
     if PORT_OFFSET:
         config["port_offset"] = PORT_OFFSET
+    prefix = resolve_unit_prefix(STATE / "environment.json")
+    if prefix != LEGACY_UNIT_PREFIX:
+        config["unit_prefix"] = prefix
+    configure_units(prefix)
+    if server is None and saved is not None:
+        # A rerun that names no Librarian keeps the binding saved by an earlier setup.
+        config.update({key: saved[key] for key in LIBRARIAN_CONFIG_KEYS if key in saved})
     if librarian_executable is not None:
         config.update({
             "librarian_executable": str(server),
@@ -519,9 +581,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         private_dir(STATE / name)
     seed_isolated_gitconfig(STATE / "home")
     verify_pi(config)
-    config_path = STATE / "environment.json"
-    if config_path.exists():
-        saved = json.loads(private_read(config_path))
+    if saved is not None:
         # verify_pi() proved the saved executable now runs PI_VERSION, so an
         # older recorded pi_version is the only difference setup migrates.
         if dict(saved, pi_version=PI_VERSION) != config:
@@ -537,7 +597,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         STATE / "forge/config.toml",
         f'host = "127.0.0.1"\nport = {FORGE_PORT}\n'
         f'[roborev]\nendpoint = "http://127.0.0.1:{ROBOREV_PORT}"\ninit_managed_clones = false\n'
-        '[tmux]\ncommand = ["tmux", "-L", "kenn-kopy-local"]\n'
+        f'[tmux]\ncommand = ["tmux", "-L", "{TMUX_LABEL}"]\n'
         f'[mcp]\nenabled = true\nhost = "127.0.0.1"\nport = {FORGE_MCP_PORT}\n'
         '[[agents]]\nkey = "pi"\nlabel = "Pi (USAi)"\nenabled = true\n'
         f'command = [{json.dumps(str(wrapper))}]\n'
@@ -579,18 +639,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             "subagents": default_pi_subagents_settings(),
         },
     )
-    librarian_args = ["--root", str(root)]
-    if reader is not None:
-        librarian_args.extend(["--reader", str(reader)])
-    if selection is not None:
-        librarian_args.extend(["--manifest", str(selection)])
     servers = {
-        LIBRARIAN_MCP_SERVER: {
-            "command": str(server),
-            "args": librarian_args,
-            "exposure": "codemode",
-            "timeout": 60,
-        },
         "kata": {
             "command": str(RUNTIME_ROOT / "kata/kata"),
             "args": ["mcp", "serve"],
@@ -605,6 +654,13 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             "timeout": 60,
         },
     }
+    if server is not None:
+        servers[LIBRARIAN_MCP_SERVER] = {
+            "command": str(server),
+            "args": librarian_server_args(root, reader, selection),
+            "exposure": "codemode",
+            "timeout": 60,
+        }
     mcp_path = STATE / "pi/mcp.json"
     if mcp_path.exists():
         mcp = json.loads(private_read(mcp_path))
@@ -614,10 +670,11 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         saved = dict(saved)
         renamed = migrate_librarian_server(saved, mcp_path)
         saved_librarian = saved.get(LIBRARIAN_MCP_SERVER)
-        audited = {**servers[LIBRARIAN_MCP_SERVER],
-                   "args": servers[LIBRARIAN_MCP_SERVER]["args"] + audit_args(PI_AUDIT_LABEL)}
-        if saved_librarian is not None and saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
-            raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
+        if saved_librarian is not None and server is not None:
+            audited = {**servers[LIBRARIAN_MCP_SERVER],
+                       "args": servers[LIBRARIAN_MCP_SERVER]["args"] + audit_args(PI_AUDIT_LABEL)}
+            if saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
+                raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
         if missing or renamed:
             json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
@@ -729,7 +786,7 @@ def configure_librarian(librarian_root, librarian_executable=None,
     if selection is None and (root / "config/selection.local.json").is_file():
         selection = root / "config/selection.local.json"
     server, reader, root, selection = librarian_binding(
-        Path(config["corpus"]), executable, librarian_reader, root, selection,
+        None, executable, librarian_reader, root, selection,
     )
     for path in (server,) + ((reader,) if reader is not None else ()):
         if not path.is_file() or not os.access(path, os.R_OK):
@@ -1112,8 +1169,8 @@ def load_usai_key():
         raise RuntimeError("USAi key file must contain a UTF-8 token; its value was not logged") from error
 
 
-def list_models(base_url):
-    settings()
+def fetch_usai_models(base_url, key):
+    """Return the sorted model IDs USAi advertises for ``key``; never logs the key or body."""
     base_url = validate_base_url(base_url)
 
     class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -1122,7 +1179,7 @@ def list_models(base_url):
 
     request = urllib.request.Request(
         base_url + "/models",
-        headers={"Authorization": "Bearer " + load_usai_key(), "Accept": "application/json"},
+        headers={"Authorization": "Bearer " + key, "Accept": "application/json"},
     )
     try:
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=30) as response:
@@ -1144,10 +1201,20 @@ def list_models(base_url):
         ids.append(model["id"])
     if not ids:
         raise RuntimeError("USAi returned an empty model list; no catalog was saved")
-    ids = sorted(set(ids))
+    return sorted(set(ids))
+
+
+def save_usai_catalog(base_url, ids):
     json_write(STATE / "usai-models.json", {
-        "base_url": base_url, "fetched_at": datetime.now(timezone.utc).isoformat(), "models": ids,
+        "base_url": validate_base_url(base_url), "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "models": list(ids),
     }, replace=True)
+
+
+def list_models(base_url):
+    settings()
+    ids = fetch_usai_models(base_url, load_usai_key())
+    save_usai_catalog(base_url, ids)
     print(f"Saved {len(ids)} advertised model IDs to {STATE / 'usai-models.json'}")
     print("\n".join(ids))
     unknown = [model for model in ids if model not in USAI_EMBEDDING_MODELS and model not in USAI_CHAT_MODELS
@@ -1565,7 +1632,7 @@ def github_cli_launch(args):
     return [str(GH_BINARY), *args], env
 
 
-def terminal_launch(action, name="engi-platform"):
+def terminal_launch(action, name="engineer"):
     if action not in ("open", "list", "stop"):
         raise RuntimeError("terminal action must be open, list or stop")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,47}", name):
@@ -1832,7 +1899,7 @@ def install_agentsview_service():
     if not (STATE / "agentsview-tracking.json").exists():
         raise RuntimeError("configure-tracking before installing the AgentsView service")
     install_user_service(
-        AGENTSVIEW_UNIT, "agentsview-run", "Kenn Kopy local Copilot and Pi session tracking",
+        AGENTSVIEW_UNIT, "agentsview-run", "Engineer local agent session tracking",
         SERVICE_PORTS["agentsview"], lambda: managed_agentsview(required=True),
     )
     json_write(STATE / "agentsview-service.json", {"unit": AGENTSVIEW_UNIT}, replace=True)
@@ -2000,7 +2067,7 @@ def install_roborev_service(binary=None):
     env = node_environment(node, roborev_executable=binary)
     verify_pi(config, env=env)
     install_user_service(
-        ROBOREV_UNIT, None, "Engi Platform local code review",
+        ROBOREV_UNIT, None, "Engineer local code review",
         SERVICE_PORTS["roborev"], lambda: managed_roborev(required=True, binary=binary),
         executable=command, environment=tuple(f"{key}={value}" for key, value in env.items()),
         working_directory=STATE / "home",
@@ -2087,7 +2154,7 @@ def install_forge_service():
     forge_command(config)
     private_dir(STATE / "gh")
     install_user_service(
-        FORGE_UNIT, "forge-run", "Engi Platform local workspaces and coding agents",
+        FORGE_UNIT, "forge-run", "Engineer local workspaces and coding agents",
         SERVICE_PORTS["forge"], lambda: managed_forge(required=True),
         args=("--node-executable", node),
     )
@@ -2181,7 +2248,7 @@ def install_kata_service():
     settings()
     validate_kata_config()
     install_user_service(
-        KATA_UNIT, None, "Engi Platform local task ledger",
+        KATA_UNIT, None, "Engineer local task ledger",
         SERVICE_PORTS["kata"], lambda: managed_kata(required=True),
         executable=kata_service_command(),
     )
@@ -2268,7 +2335,7 @@ def status():
 
 
 ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
-ACCEPT_MCP_SERVERS = (LIBRARIAN_MCP_SERVER, "kata", "kenn-forge")
+ACCEPT_MCP_SERVERS = ("kata", "kenn-forge")
 
 
 def accept_command_output(name):
@@ -2470,6 +2537,12 @@ def accept(home=None, repos=()):
               *((f"repo:{Path(repo).expanduser().resolve()}", lambda repo=repo: accept_repo(Path(repo)))
                 for repo in repos)]
     failures = []
+    try:
+        librarian_bound = LIBRARIAN_MCP_SERVER in json.loads(private_read(STATE / "pi/mcp.json"))["mcpServers"]
+    except (OSError, ValueError, KeyError, TypeError):
+        librarian_bound = True
+    if not librarian_bound:
+        print("SKIP librarian: optional; bind later with configure-librarian --librarian-root PATH")
     for name, check in checks:
         try:
             check()
@@ -2829,7 +2902,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("setup", help="create missing private settings without overwriting existing ones")
-    init.add_argument("--corpus", type=Path, required=True)
+    init.add_argument("--corpus", type=Path,
+                      help="optional legacy Falcon corpus checkout; omit to install without Librarian")
     init.add_argument("--forge-binary", type=Path, required=True)
     init.add_argument("--librarian-executable", type=Path)
     init.add_argument("--librarian-reader", type=Path)

@@ -5,12 +5,12 @@ import subprocess
 import tempfile
 import unittest
 
+import local_env
 import repo_init
 
 ROBOREV_BINARY = next((path for path in (
     Path(__file__).resolve().parent.parent / "roborev/bin/roborev",
-    Path(os.environ.get("KENN_KOPY_RUNTIME_ROOT", Path.home() / "kenn-kopy")) / "roborev/bin/roborev",
-    Path.home() / "kenn-kopy/roborev/bin/roborev") if path.is_file()), Path("/nonexistent/roborev"))
+    local_env.RUNTIME_ROOT / "roborev/bin/roborev") if path.is_file()), Path("/nonexistent/roborev"))
 GIT = ("git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid")
 
 

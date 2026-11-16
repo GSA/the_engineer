@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Fresh-host acceptance in a disposable rootless Podman container (Kata p4ke).
-# Usage: dist/container/run-acceptance.sh [REVISION]   (default: HEAD, which must be pushed)
-# Credentials are optional: with KEEP=1 the container stays up so you can run
-#   podman exec -it -u engineer engi-accept bash -lc 'cd ~/kenn-kopy && python3 scripts/local_env.py set-key'
-# and gh-local.py auth login, then rerun accept. Otherwise it is removed on exit.
-# GOPROXY is forwarded only when set; otherwise dist/install.py applies its own
-# 'https://proxy.golang.org|direct' default (Go then falls back to the source repository
-# when a TLS proxy answers 403 for go.kenn.io) and records that in the install receipt.
-# SUBMODULE_MIRRORS="agentsview=/host/path/or/URL ..." supplies owner-approved mirrors for
-# pins that upstream remotes cannot serve; host paths are mounted read-only. Nothing is
-# published. Timing and fix receipts go to $ACCEPT_LOG_DIR (default .local/acceptance).
+# Fresh-host acceptance of the teammate path in a disposable rootless Podman container.
+# Usage: dist/container/run-acceptance.sh [REVISION]   (default: HEAD)
+# The container clones ENGINEER_SOURCE (default: the GitHub repository; a local checkout
+# path is mounted read-only, so unpushed revisions can be tested), then runs
+#   ./engineer install --yes --copilot yes && ./engineer add-repo ~/engineer && ./engineer doctor
+# exactly as the README quickstart does, minus the interactive key and GitHub sign-in.
+# With KEEP=1 the container stays up so you can run
+#   podman exec -it -u engineer engi-accept bash -lc 'cd ~/engineer && ./engineer key'
+# and ./engineer login, then ./engineer doctor. Otherwise it is removed on exit.
+# GOPROXY is forwarded only when set. Timing receipts go to $ACCEPT_LOG_DIR
+# (default .local/acceptance).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
@@ -28,25 +28,12 @@ phase() {  # phase NAME START: append NAME=elapsed (the pipeline below is a subs
     echo "$1=$(( $(date +%s) - $2 ))" >>"$phases_file"
 }
 
-# Mirrors: host paths are bind-mounted read-only at /mirrors/NAME; URLs pass through.
 mounts=()
-mirror_args=""
-fixes=()
-for entry in ${SUBMODULE_MIRRORS:-}; do
-    module=${entry%%=*}; target=${entry#*=}
-    if [[ $module == "$entry" || -z $target ]]; then
-        echo "SUBMODULE_MIRRORS entries must be NAME=PATH_OR_URL: $entry" >&2; exit 2
-    fi
-    if [[ $target != *://* && $target != *@*:* ]]; then
-        [[ -d $target ]] || { echo "Mirror path not found: $target" >&2; exit 2; }
-        mounts+=(-v "$(cd "$target" && pwd):/mirrors/$module:ro")
-        target=/mirrors/$module
-        fixes+=("local submodule mirror for $module (owner-approved source of the pin)")
-    else
-        fixes+=("submodule mirror URL for $module")
-    fi
-    mirror_args+=" --submodule-mirror $(printf %q "$module=$target")"
-done
+clone_url=$source_url
+if [[ -d $source_url ]]; then
+    mounts+=(-v "$(cd "$source_url" && pwd):/source:ro")
+    clone_url=/source
+fi
 
 # Host CAs (for example a corporate TLS proxy) are staged in ignored extra-ca/.
 mkdir -p "$here/extra-ca"
@@ -69,53 +56,41 @@ user_exec() {
         -e XDG_RUNTIME_DIR=/run/user/1000 \
         -e DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
         ${GOPROXY:+-e GOPROXY="$GOPROXY"} \
-        -e PATH=/home/engineer/.local/engi-pi/node_modules/.bin:/home/engineer/.local/bin:/usr/local/bin:/usr/bin:/bin \
         "$name" bash -lc "$1"
 }
-
-safe_directory=true
-# Read-only host mirrors are owned by another uid inside the container.
-[[ -z $mirror_args ]] || safe_directory="git config --global --add safe.directory '*'"
-record_fixes=""
-for fix in "${fixes[@]}"; do record_fixes+=" --record-fix $(printf %q "$fix")"; done
 
 {
     echo "revision=$revision source=$source_url"
     install_started=$(date +%s)
     user_exec "set -euxo pipefail
-        mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
-        npm install --no-fund --no-audit --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.2
-        git clone --quiet '$source_url' ~/kenn-kopy
-        git -C ~/kenn-kopy checkout --quiet --detach '$revision'
-        cd ~/kenn-kopy
-        $safe_directory
-        bash dist/install.sh --check --corpus /opt/fake-corpus$mirror_args
-        bash dist/install.sh --corpus /opt/fake-corpus --services user$mirror_args$record_fixes \
-            --usai-base-url https://usai.invalid/api/v1 --usai-model claude-opus-5.5 \
-            --usai-review-model gpt-5.6-terra --register-repo ~/kenn-kopy"
+        git config --global --add safe.directory '*'
+        git clone --quiet '$clone_url' ~/engineer
+        git -C ~/engineer checkout --quiet --detach '$revision'
+        cd ~/engineer
+        ./engineer install --yes --copilot yes || true
+        ./engineer add-repo ~/engineer"
     phase install "$install_started"
     accept_started=$(date +%s)
     status=0
-    user_exec "cd ~/kenn-kopy && python3 scripts/local_env.py accept --repo ~/kenn-kopy" || status=$?
-    phase accept "$accept_started"
-    echo "accept_exit=$status"
-    # Copy the installer's own receipt (phase timings, defaults, mirrors) out of the container.
-    podman cp "$name:/home/engineer/kenn-kopy/.local/install-receipts/." "$log_dir/install-receipts-$stamp" \
+    user_exec "cd ~/engineer && ./engineer doctor" || status=$?
+    phase doctor "$accept_started"
+    echo "doctor_exit=$status"
+    podman cp "$name:/home/engineer/engineer/.local/install-receipts/." "$log_dir/install-receipts-$stamp" \
         2>/dev/null || echo "note: no installer receipt found in the container"
     exit "$status"
 } 2>&1 | tee "$log" && status=0 || status=$?
 python3 - "$receipt" "$revision" "$source_url" "$stamp" "$(( $(date +%s) - started ))" \
-    "$status" "${SUBMODULE_MIRRORS:-}" "$phases_file" <<'PY'
+    "$status" "$phases_file" <<'PY'
 import json, sys
-path, revision, source, stamp, elapsed, status, mirrors, phases = sys.argv[1:]
+path, revision, source, stamp, elapsed, status, phases = sys.argv[1:]
 timings = dict(line.strip().split("=", 1) for line in open(phases) if "=" in line)
 json.dump({
-    "schema": "engineer.acceptance-receipt/v1", "revision": revision, "source": source,
+    "schema": "engineer.acceptance-receipt/v2", "revision": revision, "source": source,
     "started_at": stamp, "elapsed_seconds": int(elapsed),
     "phase_seconds": {name: int(value) for name, value in timings.items()},
-    "accept_exit": int(status), "submodule_mirrors": mirrors.split(),
-    "hands_on_note": "scripted run; interactive credential steps (set-key, gh auth login) "
-                     "are separate and must be timed by the operator",
+    "doctor_exit": int(status),
+    "hands_on_note": "scripted run; the interactive USAi key and GitHub sign-in are separate "
+                     "and must be timed by the operator",
 }, open(path, "w"), indent=2)
 PY
 rm -f "$phases_file"
