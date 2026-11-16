@@ -671,7 +671,7 @@ def evidence(args):
         if not source.is_file():
             raise CaptureError(f"--data {source} does not exist; pass the synthetic input the test used")
     repo, info = git_info(args.repo)
-    out_root = Path(args.out_root) if args.out_root else repo / ".local" / "demos"
+    out_root = Path(args.out_root).resolve() if args.out_root else repo / ".local" / "demos"
     bundle = bundle_dir(out_root, args.task, info["commit"])
     make_private_dir(bundle)
     manifest = base_manifest(args, repo, info, "evidence")
@@ -743,13 +743,16 @@ def evidence_note(manifest, bundle):
                 lines += ["", fenced(raw.decode("utf-8")), ""]
             except UnicodeDecodeError:
                 pass
-    first = Path(capture["data"][0]["source"]).name
+    names = [f"path/to/{Path(item['source']).name}" for item in capture["data"]]
+    assign = f"EVIDENCE_DATA={shlex.quote(names[0])}"
+    if len(names) > 1:
+        assign += f" EVIDENCE_DATA_FILES={shlex.quote(os.pathsep.join(names))}"
     lines += [
         "",
         "**How it was tested** (run from the repository root; point `EVIDENCE_DATA` at your own "
         "modified copy to reproduce with different data):",
         "",
-        fenced(f"EVIDENCE_DATA=path/to/{first} bash -c {shlex.quote(capture['command'])}", "sh"),
+        fenced(f"{assign} bash -c {shlex.quote(capture['command'])}", "sh"),
         "",
     ]
     if len(capture["data"]) > 1:
@@ -781,7 +784,13 @@ def publish(bundle, pr, repo=None):
     if note is None:
         raise CaptureError(f"{bundle} has no walkthrough.md or evidence.md; run `walkthrough` or `evidence` first")
     attach = ["walkthrough.gif"] if note == "walkthrough.md" and "walkthrough.gif" in names else []
-    target = ["--repo", repo] if repo else []
+    if not repo:
+        found = subprocess.run([gh_binary(), "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                               cwd=manifest["repository"], capture_output=True, text=True, timeout=60)
+        repo = found.stdout.strip()
+        if found.returncode != 0 or "/" not in repo:
+            raise CaptureError(f"cannot resolve the GitHub repository of {manifest['repository']}; pass --gh-repo OWNER/REPO")
+    target = ["--repo", repo]
     command = [gh_binary(), "pr", "comment", str(pr), *target, "--body-file", note]
     for name in attach:
         command += ["--attach", name]

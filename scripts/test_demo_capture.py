@@ -415,6 +415,34 @@ class EvidenceTests(unittest.TestCase):
             self.assertIn("bad", note)
             self.assertNotIn("Before", note)
 
+    def test_relative_out_root_still_feeds_before_and_after_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, data = self._repo_with_fix(tmp)
+            cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                code, out, err = run_main("evidence", "--repo", str(repo), "--out-root", "rel-demos",
+                                          "--task", "t#1", "--demonstrates", "x", "--data", str(data),
+                                          "--command", "python3 calc.py", "--before", "base")
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(code, 0, err)
+            bundle = Path(out.strip().splitlines()[-1])
+            self.assertTrue(bundle.is_absolute())
+            runs = demo.load_verified(bundle)[1]["capture"]["runs"]
+            self.assertEqual([r["exit_code"] for r in runs], [0, 0])
+
+    def test_reproduction_sets_every_data_variable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, data = self._repo_with_fix(tmp)
+            other = Path(tmp) / "second.json"
+            other.write_text("{}\n")
+            code, out, err = run_main("evidence", "--repo", str(repo), "--task", "t#1", "--demonstrates", "x",
+                                      "--data", str(data), "--data", str(other), "--command", "true")
+            self.assertEqual(code, 0, err)
+            note = (Path(out.strip().splitlines()[-1]) / "evidence.md").read_text()
+            self.assertIn("EVIDENCE_DATA_FILES=path/to/input.json:path/to/second.json", note)
+
     def test_evidence_requires_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo, _ = self._repo_with_fix(tmp)
@@ -431,6 +459,7 @@ class PublishTests(unittest.TestCase):
         script = Path(tmp) / "gh"
         script.write_text(f"""#!/bin/sh
 printf '%s\\n' "$PWD" "$@" >> {log}
+if [ "$1 $2" = "repo view" ]; then echo o/r; exit 0; fi
 if [ "$1 $2" = "pr comment" ]; then echo https://github.com/o/r/pull/7#issuecomment-1; exit 0; fi
 if [ "$1 $2" = "pr view" ]; then
   echo '{{"comments":[{{"url":"https://github.com/o/r/pull/7#issuecomment-1","body":"![w]({comment_body_marker})"}}]}}'
@@ -474,6 +503,22 @@ exit 9
             self.assertEqual(code, 2)
             self.assertIn("not uploaded", err)
             self.assertFalse(demo.load_verified(bundle)[1]["privacy"]["published"])
+
+    def test_publish_derives_repo_from_manifest_when_not_given(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = WalkthroughTests._scripted_bundle(WalkthroughTests(), tmp)
+            run_main("walkthrough", str(bundle))
+            gh, log = self._fake_gh(tmp)
+            os.environ["DEMO_CAPTURE_GH"] = str(gh)
+            try:
+                code, _, err = run_main("publish", str(bundle), "--pr", "7")
+            finally:
+                del os.environ["DEMO_CAPTURE_GH"]
+            self.assertEqual(code, 0, err)
+            calls = log.read_text().split("\n")
+            repo = json.loads((bundle / "manifest.json").read_text())["repository"]
+            self.assertEqual(calls[0:3], [repo, "repo", "view"])  # resolved in the project checkout
+            self.assertEqual(calls.count("--repo"), 2)  # comment and read-back both target o/r
 
     def test_publish_refuses_bundle_without_note(self):
         with tempfile.TemporaryDirectory() as tmp:
