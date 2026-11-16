@@ -33,7 +33,7 @@ python3 scripts/demo-capture.py capture --repo . --task the_engineer#86ey \
   suite (`scripts/test_demo_capture.py`) runs the same smoke when `doctor`
   passes.
 
-## Tester walkthrough (GIF)
+## Tester walkthrough (UI PRs)
 
 For a UI ticket, add `--walkthrough` (and optionally `--ticket JIRA-KEY`) to
 `capture` (or `smoke`). The driver saves `step-NN.png` after the page opens
@@ -57,16 +57,46 @@ artifact. Testers already open the PR, so the PR comment is the single
 Needs Pillow (`doctor` reports `pillow`; `apt install python3-pil`). Imported
 manual captures have no steps and cannot be rendered.
 
-Delivery is a human-approved step. After reviewing every frame, with owner
-approval for that file and PR, run the printed command (gh >= 2.99, the
-`github-pr-media` flow):
+`capture --walkthrough` first classifies the branch diff and refuses to build
+a GIF when nothing UI-facing changed, pointing to `evidence` instead. Add
+`--ui-pattern GLOB` for a repository's own UI paths, `--base REF` for a
+non-`main` base, or `--any-change` to override.
+
+## PR evidence by change type
+
+Every PR carries the proof its change type needs, posted as a PR comment:
+
+| `classify` result | Evidence | Command |
+| --- | --- | --- |
+| `ui` paths (styles, markup, components, templates, static) | Captioned walkthrough GIF | `capture --walkthrough`, then `publish` |
+| `api` paths (api/routes/handlers dirs, OpenAPI, proto, GraphQL) | Data used, reproduction command, output | `evidence`, then `publish` |
+| `backend` paths (everything else) | Same; bug fixes add output before and after | `evidence --before <merge base>`, then `publish` |
+| `docs` only (`*.md`, `docs/`, `context/`) | None | — |
 
 ```sh
-cd <bundle> && gh pr comment <PR> --repo <OWNER/REPO> \
-  --body-file walkthrough.md --attach walkthrough.gif
+python3 scripts/demo-capture.py classify [--base origin/main] [--ui-pattern GLOB]
+python3 scripts/demo-capture.py evidence --repo . --task the_engineer#8ya9 \
+  --demonstrates "Totals add both fields" --data tests/fixtures/input.json \
+  --command 'python3 calc.py' --before origin/main
+python3 scripts/demo-capture.py publish .local/demos/<task>/<bundle> --pr 42
 ```
 
-`gh` rewrites `./walkthrough.gif` in the body to the uploaded asset URL.
+- `classify` reads `git diff BASE...HEAD`, local edits and untracked files and
+  prints JSON with the paths per type and the `evidence` list.
+- `evidence` copies each `--data` file into the bundle and runs `--command`
+  with `bash -c` from the repository root, with `EVIDENCE_DATA` set to the
+  first copy (`EVIDENCE_DATA_FILES` lists all). `--before REF` runs the same
+  command in a temporary detached worktree at REF, so a bug fix shows output
+  before and after. `evidence.md` states the data (inline when at most 4 KiB),
+  the exact reproduction command with `EVIDENCE_DATA` for a human to swap in
+  modified data, and stdout/stderr with exit codes (first 60 lines; full
+  output stays in the bundle). Use synthetic data only.
+- `publish BUNDLE --pr N [--gh-repo OWNER/REPO]` runs `gh pr comment
+  --body-file walkthrough.md --attach walkthrough.gif` (or `evidence.md`) from
+  the bundle, reads the comment back, confirms the GIF became a
+  `user-attachments` asset URL, and records `privacy.published_to` in the
+  manifest. On a partial failure it stops; fix the comment on the PR instead of
+  reposting. Needs gh >= 2.99.
 
 ## Toolchain
 
@@ -122,10 +152,11 @@ No display is needed; capture is headless.
 
 `handoff BUNDLE` re-verifies every SHA-256 and prints the task, commit,
 behavior and `file://` links to paste into a Kata comment, review note or PR
-handoff. Capture and handoff never upload or publish anything.
+handoff. Only `publish` uploads.
 
-Before sharing, a human reviews every frame for credentials, personal data,
-notifications, unrelated windows and customer content (including Falcon/AOS).
-Attaching to a PR or issue (`gh pr comment N --attach FILE`) needs explicit
-owner approval for that file and target, and the repository is public. Do not
-commit artifacts.
+The owner pre-approves agents publishing walkthroughs and evidence notes on
+their own PRs (Kata `8ya9`, 2026-11-16). Captures and evidence use synthetic
+data only. Before publishing, check every frame and output for credentials,
+personal data, notifications, unrelated windows and customer content
+(including Falcon/AOS), because the repository is public. Other attachments
+still need owner approval. Do not commit artifacts.

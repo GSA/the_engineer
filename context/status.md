@@ -15,8 +15,9 @@ with qualified evidence and accountable human decisions:
   for `s27j` acceptance. The connected demo/presentation track (`pyzt`, `hk33`,
   `d8v5`, `97fg`, `j4v3`, `se6n`, `cgsr`, `eszx`) is retired by owner decision.
 - **Tester visibility:** GIF/video walkthroughs of UI tickets built on
-  `demo-capture.py` (`8ya9`): `capture --walkthrough` renders a captioned GIF
-  plus PR-comment draft; upload stays human-approved.
+  `demo-capture.py` (`8ya9`): `classify` the PR, then a walkthrough GIF for UI
+  or `evidence` (data, command, output, before/after) for API/backend;
+  `publish` posts it (owner pre-approved).
 - **Transfer and scale:** clean-host acceptance (`p4ke`, closed) then
   second-team bootstrap-to-value (`7ygh`). The agentsview submodule tracks
   upstream; `am2q` removes the remaining mirror text.
@@ -151,7 +152,8 @@ or reconciliation service is installed.
     nothing is uploaded. Contract: `context/demo-capture.md`.
   - `capture --walkthrough` / `walkthrough BUNDLE` (`8ya9`) adds per-step
     frames, a captioned `walkthrough.gif` and `walkthrough.md` (Pillow);
-    the PR comment is the tester-facing page.
+    `classify`, `evidence` and `publish` cover PR evidence by change type
+    (`context/engineering-workflow.md#pr-evidence-by-change-type`).
 
 - **Content-led PR descriptions (`8gp7`)**:
   - Forge coder, branch-finishing and automatic formatter guidance share one

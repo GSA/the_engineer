@@ -235,8 +235,8 @@ class WalkthroughTests(unittest.TestCase):
             for expected in ("Save updates status", "the_engineer#8ya9", "SYN-1", manifest["commit"][:12],
                              "1. Open the page", "2. Enter \u201cSynthetic User\u201d in #name", "3. Click #save"):
                 self.assertIn(expected, note)
-            self.assertIn("--attach walkthrough.gif", out)
-            self.assertIn("explicit owner approval", out)
+            self.assertIn("publish", out)
+            self.assertIn("demo-capture.py publish", out)
             self.assertNotIn("uploaded to", out)
             demo.load_verified(bundle)  # manifest hashes still verify
             # rerun replaces rather than duplicates
@@ -297,6 +297,190 @@ class WalkthroughTests(unittest.TestCase):
             code, _, err = run_main("walkthrough", str(bundle))
             self.assertEqual(code, 2)
             self.assertIn("recapture", err)
+
+
+class ClassifyTests(unittest.TestCase):
+    def test_classifies_paths_by_change_type(self):
+        result = demo.classify_paths([
+            "README.md", "docs/design.md", "context/status.md",
+            "web/static/app.css", "src/components/Button.tsx", "templates/index.html",
+            "src/app/api/routes.py", "openapi.yaml",
+            "src/engine/store.py", "scripts/tool.sh",
+        ])
+        self.assertEqual(result["docs"], ["README.md", "context/status.md", "docs/design.md"])
+        self.assertEqual(result["ui"], ["src/components/Button.tsx", "templates/index.html", "web/static/app.css"])
+        self.assertEqual(result["api"], ["openapi.yaml", "src/app/api/routes.py"])
+        self.assertEqual(result["backend"], ["scripts/tool.sh", "src/engine/store.py"])
+
+    def test_evidence_required_per_type(self):
+        self.assertEqual(demo.required_evidence({"ui": ["a.css"], "api": [], "backend": [], "docs": []}),
+                         ["walkthrough"])
+        self.assertEqual(demo.required_evidence({"ui": [], "api": ["api/x.py"], "backend": ["y.py"], "docs": []}),
+                         ["test-evidence"])
+        self.assertEqual(demo.required_evidence({"ui": [], "api": [], "backend": [], "docs": ["a.md"]}), [])
+
+    def test_extra_ui_patterns(self):
+        result = demo.classify_paths(["src/screens/home.py"], ui_patterns=["src/screens/*"])
+        self.assertEqual(result["ui"], ["src/screens/home.py"])
+
+    def test_classify_command_reads_branch_diff(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = make_repo(tmp)
+            git(repo, "branch", "base")
+            (repo / "style.css").write_text("body{}\n")
+            git(repo, "add", ".")
+            git(repo, "commit", "-q", "-m", "ui")
+            code, out, err = run_main("classify", "--repo", str(repo), "--base", "base")
+            self.assertEqual(code, 0, err)
+            report = json.loads(out)
+            self.assertEqual(report["changes"]["ui"], ["style.css"])
+            self.assertEqual(report["evidence"], ["walkthrough"])
+
+    def test_walkthrough_skipped_without_ui_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = make_repo(tmp)
+            git(repo, "branch", "base")
+            (repo / "tool.py").write_text("print(1)\n")
+            git(repo, "add", ".")
+            git(repo, "commit", "-q", "-m", "backend")
+            self.assertFalse(demo.has_ui_changes(repo, "base"))
+            (repo / "page.html").write_text("<p>x</p>\n")  # untracked UI work counts
+            self.assertTrue(demo.has_ui_changes(repo, "base"))
+
+
+    def test_capture_walkthrough_refuses_branch_without_ui_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = make_repo(tmp)
+            git(repo, "branch", "base")
+            (repo / "tool.py").write_text("print(1)\n")
+            git(repo, "add", ".")
+            git(repo, "commit", "-q", "-m", "backend")
+            code, _, err = run_main("capture", "--repo", str(repo), "--task", "t#1", "--demonstrates", "x",
+                                    "--url", "http://127.0.0.1:9/", "--walkthrough", "--base", "base")
+            self.assertEqual(code, 2)
+            self.assertIn("no UI changes", err)
+            self.assertIn("evidence", err)
+            self.assertFalse((repo / ".local").exists())
+
+class EvidenceTests(unittest.TestCase):
+    def _repo_with_fix(self, tmp):
+        repo = make_repo(tmp)
+        (repo / "calc.py").write_text("import json,os,sys\nd=json.load(open(os.environ['EVIDENCE_DATA']))\nprint(d['a']-d['b'])\n")
+        git(repo, "add", ".")
+        git(repo, "commit", "-q", "-m", "buggy")
+        git(repo, "branch", "base")
+        (repo / "calc.py").write_text("import json,os,sys\nd=json.load(open(os.environ['EVIDENCE_DATA']))\nprint(d['a']+d['b'])\n")
+        git(repo, "commit", "-q", "-am", "fix")
+        data = Path(tmp) / "input.json"
+        data.write_text('{"a": 2, "b": 3}\n')
+        return repo, data
+
+    def test_evidence_records_data_command_and_before_after_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, data = self._repo_with_fix(tmp)
+            code, out, err = run_main(
+                "evidence", "--repo", str(repo), "--task", "the_engineer#8ya9", "--ticket", "SYN-2",
+                "--demonstrates", "Sum is correct", "--data", str(data),
+                "--command", 'python3 calc.py', "--before", "base",
+            )
+            self.assertEqual(code, 0, err)
+            bundle = Path(out.strip().splitlines()[-1])
+            _, manifest = demo.load_verified(bundle)
+            runs = {r["label"]: r for r in manifest["capture"]["runs"]}
+            self.assertEqual(runs["before"]["exit_code"], 0)
+            self.assertEqual((bundle / runs["before"]["stdout"]).read_text(), "-1\n")
+            self.assertEqual((bundle / runs["after"]["stdout"]).read_text(), "5\n")
+            self.assertEqual(runs["before"]["commit"], git(repo, "rev-parse", "base"))
+            note = (bundle / "evidence.md").read_text()
+            for expected in ("Sum is correct", "the_engineer#8ya9", "SYN-2", '{"a": 2, "b": 3}',
+                             "EVIDENCE_DATA=", "python3 calc.py", "Before", "After", "-1", "5",
+                             manifest["capture"]["data"][0]["sha256"][:12]):
+                self.assertIn(expected, note)
+            self.assertEqual(git(repo, "worktree", "list").count("\n"), 0)  # temp worktree removed
+
+    def test_evidence_without_before_and_failing_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, data = self._repo_with_fix(tmp)
+            code, out, err = run_main(
+                "evidence", "--repo", str(repo), "--task", "t#1", "--demonstrates", "Rejects input",
+                "--data", str(data), "--command", "echo bad >&2; exit 3",
+            )
+            self.assertEqual(code, 0, err)
+            bundle = Path(out.strip().splitlines()[-1])
+            _, manifest = demo.load_verified(bundle)
+            self.assertEqual([r["label"] for r in manifest["capture"]["runs"]], ["after"])
+            self.assertEqual(manifest["capture"]["runs"][0]["exit_code"], 3)
+            note = (bundle / "evidence.md").read_text()
+            self.assertIn("exit code 3", note)
+            self.assertIn("bad", note)
+            self.assertNotIn("Before", note)
+
+    def test_evidence_requires_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, _ = self._repo_with_fix(tmp)
+            code, _, err = run_main("evidence", "--repo", str(repo), "--task", "t#1",
+                                    "--demonstrates", "x", "--data", str(Path(tmp) / "absent.json"),
+                                    "--command", "true")
+            self.assertEqual(code, 2)
+            self.assertIn("absent.json", err)
+
+
+class PublishTests(unittest.TestCase):
+    def _fake_gh(self, tmp, comment_body_marker="https://github.com/user-attachments/assets/abc"):
+        log = Path(tmp) / "gh.log"
+        script = Path(tmp) / "gh"
+        script.write_text(f"""#!/bin/sh
+printf '%s\\n' "$PWD" "$@" >> {log}
+if [ "$1 $2" = "pr comment" ]; then echo https://github.com/o/r/pull/7#issuecomment-1; exit 0; fi
+if [ "$1 $2" = "pr view" ]; then
+  echo '{{"comments":[{{"url":"https://github.com/o/r/pull/7#issuecomment-1","body":"![w]({comment_body_marker})"}}]}}'
+  exit 0
+fi
+exit 9
+""")
+        script.chmod(0o755)
+        return script, log
+
+    def test_publish_posts_walkthrough_and_records_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = WalkthroughTests._scripted_bundle(WalkthroughTests(), tmp)
+            self.assertEqual(run_main("walkthrough", str(bundle))[0], 0)
+            gh, log = self._fake_gh(tmp)
+            os.environ["DEMO_CAPTURE_GH"] = str(gh)
+            try:
+                code, out, err = run_main("publish", str(bundle), "--pr", "7", "--gh-repo", "o/r")
+            finally:
+                del os.environ["DEMO_CAPTURE_GH"]
+            self.assertEqual(code, 0, err)
+            calls = log.read_text()
+            self.assertIn("--attach\nwalkthrough.gif", calls)
+            self.assertIn("--body-file\nwalkthrough.md", calls)
+            self.assertIn(str(bundle), calls)
+            _, manifest = demo.load_verified(bundle)
+            self.assertTrue(manifest["privacy"]["published"])
+            self.assertEqual(manifest["privacy"]["published_to"], "https://github.com/o/r/pull/7#issuecomment-1")
+            self.assertIn("issuecomment-1", out)
+
+    def test_publish_fails_when_attachment_not_rewritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = WalkthroughTests._scripted_bundle(WalkthroughTests(), tmp)
+            run_main("walkthrough", str(bundle))
+            gh, _ = self._fake_gh(tmp, comment_body_marker="./walkthrough.gif")
+            os.environ["DEMO_CAPTURE_GH"] = str(gh)
+            try:
+                code, _, err = run_main("publish", str(bundle), "--pr", "7")
+            finally:
+                del os.environ["DEMO_CAPTURE_GH"]
+            self.assertEqual(code, 2)
+            self.assertIn("not uploaded", err)
+            self.assertFalse(demo.load_verified(bundle)[1]["privacy"]["published"])
+
+    def test_publish_refuses_bundle_without_note(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = WalkthroughTests._scripted_bundle(WalkthroughTests(), tmp)
+            code, _, err = run_main("publish", str(bundle), "--pr", "7")
+            self.assertEqual(code, 2)
+            self.assertIn("walkthrough", err)
 
 
 class HandoffAndCleanupTests(unittest.TestCase):

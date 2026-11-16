@@ -469,15 +469,25 @@ python3 scripts/demo-capture.py capture --task the_engineer#86ey \
 python3 scripts/demo-capture.py handoff .local/demos/<task>/<bundle>
 ```
 
-For a UI ticket, add `--walkthrough` to `capture`: it also renders a captioned,
-looping `walkthrough.gif` and a PR-comment draft (`walkthrough.md`) with the
-task, commit and steps, so testers can see the change on the PR without running
-the app. After reviewing every frame and approving the upload, post it with the
-printed `gh pr comment <PR> --body-file walkthrough.md --attach walkthrough.gif`.
+Each PR gets proof matched to its change type, posted as a PR comment so
+testers need not run anything:
+
+```sh
+python3 scripts/demo-capture.py classify          # ui / api / backend / docs + evidence needed
+python3 scripts/demo-capture.py capture --walkthrough ...   # UI: captioned walkthrough.gif
+python3 scripts/demo-capture.py evidence --data in.json --command 'python3 calc.py' \
+  --before origin/main --task ... --demonstrates ...      # API/backend: data, command, output before/after
+python3 scripts/demo-capture.py publish .local/demos/<task>/<bundle> --pr 42
+```
+
+`--walkthrough` builds a GIF only when the branch changes UI files. `evidence`
+records the synthetic data, an exact command you can rerun with your own data
+via `EVIDENCE_DATA`, and its output. `publish` uploads with `gh` (2.99+) and
+verifies the comment.
 
 Bundles land in ignored `.local/demos/` with a provenance manifest and are
-never uploaded. Review every frame before sharing; attaching to a PR or issue
-needs your explicit approval. Manual capture, limits, retention and failure
+uploaded only by `publish`. Use synthetic data only and check every frame and
+output before publishing. Manual capture, limits, retention and failure
 guidance are in `context/demo-capture.md`.
 
 ## Maintenance

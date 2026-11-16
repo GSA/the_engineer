@@ -96,10 +96,12 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 - `scripts/decision-trail.py`: read-only per-task retrospective into
   `.local/decision-trail/` joining Kata, intake approval, audit log, Forge
   workspace, Pi session, git, roborev and `gh`; absent links print `MISSING`.
-- `python3 scripts/demo-capture.py`: private screenshot/video demos of
-  loopback web UIs (`capture`, `import`, `handoff`, `cleanup`, `doctor`,
-  `smoke`, `walkthrough` GIF + PR-comment draft) into ignored `.local/demos/` with a provenance manifest; never
-  uploads. Contract in `context/demo-capture.md`.
+- `python3 scripts/demo-capture.py`: PR evidence by change type: `classify`
+  the diff, UI walkthrough GIFs (`capture --walkthrough`, `walkthrough`), API
+  and backend test evidence (`evidence`, with `--before` output), and `publish`
+  as a verified PR comment; plus `import`, `handoff`, `cleanup`, `doctor` and
+  `smoke`. Bundles in ignored `.local/demos/`. Contract in
+  `context/demo-capture.md`.
 - `python3 scripts/terminal-local.py`: manages persistent local `pi` and
   `copilot` tmux sessions via `.local/environment/runtime/terminal/tmux.sock`.
 

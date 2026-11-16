@@ -94,6 +94,22 @@ delivery's allowance.
 reports. `auto_close_passing_reviews` closes passing jobs; it does not resolve
 failing jobs or bound review loops.
 
+## PR evidence by change type
+
+Before publishing a PR, run `python3 scripts/demo-capture.py classify` and post
+the evidence it names with `demo-capture.py publish` (pre-approved, synthetic
+data only):
+
+- **UI changes:** a captioned walkthrough GIF (`capture --walkthrough`).
+- **API changes and tests:** a plain statement of the data used, the exact
+  command that tested it (rerunnable with modified data through
+  `EVIDENCE_DATA`) and the output (`evidence`).
+- **Backend bug fixes:** the same, with output before and after
+  (`evidence --before <merge base>`).
+- **Docs only:** no evidence comment.
+
+Details: `context/demo-capture.md#pr-evidence-by-change-type`.
+
 ## Loaded policy by surface
 
 Each Pi surface loads one policy set; check it with
