@@ -29,7 +29,7 @@ Service units still use the `kenn-kopy-*` names. Kata `eb48` tracks the rename.
 
 ```sh
 sudo apt-get install git curl ca-certificates build-essential libc6-dev \
-  tmux python3 python3-venv tar coreutils diffutils ripgrep fd-find
+  tmux python3 python3-venv python3-pil tar coreutils diffutils ripgrep fd-find
 mkdir -p ~/.local/bin && ln -sf /usr/bin/fdfind ~/.local/bin/fd
 npm install --prefix ~/.local/engi-pi @earendil-works/pi-coding-agent@1.5.2
 export PATH="$HOME/.local/engi-pi/node_modules/.bin:$PATH"

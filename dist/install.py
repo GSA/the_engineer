@@ -212,6 +212,9 @@ def prerequisites(corpus, librarian_executable=None, librarian_reader=None,
             check_python_venv()
         except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
             errors.append(f"Python cannot create a pip-enabled venv; install python3-venv: {error}")
+    if importlib.util.find_spec("PIL") is None:
+        errors.append("Pillow is required for demo walkthrough GIFs; install python3-pil "
+                      "(Ubuntu/Debian) for the system python3.")
     if "node" not in missing:
         try:
             version = capture(["node", "--version"])

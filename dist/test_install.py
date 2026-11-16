@@ -89,6 +89,27 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("24.11" in error for error in errors))
         self.assertTrue(any(installer.PI_VERSION in error for error in errors))
 
+    def test_missing_pillow_is_reported_with_package(self):
+        with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
+                patch.object(installer, "capture", side_effect=lambda command, **kw:
+                             "v26.9.0" if command[0] == "node" else installer.PI_VERSION), \
+                patch.object(installer, "check_c_toolchain"), \
+                patch.object(installer, "check_python_venv"), \
+                patch.object(installer.importlib.util, "find_spec",
+                             side_effect=lambda name, *a: None if name == "PIL" else object()):
+            errors = installer.prerequisites(self.corpus)
+        self.assertTrue(any("Pillow" in error and "python3-pil" in error for error in errors))
+
+    def test_present_pillow_is_not_reported(self):
+        with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
+                patch.object(installer, "capture", side_effect=lambda command, **kw:
+                             "v26.9.0" if command[0] == "node" else installer.PI_VERSION), \
+                patch.object(installer, "check_c_toolchain"), \
+                patch.object(installer, "check_python_venv"), \
+                patch.object(installer.importlib.util, "find_spec", return_value=object()):
+            errors = installer.prerequisites(self.corpus)
+        self.assertFalse(any("Pillow" in error for error in errors))
+
     def test_missing_c_headers_and_linker_are_reported(self):
         with patch.object(installer.shutil, "which", return_value="/fake/tool"), \
                 patch.object(installer, "capture", side_effect=lambda command, **kw:
