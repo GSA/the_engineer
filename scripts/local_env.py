@@ -76,7 +76,7 @@ PI_VERSION = "1.5.2"
 LEGACY_PI_REVIEW_EXTENSION = "npm:@nqbao/pi-json-schema@0.1.1"
 PI_REVIEW_EXTENSION_PATH = RUNTIME_ROOT / "scripts/pi-extensions/json-schema.ts"
 PI_REVIEW_EXTENSION = str(PI_REVIEW_EXTENSION_PATH)
-PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.88.0"
+PI_SUBAGENTS_EXTENSION = "npm:pi-subagents@0.88.1"
 PI_EXTENSIONS = (PI_SUBAGENTS_EXTENSION,)
 PI_DISABLED_BUILTIN_SUBAGENTS = (
     "claude-code",

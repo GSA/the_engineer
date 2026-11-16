@@ -8,10 +8,10 @@ owner's original install (`unit_prefix` in `environment.json`):
 
 | Service | Loopback endpoint | Systemd unit | Persistent data under `.local/environment/` |
 | --- | --- | --- | --- |
-| Kata (`v0.23.0-20-g0d5893d1`) | `http://127.0.0.1:17777/kata` | `<prefix>-kata.service` | `kata/kata.db` |
-| roborev (`v0.75.0-21-g1d064c1b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `<prefix>-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
-| AgentsView (`v0.47.0-70-g34408addb`) | `http://127.0.0.1:18080/` | `<prefix>-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge (`v0.6.0-80-gf42d6c06`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `<prefix>-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Kata (`v0.23.0-70-gb7f8195f`) | `http://127.0.0.1:17777/kata` | `<prefix>-kata.service` | `kata/kata.db` |
+| roborev (`v0.75.0-50-gfff8f859`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `<prefix>-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
+| AgentsView (`v0.47.0-219-g7dd1b41d7`) | `http://127.0.0.1:18080/` | `<prefix>-agentsview.service` | `agentsview/data/sessions.db` |
+| Forge (`v0.8.0-25-g87184d01`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `<prefix>-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
 `ENGINEER_PORT_OFFSET` (default `0`; legacy `KENN_KOPY_PORT_OFFSET` is accepted). `setup` saves a nonzero offset as
