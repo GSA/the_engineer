@@ -28,6 +28,8 @@ def answers(*replies):
 
 class EngineerTestCase(unittest.TestCase):
     def setUp(self):
+        # engineer.main() runs under umask 077; parents created by private_dir must match.
+        self.addCleanup(os.umask, os.umask(0o077))
         self.temporary = tempfile.TemporaryDirectory(prefix="engineer-test-", dir=local_env.ROOT / ".local")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)

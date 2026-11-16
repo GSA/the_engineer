@@ -40,7 +40,7 @@ class TempRepoCase(unittest.TestCase):
         return git(cwd or self.repo, "push", "-q", *args, check=False)
 
     def remote_branches(self):
-        output = subprocess.run(["git", "-C", str(self.remote), "for-each-ref", "--format=%(refname:short)"],
+        output = subprocess.run(["git", "--git-dir", str(self.remote), "for-each-ref", "--format=%(refname:short)"],
                                 text=True, capture_output=True, check=True).stdout
         return set(output.split())
 
@@ -274,7 +274,7 @@ class GuardAndOtherSnippetsTests(TempRepoCase):
                 self.assertNotEqual(blocked.returncode, 0)
                 self.assertIn("protected branch 'main'", blocked.stderr)
                 self.assertNotIn("main", subprocess.run(
-                    ["git", "-C", str(remote), "for-each-ref", "--format=%(refname:short)"],
+                    ["git", "--git-dir", str(remote), "for-each-ref", "--format=%(refname:short)"],
                     text=True, capture_output=True, check=True).stdout.split())
                 # The remaining hooks still carry the review commands.
                 for name in ("post-commit", "post-rewrite"):
