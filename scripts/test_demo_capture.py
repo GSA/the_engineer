@@ -255,6 +255,42 @@ class WalkthroughTests(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn("--walkthrough", err)
 
+    def test_generated_frame_names_are_reserved(self):
+        for name in ("step-00", "step-7", "step-100"):
+            with self.assertRaises(demo.CaptureError):
+                demo.parse_steps([f"screenshot:{name}"])
+        demo.parse_steps(["screenshot:steps", "screenshot:before"])
+
+    def test_frames_sort_numerically_past_99(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp)
+            for index in (0, 1, 10, 11, 99, 100):
+                (bundle / f"step-{index:02d}.png").write_bytes(b"x")
+            names = [p.name for p in demo.ordered_step_frames(bundle)]
+            self.assertEqual(names, ["step-00.png", "step-01.png", "step-10.png",
+                                     "step-11.png", "step-99.png", "step-100.png"])
+
+    def test_failed_rerender_keeps_existing_walkthrough(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = self._scripted_bundle(tmp)
+            self.assertEqual(run_main("walkthrough", str(bundle))[0], 0)
+            before = (bundle / "walkthrough.gif").read_bytes()
+            original = demo.require_pillow
+
+            def missing():
+                raise demo.CaptureError("Pillow is required")
+
+            demo.require_pillow = missing
+            try:
+                code, _, err = run_main("walkthrough", str(bundle))
+            finally:
+                demo.require_pillow = original
+            self.assertEqual(code, 2)
+            self.assertIn("Pillow", err)
+            self.assertEqual((bundle / "walkthrough.gif").read_bytes(), before)
+            self.assertTrue((bundle / "walkthrough.md").is_file())
+            demo.load_verified(bundle)
+
     def test_walkthrough_refuses_frame_count_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             bundle = self._scripted_bundle(tmp, frames=2)

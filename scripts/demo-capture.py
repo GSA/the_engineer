@@ -47,6 +47,7 @@ WALKTHROUGH_LIMIT = 10 * 1024 * 1024  # GitHub's inline image ceiling
 WALKTHROUGH_WIDTH = 960
 FRAME_MS, LAST_FRAME_MS = 1800, 3500
 STEP_FRAME_RE = re.compile(r"^step-(\d{2,})\.png$")
+RESERVED_NAME_RE = re.compile(r"^step-\d+$")  # generated walkthrough frames
 FORMATS = {".png": "screenshot", ".webm": "video", ".mp4": "video"}
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 MANUAL_FALLBACK = (
@@ -92,14 +93,14 @@ def parse_steps(raw_steps):
             steps.append({"action": action, "selector": selector, "value": value})
         elif action == "wait" and rest.isdigit() and int(rest) <= MAX_WAIT_MS:
             steps.append({"action": "wait", "ms": int(rest)})
-        elif action == "screenshot" and NAME_RE.match(rest) and rest != "final":
+        elif action == "screenshot" and NAME_RE.match(rest) and rest != "final" and not RESERVED_NAME_RE.match(rest):
             steps.append({"action": "screenshot", "name": rest})
         elif action == "goto":
             steps.append({"action": "goto", "url": require_loopback(rest)})
         else:
             raise CaptureError(
                 f"invalid step {raw!r}; use click:SEL, fill:SEL=TEXT, press:SEL=KEY, "
-                f"waitfor:SEL, wait:MS (<= {MAX_WAIT_MS}), screenshot:NAME or goto:LOOPBACK_URL"
+                f"waitfor:SEL, wait:MS (<= {MAX_WAIT_MS}), screenshot:NAME (not final or step-N) or goto:LOOPBACK_URL"
             )
     return steps
 
@@ -467,7 +468,7 @@ def render_walkthrough(frames, captions, out_path, title=None):
         draw.multiline_text((12, height + 8), "\n".join(lines[:2]), fill=(235, 238, 245), font=font)
         rendered.append(canvas.convert("P", palette=Image.ADAPTIVE, colors=128))
     durations = [FRAME_MS] * (total - 1) + [LAST_FRAME_MS]
-    rendered[0].save(out_path, save_all=True, append_images=rendered[1:], duration=durations, loop=0, optimize=True)
+    rendered[0].save(out_path, format="GIF", save_all=True, append_images=rendered[1:], duration=durations, loop=0, optimize=True)
     return out_path
 
 
@@ -492,30 +493,47 @@ def walkthrough_note(manifest):
     return "\n".join(lines) + "\n"
 
 
+def ordered_step_frames(bundle):
+    """Generated frames in numeric order (step-100 follows step-99)."""
+    frames = [(int(m.group(1)), p) for p in Path(bundle).iterdir() if (m := STEP_FRAME_RE.match(p.name))]
+    return [p for _, p in sorted(frames)]
+
+
 def build_walkthrough(bundle):
-    """Render walkthrough.gif and walkthrough.md for a bundle with step frames."""
+    """Render walkthrough.gif and walkthrough.md for a bundle with step frames.
+
+    Outputs are rendered beside the bundle's files first and swapped in only
+    after validation, so a failed re-render leaves the verified bundle intact.
+    """
+    require_pillow()
     bundle, manifest = load_verified(bundle)
-    frames = sorted(p for p in bundle.iterdir() if STEP_FRAME_RE.match(p.name))
+    frames = ordered_step_frames(bundle)
     steps = (manifest.get("capture") or {}).get("steps")
     if not frames or steps is None:
         raise CaptureError(
             f"{bundle} has no step frames; capture it with `capture --walkthrough` "
             "(imported manual captures have no scripted steps)"
         )
-    if len(frames) != len(steps) + 1:
+    if len(frames) != len(steps) + 1 or [int(STEP_FRAME_RE.match(p.name).group(1)) for p in frames] != list(range(len(frames))):
         raise CaptureError(f"{bundle} has {len(frames)} step frames for {len(steps)} steps; recapture")
     captions = ["Open the page"] + [step_caption(step) for step in steps]
-    gif = bundle / "walkthrough.gif"
-    note = bundle / "walkthrough.md"
-    for path in (gif, note):
-        path.unlink(missing_ok=True)
-    manifest["artifacts"] = [a for a in manifest["artifacts"] if a["file"] not in (gif.name, note.name)]
-    render_walkthrough(frames, captions, gif, title=manifest["demonstrates"])
-    old = os.umask(0o077)
+    gif, note = bundle / "walkthrough.gif", bundle / "walkthrough.md"
+    new_gif, new_note = bundle / ".walkthrough.gif.tmp", bundle / ".walkthrough.md.tmp"
     try:
-        note.write_text(walkthrough_note(manifest))
+        render_walkthrough(frames, captions, new_gif, title=manifest["demonstrates"])
+        old = os.umask(0o077)
+        try:
+            new_note.write_text(walkthrough_note(manifest))
+        finally:
+            os.umask(old)
+        new_gif.chmod(0o600)
+        enforce_size(new_gif, WALKTHROUGH_LIMIT)
+        new_gif.replace(gif)
+        new_note.replace(note)
     finally:
-        os.umask(old)
+        new_gif.unlink(missing_ok=True)
+        new_note.unlink(missing_ok=True)
+    manifest["artifacts"] = [a for a in manifest["artifacts"] if a["file"] not in (gif.name, note.name)]
     manifest["artifacts"] += [describe(bundle, gif, "walkthrough"), describe(bundle, note, "note")]
     write_manifest(bundle, manifest, replace=True)
     return bundle
