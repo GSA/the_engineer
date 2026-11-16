@@ -480,7 +480,10 @@ python3 scripts/demo-capture.py evidence --data in.json --command 'python3 calc.
 python3 scripts/demo-capture.py publish .local/demos/<task>/<bundle> --pr 42
 ```
 
-`--walkthrough` builds a GIF only when the branch changes UI files. `evidence`
+In a Forge workspace, creating the PR for a Jira-sourced Kata task (or one
+labelled `evidence`) prompts the agent with the evidence its change type needs;
+other tasks are not prompted. `--walkthrough` builds a GIF only when the branch
+changes UI files. `evidence`
 records the synthetic data, an exact command you can rerun with your own data
 via `EVIDENCE_DATA`, and its output. `publish` uploads with `gh` (2.99+) and
 verifies the comment.

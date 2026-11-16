@@ -13,6 +13,7 @@ import {
 } from "./forge-api.ts";
 import { extractResultText, summarizePrWithGemini } from "./pr-summary.ts";
 import { BRAINSTORMING_OVERRIDE, FINISHING_BRANCH_OVERRIDE, FORGE_WORKSPACE_SECTION, WRITING_PLANS_OVERRIDE } from "./prompts.ts";
+import { prEvidenceNote } from "./pr-evidence.ts";
 import { humanOnlyPublication, writesPrDescription } from "./publication-guard.ts";
 import { recoveryHint } from "./recovery.ts";
 import {
@@ -486,6 +487,12 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	pi.on("tool_result", async (event: any, ctx: any) => {
 		if (event?.toolName === "bash" && typeof event?.input?.command === "string") {
 			const note = screenReviewResult(event.input.command, extractResultText(event), ctx.cwd);
+			if (note) {
+				return { content: [...(Array.isArray(event.content) ? event.content : []), { type: "text", text: note }] };
+			}
+		}
+		if (event?.toolName === "bash" && !event?.isError && typeof event?.input?.command === "string" && !isSubagentProcess()) {
+			const note = prEvidenceNote(event.input.command, extractResultText(event), ctx.cwd);
 			if (note) {
 				return { content: [...(Array.isArray(event.content) ? event.content : []), { type: "text", text: note }] };
 			}

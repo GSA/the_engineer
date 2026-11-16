@@ -64,6 +64,11 @@ non-`main` base, or `--any-change` to override.
 
 ## PR evidence by change type
 
+Jira-sourced (`jira.key`) or `evidence`-labelled Kata tasks get this list
+automatically after `gh pr create` in a Forge workspace
+(`scripts/pi-extensions/forge-workspace/pr-evidence.ts`); see
+`context/engineering-workflow.md#pr-evidence-by-change-type`.
+
 Every PR carries the proof its change type needs, posted as a PR comment:
 
 | `classify` result | Evidence | Command |

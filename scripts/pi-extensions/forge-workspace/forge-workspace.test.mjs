@@ -821,3 +821,52 @@ test("unknown failures, successes and already-hinted results are left alone", as
     expect(await h.tool_result({ toolName: "bash", toolCallId: "f1", isError: true, input: { command: "kata list" },
         content: once.content }, makeCtx({ mode: "print" }))).toBeUndefined();
 });
+
+// PR evidence hook: a successful `gh pr create` for a Jira-sourced or
+// `evidence`-labelled Kata task gets the evidence its change type needs.
+function evidenceFixture({ meta = {}, labels = [], classify = { base: "origin/main", changes: { ui: ["a.css"], api: [], backend: [], docs: [] }, evidence: ["walkthrough"] } } = {}) {
+    const root = join(cwd, "runtime");
+    mkdirSync(join(root, "scripts"), { recursive: true });
+    writeFileSync(join(root, "scripts", "demo-capture.py"),
+        `import json,sys\nassert sys.argv[1]=="classify"\nprint(json.dumps(${JSON.stringify(classify)}))\n`);
+    writeFileSync(join(cwd, "kata"), `#!/bin/sh\necho '${JSON.stringify({ issue: { metadata: meta }, labels: labels.map((label) => ({ label })) })}'\n`, { mode: 0o700 });
+    process.env.PATH = `${cwd}:${saved.PATH}`;
+    process.env.KENN_KOPY_RUNTIME_ROOT = root;
+    process.env.KATA_REF = "example#abcd";
+}
+const prCreated = (h, command = "gh pr create --fill", isError = false) => h.tool_result({
+    toolName: "bash", toolCallId: "p1", isError, input: { command },
+    content: [{ type: "text", text: "https://github.com/example/project/pull/42\n" }],
+}, makeCtx({ mode: "print" }));
+
+test("PR creation for a Jira-sourced task names the walkthrough to capture and publish", async () => {
+    evidenceFixture({ meta: { "jira.key": "SYN-7" } });
+    const text = hintText(await prCreated(load()));
+    expect(text).toContain("PR evidence (SYN-7)");
+    expect(text).toContain("a.css");
+    expect(text).toContain("capture --walkthrough");
+    expect(text).toContain("--ticket SYN-7");
+    expect(text).toContain("publish <bundle> --pr 42");
+});
+
+test("PR creation for an evidence-labelled backend task asks for before/after test evidence", async () => {
+    evidenceFixture({ labels: ["evidence"], classify: { base: "origin/main", changes: { ui: [], api: [], backend: ["x.py"], docs: [] }, evidence: ["test-evidence"] } });
+    const text = hintText(await prCreated(load()));
+    expect(text).toContain("demo-capture.py evidence --task example#abcd");
+    expect(text).toContain("--data FILE");
+    expect(text).toContain("--before origin/main");
+    expect(text).not.toContain("--walkthrough");
+});
+
+test("PR evidence hook leaves owner-requested, docs-only, failed and non-create calls alone", async () => {
+    evidenceFixture();
+    expect(await prCreated(load())).toBeUndefined();
+    evidenceFixture({ meta: { "jira.key": "SYN-7" }, classify: { base: "origin/main", changes: { ui: [], api: [], backend: [], docs: ["a.md"] }, evidence: [] } });
+    expect(await prCreated(load())).toBeUndefined();
+    evidenceFixture({ meta: { "jira.key": "SYN-7" } });
+    expect(await prCreated(load(), "gh pr create --fill", true)).toBeUndefined();
+    expect(await prCreated(load(), "gh pr edit 42 --body x")).toBeUndefined();
+    expect(await prCreated(load(), "echo gh pr create")).toBeUndefined();
+    delete process.env.KATA_REF;
+    expect(await prCreated(load())).toBeUndefined();
+});

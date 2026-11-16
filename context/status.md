@@ -153,7 +153,9 @@ or reconciliation service is installed.
   - `capture --walkthrough` / `walkthrough BUNDLE` (`8ya9`) adds per-step
     frames, a captioned `walkthrough.gif` and `walkthrough.md` (Pillow);
     `classify`, `evidence` and `publish` cover PR evidence by change type
-    (`context/engineering-workflow.md#pr-evidence-by-change-type`).
+    (`context/engineering-workflow.md#pr-evidence-by-change-type`). The
+    forge-workspace extension prompts for it after `gh pr create` on
+    Jira-sourced or `evidence`-labelled tasks.
 
 - **Content-led PR descriptions (`8gp7`)**:
   - Forge coder, branch-finishing and automatic formatter guidance share one
