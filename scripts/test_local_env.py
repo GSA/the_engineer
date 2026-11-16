@@ -194,6 +194,36 @@ class LocalEnvironmentTests(unittest.TestCase):
             self.assertNotIn(stale, content)
             self.assertIn("# retained edit", content)
 
+    def test_setup_migrates_launchers_in_the_indented_toml_forge_writes(self):
+        stale = str(local_env.RUNTIME_ROOT / ".local/environment/forge/worktrees/host/repo/deleted/scripts/pi-local.py")
+        canonical = str(local_env.RUNTIME_ROOT / "scripts/pi-local.py")
+        forge = self.state / "forge/config.toml"
+        roborev = self.state / "roborev/config.toml"
+        local_env.private_write(forge, (
+            "# retained comment\n"
+            "[[agents]]\n"
+            '  key = "pi"\n'
+            '  label = "Pi"\n'
+            f'  command = [ "{stale}" ]\n'
+            "[[agents]]\n"
+            '  command = ["' + stale + '", "--model", "gemini-4-argon"]\n'
+            '  key = "pi-argon"\n'
+            "[[agents]]\n"
+            '  key = "claude"\n'
+            f'  command = ["{stale}"]\n'
+        ), replace=True)
+        local_env.private_write(
+            roborev, roborev.read_text().replace(f'"{canonical}"', f'"{stale}"'), replace=True)
+        with patch.object(local_env, "ROOT", local_env.RUNTIME_ROOT), \
+                contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+        agents = {agent["key"]: agent for agent in tomllib.loads(forge.read_text())["agents"]}
+        self.assertEqual(agents["pi"]["command"], [canonical])
+        self.assertEqual(agents["pi-argon"]["command"], [canonical, "--model", "gemini-4-argon"])
+        self.assertEqual(agents["claude"]["command"], [stale])
+        self.assertIn("# retained comment", forge.read_text())
+        self.assertEqual(tomllib.loads(roborev.read_text())["pi_cmd"], canonical)
+
     def test_setup_preserves_custom_pi_launcher_commands(self):
         forge = self.state / "forge/config.toml"
         roborev = self.state / "roborev/config.toml"
@@ -2226,6 +2256,28 @@ class LocalEnvironmentTests(unittest.TestCase):
         local_env.validate_roborev_config()
         with self.assertRaisesRegex(RuntimeError, "saved USAi model"):
             local_env.pi_launch(["--model", "gpt-6.1-sol-latest-guardrails-defaultv2"])
+
+    def test_every_hardcoded_chat_model_has_a_family_and_llama_is_not_adversarial(self):
+        for model in local_env.USAI_CHAT_MODELS:
+            with self.subTest(model=model):
+                self.assertIsNotNone(local_env.usai_model_family(model))
+        self.assertEqual(local_env.usai_model_family("llama_4_maverick"), "llama")
+        self.assertNotIn("llama", local_env.ADVERSARIAL_MODEL_FAMILIES)
+        self.assertTrue(local_env.USAI_EMBEDDING_MODELS.isdisjoint(local_env.USAI_CHAT_MODELS))
+
+    def test_model_discovery_flags_models_without_a_known_family(self):
+        self.key()
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value.read.return_value = json.dumps({
+            "data": [{"id": "claude-opus-5"}, {"id": "mistral-9"}, {"id": "cohere-v4"}],
+        }).encode()
+        output = io.StringIO()
+        with patch.object(local_env.urllib.request, "build_opener", return_value=opener):
+            with contextlib.redirect_stdout(output):
+                local_env.list_models("https://usai.example.test/v1")
+        self.assertIn("WARN unclassified models", output.getvalue())
+        self.assertIn("mistral-9", output.getvalue().split("WARN")[1])
+        self.assertNotIn("cohere-v4", output.getvalue().split("WARN")[1])
 
     def test_configure_provider_rejects_same_family_or_invalid_review_models(self):
         for coder, reviewer in (

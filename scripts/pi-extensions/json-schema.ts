@@ -3,6 +3,7 @@ import { complete } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Compile } from "typebox/compile";
+import { extractJson } from "./json-extract.ts";
 
 export default function structuredOutputExtension(pi: ExtensionAPI) {
 	pi.registerFlag("json-schema", {
@@ -57,33 +58,7 @@ export default function structuredOutputExtension(pi: ExtensionAPI) {
 		writeOutput(data);
 	};
 
-	const tryExtractJson = (text: string): Record<string, unknown> | null => {
-		try {
-			return JSON.parse(text.trim()) as Record<string, unknown>;
-		} catch {
-			// fall through
-		}
-
-		const codeBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-		if (codeBlockMatch) {
-			try {
-				return JSON.parse(codeBlockMatch[1]) as Record<string, unknown>;
-			} catch {
-				// fall through
-			}
-		}
-
-		const rawMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-		if (rawMatch) {
-			try {
-				return JSON.parse(rawMatch[1]) as Record<string, unknown>;
-			} catch {
-				// fall through
-			}
-		}
-
-		return null;
-	};
+	const tryExtractJson = extractJson;
 
 	pi.on("session_start", (_event) => {
 		resetSessionState();

@@ -81,6 +81,8 @@ PI_DISABLED_BUILTIN_SUBAGENTS = (
 )
 PI_PASSTHROUGH_SUBCOMMANDS = frozenset({"mcp", "list", "config", "install", "remove", "update"})
 USAI_EMBEDDING_MODELS = frozenset({"cohere-v4", "cohere_english_v3", "text-embedding-005"})
+# Llama is classified (usai_model_family) but deliberately not adversarial-eligible:
+# it is not a coder/reviewer pairing target. A deliberate choice, pinned by tests.
 ADVERSARIAL_MODEL_FAMILIES = frozenset({"claude", "openai", "gemini"})
 USAI_CHAT_MODELS = (
     "claude-haiku-5.5",
@@ -561,22 +563,8 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
                       for key, value in roborev_defaults.items() if key not in existing)
     if missing:
         private_write(roborev_path, missing + raw, replace=True)
-    managed_worktrees = re.escape(str(RUNTIME_ROOT / ".local/environment/forge/worktrees"))
-    launcher_migrations = (
-        (STATE / "forge/config.toml",
-         re.compile(r'(?ms)(\[\[agents\]\]\nkey = "pi(?:-argon)?"\n.*?^command = \[)'
-                    rf'"{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"'),
-         lambda match: match.group(1) + json.dumps(str(wrapper))),
-        (STATE / "roborev/config.toml",
-         re.compile(rf'(?m)^pi_cmd = "{managed_worktrees}/[^"\n]*/scripts/pi-local\.py"$'),
-         lambda _match: f'pi_cmd = {json.dumps(str(wrapper))}'),
-    )
-    for path, pattern, replacement in launcher_migrations:
-        if path.exists():
-            content = private_read(path)
-            migrated, count = pattern.subn(replacement, content)
-            if count and migrated != content:
-                private_write(path, migrated, replace=True)
+    migrate_managed_launcher(STATE / "forge/config.toml", wrapper)
+    migrate_managed_launcher(STATE / "roborev/config.toml", wrapper)
     private_write(
         STATE / "kata/config.toml",
         f'listen = "127.0.0.1:{KATA_PORT}"\nactive_daemon = "local"\n'
@@ -1162,6 +1150,11 @@ def list_models(base_url):
     }, replace=True)
     print(f"Saved {len(ids)} advertised model IDs to {STATE / 'usai-models.json'}")
     print("\n".join(ids))
+    unknown = [model for model in ids if model not in USAI_EMBEDDING_MODELS and model not in USAI_CHAT_MODELS
+               and usai_model_family(model) is None]
+    if unknown:
+        print("WARN unclassified models (add a family in usai_model_family or exclude them): "
+              + ", ".join(unknown))
     print("Discovery only: this does not verify a model's chat, streaming or tool-call protocol.")
     return ids
 
@@ -1223,6 +1216,63 @@ def discovered_usai_chat_models():
                 if cleaned and cleaned not in USAI_EMBEDDING_MODELS and cleaned not in models:
                     models.append(cleaned)
     return tuple(models)
+
+
+def migrate_managed_launcher(path, wrapper):
+    """Repoint a Pi launcher left in a deleted Forge worktree at the canonical wrapper.
+
+    Only the managed launchers are touched: Forge agents ``pi``/``pi-argon`` (first
+    command element) and roborev's root ``pi_cmd``, and only when the value is a
+    ``scripts/pi-local.py`` under the managed worktrees directory. The file is split
+    into its TOML tables, each parsed on its own, and the stale string is replaced
+    inside that table's source text, so comments, layout and any other agent that
+    happens to share the path survive. The result must parse to the expected config
+    or nothing is written.
+    """
+    if not path.exists():
+        return
+    raw = private_read(path)
+    config = tomllib.loads(raw)
+    managed = RUNTIME_ROOT / ".local/environment/forge/worktrees"
+
+    def stale(value):
+        candidate = Path(value) if isinstance(value, str) else None
+        return (candidate is not None and candidate.is_relative_to(managed)
+                and candidate.parts[-2:] == ("scripts", "pi-local.py")
+                and str(candidate) != str(wrapper))
+
+    def retarget(table_text, value):
+        for quoted in (json.dumps(value), f"'{value}'"):
+            if quoted in table_text:
+                return table_text.replace(quoted, json.dumps(str(wrapper)), 1)
+        return table_text
+
+    expected = tomllib.loads(raw)
+    for agent in expected.get("agents", []):
+        command = agent.get("command")
+        if agent.get("key") in ("pi", "pi-argon") and isinstance(command, list) and command and stale(command[0]):
+            command[0] = str(wrapper)
+    if stale(expected.get("pi_cmd")):
+        expected["pi_cmd"] = str(wrapper)
+    if expected == config:
+        return
+    tables = re.split(r"(?m)^(?=\s*\[)", raw)
+    migrated = []
+    for table in tables:
+        parsed = tomllib.loads(table)
+        is_agent = re.match(r"\s*\[\[agents\]\]", table) is not None
+        agent = parsed["agents"][0] if is_agent else {}
+        command = agent.get("command")
+        value = None
+        if (agent.get("key") in ("pi", "pi-argon") and isinstance(command, list)
+                and command and stale(command[0])):
+            value = command[0]
+        elif not table.lstrip().startswith("[") and stale(parsed.get("pi_cmd")):
+            value = parsed["pi_cmd"]
+        migrated.append(retarget(table, value) if value else table)
+    migrated = "".join(migrated)
+    if tomllib.loads(migrated) == expected:
+        private_write(path, migrated, replace=True)
 
 
 def sync_roborev_review_model(review_model):
