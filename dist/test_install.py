@@ -1068,6 +1068,7 @@ class InstallerTests(unittest.TestCase):
             environment.setup(self.corpus, forge)
             environment.configure_private_pi_tracking()
             env = environment.agentsview_environment()
+            direct_api = environment.direct_api_dirs()
         session = state / "pi/sessions/installer-fixture/test-session.jsonl"
         session.parent.mkdir()
         session.write_text(
@@ -1105,6 +1106,10 @@ class InstallerTests(unittest.TestCase):
             pi = next(provider for provider in settings["session_providers"] if provider["id"] == "pi")
             self.assertEqual(pi["dirs"], [str(state / "pi/sessions")])
             for provider in settings["session_providers"]:
+                if provider["id"] == "direct-api":
+                    # Intentional drop directories, including the real home (the_engineer#38).
+                    self.assertEqual(provider["dirs"], direct_api)
+                    continue
                 for directory in provider["dirs"]:
                     self.assertTrue(Path(directory).is_relative_to(state), directory)
             with contextlib.closing(sqlite3.connect(
