@@ -18,7 +18,7 @@ import hashlib
 
 APT_PACKAGES = (
     "git", "curl", "ca-certificates", "build-essential", "libc6-dev", "tmux", "python3",
-    "python3-venv", "tar", "xz-utils", "coreutils", "diffutils", "ripgrep", "fd-find",
+    "python3-venv", "python3-pil", "tar", "xz-utils", "coreutils", "diffutils", "ripgrep", "fd-find",
 )
 NODE_VERSION = "24.11.1"
 NODE_MINIMUM = (24, 11, 0)

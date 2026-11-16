@@ -397,9 +397,28 @@ python3 scripts/demo-capture.py capture --task the_engineer#86ey \
 python3 scripts/demo-capture.py handoff .local/demos/<task>/<bundle>
 ```
 
+Each PR gets proof matched to its change type, posted as a PR comment so
+testers need not run anything:
+
+```sh
+python3 scripts/demo-capture.py classify          # ui / api / backend / docs + evidence needed
+python3 scripts/demo-capture.py capture --walkthrough ...   # UI: captioned walkthrough.gif
+python3 scripts/demo-capture.py evidence --data in.json --command 'python3 calc.py' \
+  --before origin/main --task ... --demonstrates ...      # API/backend: data, command, output before/after
+python3 scripts/demo-capture.py publish .local/demos/<task>/<bundle> --pr 42
+```
+
+In a Forge workspace, creating the PR for a Jira-sourced Kata task (or one
+labelled `evidence`) prompts the agent with the evidence its change type needs;
+other tasks are not prompted. `--walkthrough` builds a GIF only when the branch
+changes UI files. `evidence` records the synthetic data, an exact command you
+can rerun with your own data via `EVIDENCE_DATA`, and its output. `publish`
+uploads with `gh` (2.99+) and verifies the comment. Walkthroughs need Pillow
+(`python3-pil`), which `./engineer install` installs.
+
 Bundles land in ignored `.local/demos/` with a provenance manifest and are
-never uploaded. Review every frame before sharing; attaching to a PR or issue
-needs your explicit approval. Manual capture, limits, retention and failure
+uploaded only by `publish`. Use synthetic data only and check every frame and
+output before publishing. Manual capture, limits, retention and failure
 guidance are in `context/demo-capture.md`.
 
 ## Maintenance

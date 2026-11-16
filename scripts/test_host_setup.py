@@ -56,6 +56,9 @@ class HostSetupTests(unittest.TestCase):
         self.assertEqual(installed, ["tmux"])
         self.assertIn(["sudo", "apt-get", "install", "-y", "--no-install-recommends", "tmux"], runner.commands)
 
+    def test_apt_packages_include_pillow_for_demo_walkthroughs(self):
+        self.assertIn("python3-pil", host_setup.APT_PACKAGES)
+
     def test_apt_is_not_run_without_consent_or_when_nothing_is_missing(self):
         runner = FakeRunner()
         with patch("sys.stdout", io.StringIO()), self.assertRaisesRegex(RuntimeError, "required"):

@@ -55,7 +55,16 @@ try {
         await page.screenshot({ path: join(job.out_dir, file), fullPage: job.full_page });
         artifacts.push({ kind: "screenshot", file });
     };
+    let frame = 0;
+    const stepShot = async () => {
+        if (!job.step_shots) return;
+        await page.waitForTimeout(300);
+        const file = `step-${String(frame++).padStart(2, "0")}.png`;
+        await page.screenshot({ path: join(job.out_dir, file), fullPage: job.full_page });
+        artifacts.push({ kind: "screenshot", file });
+    };
     await page.goto(job.url, { waitUntil: "load" });
+    await stepShot();
     for (const step of job.steps) {
         if (job.video) await page.waitForTimeout(job.step_pause_ms);
         switch (step.action) {
@@ -68,6 +77,7 @@ try {
             case "screenshot": await shot(step.name); break;
             default: throw new Error(`unsupported step ${step.action}`);
         }
+        await stepShot();
     }
     if (job.video) await page.waitForTimeout(job.step_pause_ms);
     await shot("final");
