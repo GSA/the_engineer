@@ -496,6 +496,19 @@ test("background subagent runner processes stay isolated from Forge hooks, secti
     expect(skillResult).toBeUndefined();
 });
 
+test("skill overrides follow the skill's frontmatter name, not the path suffix", async () => {
+    process.env.KENN_FORGE_RUNTIME_SESSION_KEY = "rk";
+    const h = load();
+    const ctx = makeCtx();
+    await h.session_start({ reason: "startup" }, ctx);
+    const read = (path, text) =>
+        h.tool_result({ toolName: "read", input: { path }, content: [{ type: "text", text }] }, ctx);
+    const named = await read("/anywhere/else/SKILL.md", "---\nname: writing-plans\ndescription: x\n---\nbody");
+    expect(named.content[1].text).toContain("bounded roborev delivery policy");
+    expect(await read("/skills/not-writing-plans/SKILL.md", "---\nname: other\n---\nbody")).toBeUndefined();
+    expect(await read("/skills/writing-plans/NOTES.md", "body")).toBeUndefined();
+});
+
 // Bounded roborev review loops: the first branch review is allowed, later
 // full-branch reviews need the human, and findings on fix commits go to the
 // owner instead of another fix pass.
@@ -757,7 +770,7 @@ test("kata daemon_unavailable points at the service and the health check", async
     const h = load();
     const text = hintText(await failed(h, "bash", { command: "kata show abcd" },
         "ERR show daemon_unavailable: connection refused\nCommand exited with code 7"));
-    expect(text).toContain("kenn-kopy-kata.service");
+    expect(text).toContain("local_env.py status");
     expect(text).toContain("tool-health.py");
 });
 

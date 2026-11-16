@@ -50,9 +50,9 @@ TOOLS = {
     "rg": "ripgrep",
     "fd": "fd-find, then expose Ubuntu's fdfind as fd: "
           "mkdir -p \"$HOME/.local/bin\" && ln -s /usr/bin/fdfind \"$HOME/.local/bin/fd\"",
-    "pi": f"Pi {PI_VERSION}: npm install --prefix \"$HOME/.local/engi-pi\" "
+    "pi": f"Pi {PI_VERSION}: npm install --prefix \"$HOME/.local/engineer-pi\" "
           f"@earendil-works/pi-coding-agent@{PI_VERSION}; "
-          "then add $HOME/.local/engi-pi/node_modules/.bin to PATH",
+          "then add $HOME/.local/engineer-pi/node_modules/.bin to PATH",
 }
 
 
@@ -238,6 +238,8 @@ def prerequisites(corpus, librarian_executable=None, librarian_reader=None,
     certificates = ssl.get_default_verify_paths()
     if not certificates.cafile and not certificates.capath:
         errors.append("No system TLS trust store found; install ca-certificates.")
+    if corpus is None and librarian_executable is None:
+        return errors
     server, reader, root, selection = librarian_binding(
         corpus, librarian_executable, librarian_reader, librarian_root, librarian_selection)
     for path in (server, reader, selection):
@@ -626,13 +628,25 @@ def service_choice(choice):
     raise RuntimeError("Answer yes or no for service registration; no services were changed.")
 
 
+def unit_prefix(checkout):
+    """Mirror local_env.resolve_unit_prefix: engineer-* for new installs, kenn-kopy-* for older ones."""
+    path = checkout / ".local/environment/environment.json"
+    try:
+        saved = json.loads(path.read_text())
+    except FileNotFoundError:
+        return "engineer"
+    except (OSError, ValueError):
+        return "kenn-kopy"
+    return saved.get("unit_prefix", "kenn-kopy")
+
+
 def check_user_services(checkout):
     for tool in ("systemctl", "systemd-analyze"):
         if shutil.which(tool) is None:
             raise RuntimeError(f"{tool} is required for user services; use --services manual instead.")
     capture(["systemctl", "--user", "show-environment"])
     for project in MANAGED_SERVICES:
-        unit = f"kenn-kopy-{project}.service"
+        unit = f"{unit_prefix(checkout)}-{project}.service"
         # systemctl exits 1 with no output when no unit file matches (a fresh host).
         listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit],
                          empty_failure_ok=True)
@@ -659,7 +673,7 @@ def load_environment(checkout):
 
 def install(checkout, corpus, choice, librarian_executable=None,
             librarian_reader=None, librarian_root=None, librarian_selection=None,
-            provider=None, repos=(), mirrors=None):
+            provider=None, repos=(), mirrors=None, guided=False):
     mirrors = mirrors or {}
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
@@ -693,7 +707,9 @@ def install(checkout, corpus, choice, librarian_executable=None,
     provision_native_kata_client(checkout, url=environment.KATA_URL)
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print("\nCreating missing private configuration; existing settings are preserved...")
-    setup_command = [*command, "setup", "--corpus", str(corpus), "--forge-binary", str(forge)]
+    setup_command = [*command, "setup", "--forge-binary", str(forge)]
+    if corpus is not None:
+        setup_command.extend(["--corpus", str(corpus)])
     if librarian_executable is not None:
         setup_command.extend(["--librarian-executable", str(librarian_executable)])
         if librarian_reader is not None:
@@ -714,7 +730,8 @@ def install(checkout, corpus, choice, librarian_executable=None,
         run(provider_command, cwd=checkout)
     mcp_list = [sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"]
     node = Path(shutil.which("node")).resolve()
-    instructions(checkout, node, service_ports(environment), provider is not None, repos)
+    if not guided:
+        instructions(checkout, node, service_ports(environment), provider is not None, repos)
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
         for name in MANAGED_SERVICES:
@@ -775,7 +792,7 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
     print("  " + shlex.join([*command, "stop"]))
     print("Independent user services are NOT stopped by that command. For each installed unit:")
     for name in MANAGED_SERVICES:
-        print(f"  systemctl --user stop kenn-kopy-{name}.service")
+        print(f"  systemctl --user stop {unit_prefix(checkout)}-{name}.service")
     kata_url = f"http://127.0.0.1:{ports['kata']}"
     print(f"\nNative Kata client selects {kata_url} by default.")
     print(f"\nDashboards: Forge http://127.0.0.1:{ports['forge']}/ | Kata {kata_url}/kata")
@@ -790,9 +807,7 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
     print("  " + shlex.join([str(checkout / "scripts/gh-local.py"), "auth", "login",
                              "--hostname", "github.com", "--web", "--git-protocol", "https",
                              "--insecure-storage"]))
-    print("  systemctl --user restart kenn-kopy-forge.service")
-    print("Optional isolated Librarian (Layer 1):")
-    print("  " + shlex.join([*command, "provision-librarian-mvp", "--bind-mcp"]))
+    print(f"  systemctl --user restart {unit_prefix(checkout)}-forge.service")
     print("Then verify the host (read-only; exits nonzero listing each remaining step):")
     print("  " + shlex.join([*command, "accept",
                              *(arg for repo in repos for arg in ("--repo", str(repo)))]))
@@ -803,7 +818,8 @@ def main(argv=None):
     parser.add_argument("--checkout", type=Path, default=ROOT, help="existing checkout or new clone destination")
     parser.add_argument("--source", help="approved platform Git URL/path; required for a new clone")
     parser.add_argument("--revision", help="exact platform commit for a new clone (never an implicit latest)")
-    parser.add_argument("--corpus", type=Path, required=True, help="existing approved local Librarian checkout")
+    parser.add_argument("--corpus", type=Path,
+                        help="optional legacy Falcon corpus checkout; omit to install without Librarian")
     parser.add_argument("--librarian-executable", type=Path,
                         help="explicit Librarian MCP executable (requires root)")
     parser.add_argument("--librarian-reader", type=Path,
@@ -827,11 +843,12 @@ def main(argv=None):
                         help="owner-approved mirror for a pinned repository (for example "
                              "agentsview=URL) whose upstream remote lacks the pinned commit; "
                              "repeatable; the tracked .gitmodules is not changed")
+    parser.add_argument("--guided", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
     args = parser.parse_args(argv)
     checkout = args.checkout.expanduser().resolve()
-    corpus = args.corpus.expanduser().resolve()
+    corpus = args.corpus.expanduser().resolve() if args.corpus is not None else None
     RECEIPT.reset()
     RECEIPT.manual_fixes = list(args.record_fix)
     try:
@@ -848,7 +865,9 @@ def main(argv=None):
         provider = None if args.usai_model is None else {
             "base_url": args.usai_base_url, "model": args.usai_model,
             "review_model": args.usai_review_model, "api": args.usai_api}
-        server, reader, root, selection = librarian_binding(
+        server, reader, root, selection = (None, None, None, None) if (
+            corpus is None and args.librarian_executable is None
+            and args.librarian_root is None) else librarian_binding(
             corpus, args.librarian_executable, args.librarian_reader,
             args.librarian_root, args.librarian_selection)
         errors = (prerequisites(corpus, server, reader, root, selection)
@@ -861,7 +880,9 @@ def main(argv=None):
             if not args.check:
                 write_failure_receipt(checkout, "; ".join(errors))
             return 1
-        print("Host tools, C headers/linker and Librarian executable prerequisites passed.")
+        print("Host tools and C headers/linker prerequisites passed"
+              + ("; Librarian is optional and not bound." if server is None
+                 else ", including the Librarian executable."))
         if args.check:
             pin_errors = check_submodule_pins(checkout, mirrors)
             if pin_errors:
@@ -898,7 +919,7 @@ def main(argv=None):
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,
                     selection if args.librarian_executable else None,
-                    provider, repos, mirrors)
+                    provider, repos, mirrors, guided=args.guided)
         path = RECEIPT.write(checkout, "success", services=choice)
         print(f"\nInstall receipt (elapsed {RECEIPT.document(checkout, 'success')['elapsed_seconds']}s): {path}")
         return 0

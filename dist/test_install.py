@@ -124,6 +124,26 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any("qualified-context-mcp" in error for error in errors))
         self.assertTrue(any("context_index.py" in error for error in errors))
 
+    def test_install_without_corpus_needs_no_librarian_prerequisites(self):
+        with patch.object(installer.shutil, "which", return_value=None):
+            errors = installer.prerequisites(None)
+        self.assertFalse(any("Librarian" in error for error in errors), errors)
+
+    def test_guided_install_leaves_next_steps_to_the_engineer_command(self):
+        self.installation()
+        with patch.object(installer, "run"), contextlib.redirect_stdout(io.StringIO()) as output:
+            installer.install(self.root, None, "manual", guided=True)
+        self.assertNotIn("set-key", output.getvalue())
+        self.assertNotIn("Manual startup", output.getvalue())
+
+    def test_install_without_corpus_omits_corpus_from_setup(self):
+        self.installation()
+        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()) as output:
+            installer.install(self.root, None, "manual")
+        setup = next(call.args[0] for call in run.call_args_list if "setup" in call.args[0])
+        self.assertNotIn("--corpus", setup)
+        self.assertNotIn("provision-librarian-mvp", output.getvalue())
+
     def explicit_librarian(self):
         root = self.root / "empty toolkit"
         executable = root / ".venv/bin/librarian-mcp"
@@ -259,9 +279,19 @@ class InstallerTests(unittest.TestCase):
                 patch("builtins.input", return_value="maybe"), self.assertRaisesRegex(RuntimeError, "yes or no"):
             installer.service_choice("ask")
 
+    def test_unit_prefix_matches_runtime_for_new_and_existing_installs(self):
+        environment = installer.load_environment(installer.ROOT)
+        state = self.root / ".local/environment"
+        self.assertEqual(installer.unit_prefix(self.root), "engineer")
+        self.assertEqual(environment.resolve_unit_prefix(state / "environment.json"), "engineer")
+        state.mkdir(parents=True)
+        (state / "environment.json").write_text('{"forge_binary": "/x"}')
+        self.assertEqual(installer.unit_prefix(self.root), "kenn-kopy")
+        self.assertEqual(environment.resolve_unit_prefix(state / "environment.json"), "kenn-kopy")
+
     def test_foreign_user_unit_is_not_replaced(self):
         for name in installer.MANAGED_SERVICES:
-            unit = f"kenn-kopy-{name}.service"
+            unit = f"engineer-{name}.service"
 
             def capture(command, **kwargs):
                 if "list-unit-files" in command and command[-1] == unit:
@@ -827,34 +857,31 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(receipts)
         self.assertEqual(json.loads(receipts[-1].read_text())["outcome"], "failed")
 
-    def test_acceptance_script_keeps_container_name_with_mirrors(self):
+    def test_acceptance_script_mounts_a_local_source_and_runs_the_teammate_path(self):
         script = Path(__file__).parent / "container/run-acceptance.sh"
-        self.assertNotRegex(script.read_text(), r"(?m)^\s+name=\$\{entry")
         bin_dir = self.root / "fakebin"
         bin_dir.mkdir()
         calls = self.root / "podman-calls"
         (bin_dir / "podman").write_text(f'#!/bin/sh\necho "$@" >> {calls}\nexit 0\n')
         (bin_dir / "podman").chmod(0o755)
-        mirror = self.root / "mirror-dir"
-        mirror.mkdir()
         env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "NAME": "engi-test",
-               "SUBMODULE_MIRRORS": f"agentsview={mirror}", "ACCEPT_LOG_DIR": str(self.root / "acc")}
+               "ENGINEER_SOURCE": str(installer.ROOT), "ACCEPT_LOG_DIR": str(self.root / "acc")}
         subprocess.run(["bash", str(script), "HEAD"], env=env, capture_output=True)
-        log = calls.read_text().splitlines()
+        log = calls.read_text()
         self.assertIn("rm -f engi-test", log)
-        self.assertTrue(any(line.startswith("run -d --name engi-test") and
-                            f"{mirror}:/mirrors/agentsview:ro" in line for line in log))
-        self.assertFalse(any("rm -f agentsview" in line or "--name agentsview" in line for line in log))
-        self.assertTrue(list((self.root / "acc").glob("*.json")))
+        self.assertIn(f"{installer.ROOT}:/source:ro", log)
+        self.assertIn("./engineer install --yes --copilot yes", log)
+        self.assertIn("./engineer doctor", log)
+        receipt = json.loads(next((self.root / "acc").glob("*.json")).read_text())
+        self.assertEqual(receipt["schema"], "engineer.acceptance-receipt/v2")
 
     def test_acceptance_script_syntax_and_receipt_contract(self):
         script = Path(__file__).parent / "container/run-acceptance.sh"
         subprocess.run(["bash", "-n", str(script)], check=True)
         text = script.read_text()
-        for needle in ("SUBMODULE_MIRRORS", "engineer.acceptance-receipt/v1", "elapsed_seconds",
-                       "--record-fix", "${GOPROXY:+-e GOPROXY"):
+        for needle in ("engineer.acceptance-receipt/v2", "elapsed_seconds", "${GOPROXY:+-e GOPROXY"):
             self.assertIn(needle, text)
-        self.assertNotIn("proxy.golang.org,direct", text)
+        self.assertNotIn("--corpus", text)
 
     def test_native_roborev_links_are_repeatable_and_refuse_conflicts(self):
         checkout, _ = self.native_kata_binary()

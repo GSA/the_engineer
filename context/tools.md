@@ -2,21 +2,23 @@
 
 ## Service endpoints and systemd units
 
-All four persistent services run under user systemd and bind to `127.0.0.1`:
+All four persistent services run under user systemd and bind to `127.0.0.1`.
+`<prefix>` is `engineer` for new installs and the legacy `kenn-kopy` for the
+owner's original install (`unit_prefix` in `environment.json`):
 
 | Service | Loopback endpoint | Systemd unit | Persistent data under `.local/environment/` |
 | --- | --- | --- | --- |
-| Kata (`v0.23.0-20-g0d5893d1`) | `http://127.0.0.1:17777/kata` | `kenn-kopy-kata.service` | `kata/kata.db` |
-| roborev (`v0.75.0-21-g1d064c1b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `kenn-kopy-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
-| AgentsView (`v0.47.0-70-g34408addb`) | `http://127.0.0.1:18080/` | `kenn-kopy-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge (`v0.6.0-80-gf42d6c06`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `kenn-kopy-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Kata (`v0.23.0-20-g0d5893d1`) | `http://127.0.0.1:17777/kata` | `<prefix>-kata.service` | `kata/kata.db` |
+| roborev (`v0.75.0-21-g1d064c1b`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `<prefix>-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
+| AgentsView (`v0.47.0-70-g34408addb`) | `http://127.0.0.1:18080/` | `<prefix>-agentsview.service` | `agentsview/data/sessions.db` |
+| Forge (`v0.6.0-80-gf42d6c06`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `<prefix>-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
-`KENN_KOPY_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
+`ENGINEER_PORT_OFFSET` (default `0`; legacy `KENN_KOPY_PORT_OFFSET` is accepted). `setup` saves a nonzero offset as
 `port_offset` in `environment.json`; every writer (Forge/roborev/Kata configs,
 `pi/mcp.json`, `KATA_SERVER`/`KENN_FORGE_API_URL`), unit, probe, `smoke.py`, and
 `dist/install.py` uses the shifted ports. A second WSL2 distro shares this
-`127.0.0.1`, so it uses offset `1000` (`docs/wsl2-rehearsal.md`, deferred `t592`).
+`127.0.0.1`, so it uses offset `1000` (`docs/try-in-a-second-wsl-distro.md`).
 
 AgentsView prices guarded USAi Sol deployments through
 `custom_model_pricing.<model>.price_as` in `agentsview/config.toml`.
@@ -26,9 +28,10 @@ appends the `GUARDED_SOL_PRICE_AS` mappings and refuses conflicting entries.
 AgentsView tracks Direct API sessions (`[agents.direct-api]` in
 `agentsview/config.toml`) from `~/.agentsview/direct-api` in the real home and
 `<state>/home/.agentsview/direct-api` for the service's home; `configure-tracking`
-and `configure-private-pi-tracking` write both. The agentsview submodule is
-temporarily pinned to the `biggestbinary/agentsview` fork until the upstream
-Direct API PR merges.
+and `configure-private-pi-tracking` write both. The agentsview submodule URL is
+upstream `kenn-io/agentsview`; its pin is the Direct API commit of open PR
+kenn-io/agentsview#3100 (fetchable from upstream). Move the pin to upstream
+`main` once that PR merges.
 
 Check live health across all four services with:
 
@@ -53,7 +56,7 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
 
 ## CLI binaries and wrappers
 
-- `kata` (`~/.local/bin/kata` -> `/home/nkirrish/kenn-kopy/kata/kata`):
+- `kata` (`~/.local/bin/kata` -> `<checkout>/kata/kata`):
   use directly in any repository with a `.kata.toml` binding (`kata list --agent`,
   `kata ready --no-label blocked --no-label deferred --agent`, `kata show <id>`,
   `kata claim <id>`, `kata close <id> --reason "..."`).
@@ -147,7 +150,7 @@ adversarial pairing via `--review-model`:
 
 - Global config (`.local/environment/roborev/config.toml` via `~/.roborev`):
   `server_addr = "127.0.0.1:17373"`, `default_agent = "pi"`,
-  `pi_cmd = "/home/nkirrish/kenn-kopy/scripts/pi-local.py"`,
+  `pi_cmd = "<checkout>/scripts/pi-local.py"`,
   `default_model = "gpt-6.1-sol-latest-guardrails-defaultv2"`,
   `review_model = "gpt-6.1-sol-latest-guardrails-defaultv2"`,
   `review_min_severity = "medium"`, `refine_min_severity = "medium"`,
@@ -157,8 +160,8 @@ adversarial pairing via `--review-model`:
   `scripts/local_env.py:pi_launch()` accepts `--model` only when it matches the
   configured `usai.json` coder `model` or `review_model` and validates opposite
   Claude/OpenAI model families in `validate_roborev_config()`.
-- Per-repository `.roborev.toml` (installed in `kenn-kopy`, `the_librarian`,
-  `falcon-docs`, and `falcon/{backend,frontend,exec-dashboard,mcp}`):
+- Per-repository `.roborev.toml` (written by `init-repo` / `./engineer add-repo`
+  from `scripts/templates/roborev.toml`):
   - `agent = "pi"`, `review_reasoning = "standard"`
   - `review_min_severity = "medium"`, `refine_min_severity = "medium"`, `fix_min_severity = "medium"`
   - `post_commit_batch_size = 5`
@@ -167,7 +170,8 @@ adversarial pairing via `--review-model`:
   `pre-push`) in each repo's `.git/hooks/`. Global `core.hooksPath` and Copilot
   CLI's `~/.copilot/hooks/agenthook.json` remain unset/removed to prevent
   recursive review loops.
-- Forge workspace execution (`scripts/pi-extensions/forge-workspace/`, modules: `index.ts` hooks, `prompts.ts`, `shell.ts` tokenizer, `publication-guard.ts` PR-merge gate, `roborev-budget.ts`, `pr-summary.ts`, `recovery.ts`, `subagents.ts`, `forge-api.ts`; installed as a directory by `install_forge_extension()`):
+- Forge workspace execution (`scripts/pi-extensions/forge-workspace/`, modules: `index.ts` hooks, `prompts.ts`, `shell.ts` tokenizer, `publication-guard.ts` PR-merge gate, `roborev-budget.ts`, `pr-summary.ts`, `recovery.ts`, `subagents.ts`, `superpowers.ts` skill-name and bootstrap-marker matching, `forge-api.ts`; installed as a directory by `install_forge_extension()`):
+  - Skill overrides key on the `name:` in a read `SKILL.md`'s frontmatter, not a path suffix; `scripts/test_drift.py` fails when the pinned Superpowers submodule's bootstrap marker or overridden skill names differ from this extension's copy. `local_env.py list-models` warns about discovered models whose family `usai_model_family` cannot classify; `llama` is classified but deliberately not adversarial-eligible (pinned by a test).
   - Preserves `KENN_FORGE_RUNTIME_SESSION_KEY` across `scripts/pi-local.py` (with API fallback by workspace ID) so Forge tracks live Pi session activity.
   - Reports lifecycle to Forge's native Pi hook profile (`/api/v1/agent-hooks/pi`), so Forge resumes a saved conversation with `pi --session <id>`; workspace context still comes from the Claude `SessionStart` renderer without a runtime key. Only interactive (`tui`) sessions with a saved session file report; earlier events are held until Pi saves the file. Reports post in order.
   - Maps Pi events: `session_start` → `SessionStart` (`resume`/`fork`/`clear`, or `resume` when startup opens a saved file), turns → `UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop` (aborted turns also settle to `Stop`), dialogs during a turn → `Notification elicitation_dialog` (Forge `input`). `session_shutdown` sends `SessionEnd` only for replacement (`new`/`fork` → `clear`, `resume` → `resume`) or SIGTERM/SIGHUP (`other`, so Forge resumes instead of forgetting); `/quit` and `/reload` keep the conversation resumable.

@@ -189,7 +189,7 @@ authorization.
 
 - **Kata (`http://127.0.0.1:17777/kata`)** is the authoritative task tracker.
 - **Forge (`http://127.0.0.1:18091/`)** maps local repositories to Kata project
-  keys via **Settings > Kata mappings** (`local` connection: `engi-platform` ->
+  keys via **Settings > Kata mappings** (`local` connection: `the_engineer` ->
   `GSA/the_engineer`, `librarian` -> `GSA/the_librarian`, `spud` ->
   `GSA/aos-spud`).
 - Picking up a Kata task in **Forge > Workspaces > New workspace** creates an
@@ -204,11 +204,12 @@ authorization.
   `settings.json` via `python3 scripts/local_env.py set-key` and
   `configure-provider`. The API key is stored at
   `.local/environment/secrets/usai-api-key` (`0600`) and read on demand via
-  `!python3 /home/nkirrish/kenn-kopy/scripts/usai-key.py`.
+  `!python3 <checkout>/scripts/usai-key.py`.
 - **GitHub CLI (`gh`)**: isolated under `.local/environment/gh/` via
   `./scripts/gh-local.py auth login`.
-- **Copilot CLI**: runs in standalone terminals (`scripts/terminal-local.py open copilot`)
-  using the user's native GitHub Copilot authentication for non-sensitive work.
+- **Copilot CLI**: teammates who choose it at install run `./engineer copilot`,
+  which uses USAi through bring-your-own-key in a private `COPILOT_HOME`
+  (Claude models only). A user's own `~/.copilot` and license are untouched.
 
 <a id="prompt-and-publication-gate-verification-mpew"></a>
 ## Prompt, temporary-plan, and publication gate verification (`mpew`)

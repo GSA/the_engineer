@@ -27,11 +27,18 @@ import {
 	showJobId,
 } from "./roborev-budget.ts";
 import { isSubagentProcess, isolateWritingSubagents } from "./subagents.ts";
+import { containsBootstrap, readSkillName } from "./superpowers.ts";
 
 export { humanOnlyPublication } from "./publication-guard.ts";
 export { recoveryHint } from "./recovery.ts";
 export { parseReviewFindings, roborevInvocations } from "./roborev-budget.ts";
 export { isolateWritingSubagents } from "./subagents.ts";
+
+const SKILL_OVERRIDES: Record<string, string> = {
+	brainstorming: BRAINSTORMING_OVERRIDE,
+	"writing-plans": WRITING_PLANS_OVERRIDE,
+	"finishing-a-development-branch": FINISHING_BRANCH_OVERRIDE,
+};
 
 export default function forgeWorkspaceExtension(pi: any): void {
 	const budgets = createBudgetStore();
@@ -231,21 +238,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 	// Pi has appended the turn's user message by the first model call.
 	pi.on("context", async (_event: any, ctx: any) => {
 		if (isSubagentProcess() && Array.isArray(_event?.messages)) {
-			const filtered = _event.messages.filter((msg: any) => {
-				const content = msg?.content;
-				if (typeof content === "string") {
-					return !content.includes("superpowers:using-superpowers bootstrap for pi");
-				}
-				if (Array.isArray(content)) {
-					return !content.some(
-						(part: any) =>
-							part?.type === "text" &&
-							typeof part.text === "string" &&
-							part.text.includes("superpowers:using-superpowers bootstrap for pi"),
-					);
-				}
-				return true;
-			});
+			const filtered = _event.messages.filter((msg: any) => !containsBootstrap(msg));
 			if (filtered.length !== _event.messages.length) {
 				return { messages: filtered };
 			}
@@ -511,15 +504,8 @@ export default function forgeWorkspaceExtension(pi: any): void {
 		) {
 			return undefined;
 		}
-		const targetPath = String(event?.input?.path ?? "").replace(/\\/g, "/");
-		let overrideText: string | null = null;
-		if (targetPath.endsWith("brainstorming/SKILL.md")) {
-			overrideText = BRAINSTORMING_OVERRIDE;
-		} else if (targetPath.endsWith("writing-plans/SKILL.md")) {
-			overrideText = WRITING_PLANS_OVERRIDE;
-		} else if (targetPath.endsWith("finishing-a-development-branch/SKILL.md")) {
-			overrideText = FINISHING_BRANCH_OVERRIDE;
-		}
+		const skill = readSkillName(String(event?.input?.path ?? ""), extractResultText(event));
+		const overrideText = (skill && SKILL_OVERRIDES[skill]) || null;
 		if (!overrideText) {
 			return undefined;
 		}
