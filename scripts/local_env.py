@@ -2081,13 +2081,14 @@ def managed_roborev(*, required=False, binary=None):
     if not required and not (STATE / "roborev-service.json").exists():
         return None
     pid = user_service_pid(ROBOREV_UNIT)
-    if binary is not None and not os.path.samefile(f"/proc/{pid}/exe", binary):
-        raise RuntimeError("running roborev executable differs from the requested binary; "
-                           "finish reviews, stop the service and reinstall before restarting")
+    # Ping first: until the unit's wrapper execs roborev, MainPID is still Python.
     with HTTP.open(f"http://127.0.0.1:{ROBOREV_PORT}/api/ping", timeout=3) as response:
         health = json.load(response)
     if health.get("pid") != pid or health.get("ok") is not True or not health.get("version"):
         raise RuntimeError("roborev health does not match the managed user service")
+    if binary is not None and not os.path.samefile(f"/proc/{pid}/exe", binary):
+        raise RuntimeError("running roborev executable differs from the requested binary; "
+                           "finish reviews, stop the service and reinstall before restarting")
     with HTTP.open(f"http://127.0.0.1:{ROBOREV_PORT}/api/status", timeout=3) as response:
         status = json.load(response)
     if status.get("version") != health["version"]:

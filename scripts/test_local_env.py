@@ -1765,6 +1765,9 @@ class LocalEnvironmentTests(unittest.TestCase):
         unit = self.state / "systemd" / local_env.ROBOREV_UNIT
         def systemctl(command, **kwargs):
             return MagicMock(returncode=3 if "is-active" in command else 0)
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value.read.return_value = (
+            b'{"pid":123,"ok":true,"version":"test"}')
 
         for previous in (None, "original unit bytes\n"):
             with self.subTest(previous=previous):
@@ -1775,6 +1778,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                         patch.object(local_env, "check_ports"), \
                         patch.object(local_env, "user_service_pid", return_value=123), \
                         patch.object(local_env.os.path, "samefile", return_value=False), \
+                        patch.object(local_env, "HTTP", opener), \
                         self.assertRaisesRegex(RuntimeError, "executable differs"):
                     local_env.install_roborev_service(binary)
                 self.assertEqual(marker.read_bytes(), before)
@@ -1797,6 +1801,18 @@ class LocalEnvironmentTests(unittest.TestCase):
             result = local_env.managed_roborev(required=True, binary=binary)
         self.assertEqual(result["pid"], 123)
         samefile.assert_called_once_with("/proc/123/exe", binary)
+
+    def test_managed_roborev_waits_for_daemon_before_checking_executable(self):
+        # Right after systemd starts the unit, MainPID is the Python wrapper, not roborev.
+        opener = MagicMock()
+        opener.open.side_effect = local_env.urllib.error.URLError("refused")
+        with patch.object(local_env, "user_service_pid", return_value=123), \
+                patch.object(local_env.os.path, "samefile",
+                             side_effect=PermissionError("/proc/123/exe")) as samefile, \
+                patch.object(local_env, "HTTP", opener):
+            with self.assertRaises(local_env.urllib.error.URLError):
+                local_env.managed_roborev(required=True, binary=self.root / "native-roborev")
+        samefile.assert_not_called()
 
     def test_managed_roborev_refuses_another_process(self):
         local_env.json_write(self.state / "roborev-service.json", {"unit": local_env.ROBOREV_UNIT})
