@@ -22,6 +22,9 @@ HOME = Path.home()
 LOCAL = local_env.RUNTIME_ROOT / ".local"
 MANIFEST_SCHEMA = "engineer.install-manifest/v1"
 SERVICES = ("kata", "agentsview", "roborev", "forge")
+# Without the developer tools (Forge, Kata, roborev) only the AgentsView usage dashboard runs.
+BASIC_SERVICES = ("agentsview",)
+ADD_DEV_TOOLS = "./engineer install --dev-tools yes"
 USAI_BASE_URL = "https://api.gsa.usai.gov/api/v1"
 DEFAULT_CODER = "claude-sonnet-5.5"
 DEFAULT_REVIEWER = "gpt-6.1-sol-latest-guardrails-defaultv2"
@@ -54,9 +57,22 @@ def save_manifest(record):
     local_env.json_write(manifest_path(), {**record, "schema": MANIFEST_SCHEMA}, replace=True)
 
 
+def chosen_services(choices):
+    return SERVICES if choices.get("dev_tools", True) else BASIC_SERVICES
+
+
+def dev_tools_chosen(record=None):
+    record = load_active_manifest() if record is None else record
+    return (record or {}).get("choices", {}).get("dev_tools", True)
+
+
+def unit_names(services):
+    return [f"{local_env.UNIT_PREFIX}-{name}.service" for name in services]
+
+
 def units():
     record = load_active_manifest() or {}
-    return record.get("units") or [f"{local_env.UNIT_PREFIX}-{name}.service" for name in SERVICES]
+    return record.get("units") or unit_names(chosen_services(record.get("choices", {})))
 
 
 def child_env():
@@ -93,14 +109,15 @@ def check_install_owner():
             "not change it. Keep using those scripts here, or clone Engineer into a new folder.")
 
 
-def install_choices(ask, *, saved, copilot_flag):
+def install_choices(ask, *, saved, copilot_flag, dev_tools_flag=None, simple=False):
+    """``simple`` (the simple-engineer wrapper) defaults Copilot and the developer tools to no."""
     choices = {}
     if copilot_flag is not None:
         choices["copilot"] = copilot_flag == "yes"
     elif "copilot" in saved:
         choices["copilot"] = saved["copilot"]
     else:
-        choices["copilot"] = ask("Also set up GitHub Copilot CLI to use USAi? (Pi is always set up)", True)
+        choices["copilot"] = ask("Also set up GitHub Copilot CLI to use USAi? (Pi is always set up)", not simple)
     if not choices["copilot"]:
         choices["copilot_command"] = False
     elif "copilot_command" in saved:
@@ -112,6 +129,14 @@ def install_choices(ask, *, saved, copilot_flag):
             "(No keeps your GitHub Copilot as is; `./engineer copilot` always uses USAi)" if has_own else
             "Should the plain `copilot` command use USAi? (`./engineer copilot` always does)",
             not has_own)
+    if dev_tools_flag is not None:
+        choices["dev_tools"] = dev_tools_flag == "yes"
+    elif "dev_tools" in saved:
+        choices["dev_tools"] = saved["dev_tools"]
+    else:
+        choices["dev_tools"] = ask(
+            "Also install the developer tools (Forge workspaces, Kata tasks, roborev reviews)? "
+            "Most people who only want an AI assistant can say no.", not simple)
     if "pi_command" in saved:
         choices["pi_command"] = saved["pi_command"]
     else:
@@ -144,6 +169,19 @@ def unit_exists(unit):
     return (result.stdout or "").strip() not in ("", "not-found")
 
 
+def disable_units(names):
+    """Disable and unlink the units this install owns; others' units are left alone."""
+    for unit in names:
+        if not owns_unit(unit):
+            continue
+        run(["systemctl", "--user", "disable", "--now", unit])
+        linked = HOME / ".config/systemd/user" / unit
+        if linked.is_symlink() and Path(os.readlink(linked)).parent == local_env.STATE / "systemd":
+            linked.unlink()
+    if names:
+        run(["systemctl", "--user", "daemon-reload"])
+
+
 def stop_services(quiet=False):
     for unit in reversed(owned_units()):
         run(["systemctl", "--user", "stop", unit], capture_output=quiet)
@@ -164,9 +202,11 @@ def install(args):
         # Reinstalling over data kept by an earlier uninstall: start a fresh record of what is created.
         record = {"units": [], "repos": [], "choices": record.get("choices", {})}
     record.setdefault("kata_config_existed", (HOME / ".kata/config.toml").exists())
-    choices = install_choices(ask, saved=record.get("choices", {}), copilot_flag=args.copilot)
+    choices = install_choices(ask, saved=record.get("choices", {}), copilot_flag=args.copilot,
+                              dev_tools_flag=args.dev_tools, simple=args.simple)
     record["choices"] = choices
     save_manifest(record)
+    services = chosen_services(choices)
     print("\nStep 1 of 4: preparing Ubuntu (packages, Node.js, Pi"
           + (", Copilot CLI" if choices["copilot"] else "") + ")...")
     try:
@@ -174,15 +214,20 @@ def install(args):
                            pi_version=local_env.PI_VERSION, home=HOME)
     finally:
         save_manifest(record)
-    print("\nStep 2 of 4: building and starting Forge, Kata, roborev and AgentsView "
-          "(the first run takes 10-20 minutes)...")
+    print("\nStep 2 of 4: building and starting "
+          + ("Forge, Kata, roborev and AgentsView" if choices["dev_tools"] else "the AgentsView usage dashboard")
+          + " (the first run takes " + ("10-20" if choices["dev_tools"] else "a few") + " minutes)...")
     if record.get("units"):
         stop_services(quiet=True)
+        # Developer tools dropped since the last install: switch their services off; data is kept.
+        disable_units([unit for unit in record["units"] if unit not in unit_names(services)])
     # Record the units before building, so a retry or uninstall after a partial failure
     # can stop the services that did start. Uninstall checks each unit's owner first.
-    record["units"] = [f"{local_env.UNIT_PREFIX}-{name}.service" for name in SERVICES]
+    record["units"] = unit_names(services)
     save_manifest(record)
     command = [sys.executable, str(ROOT / "dist/install.py"), "--services", "user", "--guided"]
+    if not choices["dev_tools"]:
+        command.append("--without-dev-tools")
     if not (local_env.STATE / "usai.json").exists():
         command += ["--usai-base-url", USAI_BASE_URL, "--usai-model", DEFAULT_CODER,
                     "--usai-review-model", DEFAULT_REVIEWER]
@@ -202,7 +247,8 @@ def install(args):
         else:
             print("Skipped: run ./engineer key in a terminal to add your USAi key.")
     if not github_signed_in():
-        if interactive and ask("Sign in to GitHub now? (needed for pull requests)", True):
+        if interactive and ask("Sign in to GitHub now? (needed for pull requests"
+                               + ("" if choices["dev_tools"] else "; optional") + ")", choices["dev_tools"]):
             login()
         else:
             print("Skipped: run ./engineer login to sign in to GitHub.")
@@ -343,6 +389,8 @@ def doctor(args=None):
     print(f"{status} copilot: {message}")
     if status == "FAIL":
         failures.append("copilot")
+    if not dev_tools_chosen():
+        print(f"Developer tools are not installed (optional). To add them: {ADD_DEV_TOOLS}")
     if not failures:
         print("\nEverything checks out.")
         return True
@@ -362,6 +410,8 @@ def doctor(args=None):
 
 
 def dashboards():
+    if not dev_tools_chosen():
+        return f"AgentsView (your AI usage) http://127.0.0.1:{local_env.AGENTSVIEW_PORT}/"
     return (f"Forge http://127.0.0.1:{local_env.FORGE_PORT}/ | Kata {local_env.KATA_URL}/kata | "
             f"roborev http://127.0.0.1:{local_env.ROBOREV_WEB_PORT}/reviews | "
             f"AgentsView http://127.0.0.1:{local_env.AGENTSVIEW_PORT}/")
@@ -398,6 +448,9 @@ def roborev_hooked(repo):
 
 def add_repo(args):
     require_installed()
+    if not dev_tools_chosen():
+        raise RuntimeError("add-repo sets up Forge, Kata and roborev, which are the developer tools "
+                           f"you chose not to install. To add them, run: {ADD_DEV_TOOLS}")
     repo = Path(args.path).expanduser().resolve()
     repo_init = local_env.repo_init_module()
     try:
@@ -456,6 +509,10 @@ def update(args):
         argv.append("--yes")
     if args.copilot:
         argv += ["--copilot", args.copilot]
+    if args.dev_tools:
+        argv += ["--dev-tools", args.dev_tools]
+    if args.simple:
+        argv.append("--simple")
     os.execv(sys.executable, argv)
 
 
@@ -483,15 +540,7 @@ def uninstall(ask, *, purge):
         return
     if purge and input(f'Type "{PURGE_PHRASE}" to also delete your Engineer data: ').strip() != PURGE_PHRASE:
         raise RuntimeError("your data was not deleted, and nothing else was changed")
-    for unit in reversed(record.get("units", [])):
-        if not owns_unit(unit):
-            continue
-        run(["systemctl", "--user", "disable", "--now", unit])
-        linked = HOME / ".config/systemd/user" / unit
-        if linked.is_symlink() and Path(os.readlink(linked)).parent == local_env.STATE / "systemd":
-            linked.unlink()
-    if record.get("units"):
-        run(["systemctl", "--user", "daemon-reload"])
+    disable_units(list(reversed(record.get("units", []))))
     repo_init = local_env.repo_init_module()
     for entry in record.get("repos", []):
         # Only protections this install added are removed; pre-existing ones stay.
@@ -531,6 +580,9 @@ def build_parser():
     commands = parser.add_subparsers(dest="command", metavar="COMMAND")
     setup = commands.add_parser("install", help="install or repair everything (safe to rerun)")
     setup.add_argument("--copilot", choices=("yes", "no"), help="set up Copilot CLI on USAi without asking")
+    setup.add_argument("--dev-tools", choices=("yes", "no"),
+                       help="install the developer tools (Forge, Kata, roborev) without asking")
+    setup.add_argument("--simple", action="store_true", help=argparse.SUPPRESS)
     setup.add_argument("--yes", action="store_true", help="accept the default answer to every question")
     setup.set_defaults(func=install)
     commands.add_parser("doctor", help="check the installation and say how to fix problems").set_defaults(func=doctor)
@@ -540,7 +592,8 @@ def build_parser():
     commands.add_parser("key", help="add or replace your USAi key (hidden prompt)").set_defaults(func=key_command)
     commands.add_parser("models", help="choose the USAi models for coding and review").set_defaults(func=models_command)
     commands.add_parser("login", help="sign in to GitHub for pull requests").set_defaults(func=lambda args: login())
-    repo = commands.add_parser("add-repo", help="set up a Git repository for Forge, Kata and roborev")
+    repo = commands.add_parser("add-repo", help="set up a Git repository for Forge, Kata and roborev "
+                               "(developer tools)")
     repo.add_argument("path", type=Path)
     repo.set_defaults(func=add_repo)
     for name, func, text in (("pi", pi, "open Pi on USAi"), ("copilot", copilot, "open Copilot CLI on USAi")):
@@ -549,6 +602,8 @@ def build_parser():
         launcher.set_defaults(func=func)
     upgrade = commands.add_parser("update", help="download the latest Engineer and rebuild")
     upgrade.add_argument("--copilot", choices=("yes", "no"), help=argparse.SUPPRESS)
+    upgrade.add_argument("--dev-tools", choices=("yes", "no"), help=argparse.SUPPRESS)
+    upgrade.add_argument("--simple", action="store_true", help=argparse.SUPPRESS)
     upgrade.add_argument("--yes", action="store_true", help="accept the default answer to every question")
     upgrade.set_defaults(func=update)
     remove = commands.add_parser("uninstall", help="remove Engineer (keeps your data unless --purge)")

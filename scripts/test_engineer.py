@@ -161,7 +161,33 @@ class InstallQuestionTests(EngineerTestCase):
     def test_copilot_defaults_to_usai_for_people_without_copilot(self):
         ask = answers()
         choices = engineer.install_choices(ask, saved={}, copilot_flag=None)
-        self.assertEqual(choices, {"copilot": True, "copilot_command": True, "pi_command": True})
+        self.assertEqual(choices, {"copilot": True, "copilot_command": True, "dev_tools": True,
+                                   "pi_command": True})
+
+    def test_developer_tools_question_flag_and_simple_defaults(self):
+        ask = answers()
+        self.assertTrue(engineer.install_choices(ask, saved={}, copilot_flag=None)["dev_tools"])
+        self.assertTrue(any("developer tools" in question for question in ask.asked))
+        simple = engineer.install_choices(answers(), saved={}, copilot_flag=None, simple=True)
+        self.assertFalse(simple["copilot"])
+        self.assertFalse(simple["dev_tools"])
+        ask = answers()
+        self.assertFalse(engineer.install_choices(ask, saved={}, copilot_flag="no",
+                                                  dev_tools_flag="no")["dev_tools"])
+        self.assertFalse(any("developer tools" in question for question in ask.asked))
+        saved = {"copilot": True, "copilot_command": True, "dev_tools": True, "pi_command": True}
+        self.assertTrue(engineer.install_choices(answers(), saved=saved, copilot_flag=None,
+                                                 simple=True)["dev_tools"])
+        self.assertFalse(engineer.install_choices(answers(), saved=saved, copilot_flag=None,
+                                                  dev_tools_flag="no")["dev_tools"])
+
+    def test_simple_and_dev_tools_flags_parse_on_install_and_update(self):
+        parser = engineer.build_parser()
+        args = parser.parse_args(["install", "--simple", "--dev-tools", "no"])
+        self.assertEqual((args.simple, args.dev_tools), (True, "no"))
+        args = parser.parse_args(["update", "--dev-tools", "yes"])
+        self.assertEqual((args.simple, args.dev_tools), (False, "yes"))
+        self.assertNotIn("--simple", parser._subparsers._group_actions[0].choices["install"].format_help())
 
     def test_existing_copilot_users_keep_plain_copilot_unless_they_choose_usai(self):
         (self.home / ".copilot").mkdir()
@@ -172,7 +198,7 @@ class InstallQuestionTests(EngineerTestCase):
         self.assertTrue(any("GitHub Copilot" in question for question in ask.asked))
 
     def test_saved_answers_are_reused_without_asking_again(self):
-        saved = {"copilot": False, "copilot_command": False, "pi_command": False}
+        saved = {"copilot": False, "copilot_command": False, "dev_tools": False, "pi_command": False}
         ask = answers()
         self.assertEqual(engineer.install_choices(ask, saved=saved, copilot_flag=None), saved)
         self.assertEqual(ask.asked, [])
@@ -199,6 +225,56 @@ class InstallRecordTests(EngineerTestCase):
                 contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "build"):
             engineer.install(engineer.build_parser().parse_args(["install", "--yes", "--copilot", "no"]))
         self.assertEqual(seen, [[f"engineer-{name}.service" for name in engineer.SERVICES]])
+
+    def install_without_dev_tools(self, record=None):
+        if record is not None:
+            engineer.save_manifest(record)
+        installs = []
+
+        def fake_run(command, **kwargs):
+            self.commands.append(command)
+            if "dist/install.py" in " ".join(map(str, command)):
+                installs.append(command)
+                return subprocess.CompletedProcess(command, 1, "", "")
+            if "--property=FragmentPath" in command:
+                return subprocess.CompletedProcess(command, 0, str(self.state / "systemd" / command[3]), "")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        engineer.run.side_effect = fake_run
+        with patch.object(engineer.host_setup, "prepare", return_value={}), \
+                contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "build"):
+            engineer.install(engineer.build_parser().parse_args(
+                ["install", "--yes", "--copilot", "no", "--dev-tools", "no"]))
+        return installs
+
+    def test_install_without_dev_tools_records_and_builds_only_agentsview(self):
+        installs = self.install_without_dev_tools()
+        self.assertIn("--without-dev-tools", installs[0])
+        record = engineer.load_manifest()
+        self.assertEqual(record["units"], ["engineer-agentsview.service"])
+        self.assertFalse(record["choices"]["dev_tools"])
+        self.assertEqual(engineer.units(), ["engineer-agentsview.service"])
+
+    def test_dropping_dev_tools_disables_only_their_units(self):
+        all_units = [f"engineer-{name}.service" for name in engineer.SERVICES]
+        self.install_without_dev_tools({"units": all_units, "repos": [], "choices": {
+            "copilot": False, "copilot_command": False, "dev_tools": True, "pi_command": True}})
+        disabled = [command[-1] for command in self.commands if command[:3] == ["systemctl", "--user", "disable"]]
+        self.assertEqual(sorted(disabled), sorted(set(all_units) - {"engineer-agentsview.service"}))
+
+    def test_default_install_keeps_all_four_services_and_no_dev_tools_flag(self):
+        installs = []
+
+        def fake_run(command, **kwargs):
+            if "dist/install.py" in " ".join(map(str, command)):
+                installs.append(command)
+                return subprocess.CompletedProcess(command, 1, "", "")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        engineer.run.side_effect = fake_run
+        with patch.object(engineer.host_setup, "prepare", return_value={}), \
+                contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, "build"):
+            engineer.install(engineer.build_parser().parse_args(["install", "--yes", "--copilot", "no"]))
+        self.assertNotIn("--without-dev-tools", installs[0])
+        self.assertTrue(engineer.load_manifest()["choices"]["dev_tools"])
 
     def test_prefix_is_owned_only_when_this_install_created_it(self):
         record = {}
@@ -386,6 +462,19 @@ class DoctorTests(EngineerTestCase):
         self.assertIn("./engineer key", text)
         self.assertIn("./engineer start", text)
         self.assertIn("./engineer login", text)
+
+    def test_without_dev_tools_doctor_dashboards_and_add_repo_explain_the_choice(self):
+        self.installed_state()
+        engineer.save_manifest({"units": ["engineer-agentsview.service"], "repos": [],
+                                "choices": {"dev_tools": False}})
+        with patch.object(engineer.local_env, "accept", return_value=[]), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertTrue(engineer.doctor())
+        self.assertIn("--dev-tools yes", output.getvalue())
+        self.assertNotIn("Forge", engineer.dashboards())
+        self.assertIn("AgentsView", engineer.dashboards())
+        with self.assertRaisesRegex(RuntimeError, "--dev-tools yes"):
+            engineer.add_repo(engineer.build_parser().parse_args(["add-repo", str(self.root)]))
 
     def test_doctor_on_a_fresh_checkout_points_at_install(self):
         with contextlib.redirect_stdout(io.StringIO()) as output:

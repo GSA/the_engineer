@@ -27,6 +27,9 @@ ROOT = Path(__file__).resolve().parent.parent
 PI_VERSION = "1.5.2"
 PROJECTS = ("forge", "kata", "roborev", "agentsview", "superpowers")
 MANAGED_SERVICES = ("kata", "agentsview", "roborev", "forge")
+# Without the developer tools (Forge, Kata, roborev) only the AgentsView usage dashboard runs.
+BASIC_SERVICES = ("agentsview",)
+BUILD_ORDER = ("roborev", "kata", "agentsview", "forge")
 KATA_DAEMON_NAME = "local"
 DEFAULT_PORTS = {"kata": 17777, "forge": 18091, "roborev_web": 17374, "agentsview": 18080}
 KATA_DAEMON_URL = f"http://127.0.0.1:{DEFAULT_PORTS['kata']}"
@@ -608,7 +611,11 @@ def provision_native_roborev_client(checkout, home=None):
         print(f"Native roborev link: {link} -> {target}")
 
 
-def service_choice(choice):
+def selected_services(dev_tools=True):
+    return MANAGED_SERVICES if dev_tools else BASIC_SERVICES
+
+
+def service_choice(choice, services=MANAGED_SERVICES):
     if choice != "ask":
         return choice
     if not sys.stdin.isatty():
@@ -617,7 +624,7 @@ def service_choice(choice):
     asked = time.monotonic()
     try:
         answer = input(
-            f"Enable AND start all {len(MANAGED_SERVICES)} Ubuntu user services now? [y/N] "
+            f"Enable AND start all {len(services)} Ubuntu user services now? [y/N] "
         ).strip().lower()
     finally:
         RECEIPT.hands_on_seconds += time.monotonic() - asked
@@ -628,12 +635,12 @@ def service_choice(choice):
     raise RuntimeError("Answer yes or no for service registration; no services were changed.")
 
 
-def check_user_services(checkout):
+def check_user_services(checkout, services=MANAGED_SERVICES):
     for tool in ("systemctl", "systemd-analyze"):
         if shutil.which(tool) is None:
             raise RuntimeError(f"{tool} is required for user services; use --services manual instead.")
     capture(["systemctl", "--user", "show-environment"])
-    for project in MANAGED_SERVICES:
+    for project in services:
         unit = f"engineer-{project}.service"
         # systemctl exits 1 with no output when no unit file matches (a fresh host).
         listed = capture(["systemctl", "--user", "list-unit-files", "--no-legend", "--no-pager", unit],
@@ -661,15 +668,19 @@ def load_environment(checkout):
 
 def install(checkout, corpus, choice, librarian_executable=None,
             librarian_reader=None, librarian_root=None, librarian_selection=None,
-            provider=None, repos=(), mirrors=None, guided=False):
+            provider=None, repos=(), mirrors=None, guided=False, dev_tools=True):
     mirrors = mirrors or {}
+    services = selected_services(dev_tools)
     environment = load_environment(checkout)
     if environment.PI_VERSION != PI_VERSION:
         raise RuntimeError("Installer/runtime Pi pins differ; use dist from the selected platform revision.")
     if set(environment.SERVICE_PORTS) != set(MANAGED_SERVICES):
         raise RuntimeError("Installer/runtime services differ; use dist from the selected platform revision.")
-    environment.check_ports()
-    check_native_roborev_client(checkout)
+    if dev_tools:
+        environment.check_ports()
+        check_native_roborev_client(checkout)
+    else:
+        environment.check_ports([port for name in services for port in environment.SERVICE_PORTS[name]])
     check_submodules(checkout)
     with RECEIPT.phase("pin-preflight"):
         pin_errors = check_submodule_pins(checkout, mirrors)
@@ -685,17 +696,20 @@ def install(checkout, corpus, choice, librarian_executable=None,
         run(["bash", "scripts/bootstrap-toolchains.sh"], cwd=checkout, env=child)
     print("\nBuilding services...")
     with RECEIPT.phase("build"):
-        run(["bash", "scripts/build.sh", "roborev", "kata", "agentsview", "forge"],
+        run(["bash", "scripts/build.sh", *(name for name in BUILD_ORDER if name in services)],
             cwd=checkout, env=child)
     forge = checkout / "forge/kenn-forge"
-    for binary in (forge, checkout / "roborev/bin/roborev",
-                   checkout / "kata/kata", checkout / "agentsview/agentsview"):
-        if not binary.is_file() or not os.access(binary, os.X_OK):
+    binaries = {"forge": forge, "roborev": checkout / "roborev/bin/roborev",
+                "kata": checkout / "kata/kata", "agentsview": checkout / "agentsview/agentsview"}
+    for name in ("forge", "roborev", "kata", "agentsview"):
+        binary = binaries[name]
+        if name in services and (not binary.is_file() or not os.access(binary, os.X_OK)):
             raise RuntimeError(f"Build did not produce an executable: {binary}")
-    provision_native_kata_client(checkout, url=environment.KATA_URL)
+    if dev_tools:
+        provision_native_kata_client(checkout, url=environment.KATA_URL)
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
     print("\nCreating missing private configuration; existing settings are preserved...")
-    setup_command = [*command, "setup", "--forge-binary", str(forge)]
+    setup_command = [*command, "setup", *(["--forge-binary", str(forge)] if dev_tools else [])]
     if corpus is not None:
         setup_command.extend(["--corpus", str(corpus)])
     if librarian_executable is not None:
@@ -709,7 +723,8 @@ def install(checkout, corpus, choice, librarian_executable=None,
     run([*command, "configure-private-pi-tracking"], cwd=checkout)
     run([*command, "configure-agentsview-pricing"], cwd=checkout)
     run([*command, "install-pi-extensions"], cwd=checkout)
-    provision_native_roborev_client(checkout)
+    if dev_tools:
+        provision_native_roborev_client(checkout)
     if provider is not None:
         provider_command = [*command, "configure-provider", "--base-url", provider["base_url"],
                             "--api", provider["api"], "--model", provider["model"]]
@@ -719,21 +734,22 @@ def install(checkout, corpus, choice, librarian_executable=None,
     mcp_list = [sys.executable, str(checkout / "scripts/pi-local.py"), "mcp", "list"]
     node = Path(shutil.which("node")).resolve()
     if not guided:
-        instructions(checkout, node, service_ports(environment), provider is not None, repos)
+        instructions(checkout, node, service_ports(environment), provider is not None, repos, services)
     if choice == "user":
         print("\nEnabling and starting explicitly selected user services...")
-        for name in MANAGED_SERVICES:
+        for name in services:
             run([*command, f"install-{name}-service"], cwd=checkout)
         print("User services are enabled and responsive. They start with your user manager/login.")
         print("Boot without login requires administrator-approved lingering; it was NOT enabled here.")
         for repo in repos:
             print(f"\nInitializing {repo}: Forge, roborev hooks, Kata binding and the protected-branch guard...")
             run([*command, "init-repo", str(repo)], cwd=checkout)
-        # Pi's kata MCP server binds to the checkout's committed .kata.toml project,
-        # which a fresh Kata daemon has not registered yet (idempotent when it has).
-        run([str(checkout / "kata/kata"), "init"], cwd=checkout)
-        # The kata and kenn-forge MCP servers connect only once their services run.
-        run(mcp_list, cwd=checkout)
+        if dev_tools:
+            # Pi's kata MCP server binds to the checkout's committed .kata.toml project,
+            # which a fresh Kata daemon has not registered yet (idempotent when it has).
+            run([str(checkout / "kata/kata"), "init"], cwd=checkout)
+            # The kata and kenn-forge MCP servers connect only once their services run.
+            run(mcp_list, cwd=checkout)
         run([*command, "status"], cwd=checkout)
     else:
         print("\nInstallation configured for manual startup; no services were started or registered.")
@@ -762,15 +778,17 @@ def manual_kata_command(checkout, kata_port=DEFAULT_PORTS["kata"]):
     ]
 
 
-def instructions(checkout, node, ports=None, provider_configured=False, repos=()):
+def instructions(checkout, node, ports=None, provider_configured=False, repos=(), services=MANAGED_SERVICES):
     ports = DEFAULT_PORTS if ports is None else ports
     command = [sys.executable, str(checkout / "scripts/local_env.py")]
-    print(f"\nNative Kata CLI: {Path.home() / '.local/bin/kata'}")
-    print("  The installer does not edit shell startup files; add ~/.local/bin to PATH if needed.")
+    dev_tools = "forge" in services
+    if dev_tools:
+        print(f"\nNative Kata CLI: {Path.home() / '.local/bin/kata'}")
+        print("  The installer does not edit shell startup files; add ~/.local/bin to PATH if needed.")
     print("\nManual startup (all dashboards in the foreground; Ctrl+C stops owned processes):")
     print("  " + shlex.join([*command, "run"]))
     print("Or run each service in a separate terminal:")
-    for name in MANAGED_SERVICES:
+    for name in services:
         args = (manual_kata_command(checkout, ports["kata"]) if name == "kata"
                 else [*command, f"{name}-run"])
         if name in ("roborev", "forge"):
@@ -779,13 +797,16 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
     print("Stop a supervisor from another terminal:")
     print("  " + shlex.join([*command, "stop"]))
     print("Independent user services are NOT stopped by that command. For each installed unit:")
-    for name in MANAGED_SERVICES:
+    for name in services:
         print(f"  systemctl --user stop engineer-{name}.service")
-    kata_url = f"http://127.0.0.1:{ports['kata']}"
-    print(f"\nNative Kata client selects {kata_url} by default.")
-    print(f"\nDashboards: Forge http://127.0.0.1:{ports['forge']}/ | Kata {kata_url}/kata")
-    print(f"roborev http://127.0.0.1:{ports['roborev_web']}/reviews | "
-          f"AgentsView http://127.0.0.1:{ports['agentsview']}/")
+    if dev_tools:
+        kata_url = f"http://127.0.0.1:{ports['kata']}"
+        print(f"\nNative Kata client selects {kata_url} by default.")
+        print(f"\nDashboards: Forge http://127.0.0.1:{ports['forge']}/ | Kata {kata_url}/kata")
+        print(f"roborev http://127.0.0.1:{ports['roborev_web']}/reviews | "
+              f"AgentsView http://127.0.0.1:{ports['agentsview']}/")
+    else:
+        print(f"\nDashboard: AgentsView http://127.0.0.1:{ports['agentsview']}/")
     print("\nInteractive per-machine steps (credentials are never passed as arguments):")
     print("  " + shlex.join([*command, "set-key", "--private-only"]))
     if not provider_configured:
@@ -795,7 +816,8 @@ def instructions(checkout, node, ports=None, provider_configured=False, repos=()
     print("  " + shlex.join([str(checkout / "scripts/gh-local.py"), "auth", "login",
                              "--hostname", "github.com", "--web", "--git-protocol", "https",
                              "--insecure-storage"]))
-    print("  systemctl --user restart engineer-forge.service")
+    if dev_tools:
+        print("  systemctl --user restart engineer-forge.service")
     print("Then verify the host (read-only; exits nonzero listing each remaining step):")
     print("  " + shlex.join([*command, "accept",
                              *(arg for repo in repos for arg in ("--repo", str(repo)))]))
@@ -831,6 +853,9 @@ def main(argv=None):
                         help="owner-approved mirror for a pinned repository (for example "
                              "agentsview=URL) whose upstream remote lacks the pinned commit; "
                              "repeatable; the tracked .gitmodules is not changed")
+    parser.add_argument("--without-dev-tools", action="store_true",
+                        help="install Pi and the AgentsView usage dashboard only, without the developer "
+                             "tools (Forge workspaces, Kata tasks, roborev reviews)")
     parser.add_argument("--guided", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--record-fix", action="append", default=[], metavar="TEXT",
                         help="note a manual fix or workaround in the install receipt (repeatable)")
@@ -850,6 +875,9 @@ def main(argv=None):
             raise RuntimeError("--usai-base-url and --usai-model must be supplied together")
         if repos and args.services == "manual":
             raise RuntimeError("--register-repo needs running services; use --services user.")
+        if repos and args.without_dev_tools:
+            raise RuntimeError("--register-repo needs the developer tools; omit --without-dev-tools.")
+        services = selected_services(not args.without_dev_tools)
         provider = None if args.usai_model is None else {
             "base_url": args.usai_base_url, "model": args.usai_model,
             "review_model": args.usai_review_model, "api": args.usai_api}
@@ -880,11 +908,11 @@ def main(argv=None):
             print("Pinned repositories are fetchable (or no checkout to probe yet).")
             print("Check only: source downloads, builds, configuration and services were not changed.")
             return 0
-        choice = service_choice(args.services)
+        choice = service_choice(args.services, services)
         if repos and choice != "user":
             raise RuntimeError("--register-repo needs running services; use --services user.")
         if choice == "user":
-            check_user_services(checkout)
+            check_user_services(checkout, services)
         with RECEIPT.phase("checkout"):
             acquire_checkout(checkout, args.source, args.revision)
         local = checkout / ".local"
@@ -907,7 +935,8 @@ def main(argv=None):
                     reader if args.librarian_executable else None,
                     root if args.librarian_executable else None,
                     selection if args.librarian_executable else None,
-                    provider, repos, mirrors, guided=args.guided)
+                    provider, repos, mirrors, guided=args.guided,
+                    dev_tools=not args.without_dev_tools)
         path = RECEIPT.write(checkout, "success", services=choice)
         print(f"\nInstall receipt (elapsed {RECEIPT.document(checkout, 'success')['elapsed_seconds']}s): {path}")
         return 0

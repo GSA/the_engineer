@@ -55,6 +55,8 @@ def copilot_model():
 
 
 def mcp_servers():
+    if not local_env.dev_tools_installed():
+        return {}
     return {
         "kata": {
             "type": "local",
@@ -82,6 +84,9 @@ def configure_copilot(model=None):
     servers = saved.get("mcpServers", {})
     if not isinstance(servers, dict):
         raise RuntimeError(f"invalid Copilot MCP settings; inspect {path} first")
+    if not local_env.dev_tools_installed():
+        servers = {name: value for name, value in servers.items()
+                   if name not in local_env.DEV_TOOL_MCP_SERVERS}
     local_env.json_write(path, {**saved, "mcpServers": {**servers, **mcp_servers()}}, replace=True)
     local_env.private_write(home / "copilot-instructions.md",
                             local_env.CODER_CONTRACT.read_text(), replace=True)

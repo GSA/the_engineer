@@ -19,7 +19,8 @@ bundle.
   `[boot] systemd=true` in `/etc/wsl.conf` on WSL, and writes one marked block
   in `~/.bashrc`.
 - `scripts/copilot_env.py` gives Copilot a private `COPILOT_HOME`
-  (`.local/environment/copilot`) with the kata and kenn-forge MCP servers, the
+  (`.local/environment/copilot`) with the kata and kenn-forge MCP servers (only
+  with the developer tools), the
   coder contract as instructions and Superpowers as a plugin directory, and
   launches it with USAi BYOK settings. The key is read per request through
   `scripts/usai-key.py` (`COPILOT_PROVIDER_API_KEY_COMMAND`). Only Claude
@@ -42,7 +43,9 @@ bash dist/install.sh --services user \
 ```
 
 Without `--services`, the installer asks whether to enable and start the four
-user services (the default is no). `--services manual` configures everything
+user services (the default is no). `--without-dev-tools` builds, configures and
+enables only AgentsView (no Forge, Kata or roborev); `./engineer install
+--dev-tools no` passes it. `--services manual` configures everything
 without registering units; then run `python3 scripts/local_env.py run` in the
 foreground and `python3 scripts/local_env.py stop` from another terminal.
 

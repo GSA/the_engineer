@@ -54,6 +54,13 @@ class CopilotEnvironmentTests(unittest.TestCase):
                 self.assertNotIn("test-only-token", path.read_text())
         self.assertEqual(json.loads((self.state / "usai.json").read_text())["copilot_model"], "claude-sonnet-5.5")
 
+    def test_configure_without_dev_tools_drops_kata_and_forge_servers(self):
+        self.configure()
+        local_env.json_write(self.state / "environment.json", {}, replace=True)
+        self.configure()
+        servers = json.loads((self.state / "copilot/mcp-config.json").read_text())["mcpServers"]
+        self.assertEqual(servers, {})
+
     def test_configure_preserves_user_added_mcp_servers(self):
         self.configure()
         path = self.state / "copilot/mcp-config.json"
