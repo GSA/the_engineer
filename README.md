@@ -19,6 +19,11 @@ Everything runs on your own computer and is reachable only from it
 (`127.0.0.1`). Your USAi key stays in one private file and is never shown,
 logged or put in Git.
 
+**New to terminals and on Windows?** Use
+[Simple Engineer](https://github.com/GSA/simple-engineer) instead: one
+double-click sets up WSL, Ubuntu and Engineer, and adds Start menu shortcuts
+(including **Update USAi key**).
+
 ## What you need
 
 - Ubuntu 24.04 or newer (WSL2 on Windows, or an AWS WorkSpace), with `sudo`
