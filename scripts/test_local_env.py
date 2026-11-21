@@ -274,6 +274,32 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("corpus", environment)
         self.assertEqual(set(servers), {"kata", "kenn-forge"})
 
+    def test_setup_without_dev_tools_configures_no_forge_or_kata_and_can_add_them_later(self):
+        state = self.root / "basic-environment"
+        patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT).start()
+        with patch.object(local_env, "STATE", state), contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(None, None)
+            self.assertNotIn("forge_binary", json.loads((state / "environment.json").read_text()))
+            self.assertEqual(json.loads((state / "pi/mcp.json").read_text())["mcpServers"], {})
+            self.assertFalse((state / "pi/extensions/forge-workspace").exists())
+            self.assertEqual(local_env.installed_services(), ("agentsview",))
+            local_env.setup(None, self.binary)
+            self.assertEqual(set(json.loads((state / "pi/mcp.json").read_text())["mcpServers"]),
+                             {"kata", "kenn-forge"})
+            self.assertTrue((state / "pi/extensions/forge-workspace/index.ts").is_file())
+            self.assertEqual(local_env.installed_services(), local_env.ACCEPT_SERVICES)
+
+    def test_setup_removing_dev_tools_keeps_librarian_and_drops_their_pi_settings(self):
+        patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT).start()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, self.binary)
+            self.assertTrue((self.state / "pi/extensions/forge-workspace").is_dir())
+            local_env.setup(self.corpus, None)
+        self.assertNotIn("forge_binary", json.loads((self.state / "environment.json").read_text()))
+        self.assertEqual(set(json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]),
+                         {"falcon-librarian"})
+        self.assertFalse((self.state / "pi/extensions/forge-workspace").exists())
+
     def test_setup_refuses_an_environment_without_the_engineer_unit_prefix(self):
         path = self.state / "environment.json"
         legacy = json.loads(path.read_text())
@@ -2334,6 +2360,24 @@ class AcceptanceTests(unittest.TestCase):
                                          "usai-key", "github-login"})
         self.assertIn("set-key", output)
         self.assertIn("gh-local.py auth login", output)
+
+    def test_host_without_dev_tools_needs_only_agentsview_and_github_is_optional(self):
+        home = self.accepted_host()
+        with contextlib.redirect_stdout(io.StringIO()):
+            local_env.setup(self.corpus, None)
+        (self.state / "gh/hosts.yml").unlink()
+        shutil.rmtree(home / ".local/bin")
+        for name in ("managed_kata", "managed_roborev", "managed_forge"):
+            patch.object(local_env, name, side_effect=RuntimeError("not installed")).start()
+        patch.object(local_env, "accept_command_output", side_effect=lambda command: {
+            "submodule": " abc kata (v1)\n", "mcp": "falcon-librarian: connected\n"}[command]).start()
+        failures, output = self.run_accept(home, [self.root])
+        self.assertEqual(failures, [], output)
+        self.assertIn("PASS service:agentsview", output)
+        self.assertIn("SKIP developer tools", output)
+        self.assertIn("SKIP github-login", output)
+        for name in ("service:forge", "service:kata", "service:roborev", "native-links", "repo:"):
+            self.assertNotIn(name, output)
 
     def test_registered_repo_needs_forge_project_and_roborev_hook(self):
         home = self.accepted_host()
