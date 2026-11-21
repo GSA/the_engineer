@@ -1,18 +1,15 @@
 # Manual Jira-to-Kata intake
 
-The first approved Jira tickets reach Kata through a manual, human-approved
-intake. `scripts/jira-intake.py` holds the mechanics; people make every
-decision. Later automated ingestion or refinement extracts its process from
-this contract.
+Jira tickets reach Kata through a manual, human-approved intake.
+`scripts/jira-intake.py` holds the mechanics; people make every decision.
 
 ## Access path
 
 - Input is one single-issue Jira XML export supplied by the owner, or another
   read path the owner explicitly approves. Record that path with
   `init --access-path`.
-- Follow the VDI export restriction (Kata `6bxa`) and approved model and data
-  routes. Use only exports that already reached the workstation by an approved
-  route.
+- Follow the VDI export restriction and approved model and data routes. Use
+  only exports that already reached the workstation by an approved route.
 
 ## Retained source and provenance
 
@@ -63,8 +60,8 @@ assumptions live beside them.
 
 ## Grounding and launch
 
-- Ground each task with qualified Librarian (`falcon-librarian`) references in
-  `grounding`, and collect an `engineer.task-context/v2` packet before acting
+- Where a Librarian is bound (owner install only today), ground each task with
+  qualified Librarian (`falcon-librarian`) references in `grounding`, and collect an `engineer.task-context/v2` packet before acting
   (see `engineering-workflow.md`).
 - A person launches each recorded task from **Forge > Workspaces > New
   workspace**; the intake creates tasks only.

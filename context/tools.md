@@ -1,20 +1,21 @@
 # Tools and environment reference
 
-## Service endpoints and systemd units
+## Services and systemd units
 
 All four persistent services run under user systemd and bind to `127.0.0.1`.
-`<prefix>` is `engineer` for new installs and the legacy `kenn-kopy` for the
-owner's original install (`unit_prefix` in `environment.json`):
+Unit names use `unit_prefix = "engineer"` from `environment.json`. Loopback
+URLs are in `README.md` ("Everyday use"); API and MCP ports in
+`docs/advanced.md` ("Services").
 
-| Service | Loopback endpoint | Systemd unit | Persistent data under `.local/environment/` |
-| --- | --- | --- | --- |
-| Kata (`v0.23.0-70-gb7f8195f`) | `http://127.0.0.1:17777/kata` | `<prefix>-kata.service` | `kata/kata.db` |
-| roborev (`v0.75.0-50-gfff8f859`) | `http://127.0.0.1:17374/reviews` (API `17373`) | `<prefix>-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
-| AgentsView (`v0.47.0-219-g7dd1b41d7`) | `http://127.0.0.1:18080/` | `<prefix>-agentsview.service` | `agentsview/data/sessions.db` |
-| Forge (`v0.8.0-25-g87184d01`) | `http://127.0.0.1:18091/` (MCP `http://127.0.0.1:18092/mcp`) | `<prefix>-forge.service` | `forge/config.toml`, `forge/forge.db` |
+| Service (running version) | Systemd unit | Persistent data under `.local/environment/` |
+| --- | --- | --- |
+| Kata (`v0.23.0-70-gb7f8195f`) | `engineer-kata.service` | `kata/kata.db` |
+| roborev (`v0.75.0-50-gfff8f859`) | `engineer-roborev.service` | `roborev/config.toml`, `roborev/reviews.db` |
+| AgentsView (`v0.47.0-219-g7dd1b41d7`) | `engineer-agentsview.service` | `agentsview/data/sessions.db` |
+| Forge (`v0.8.0-25-g87184d01`) | `engineer-forge.service` | `forge/config.toml`, `forge/forge.db` |
 
 All ports derive from `DEFAULT_PORTS` in `scripts/local_env.py` plus
-`ENGINEER_PORT_OFFSET` (default `0`; legacy `KENN_KOPY_PORT_OFFSET` is accepted). `setup` saves a nonzero offset as
+`ENGINEER_PORT_OFFSET` (default `0`). `setup` saves a nonzero offset as
 `port_offset` in `environment.json`; every writer (Forge/roborev/Kata configs,
 `pi/mcp.json`, `KATA_SERVER`/`KENN_FORGE_API_URL`), unit, probe, `smoke.py`, and
 `dist/install.py` uses the shifted ports. A second WSL2 distro shares this
@@ -29,9 +30,7 @@ AgentsView tracks Direct API sessions (`[agents.direct-api]` in
 `agentsview/config.toml`) from `~/.agentsview/direct-api` in the real home and
 `<state>/home/.agentsview/direct-api` for the service's home; `configure-tracking`
 and `configure-private-pi-tracking` write both. The agentsview submodule URL is
-upstream `kenn-io/agentsview`; its pin is the Direct API commit of open PR
-kenn-io/agentsview#3100 (fetchable from upstream). Move the pin to upstream
-`main` once that PR merges.
+upstream `kenn-io/agentsview`, and its pin tracks upstream `main`.
 
 Check live health across all four services with:
 
@@ -66,7 +65,8 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   `127.0.0.1:17373` daemon.
 - `python3 scripts/pi-local.py`: runs Pi with `PI_CODING_AGENT_DIR` set to
   `.local/environment/pi`, loading the isolated USAi models, MCP servers
-  (`falcon-librarian`, `kata`, and `kenn-forge` on `127.0.0.1:18092/mcp`),
+  (`kata`, `kenn-forge` on `127.0.0.1:18092/mcp`, and `falcon-librarian`
+  only where a Librarian is bound),
   Superpowers skills, `pi-subagents`, and `extensions/forge-workspace/`
   (which loads `AGENTS.override.md` / Forge `SessionStart` context, overrides
   `finishing-a-development-branch` to push + create PR + register Forge targets,
@@ -176,15 +176,15 @@ adversarial pairing via `--review-model`:
   - Reports lifecycle to Forge's native Pi hook profile (`/api/v1/agent-hooks/pi`), so Forge resumes a saved conversation with `pi --session <id>`; workspace context still comes from the Claude `SessionStart` renderer without a runtime key. Only interactive (`tui`) sessions with a saved session file report; earlier events are held until Pi saves the file. Reports post in order.
   - Maps Pi events: `session_start` → `SessionStart` (`resume`/`fork`/`clear`, or `resume` when startup opens a saved file), turns → `UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop` (aborted turns also settle to `Stop`), dialogs during a turn → `Notification elicitation_dialog` (Forge `input`). `session_shutdown` sends `SessionEnd` only for replacement (`new`/`fork` → `clear`, `resume` → `resume`) or SIGTERM/SIGHUP (`other`, so Forge resumes instead of forgetting); `/quit` and `/reload` keep the conversation resumable.
   - Gates agent `gh pr merge` (including `gh-local.py` and `gh api .../pulls/N/merge`, through wrappers, subshells and `bash -c`) behind human confirmation in the Pi UI; print/JSON sessions always block. Pushing `main`/`master` is enforced by git, not by parsing shell: `local_env.py init-repo` installs a `pre-push` guard in each repository's common hooks directory (`scripts/repo_init.py`), shared by every worktree, which rejects the push unless a person types `yes` on `/dev/tty`. `accept --repo` reports a missing guard; GitHub branch protection is the backstop (README, "Initialize the platform in another repository").
-  - Enforces the roborev review budget on bash `roborev` commands: one `review --branch`/`--since` per workspace branch (count kept in `forge-roborev-budget.json` in the worktree's git directory, so it survives reloads and resumes), then block unless the human confirms in the Pi UI (print/JSON always block); `refine` and unscoped `fix` are treated the same, `review <sha>`/`--dirty` and `fix <job>` are allowed. Medium-or-higher findings on a fix commit outside (or recurring from) the first review's findings are flagged for the owner and arm a loop self-check prompt in the workspace policy. Copilot has no runtime hook and follows the prose policy. See `context/engineering-workflow.md`.
+  - Enforces the roborev review budget on bash `roborev` commands (`roborev-budget.ts`); rules in `context/engineering-workflow.md#enforced-review-budget`.
   - Filters parent repo `AGENTS.md` files from child worktrees under `.local/environment/forge/worktrees/`.
-  - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, share the bounded delivery review policy in `context/engineering-workflow.md`, format PR descriptions via `gemini-4-argon` (recording body-free token usage as an AgentsView Direct API session file in `$AGENTSVIEW_DIRECT_API_DIR`, default `~/.agentsview/direct-api`), and register PR/Kata targets with Forge. The review/fix allowance survives skill transitions, reloads, and resumes; unresolved task-scoped medium/high/critical defects pause publication for owner handoff. Coder, finishing and formatter prompts share content-led guidance: no size tiers or paragraph/bullet quotas, concise prose for focused changes, optional lists/sections for independent concerns, and retained task references and actionable caveats.
+  - Overrides `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:finishing-a-development-branch` so workspace agents execute autonomously without mid-task approval stops, share the bounded delivery review policy in `context/engineering-workflow.md`, format PR descriptions via `gemini-4-argon` (recording body-free token usage as an AgentsView Direct API session file in `$AGENTSVIEW_DIRECT_API_DIR`, default `~/.agentsview/direct-api`), and register PR/Kata targets with Forge. Coder, finishing and formatter prompts share content-led guidance: no size tiers or paragraph/bullet quotas, concise prose for focused changes, optional lists/sections for independent concerns, and retained task references and actionable caveats.
   - Seeds `.local/environment/home/.gitconfig` and `.config/git/ignore`, and exposes `jq` (`.local/tools/jq-1.7.1/bin`) and shared Python test dependencies (`.local/tools/pydeps`) on `PATH`/`PYTHONPATH`.
 
 ## Task-bound evidence consumer and seam scanner
 
 `engineer-task-context` (`src/engineer_context/`, CLI `engineer-context`, stdio
-MCP `engineer-context-mcp`) composes `engineer.task-context/v2` packets from the
+MCP `engineer-context-mcp`) is optional and needs a bound Librarian. It composes `engineer.task-context/v2` packets from the
 Librarian MCP server, routed explicitly per `engineer.context-config/v2`. The
 consumer never discovers providers, writes provider state, or mutates a task.
 The same package ships the stdlib-only cross-repository seam scanner
@@ -209,8 +209,9 @@ under that root and rejects `--reader`, so `librarian.reader` and `setup
 --librarian-reader` stay optional and exist only for a legacy release that
 requires that argument.
 
-Actual-provider verification lives in `tests/integration/` and fails rather
-than skips when `ENGINEER_LIBRARIAN_SOURCE` is absent. Fixtures are built only
+Actual-provider verification is an opt-in owner run in `tests/integration/`
+(outside default test discovery); it fails rather than skips when
+`ENGINEER_LIBRARIAN_SOURCE` is absent. Fixtures are built only
 through the owning Librarian `package.release_paths` plus `tools/initialize.py`
 with non-identifying content; never point tests at the Falcon corpus or a
 production index.
@@ -238,11 +239,7 @@ evidence.
   bash scripts/bootstrap-toolchains.sh
   bash scripts/build.sh agentsview kata
   ```
-- Engineer Python scripts and unit tests:
-  ```sh
-  python3 -m unittest discover -s scripts -p 'test_*.py'
-  python3 -m unittest discover -s dist -p 'test_*.py'
-  ```
+- Engineer Python unit tests: `dist/README.md` ("Maintainer checks").
 - Task-bound evidence consumer (private venv with `engineer-task-context` installed):
   ```sh
   python -m unittest discover -s tests -p 'test_context_*.py'
@@ -276,7 +273,7 @@ evidence.
     `discard`.
   - Snapshots keep the newest 3. A database migrated by a newer service cannot
     be opened by the older one, so roll back from the pre-upgrade snapshot only.
-- Librarian (`~/the_librarian`):
+- Librarian (owner install only, `~/the_librarian`):
   ```sh
   cargo test --manifest-path ~/the_librarian/Cargo.toml
   ```
