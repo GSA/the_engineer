@@ -7,25 +7,24 @@
 environment and operator console for a human-directed, two-product federal
 engineering workflow:
 
-1. **Librarian** (`GSA/the_librarian`, `~/the_librarian`): Falcon documentation
-   and review-state corpus platform (`falcon-librarian` CLI and MCP server),
-   evaluated against the historical `~/falcon-docs` packet and live Falcon
-   application repositories under `~/falcon/`.
+1. **Librarian** (`GSA/the_librarian`): documentation and review-state corpus
+   platform (`falcon-librarian` CLI and MCP server). It is owner-only and
+   optional today; teammate installs have no Librarian or corpus, and no
+   Engineer code path requires one. It becomes a remote MCP server with its
+   own installer under `the_librarian#a4ra` (hosting in `jmga`).
 2. **Engineer** (`GSA/the_engineer`): local orchestration across
    Forge, Pi (`usai`), Superpowers, roborev, Kata, and AgentsView.
 
-Knowitall (`GSA/the_knowitall`) is archived on GitHub and unregistered from
-Forge. Engineer owns the stdlib-only cross-repository seam scanner
+Engineer owns the stdlib-only cross-repository seam scanner
 (`src/engineer_context/seams.py`) for code that crosses repository boundaries.
 
 ## Product identity
 
-- Selected product name: **Engineer** (`engineer`), replacing Engi Platform and
-  Kenn Kopy in user-facing documentation and UI copy.
+- Product name: **Engineer** (`engineer`) in user-facing documentation and UI
+  copy.
 - Kata projects match repository names (`the_engineer`, `the_librarian`).
-- New installs use `engineer-*.service` units (`unit_prefix` in
-  `environment.json`); the owner's original install keeps its legacy unit
-  prefix and checkout path until an approved migration.
+- Installs use `engineer-*.service` units (`unit_prefix = "engineer"` in
+  `environment.json`).
 - Teammates use the `./engineer` front door (`scripts/engineer.py`): install,
   doctor, start/stop/status, key, models, login, add-repo, pi, copilot,
   update, uninstall. Pi and the optional Copilot CLI both use USAi.
@@ -68,8 +67,16 @@ Forge. Engineer owns the stdlib-only cross-repository seam scanner
   `fix_min_severity = "medium"`, and affirmative `review_guidelines` in
   `.roborev.toml`. Superpowers `reviewer` subagents handle per-task
   implementation checks inside subagent workflows, while `roborev` handles
-  batched commit reviews. Delivery reuses unchanged-code evidence or allows
-  one medium-threshold branch review plus one verified fix pass, with owner
-  handoff instead of repeated reviews; see `context/engineering-workflow.md`.
+  batched commit reviews. The delivery review budget and dispositions are in
+  `context/engineering-workflow.md#bounded-delivery-review-and-dispositions`.
 - **Network and credentials**: All local services bind to `127.0.0.1`. Keep keys,
   tokens, and corpus/user state inside ignored `.local/` paths.
+
+## Where knowledge lives
+
+| Store | What belongs here |
+| --- | --- |
+| `AGENTS.md` + `context/*.md` | Current-state operating agreements, tool commands and the active status summary, updated in place. |
+| **Kata** (`http://127.0.0.1:17777`) | Actionable work items, dependencies, claims and closure evidence. |
+| **Librarian** (`falcon-librarian`, optional) | Versioned corpus documents and recorded review coverage. |
+| **AgentsView** (`http://127.0.0.1:18080`) | Session transcripts and token/cost telemetry. |

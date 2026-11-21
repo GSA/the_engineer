@@ -38,8 +38,8 @@ evidence that covers unchanged reviewed code. Otherwise run
 `roborev review --branch --wait --min-severity medium` at most once per delivery,
 followed by at most one focused fix pass for confirmed task-scoped
 medium/high/critical defects. Make additive fix commits and verify actual
-behavior with targeted tests. These allowances retain the previous one-review,
-one-fix boundary; severity filtering removes low findings from delivery gates.
+behavior with targeted tests; severity filtering removes low findings from
+delivery gates.
 The Pi Forge-workspace extension (`scripts/pi-extensions/forge-workspace/`)
 enforces the allowance for bash `roborev` commands; see "Enforced review
 budget" below.
@@ -54,8 +54,8 @@ delivery's allowance.
 
 - Treat findings as claims: confirm presence, reachability, and task scope
   before changing code. Low findings do not require fixes or block delivery.
-- Record each disposition with `roborev respond <job>`. Close a review with
-  `roborev close <job>` only when all actionable findings are fixed with
+- Record each disposition with `roborev respond <job>`, justifying every
+  skipped finding. Close a review with `roborev close <job>` only when all actionable findings are fixed with
   evidence or confirmed stale/invalid. A disposition does not require a new
   passing model verdict.
 - Leave valid out-of-scope findings open and ask the owner; they do not
@@ -155,9 +155,9 @@ TDD, design, planning and verification discipline.
 
 ## Task-bound evidence before acting
 
-Before acting on a task that depends on business requirements, collect
-one `engineer.task-context/v2` packet with `engineer-context collect` and read
-its report. Treat the packet as an observation, not authorization: a ready
+When a Librarian is bound (owner install only today) and a task depends on
+business requirements, collect one `engineer.task-context/v2` packet with
+`engineer-context collect` and read its report. Treat the packet as an observation, not authorization: a ready
 packet records that required evidence was present at observation time, not that
 an assertion, review or approval exists.
 
@@ -184,20 +184,17 @@ authorization.
 - Update `context/project.md`, `context/tools.md`, and `context/status.md` in
   place rather than prepending dated session logs.
 
-<a id="kata-to-forge-current-pickup-boundary-2026-10-26"></a>
 ## Kata to Forge pickup
 
 - **Kata (`http://127.0.0.1:17777/kata`)** is the authoritative task tracker.
-- **Forge (`http://127.0.0.1:18091/`)** maps local repositories to Kata project
-  keys via **Settings > Kata mappings** (`local` connection: `the_engineer` ->
-  `GSA/the_engineer`, `librarian` -> `GSA/the_librarian`, `spud` ->
-  `GSA/aos-spud`).
+- **Forge (`http://127.0.0.1:18091/`)** maps local repositories to Kata
+  projects via **Settings > Kata project mappings** (see `docs/advanced.md`,
+  "Initialize the platform in another repository").
 - Picking up a Kata task in **Forge > Workspaces > New workspace** creates an
   isolated Git worktree and seeds the initial agent prompt with the Kata issue
   ID, title, and description. Status transitions (`claim`, `close`) remain
   explicit in Kata (`kata claim <id>`, `kata close <id>`).
 
-<a id="private-provider-onboarding-2026-10-26-1741-7943"></a>
 ## Private provider onboarding
 
 - **Pi (`usai`)**: configured in `.local/environment/pi/models.json` and
@@ -211,34 +208,11 @@ authorization.
   which uses USAi through bring-your-own-key in a private `COPILOT_HOME`
   (Claude models only). A user's own `~/.copilot` and license are untouched.
 
-<a id="prompt-and-publication-gate-verification-mpew"></a>
-## Prompt, temporary-plan, and publication gate verification (`mpew`)
+## Prompt, temporary-plan, and publication gate verification
 
-- `python3 scripts/workflow-gates.py` verifies prompt isolation, temporary-plan
-  hygiene, review-finding dispositions, and publication/merge boundaries without
-  live model traffic or external source access:
-  - `check-prompts --surface <private_pi|forge_workspace|roborev_review>`:
-    exercises `scripts/pi-extensions/forge-workspace/` and
-    `scripts/local_env.py:validate_paired_models()` to confirm that `private_pi`
-    loads repo policy without Forge overrides, `forge_workspace` filters
-    ancestor `AGENTS.md` and applies autonomous skill overrides, and
-    `roborev_review` launches through `local_env.structured_review_args()` with
-    the `REVIEW_ISOLATION_FLAGS` from `k03a`, read-only tools, and distinct
-    model families (`claude`, `openai`, `gemini`). The live loaded policy is
-    checked separately by `python3 scripts/local_env.py verify-pi-policy`.
-  - `check-plans --repo . --base main`: inspects staged changes, branch diffs
-    against `main`, and the working tree for temporary planning artifacts under
-    `.local/plans/`, `docs/superpowers/plans/`, and `docs/superpowers/specs/`
-    while preserving durable documentation (`README.md`, `context/*.md`, and
-    `context/prompt-drafts/jira-refinement.example.md`).
-  - `check-publication`: enforces read-only `roborev_review`, additive fix
-    commits instead of amending reviewed commits, owner approval for pushes/PRs
-    outside Forge workspaces, and explicit human control (`--human-operator`)
-    for `push_main` and `pr_merge`.
-  - `demo [--receipt <private-path>]`: executes an end-to-end synthetic task
-    through Red -> Green -> Refactor -> Review -> Plan Cleanup -> Publication
-    gates in an isolated temporary Git repository and writes a mode `0600`
-    receipt when requested. The publication stage also drives the real
-    `forge-workspace` `tool_call` guard, which blocks agent PR merges unless the
-    human confirms them in the Pi UI; pushes to `main` are left to the git
-    `pre-push` guard that `init-repo` installs.
+`python3 scripts/workflow-gates.py` checks these gates without model traffic:
+`check-prompts --surface <private_pi|forge_workspace|roborev_review>` (prompt
+and tool isolation), `check-plans --repo . --base main` (no temporary plans
+under `.local/plans/` or `docs/superpowers/`), `check-publication` (read-only
+review, additive fixes, human-only `main` push and PR merge) and `demo` (an
+end-to-end synthetic task). Usage: `docs/advanced.md`, "Maintenance".

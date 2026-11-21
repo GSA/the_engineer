@@ -2,8 +2,7 @@
 
 Teammates install with `./engineer install` (see the [README](../README.md)).
 This page covers the lower-level installer that `./engineer install` runs,
-`dist/install.sh` / `dist/install.py`, for maintainers and for installs made
-before `./engineer` existed.
+`dist/install.sh` / `dist/install.py`, for maintainers.
 
 Target: **Ubuntu 24.04+ on Linux x86_64**, including WSL2 and AWS WorkSpaces.
 It is a source-build installer, not a container, cloud deployment or data
@@ -30,8 +29,7 @@ bundle.
   `local_env.py accept`) and the install record
   `.local/engineer-install.json`. `./engineer uninstall` reverses exactly the
   items in that record. A checkout that has `.local/environment/` but no
-  record (an older install) is refused by `./engineer install` and
-  `uninstall`.
+  record is refused by `./engineer install` and `uninstall`.
 
 ## Running `dist/install.sh` directly
 
@@ -48,7 +46,8 @@ user services (the default is no). `--services manual` configures everything
 without registering units; then run `python3 scripts/local_env.py run` in the
 foreground and `python3 scripts/local_env.py stop` from another terminal.
 
-Librarian is optional. To bind one at install time, pass
+Librarian is optional and owner-only today; teammate installs have none. To
+bind an existing instance at install time, pass
 `--librarian-executable` and `--librarian-root` (plus optional
 `--librarian-selection`). Use `--librarian-reader` only for a legacy release
 that takes its reader as an argument. The legacy Falcon layout is still
@@ -76,7 +75,7 @@ any build.
 
 ## Services and identities
 
-New installs record `"unit_prefix": "engineer"` in
+Installs record `"unit_prefix": "engineer"` in
 `.local/environment/environment.json` and get these units:
 
 ```sh
@@ -84,15 +83,13 @@ systemctl --user status engineer-forge.service --no-pager
 journalctl --user -u engineer-forge.service
 ```
 
-Repeat for `kata`, `roborev` and `agentsview`. Installs created before the
-prefix was recorded keep their `kenn-kopy-*` units until an approved migration.
-A unit owned by another checkout is rejected, not overwritten. User services
+Repeat for `kata`, `roborev` and `agentsview`. A unit owned by another checkout is rejected, not overwritten. User services
 start with the user manager (normally at login). Starting at boot without a
 login requires lingering, which the installer does not enable.
 
 `ENGINEER_PORT_OFFSET` (for example `1000`) shifts every port, including the
 `~/.kata/config.toml` client URL. `ENGINEER_RUNTIME_ROOT` selects a different
-runtime checkout. The older `KENN_KOPY_*` names are still accepted. See
+runtime checkout. See
 [docs/try-in-a-second-wsl-distro.md](../docs/try-in-a-second-wsl-distro.md).
 
 ## Credentials
@@ -132,8 +129,7 @@ Before any download or build, `install.py` (including `--check`) probes that
 each pinned submodule commit can be fetched from its `.gitmodules` URL and
 stops with one diagnostic per pin otherwise. `--submodule-mirror NAME=URL`
 supplies an owner-approved source for one run, without editing `.gitmodules`.
-The agentsview pin is the Direct API commit of open PR kenn-io/agentsview#3100,
-which upstream serves. When `GOPROXY` is unset, builds use
+The agentsview pin tracks upstream `main`. When `GOPROXY` is unset, builds use
 `GOPROXY=https://proxy.golang.org|direct`.
 
 Each install writes a private, secret-free receipt to

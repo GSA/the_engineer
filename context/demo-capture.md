@@ -50,12 +50,10 @@ python3 scripts/demo-capture.py capture --repo . --task the_engineer#8ya9 \
 python3 scripts/demo-capture.py walkthrough .local/demos/<task>/<bundle>  # re-render
 ```
 
-Choices (Kata `8ya9`): GIF over WebM/strip because GitHub inlines it in PR
-descriptions and comments with no player; the WebM stays as the full-motion
-artifact. Testers already open the PR, so the PR comment is the single
-"latest walkthrough + status" page; no dashboard or Jira/Kata upload.
-Needs Pillow (`doctor` reports `pillow`; `apt install python3-pil`). Imported
-manual captures have no steps and cannot be rendered.
+The GIF is posted as a PR comment, which testers already open; the WebM stays
+as the full-motion artifact. Needs Pillow (`doctor` reports `pillow`;
+`apt install python3-pil`). Imported manual captures have no steps and cannot
+be rendered.
 
 `capture --walkthrough` first classifies the branch diff and refuses to build
 a GIF when nothing UI-facing changed, pointing to `evidence` instead. Add

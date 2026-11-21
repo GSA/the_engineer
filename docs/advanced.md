@@ -89,18 +89,14 @@ JSON
 
 ## Optional: connect a Librarian instance
 
-Engineer installs without Librarian. To give agents a Librarian business
-corpus, set up a Librarian instance through its own repository
-(`GSA/the_librarian`), then bind it:
+Engineer installs and runs without Librarian. Librarian and its corpus are
+owner-only today; Librarian becomes a remote MCP server with its own installer
+(`the_librarian#a4ra`). To bind an existing instance, set up through its own
+repository (`GSA/the_librarian`):
 
 ```sh
 python3 scripts/local_env.py configure-librarian --librarian-root PATH_TO_LIBRARIAN_INSTANCE
 ```
-
-`provision-librarian-mvp --source LIBRARIAN_CHECKOUT --dest NEW_INSTANCE
-[--inbox DIR] [--repos-root DIR] --bind-mcp` packages a data-empty instance
-from a Librarian checkout and binds it in one step. Keep source checkouts
-free of corpus data; the instance keeps its stores under its own `.local/`.
 
 ### Audit bindings and decision trail
 
@@ -163,13 +159,13 @@ different root.
 
 | File | Purpose |
 | --- | --- |
-| `environment.json` | Corpus path, Forge binary, Pi executable and version, optional Librarian binding, and any `port_offset`, written by `setup`; rerunning `setup` after upgrading the saved Pi executable in place updates only an older `pi_version` |
+| `environment.json` | Optional corpus path, Forge binary, Pi executable and version, optional Librarian binding, and any `port_offset`, written by `setup`; rerunning `setup` after upgrading the saved Pi executable in place updates only an older `pi_version` |
 | `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
 | `usai.json` | Active coder `model` and `review_model` |
 | `usai-models.json` | Last model catalog fetched from USAi |
 | `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is the `${USAI_API_KEY}` placeholder. |
 | `pi/settings.json` | Pi default provider and model, Superpowers and extension packages (`pi-subagents`, `pi-json-schema`), and subagent defaults (`model: inherit`) |
-| `pi/mcp.json` | Pi MCP servers: `falcon-librarian` (Librarian-style corpus), `kata`, and `kenn-forge` |
+| `pi/mcp.json` | Pi MCP servers: `kata`, `kenn-forge`, and `falcon-librarian` only where a Librarian is bound |
 | `pi/extensions/forge-workspace/` | Forge workspace extension (session hooks, worktree isolation, PR/target registration) |
 | `forge/config.toml` | Forge host and port, MCP, and agent launchers `pi` (default model) and `pi-argon` (`gemini-4-argon`) |
 | `roborev/config.toml` | Daemon address, `pi` agent command, and reviewer model (linked from `~/.roborev`) |
@@ -188,9 +184,9 @@ references and actionable compatibility, migration, and approval notes.
 
 ## Task-bound business evidence and cross-repository seams
 
-`engineer-task-context` composes one task-bound evidence packet from the
-configured Librarian business corpus. It is a read-only consumer: it never
-acquires sources, indexes, extracts, or publishes, and it never mutates a Kata
+`engineer-task-context` is optional and needs a bound Librarian. It composes
+one task-bound evidence packet from the configured Librarian business corpus.
+It is a read-only consumer: it never acquires sources, indexes, extracts, or publishes, and it never mutates a Kata
 task. For code that crosses repository boundaries, it also ships the
 dependency-free `seams` scanner.
 
@@ -276,16 +272,16 @@ contract is in `context/jira-intake.md`.
 
 ```sh
 # 1. Retain the export privately (.local/jira-intake/<KEY>/, mode 0600).
-scripts/jira-intake.py init ~/Downloads/CCSMFSSM-1290.xml \
+scripts/jira-intake.py init ~/Downloads/JIRA-123.xml \
   --access-path "owner-supplied XML export"
 
 # 2. Record approved refinements, assumptions, questions and tasks.
-$EDITOR .local/jira-intake/CCSMFSSM-1290/intake.toml
+$EDITOR .local/jira-intake/JIRA-123/intake.toml
 
 # 3. Validate, review the kata commands, then create the tasks.
-scripts/jira-intake.py check  .local/jira-intake/CCSMFSSM-1290/intake.toml
-scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml
-scripts/jira-intake.py record .local/jira-intake/CCSMFSSM-1290/intake.toml --apply
+scripts/jira-intake.py check  .local/jira-intake/JIRA-123/intake.toml
+scripts/jira-intake.py record .local/jira-intake/JIRA-123/intake.toml
+scripts/jira-intake.py record .local/jira-intake/JIRA-123/intake.toml --apply
 ```
 
 Each created task carries the ticket key, URL, export SHA-256, original
@@ -303,12 +299,6 @@ fix for each failure. `python3 scripts/tool-failures.py --pi DIR --copilot DIR`
 reports the most common failed tool calls in agent history; the latest results
 are in `context/tool-failures.md`. The Forge Pi extension adds a one-line
 `Recovery:` hint to failed tool results for recurring causes.
-
-## Value case
-
-`context/value-case.md` is a one-page template for the estimated value of a
-run: labeled estimates, the mechanism, quick checks and what would falsify the
-claim. Fill private copies under ignored `.local/value-case/`.
 
 ## USAi key management and rotation
 
@@ -367,13 +357,8 @@ kata ready --no-label blocked --no-label deferred --agent && kata claim <id>
 roborev review --repo "$PWD" --branch --wait --min-severity medium  # only when existing evidence does not cover unchanged code
 ```
 
-Delivery allows one branch review and one focused, tested fix pass, not
-repeated review-until-clean cycles. Record dispositions and revision/fix
-evidence in Kata; reuse them across resumes, reloads, and skill transitions.
-Leave valid out-of-scope findings open for the owner. Hand recurring or
-unresolved confirmed findings to the owner and pause publication for unresolved
-task-scoped medium/high/critical defects; low findings do not block delivery.
-See [review and disposition rules](../context/engineering-workflow.md#bounded-delivery-review-and-dispositions).
+Delivery allows one branch review and one focused fix pass; see the
+[review and disposition rules](../context/engineering-workflow.md#bounded-delivery-review-and-dispositions).
 `setup` adds missing medium-severity and passing-review auto-close defaults to
 existing private roborev configs without replacing explicit overrides.
 
@@ -423,9 +408,9 @@ guidance are in `context/demo-capture.md`.
 
 ## Maintenance
 
-- **Run tests:** `python3 -m unittest discover -s scripts -p 'test_*.py'`, the
-  same command with `-s dist`, and `python -m unittest discover -s tests -p 'test_context_*.py'`
-  in the `engineer-task-context` virtual environment.
+- **Run tests:** the commands in [dist/README.md](../dist/README.md#maintainer-checks),
+  plus `python -m unittest discover -s tests -p 'test_context_*.py'` in the
+  `engineer-task-context` virtual environment.
 - **Verify prompt, temporary-plan, and publication gates:** run
   `python3 scripts/workflow-gates.py check-plans --repo . --base main` to verify
   no temporary working plans/specs remain under `.local/plans/` or

@@ -95,6 +95,16 @@ Then, in Forge, open the repository, create a task, and click
 are reviewed by roborev, and it opens a pull request for you to review. **Only
 a person merges.**
 
+## Update your USAi API key
+
+```sh
+cd ~/engineer && ./engineer key
+```
+
+Paste the new key at the hidden prompt. Engineer checks it with USAi before
+saving it; if USAi rejects it, nothing is saved. Then close and reopen any Pi
+or Copilot windows that were already open.
+
 ## Your USAi key and models
 
 ```sh
@@ -102,9 +112,6 @@ a person merges.**
 ./engineer models    # pick the coding and review models from a numbered list
 ```
 
-- `./engineer key` checks the new key with USAi before saving it. If USAi
-  rejects it, nothing is saved. After a change, close and reopen any Pi or
-  Copilot windows that were already open.
 - The key is stored only in `.local/environment/secrets/usai-api-key`, readable
   only by you. Never paste it into a chat, a file in Git, or a command.
 - The defaults are `claude-sonnet-5.5` for coding and
@@ -154,8 +161,8 @@ contains your key.
 ## More detail
 
 - [docs/advanced.md](docs/advanced.md): the lower-level commands
-  `./engineer` uses, optional Librarian business context, Jira intake, demos
-  and maintenance.
+  `./engineer` uses, optional Librarian business context (owner-only today),
+  Jira intake, demos and maintenance.
 - [dist/README.md](dist/README.md): installer internals, receipts and
   fresh-host acceptance testing.
 - [docs/try-in-a-second-wsl-distro.md](docs/try-in-a-second-wsl-distro.md):
