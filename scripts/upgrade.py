@@ -270,21 +270,11 @@ def environment_config():
     return json.loads(local_env.private_read(STATE / "environment.json"))
 
 
-RETIRED_FORGE_BINARY = ".local/forge-local-kata/kenn-forge"
-
-
 def forge_binary(config):
-    path = Path(config["forge_binary"])
-    if path == ROOT / RETIRED_FORGE_BINARY:
-        raise UpgradeError(
-            f"environment.json still runs the retired local-Kata Forge build ({path}); "
-            f"run `bash scripts/build.sh forge`, set forge_binary to {ROOT / 'forge/kenn-forge'} "
-            "in .local/environment/environment.json and restart the Forge user service, then retry")
-    return path
+    return Path(config["forge_binary"])
 
 
 def binaries(config):
-    forge = forge_binary(config)
     return [path for path in shipped(config) if path.is_file()]
 
 

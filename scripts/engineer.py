@@ -180,8 +180,7 @@ def install(args):
         stop_services(quiet=True)
     # Record the units before building, so a retry or uninstall after a partial failure
     # can stop the services that did start. Uninstall checks each unit's owner first.
-    prefix = local_env.resolve_unit_prefix()
-    record["units"] = [f"{prefix}-{name}.service" for name in SERVICES]
+    record["units"] = [f"{local_env.UNIT_PREFIX}-{name}.service" for name in SERVICES]
     save_manifest(record)
     command = [sys.executable, str(ROOT / "dist/install.py"), "--services", "user", "--guided"]
     if not (local_env.STATE / "usai.json").exists():

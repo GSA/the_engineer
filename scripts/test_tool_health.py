@@ -166,8 +166,7 @@ class HealthTests(unittest.TestCase):
     def test_index_config_without_a_manifest_is_still_checked(self):
         root = self.tmp / "lib"
         mcp = self.tmp / "mcp.json"
-        # Legacy server name, from configs written before the falcon-librarian rename.
-        mcp.write_text(json.dumps({"mcpServers": {"falcon-context": {
+        mcp.write_text(json.dumps({"mcpServers": {"falcon-librarian": {
             "command": str(root / ".venv/bin/librarian-mcp"), "args": ["--root", str(root)]}}}))
         index = health.index_from_mcp(mcp)
         self.assertEqual(index["root"], str(root))

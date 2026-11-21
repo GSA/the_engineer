@@ -71,9 +71,8 @@ class AgentsviewPricingTests(unittest.TestCase):
         env = dict(os.environ, HOME=str(tmp / "home"), AGENTSVIEW_DATA_DIR=str(tmp / "data"),
                    COPILOT_DIR=str(tmp / "copilot"), PI_DIR=str(tmp / "pi"),
                    AGENTSVIEW_NO_DAEMON="1")
-        for command in (["source", "sync"],):
-            subprocess.run([str(BINARY), *command], env=env, cwd=tmp, check=True,
-                           capture_output=True, timeout=120)
+        subprocess.run([str(BINARY), "source", "sync"], env=env, cwd=tmp, check=True,
+                       capture_output=True, timeout=120)
         out = subprocess.run(
             [str(BINARY), "usage", "daily", "--json", "--all", "--offline", "--breakdown",
              "--no-sync"], env=env, cwd=tmp, check=True, capture_output=True, text=True,
@@ -87,7 +86,6 @@ class AgentsviewPricingTests(unittest.TestCase):
         return report["totals"]["totalCost"]["microdollars"], models
 
     def test_guarded_sol_deployments_price_like_base_model(self):
-        # Includes gpt-6-sol, which the first attempt missed.
         for base in ("gpt-5.6-sol", "gpt-6-sol", "gpt-6.1-sol"):
             with self.subTest(base=base):
                 guarded = base + "-latest-guardrails-defaultv2"

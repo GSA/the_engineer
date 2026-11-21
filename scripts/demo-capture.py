@@ -631,10 +631,6 @@ def classify(repo, base=None, ui_patterns=()):
     return {"base": base, "changes": groups, "evidence": required_evidence(groups)}
 
 
-def has_ui_changes(repo, base=None, ui_patterns=()):
-    return bool(classify(repo, base, ui_patterns)["changes"]["ui"])
-
-
 def fenced(text, info=""):
     fence = "```"
     while fence in text:
