@@ -49,12 +49,15 @@ or reconciliation service is installed.
 
 ## Live environment state
 
-- The owner install keeps the legacy unit prefix until its approved
-  migration; all four user systemd units run on loopback:
-  - `kenn-kopy-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-70-gb7f8195f`, schema 51, API `0.51.0`)
-  - `kenn-kopy-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-50-gfff8f859`)
-  - `kenn-kopy-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-219-g7dd1b41d7`)
-  - `kenn-kopy-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.8.0-25-g87184d01`)
+- The owner install lives at `~/engineer` with `unit_prefix = "engineer"`
+  (migrated from `~/kenn-kopy` on 2026-11-21 per `docs/owner-migration.md`;
+  `accept` 14/14 before and after). It has no `.local/engineer-install.json`,
+  so it is still managed with `scripts/local_env.py`. All four user systemd
+  units run on loopback:
+  - `engineer-kata.service` (`http://127.0.0.1:17777/kata`, `v0.23.0-70-gb7f8195f`, schema 51, API `0.51.0`)
+  - `engineer-roborev.service` (`http://127.0.0.1:17374/reviews`, API `17373`, `v0.75.0-50-gfff8f859`)
+  - `engineer-agentsview.service` (`http://127.0.0.1:18080/`, `v0.47.0-219-g7dd1b41d7`)
+  - `engineer-forge.service` (`http://127.0.0.1:18091/`, MCP `http://127.0.0.1:18092/mcp`, `v0.8.0-25-g87184d01`)
 - Registered Forge repositories: `gsa/the_engineer`, `gsa/the_librarian`,
   `gsa/aos-spud` and `gsa/supply-chain-user-interface`, each mapped to its Kata
   project (`the_engineer`, `the_librarian`, `spud`,
@@ -421,9 +424,7 @@ or reconciliation service is installed.
   accepts an optional `--submodule-mirror NAME=URL` (no default mirror), defaults `GOPROXY` to `...|direct` and writes
   `.local/install-receipts/*.json` timing/fix receipts for `ef0w`), `hk33` and `86ey`.
 - `t592` (isolated WSL2 rehearsal, `docs/try-in-a-second-wsl-distro.md`) is
-  deferred post-MVP. The owner install's move to `engineer-*` units and the
-  `~/engineer` path follows `docs/owner-migration.md` after the owner approves
-  downtime.
+  deferred post-MVP.
 
 ## Repository history
 
