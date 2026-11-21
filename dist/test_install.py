@@ -688,6 +688,39 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(commands[-2][-3:], [str(self.root / "scripts/pi-local.py"), "mcp", "list"])
         self.assertFalse(any("configure-provider" in command for command in commands))
 
+    def test_user_install_without_dev_tools_builds_and_enables_only_agentsview(self):
+        environment = self.installation()
+        environment.SERVICE_PORTS = {**dict.fromkeys(installer.MANAGED_SERVICES, ()), "agentsview": (19080,)}
+        home = self.root / "installer-home"
+        with patch.object(installer, "run") as run, \
+                patch.object(installer, "check_native_roborev_client") as roborev_check, \
+                contextlib.redirect_stdout(io.StringIO()):
+            installer.install(self.root, None, "user", dev_tools=False)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[2], ["bash", "scripts/build.sh", "agentsview"])
+        setup = next(command for command in commands if "setup" in command)
+        self.assertNotIn("--forge-binary", setup)
+        self.assertEqual([command[-1] for command in commands if command[-1].endswith("-service")],
+                         ["install-agentsview-service"])
+        self.assertFalse(any(command[0] == str(self.root / "kata/kata") for command in commands))
+        self.assertFalse(any("pi-local.py" in " ".join(command) for command in commands))
+        roborev_check.assert_not_called()
+        environment.check_ports.assert_called_once_with([19080])
+        self.assertFalse((home / ".local/bin/kata").exists())
+        self.assertFalse((home / ".local/bin/roborev").exists())
+        self.assertFalse((home / ".kata").exists())
+
+    def test_register_repo_needs_the_developer_tools(self):
+        repo = self.root / "repo"
+        (repo / ".git").mkdir(parents=True)
+        with patch.object(installer, "prerequisites") as prerequisites, \
+                contextlib.redirect_stderr(io.StringIO()) as error:
+            code = installer.main(["--checkout", str(self.root), "--services", "user",
+                                   "--without-dev-tools", "--register-repo", str(repo)])
+        self.assertEqual(code, 1)
+        self.assertIn("developer tools", error.getvalue())
+        prerequisites.assert_not_called()
+
     def pinned_checkout(self, available=True):
         """A platform checkout whose agentsview gitlink points at a commit in a local repo."""
         upstream = self.root / "agentsview-upstream"
