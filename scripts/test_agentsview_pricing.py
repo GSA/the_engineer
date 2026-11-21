@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
-"""Black-box regression tests for the carried agentsview patches.
+"""Black-box tests for AgentsView's guarded-Sol pricing configuration.
 
-These run the built agentsview binary against synthetic Pi session
-files in a throwaway data directory, so they survive upstream refactors of
-internal Go APIs. After rebasing the agentsview pin onto a newer upstream:
+AgentsView runs as plain upstream with no carried patches. Guarded-Sol
+deployments are priced through upstream `custom_model_pricing.price_as`
+(kenn-io/agentsview#2951); `local_env.py configure-agentsview-pricing` writes
+the `gpt-*-sol-latest-guardrails-defaultv2` mappings. These tests run the built
+binary against synthetic Pi sessions in a throwaway data directory with the
+same mappings, so they survive upstream refactors of internal Go APIs.
 
-  1. rebuild (`make pricing-snapshot && make build` in agentsview/);
-  2. run `python3 -m unittest scripts/test_agentsview_hacks.py -v`
-     (AGENTSVIEW_BIN overrides the binary path);
-
-Guarded-Sol pricing is configuration, not a carried patch: upstream
-kenn-io/agentsview#2951 added `price_as` to `custom_model_pricing`, and
-`local_env.py configure-agentsview-pricing` writes the three
-`gpt-*-sol-latest-guardrails-defaultv2` mappings. These tests apply the same
-mappings in a throwaway data directory. Requires an agentsview build that
-contains #2951.
-Dropped hacks: usage_record fallback (upstream #2537) and the Copilot
-session.usage_checkpoint credit fallback.
-Optional/not carried: Pi claude- dot-to-dash model normalization.
+After moving the agentsview pin, rebuild (`make build` in agentsview/) and run
+`python3 -m unittest scripts/test_agentsview_pricing.py -v`
+(AGENTSVIEW_BIN overrides the binary path).
 """
 
 import json
@@ -51,9 +44,9 @@ BINARY = find_binary()
 
 
 @unittest.skipUnless(BINARY.is_file(), f"agentsview binary not built: {BINARY}")
-class AgentsviewHackTests(unittest.TestCase):
+class AgentsviewPricingTests(unittest.TestCase):
     def usage(self, pi_models=()):
-        tmp = Path(tempfile.mkdtemp(prefix="avhack-"))
+        tmp = Path(tempfile.mkdtemp(prefix="avpricing-"))
         self.addCleanup(subprocess.run, ["rm", "-rf", str(tmp)])
         (tmp / "home").mkdir()
         (tmp / "data").mkdir()
