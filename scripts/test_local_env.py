@@ -38,14 +38,14 @@ class RuntimeRootTests(unittest.TestCase):
                                            {"ENGINEER_RUNTIME_ROOT": "relative"})
         with self.assertRaisesRegex(RuntimeError, "existing directory"):
             local_env.resolve_runtime_root(
-                Path("/checkout"), {"KENN_KOPY_RUNTIME_ROOT": "/missing/runtime/root"})
+                Path("/checkout"), {"ENGINEER_RUNTIME_ROOT": "/missing/runtime/root"})
 
     def test_explicit_runtime_root_wins_without_git_lookup(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(local_env.subprocess, "run") as run:
             root = Path(directory)
             self.assertEqual(local_env.resolve_runtime_root(
-                Path("/worktree"), {"KENN_KOPY_RUNTIME_ROOT": str(root)}), root)
+                Path("/worktree"), {"ENGINEER_RUNTIME_ROOT": str(root)}), root)
         run.assert_not_called()
 
 
@@ -84,38 +84,30 @@ class PortOffsetTests(unittest.TestCase):
             self.assertEqual(local_env.resolve_port_offset({}, path), 0)
             path.write_text('{"port_offset": 2000}')
             self.assertEqual(local_env.resolve_port_offset({}, path), 2000)
-            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 1000)
-            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": ""}, path), 2000)
+            self.assertEqual(local_env.resolve_port_offset({"ENGINEER_PORT_OFFSET": "1000"}, path), 1000)
+            self.assertEqual(local_env.resolve_port_offset({"ENGINEER_PORT_OFFSET": ""}, path), 2000)
 
 
 class IdentityTests(unittest.TestCase):
-    def test_unit_prefix_is_neutral_for_new_installs_and_legacy_for_existing_ones(self):
+    def test_saved_environment_must_record_the_engineer_unit_prefix(self):
         with tempfile.TemporaryDirectory(dir=local_env.ROOT / ".local") as directory:
             path = Path(directory) / "environment.json"
-            self.assertEqual(local_env.resolve_unit_prefix(path), "engineer")
-            path.write_text('{"forge_binary": "/x"}')
-            self.assertEqual(local_env.resolve_unit_prefix(path), "kenn-kopy")
+            local_env.check_unit_prefix(path)
             path.write_text('{"unit_prefix": "engineer"}')
-            self.assertEqual(local_env.resolve_unit_prefix(path), "engineer")
+            local_env.check_unit_prefix(path)
+            for text in ('{"forge_binary": "/x"}', '{"unit_prefix": "kenn-kopy"}'):
+                with self.subTest(text=text):
+                    path.write_text(text)
+                    with self.assertRaisesRegex(RuntimeError, "unit_prefix"):
+                        local_env.check_unit_prefix(path)
+            path.write_text("{")
+            with self.assertRaisesRegex(RuntimeError, "cannot read"):
+                local_env.check_unit_prefix(path)
 
-    def test_unit_names_follow_the_prefix(self):
-        self.addCleanup(local_env.configure_units, local_env.UNIT_PREFIX)
-        local_env.configure_units("engineer")
-        self.assertEqual(local_env.FORGE_UNIT, "engineer-forge.service")
-        self.assertEqual(local_env.KATA_UNIT, "engineer-kata.service")
-        local_env.configure_units("kenn-kopy")
-        self.assertEqual(local_env.AGENTSVIEW_UNIT, "kenn-kopy-agentsview.service")
-        self.assertEqual(local_env.ROBOREV_UNIT, "kenn-kopy-roborev.service")
-
-    def test_engineer_environment_names_win_over_legacy_names(self):
+    def test_legacy_environment_names_are_ignored(self):
         with tempfile.TemporaryDirectory(dir=local_env.ROOT / ".local") as directory:
             path = Path(directory) / "environment.json"
-            self.assertEqual(local_env.resolve_port_offset(
-                {"ENGINEER_PORT_OFFSET": "2000", "KENN_KOPY_PORT_OFFSET": "1000"}, path), 2000)
-            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 1000)
-            root = Path(directory)
-            self.assertEqual(local_env.resolve_runtime_root(
-                Path("/worktree"), {"ENGINEER_RUNTIME_ROOT": str(root)}), root)
+            self.assertEqual(local_env.resolve_port_offset({"KENN_KOPY_PORT_OFFSET": "1000"}, path), 0)
 
 
 class LocalEnvironmentTests(unittest.TestCase):
@@ -282,16 +274,15 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertNotIn("corpus", environment)
         self.assertEqual(set(servers), {"kata", "kenn-forge"})
 
-    def test_setup_keeps_legacy_identity_of_an_existing_install(self):
+    def test_setup_refuses_an_environment_without_the_engineer_unit_prefix(self):
         path = self.state / "environment.json"
         legacy = json.loads(path.read_text())
         legacy.pop("unit_prefix")
         local_env.json_write(path, legacy, replace=True)
-        with contextlib.redirect_stdout(io.StringIO()):
+        before = path.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "unit_prefix None"):
             local_env.setup(self.corpus, self.binary)
-        self.addCleanup(local_env.configure_units, local_env.DEFAULT_UNIT_PREFIX)
-        self.assertNotIn("unit_prefix", json.loads(path.read_text()))
-        self.assertEqual(local_env.FORGE_UNIT, "kenn-kopy-forge.service")
+        self.assertEqual(path.read_bytes(), before)
 
     def test_setup_names_new_installs_engineer(self):
         self.assertIn('"tmux", "-L", "engineer-local"', (self.state / "forge/config.toml").read_text())
@@ -380,32 +371,6 @@ class LocalEnvironmentTests(unittest.TestCase):
         local_env.json_write(path, config, replace=True)
         before = path.read_bytes()
         with self.assertRaisesRegex(RuntimeError, "Librarian binding differs"):
-            local_env.setup(self.corpus, self.binary)
-        self.assertEqual(path.read_bytes(), before)
-
-    def test_setup_renames_legacy_falcon_context_binding(self):
-        path = self.state / "pi/mcp.json"
-        config = json.loads(path.read_text())
-        binding = config["mcpServers"].pop("falcon-librarian")
-        config["mcpServers"]["falcon-context"] = binding
-        local_env.json_write(path, config, replace=True)
-        with contextlib.redirect_stdout(io.StringIO()):
-            local_env.setup(self.corpus, self.binary)
-        servers = json.loads(path.read_text())["mcpServers"]
-        self.assertNotIn("falcon-context", servers)
-        self.assertEqual(servers["falcon-librarian"], binding)
-        migrated = path.read_bytes()
-        with contextlib.redirect_stdout(io.StringIO()):
-            local_env.setup(self.corpus, self.binary)
-        self.assertEqual(path.read_bytes(), migrated)
-
-    def test_setup_refuses_differing_legacy_and_current_bindings_without_mutation(self):
-        path = self.state / "pi/mcp.json"
-        config = json.loads(path.read_text())
-        config["mcpServers"]["falcon-context"] = {"command": "/other/provider", "args": []}
-        local_env.json_write(path, config, replace=True)
-        before = path.read_bytes()
-        with self.assertRaisesRegex(RuntimeError, "falcon-context and falcon-librarian"):
             local_env.setup(self.corpus, self.binary)
         self.assertEqual(path.read_bytes(), before)
 
@@ -556,36 +521,6 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(copilot.read_bytes(), first)
         self.assertEqual(copilot.stat().st_mode & 0o777, 0o600)
 
-    def test_configure_librarian_renames_legacy_copilot_and_pi_bindings(self):
-        _, _, toolkit = self.audit_librarian()
-        pi = local_env.STATE / "pi/mcp.json"
-        config = json.loads(pi.read_text())
-        config["mcpServers"]["falcon-context"] = config["mcpServers"].pop("falcon-librarian")
-        local_env.json_write(pi, config, replace=True)
-        copilot = self.root / "copilot/mcp.json"
-        copilot.parent.mkdir()
-        copilot.write_text(json.dumps({"mcpServers": {"falcon-context": {
-            "tools": ["status"], "timeout": 60000, "type": "local", "command": "/old", "args": []}}}))
-        self.configure_quietly(toolkit, copilot_config=copilot)
-        copilot_servers = json.loads(copilot.read_text())["mcpServers"]
-        self.assertEqual(set(copilot_servers), {"falcon-librarian"})
-        self.assertEqual(copilot_servers["falcon-librarian"]["tools"], ["status"])
-        self.assertNotIn("falcon-context", json.loads(pi.read_text())["mcpServers"])
-        self.assertIn("falcon-librarian", json.loads(pi.read_text())["mcpServers"])
-
-    def test_configure_librarian_copilot_legacy_conflict_changes_nothing(self):
-        _, _, toolkit = self.audit_librarian()
-        copilot = self.root / "copilot/mcp.json"
-        copilot.parent.mkdir()
-        copilot.write_text(json.dumps({"mcpServers": {
-            "falcon-context": {"command": "/a", "args": []},
-            "falcon-librarian": {"command": "/b", "args": []}}}))
-        files = (local_env.STATE / "environment.json", local_env.STATE / "pi/mcp.json", copilot)
-        before = {path: path.read_bytes() for path in files}
-        with self.assertRaisesRegex(RuntimeError, "falcon-context and falcon-librarian"):
-            self.configure_quietly(toolkit, copilot_config=copilot)
-        self.assertEqual({path: path.read_bytes() for path in files}, before)
-
     def test_configure_librarian_reports_unmanaged_bindings_without_modifying_them(self):
         _, _, toolkit = self.audit_librarian()
         glob = self.root / "global-copilot.json"
@@ -613,71 +548,6 @@ class LocalEnvironmentTests(unittest.TestCase):
             saved = json.loads((local_env.STATE / "pi/mcp.json").read_text())
             self.assertEqual(saved["mcpServers"]["falcon-librarian"]["args"][-3:],
                              ["--audit-log", "--agent-label", "pi-forge"])
-
-    def test_provision_librarian_mvp_packages_initializes_and_optionally_binds_mcp(self):
-        source = self.root / "the_librarian"
-        (source / "tools/context_index").mkdir(parents=True)
-        (source / "tools/context-mcp/src/the_librarian_mcp").mkdir(parents=True)
-        (source / "config").mkdir(parents=True)
-        (source / "release-files.json").write_text(json.dumps([
-            "tools/package.py",
-            "tools/initialize.py",
-            "tools/context_index/context_index.py",
-            "tools/context-mcp/src/the_librarian_mcp/__init__.py",
-            "tools/context-mcp/src/the_librarian_mcp/server.py",
-            "tools/context-mcp/src/the_librarian_mcp/preflight.py",
-            "config/policy.json",
-        ]))
-        (source / "tools/package.py").write_text(
-            "import argparse, json, zipfile\nfrom pathlib import Path\n"
-            "p = argparse.ArgumentParser(); p.add_argument('--output', type=Path, required=True)\n"
-            "args = p.parse_args(); root = Path(__file__).resolve().parents[1]\n"
-            "with zipfile.ZipFile(args.output, 'w') as zf:\n"
-            "    for f in json.loads((root / 'release-files.json').read_text()):\n"
-            "        zf.writestr(f, (root / f).read_bytes())\n"
-        )
-        (source / "tools/initialize.py").write_text("import sys\nsys.exit(0)\n")
-        (source / "tools/context_index/context_index.py").write_text("import sys\nsys.exit(0)\n")
-        (source / "tools/context-mcp/src/the_librarian_mcp/__init__.py").write_text("")
-        (source / "tools/context-mcp/src/the_librarian_mcp/server.py").write_text(
-            "import jsonschema, mcp\n"
-            "def main():\n"
-            "    assert mcp.MCP_READY and jsonschema.JSONSCHEMA_READY\n"
-            "    return 0\n"
-        )
-        (source / "tools/context-mcp/src/the_librarian_mcp/preflight.py").write_text("def main(): return 0\n")
-        (source / "config/policy.json").write_text('{"schema_version": 1}\n')
-        offline_site = self.root / "offline-site-packages"
-        (offline_site / "mcp").mkdir(parents=True)
-        (offline_site / "jsonschema").mkdir(parents=True)
-        (offline_site / "mcp/__init__.py").write_text("MCP_READY = True\n")
-        (offline_site / "jsonschema/__init__.py").write_text("JSONSCHEMA_READY = True\n")
-        dest = self.root / "falcon-librarian-mvp"
-        inbox = self.root / "inbox"
-        repos = self.root / "repos"
-        inbox.mkdir()
-        repos.mkdir()
-        with self.assertRaisesRegex(RuntimeError, "isolated directory outside --source"):
-            local_env.provision_librarian_mvp(source, source)
-        with (
-            patch.dict(os.environ, {"LIBRARIAN_OFFLINE_SITE_PACKAGES": str(offline_site)}),
-            contextlib.redirect_stdout(io.StringIO()),
-        ):
-            summary = local_env.provision_librarian_mvp(
-                source, dest, inbox=inbox, repos_root=repos, bind_mcp=True,
-            )
-        self.assertEqual(summary["instance_root"], str(dest))
-        self.assertTrue((dest / "config/policy.local.json").is_file())
-        self.assertTrue((dest / "config/selection.local.json").is_file())
-        self.assertTrue((dest / ".local/mvp-sources.json").is_file())
-        self.assertTrue((dest / ".local/engineer-context.json").is_file())
-        context_config = json.loads((dest / ".local/engineer-context.json").read_text())
-        self.assertEqual(context_config["schema"], "engineer.context-config/v2")
-        self.assertEqual(set(context_config), {"schema", "librarian"})
-        self.assertFalse((source / ".local").exists())
-        binding = json.loads((self.state / "pi/mcp.json").read_text())["mcpServers"]["falcon-librarian"]
-        self.assertEqual(binding["command"], str(dest / ".venv/bin/librarian-mcp"))
-        self.assertEqual(binding["args"], ["--root", str(dest), "--manifest", str(dest / "config/selection.local.json")])
 
     def test_setup_preserves_edited_settings(self):
         path = self.state / "pi/settings.json"
@@ -781,18 +651,15 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertIn("[mcp]\nenabled = true", (self.state / "forge/config.toml").read_text())
         self.assertEqual((self.state / "pi/mcp.json").stat().st_mode & 0o777, 0o600)
 
-    def test_forge_extension_directory_replaces_legacy_single_file(self):
+    def test_forge_extension_directory_replaces_stale_and_edited_files(self):
         patch.object(local_env, "RUNTIME_ROOT", local_env.ROOT).start()
         extensions = self.state / "pi/extensions"
-        legacy = extensions / "forge-workspace.ts"
-        local_env.private_write(legacy, "export default () => {};\n")
         local_env.install_forge_extension()
         stale = extensions / "forge-workspace/stale.ts"
         local_env.private_write(stale, "export {};\n")
         index = extensions / "forge-workspace/index.ts"
         index.write_text("// edited\n")
         local_env.install_forge_extension()
-        self.assertFalse(legacy.exists())
         self.assertFalse(stale.exists())
         source = local_env.RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
         self.assertEqual(index.read_text(), (source / "index.ts").read_text())
@@ -1091,7 +958,6 @@ class LocalEnvironmentTests(unittest.TestCase):
         self.assertEqual(kata_envs[0]["PI_CODING_AGENT_DIR"], str(self.state / "pi"))
         self.assertEqual(saved["theme"], before["theme"])
         self.assertIn(str(local_env.RUNTIME_ROOT / "superpowers"), saved["packages"])
-        self.assertNotIn(local_env.LEGACY_PI_REVIEW_EXTENSION, saved["packages"])
         self.assertNotIn("npm:pi-subagents@0.0.1", saved["packages"])
         for extension in local_env.PI_EXTENSIONS:
             self.assertEqual(saved["packages"].count(extension), 1)
@@ -1526,21 +1392,18 @@ class LocalEnvironmentTests(unittest.TestCase):
             local_env.configure_private_pi_tracking()
         self.assertEqual(before, (config.read_bytes(), metadata.read_bytes()))
 
-    def test_private_pi_tracking_adds_direct_api_to_existing_pi_only_config(self):
+    def test_private_pi_tracking_rejects_missing_or_differing_direct_api(self):
         config = self.state / "agentsview/config.toml"
         sessions = json.dumps([str(self.state / "pi/sessions")])
         old = f'archive_content = "usage"\n\n[agents.pi]\ndirs = {sessions}\n'
-        local_env.private_write(config, old)
         local_env.json_write(self.state / "agentsview-tracking.json",
                              {"copilot_dir": None, "pi_dirs": [], "archive_content": "usage"})
-        with contextlib.redirect_stdout(io.StringIO()):
-            local_env.configure_private_pi_tracking()
-        parsed = local_env.tomllib.loads(config.read_text())
-        self.assertTrue(config.read_text().startswith(old))
-        self.assertEqual(parsed["agents"]["direct-api"], {"dirs": self.direct_api_dirs()})
-        local_env.private_write(config, old + '\n[agents.direct-api]\ndirs = ["/elsewhere"]\n', replace=True)
-        with self.assertRaisesRegex(RuntimeError, "direct-api directories differ"):
-            local_env.configure_private_pi_tracking()
+        for text in (old, old + '\n[agents.direct-api]\ndirs = ["/elsewhere"]\n'):
+            with self.subTest(text=text):
+                local_env.private_write(config, text, replace=True)
+                with self.assertRaisesRegex(RuntimeError, "direct-api directories differ"):
+                    local_env.configure_private_pi_tracking()
+                self.assertEqual(config.read_text(), text)
 
     def test_private_pi_tracking_rejects_unconfigured_existing_settings(self):
         config = self.state / "agentsview/config.toml"

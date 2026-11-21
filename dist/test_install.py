@@ -138,11 +138,10 @@ class InstallerTests(unittest.TestCase):
 
     def test_install_without_corpus_omits_corpus_from_setup(self):
         self.installation()
-        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()) as output:
+        with patch.object(installer, "run") as run, contextlib.redirect_stdout(io.StringIO()):
             installer.install(self.root, None, "manual")
         setup = next(call.args[0] for call in run.call_args_list if "setup" in call.args[0])
         self.assertNotIn("--corpus", setup)
-        self.assertNotIn("provision-librarian-mvp", output.getvalue())
 
     def explicit_librarian(self):
         root = self.root / "empty toolkit"
@@ -278,16 +277,6 @@ class InstallerTests(unittest.TestCase):
         with patch.object(installer.sys.stdin, "isatty", return_value=True), \
                 patch("builtins.input", return_value="maybe"), self.assertRaisesRegex(RuntimeError, "yes or no"):
             installer.service_choice("ask")
-
-    def test_unit_prefix_matches_runtime_for_new_and_existing_installs(self):
-        environment = installer.load_environment(installer.ROOT)
-        state = self.root / ".local/environment"
-        self.assertEqual(installer.unit_prefix(self.root), "engineer")
-        self.assertEqual(environment.resolve_unit_prefix(state / "environment.json"), "engineer")
-        state.mkdir(parents=True)
-        (state / "environment.json").write_text('{"forge_binary": "/x"}')
-        self.assertEqual(installer.unit_prefix(self.root), "kenn-kopy")
-        self.assertEqual(environment.resolve_unit_prefix(state / "environment.json"), "kenn-kopy")
 
     def test_foreign_user_unit_is_not_replaced(self):
         for name in installer.MANAGED_SERVICES:

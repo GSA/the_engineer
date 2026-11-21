@@ -280,7 +280,6 @@ class UninstallTests(EngineerTestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             engineer.uninstall(answers(True), purge=False)
         self.assertIn(["systemctl", "--user", "disable", "--now", "engineer-kata.service"], self.commands)
-        self.assertFalse(any("kenn-kopy" in " ".join(map(str, command)) for command in self.commands))
         self.assertFalse((bin_dir / "kata").is_symlink())
         self.assertTrue((bin_dir / "roborev").is_symlink())
         self.assertFalse((self.home / ".kata/config.toml").exists())

@@ -343,9 +343,9 @@ class ClassifyTests(unittest.TestCase):
             (repo / "tool.py").write_text("print(1)\n")
             git(repo, "add", ".")
             git(repo, "commit", "-q", "-m", "backend")
-            self.assertFalse(demo.has_ui_changes(repo, "base"))
+            self.assertEqual(demo.classify(repo, "base")["changes"]["ui"], [])
             (repo / "page.html").write_text("<p>x</p>\n")  # untracked UI work counts
-            self.assertTrue(demo.has_ui_changes(repo, "base"))
+            self.assertEqual(demo.classify(repo, "base")["changes"]["ui"], ["page.html"])
 
 
     def test_capture_walkthrough_refuses_branch_without_ui_changes(self):

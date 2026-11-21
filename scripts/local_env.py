@@ -25,19 +25,15 @@ import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
-import zipfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def env_setting(environment, suffix):
-    """Read ENGINEER_<suffix>, falling back to the legacy KENN_KOPY_<suffix>; return (name, value)."""
-    for prefix in ("ENGINEER_", "KENN_KOPY_"):
-        value = environment.get(prefix + suffix, "").strip()
-        if value:
-            return prefix + suffix, value
-    return "ENGINEER_" + suffix, ""
+    """Read ENGINEER_<suffix>; return (name, value)."""
+    name = "ENGINEER_" + suffix
+    return name, environment.get(name, "").strip()
 
 
 def resolve_runtime_root(source_root, environment=None):
@@ -162,35 +158,30 @@ JQ_BINARY = RUNTIME_ROOT / f".local/tools/jq-{JQ_VERSION}/bin/jq"
 PYDEPS_DIR = RUNTIME_ROOT / ".local/tools/pydeps"
 DEFAULT_PORTS = {"roborev": 17373, "roborev_web": 17374, "kata": 17777,
                  "agentsview": 18080, "forge": 18091, "forge_mcp": 18092}
-# New installs use neutral engineer-* units; an install made before setup
-# recorded unit_prefix keeps its kenn-kopy-* units until an approved migration.
-DEFAULT_UNIT_PREFIX = "engineer"
-LEGACY_UNIT_PREFIX = "kenn-kopy"
+UNIT_PREFIX = "engineer"
+AGENTSVIEW_UNIT = f"{UNIT_PREFIX}-agentsview.service"
+ROBOREV_UNIT = f"{UNIT_PREFIX}-roborev.service"
+FORGE_UNIT = f"{UNIT_PREFIX}-forge.service"
+KATA_UNIT = f"{UNIT_PREFIX}-kata.service"
+TMUX_LABEL = f"{UNIT_PREFIX}-local"
 HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def resolve_unit_prefix(config_path=None):
+def check_unit_prefix(config_path=None):
+    """Refuse a saved environment that does not record the engineer-* service units."""
     config_path = STATE / "environment.json" if config_path is None else Path(config_path)
     try:
         saved = json.loads(config_path.read_text())
     except FileNotFoundError:
-        return DEFAULT_UNIT_PREFIX
-    except (OSError, ValueError):
-        return LEGACY_UNIT_PREFIX
-    prefix = saved.get("unit_prefix", LEGACY_UNIT_PREFIX)
-    if prefix not in (DEFAULT_UNIT_PREFIX, LEGACY_UNIT_PREFIX):
-        raise RuntimeError(f"unsupported unit_prefix {prefix!r} in {config_path}")
-    return prefix
-
-
-def configure_units(prefix):
-    global UNIT_PREFIX, AGENTSVIEW_UNIT, ROBOREV_UNIT, FORGE_UNIT, KATA_UNIT, TMUX_LABEL
-    UNIT_PREFIX = prefix
-    AGENTSVIEW_UNIT = f"{prefix}-agentsview.service"
-    ROBOREV_UNIT = f"{prefix}-roborev.service"
-    FORGE_UNIT = f"{prefix}-forge.service"
-    KATA_UNIT = f"{prefix}-kata.service"
-    TMUX_LABEL = f"{prefix}-local"
+        return
+    except (OSError, ValueError) as error:
+        raise RuntimeError(f"cannot read {config_path}: {error}") from error
+    prefix = saved.get("unit_prefix") if isinstance(saved, dict) else None
+    if prefix != UNIT_PREFIX:
+        raise RuntimeError(
+            f"{config_path} records unit_prefix {prefix!r}; Engineer manages only "
+            f"{UNIT_PREFIX}-* services. Migrate this install's services to {UNIT_PREFIX}-* "
+            f"and set unit_prefix to {UNIT_PREFIX!r}, or reinstall.")
 
 
 def parse_port_offset(value, source="ENGINEER_PORT_OFFSET"):
@@ -210,7 +201,7 @@ def parse_port_offset(value, source="ENGINEER_PORT_OFFSET"):
 
 
 def resolve_port_offset(environment=None, config_path=None):
-    """Use ENGINEER_PORT_OFFSET (or legacy KENN_KOPY_PORT_OFFSET), else the saved offset, else 0."""
+    """Use ENGINEER_PORT_OFFSET, else the saved offset, else 0."""
     environment = os.environ if environment is None else environment
     name, value = env_setting(environment, "PORT_OFFSET")
     if value:
@@ -240,7 +231,7 @@ def configure_ports(offset):
 
 
 configure_ports(resolve_port_offset())
-configure_units(resolve_unit_prefix())
+check_unit_prefix()
 
 
 def private_dir(path, *, create=True):
@@ -281,13 +272,9 @@ def private_write(path, text, *, replace=False):
 
 
 def install_forge_extension():
-    """Install the Forge workspace extension directory; Pi loads extensions/forge-workspace/index.ts.
-
-    The superseded single-file extensions/forge-workspace.ts is removed so Pi never loads both.
-    """
+    """Install the Forge workspace extension directory; Pi loads extensions/forge-workspace/index.ts."""
     source = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
     destination = STATE / "pi/extensions/forge-workspace"
-    legacy = STATE / "pi/extensions/forge-workspace.ts"
     if not source.is_dir():
         return
     private_dir(STATE / "pi/extensions")
@@ -298,7 +285,6 @@ def install_forge_extension():
     for stale in destination.iterdir():
         if stale.name not in names:
             stale.unlink()
-    legacy.unlink(missing_ok=True)
 
 
 def json_write(path, value, *, replace=False):
@@ -561,10 +547,8 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         config = {"corpus": str(corpus), **config}
     if PORT_OFFSET:
         config["port_offset"] = PORT_OFFSET
-    prefix = resolve_unit_prefix(STATE / "environment.json")
-    if prefix != LEGACY_UNIT_PREFIX:
-        config["unit_prefix"] = prefix
-    configure_units(prefix)
+    check_unit_prefix(config_path)
+    config["unit_prefix"] = UNIT_PREFIX
     if server is None and saved is not None:
         # A rerun that names no Librarian keeps the binding saved by an earlier setup.
         config.update({key: saved[key] for key in LIBRARIAN_CONFIG_KEYS if key in saved})
@@ -668,7 +652,6 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
         if not isinstance(saved, dict):
             raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
         saved = dict(saved)
-        renamed = migrate_librarian_server(saved, mcp_path)
         saved_librarian = saved.get(LIBRARIAN_MCP_SERVER)
         if saved_librarian is not None and server is not None:
             audited = {**servers[LIBRARIAN_MCP_SERVER],
@@ -676,7 +659,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             if saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
                 raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
-        if missing or renamed:
+        if missing:
             json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
     else:
         json_write(mcp_path, {"mcpServers": servers})
@@ -694,22 +677,6 @@ COPILOT_TOOLS = ["status", "search", "get", "get_many", "catalog", "review_event
 AUDIT_FLAGS = ("--audit-log", "--agent-label")
 LIBRARIAN_COMMANDS = ("librarian-mcp", "qualified-context-mcp")
 LIBRARIAN_MCP_SERVER = "falcon-librarian"
-LEGACY_LIBRARIAN_MCP_SERVERS = ("falcon-context",)
-
-
-def migrate_librarian_server(servers, path):
-    """Rename a legacy Librarian MCP server entry in ``servers`` in place; return whether it changed."""
-    renamed = False
-    for legacy in LEGACY_LIBRARIAN_MCP_SERVERS:
-        if legacy not in servers:
-            continue
-        entry = servers.pop(legacy)
-        current = servers.setdefault(LIBRARIAN_MCP_SERVER, entry)
-        if current != entry:
-            raise RuntimeError(f"both {legacy} and {LIBRARIAN_MCP_SERVER} are bound differently; "
-                               f"inspect {path} first")
-        renamed = True
-    return renamed
 
 
 def audit_args(label):
@@ -759,8 +726,7 @@ def unmanaged_binding_report(paths, managed=()):
             if not isinstance(server, dict):
                 continue
             command, args = str(server.get("command", "")), server.get("args", [])
-            if (name not in (LIBRARIAN_MCP_SERVER, *LEGACY_LIBRARIAN_MCP_SERVERS)
-                    and Path(command).name not in LIBRARIAN_COMMANDS):
+            if name != LIBRARIAN_MCP_SERVER and Path(command).name not in LIBRARIAN_COMMANDS:
                 continue
             args = args if isinstance(args, list) else []
             if "--audit-log" in args and "--agent-label" in args[:-1:]:
@@ -820,7 +786,6 @@ def configure_librarian(librarian_root, librarian_executable=None,
         else:
             copilot = {}
         copilot_servers = copilot.setdefault("mcpServers", {})
-        migrate_librarian_server(copilot_servers, copilot_path)
     updated_config = {
         **config,
         "librarian_executable": str(server),
@@ -835,7 +800,6 @@ def configure_librarian(librarian_root, librarian_executable=None,
     if not isinstance(saved, dict):
         raise RuntimeError(f"invalid saved MCP settings; inspect {mcp_path} first")
     saved = dict(saved)
-    migrate_librarian_server(saved, mcp_path)
     previously_audited = "--audit-log" in (saved.get(LIBRARIAN_MCP_SERVER) or {}).get("args", [])
     json_write(STATE / "environment.json", updated_config, replace=True)
     json_write(
@@ -883,202 +847,6 @@ def configure_librarian(librarian_root, librarian_executable=None,
     for line in unmanaged_binding_report(unmanaged_binding_candidates(),
                                          managed=[copilot_path] if copilot_path else ()):
         print(line)
-
-
-def _candidate_offline_site_packages(source: Path, py_ver: str) -> list[Path]:
-    candidates: list[Path] = []
-    env_override = os.environ.get("LIBRARIAN_OFFLINE_SITE_PACKAGES")
-    if env_override:
-        candidates.append(Path(env_override).expanduser())
-    candidates.extend([
-        source / ".venv/lib" / py_ver / "site-packages",
-        source / "tools/context-mcp/.venv/lib" / py_ver / "site-packages",
-    ])
-    candidates.extend(sorted(source.glob(".venv/lib/python*/site-packages")))
-    candidates.extend(sorted(source.glob("tools/context-mcp/.venv/lib/python*/site-packages")))
-    env_file = STATE / "environment.json"
-    if env_file.is_file():
-        try:
-            env = json.loads(env_file.read_text())
-            for key in ("corpus", "librarian_root"):
-                val = env.get(key)
-                if val:
-                    p = Path(val).expanduser()
-                    candidates.extend([
-                        p / ".venv/lib" / py_ver / "site-packages",
-                        p / "tools/context-mcp/.venv/lib" / py_ver / "site-packages",
-                        p.parent / "the_librarian/.venv/lib" / py_ver / "site-packages",
-                    ])
-        except (OSError, json.JSONDecodeError):
-            pass
-    candidates.extend([
-        Path.home() / "the_librarian/.venv/lib" / py_ver / "site-packages",
-        Path.home() / "falcon-docs/tools/context-mcp/.venv/lib" / py_ver / "site-packages",
-    ])
-    for entry in sys.path:
-        if entry and "site-packages" in entry:
-            candidates.append(Path(entry))
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for cand in candidates:
-        try:
-            resolved = cand.resolve()
-        except OSError:
-            continue
-        if resolved not in seen and cand.is_dir():
-            seen.add(resolved)
-            unique.append(cand)
-    return unique
-
-
-def _write_librarian_entrypoint(path, python_executable, module_name):
-    script = (
-        f"#!{python_executable}\n"
-        "# -*- coding: utf-8 -*-\n"
-        "import re\n"
-        "import sys\n"
-        f"from {module_name} import main\n"
-        "if __name__ == '__main__':\n"
-        "    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])\n"
-        "    sys.exit(main())\n"
-    )
-    path.write_text(script, encoding="utf-8")
-    path.chmod(0o755)
-
-
-def provision_librarian_mvp(source, dest, *, inbox=None, repos_root=None, bind_mcp=False):
-    source = source.expanduser().resolve()
-    dest = dest.expanduser().resolve()
-    if not source.is_dir() or not (source / "tools/package.py").is_file() or not (source / "tools/initialize.py").is_file():
-        raise RuntimeError(f"missing Librarian toolkit source checkout: {source}")
-    if dest == source or dest.is_relative_to(source) or source.is_relative_to(dest):
-        raise RuntimeError("--dest must be an isolated directory outside --source")
-    resolved_inbox = None
-    if inbox is not None:
-        resolved_inbox = inbox.expanduser().resolve()
-        if not resolved_inbox.is_dir() or not os.access(resolved_inbox, os.R_OK | os.X_OK):
-            raise RuntimeError(f"missing readable and searchable inbox directory: {resolved_inbox}")
-    resolved_repos = None
-    if repos_root is not None:
-        resolved_repos = repos_root.expanduser().resolve()
-        if not resolved_repos.is_dir() or not os.access(resolved_repos, os.R_OK | os.X_OK):
-            raise RuntimeError(f"missing readable and searchable repos root: {resolved_repos}")
-    with tempfile.TemporaryDirectory(prefix="librarian-mvp-pkg-") as temp_dir:
-        archive_path = Path(temp_dir) / "librarian-release.zip"
-        subprocess.run(
-            [sys.executable, str(source / "tools/package.py"), "--output", str(archive_path)],
-            cwd=source, text=True, capture_output=True, check=True, timeout=60,
-        )
-        dest.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(archive_path, "r") as archive:
-            for member in archive.infolist():
-                target = (dest / member.filename).resolve()
-                if not target.is_relative_to(dest):
-                    raise RuntimeError(f"unsafe release archive entry: {member.filename}")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(archive.read(member.filename))
-    venv_dir = dest / ".venv"
-    venv_python = venv_dir / "bin/python"
-    if not venv_python.exists():
-        subprocess.run(
-            [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)],
-            text=True, capture_output=True, check=True, timeout=60,
-        )
-    py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    dest_site = venv_dir / "lib" / py_ver / "site-packages"
-    dest_site.mkdir(parents=True, exist_ok=True)
-    candidate_sites = _candidate_offline_site_packages(source, py_ver)
-    selected_site = next(
-        (c for c in candidate_sites if (c / "mcp").exists() and (c / "jsonschema").exists()),
-        candidate_sites[0] if candidate_sites else None,
-    )
-    if selected_site is not None and selected_site.resolve() != dest_site.resolve():
-        shutil.copytree(selected_site, dest_site, dirs_exist_ok=True)
-    mcp_pkg_src = dest / "tools/context-mcp/src/the_librarian_mcp"
-    if mcp_pkg_src.is_dir():
-        shutil.copytree(mcp_pkg_src, dest_site / "the_librarian_mcp", dirs_exist_ok=True)
-    _write_librarian_entrypoint(venv_dir / "bin/librarian-mcp", venv_python, "the_librarian_mcp.server")
-    _write_librarian_entrypoint(venv_dir / "bin/librarian-preflight", venv_python, "the_librarian_mcp.preflight")
-    policy_local = dest / "config/policy.local.json"
-    if not policy_local.exists():
-        json_write(policy_local, {
-            "audience": "authorized-local",
-            "storage_roots": {
-                "catalog_home": "tools/catalog/.local",
-                "review_events_home": "tools/review_events/.local",
-                "context_index_db": "tools/context_index/.local/index.sqlite3",
-                "intake_home": ".local/intake",
-                "extractions_home": ".local/extractions",
-                "diagnostics_log": ".local/diagnostics/retrieval-events.jsonl",
-                "selection_manifest": "config/selection.local.json",
-            },
-        })
-    selection_local = dest / "config/selection.local.json"
-    if not selection_local.exists():
-        json_write(selection_local, {
-            "schema_version": 1,
-            "audience": "authorized-local",
-            "documents": [],
-            "context_rules": {},
-            "renditions": [],
-        })
-    init_proc = subprocess.run(
-        [str(venv_python), str(dest / "tools/initialize.py"), "--root", str(dest)],
-        cwd=dest, text=True, capture_output=True, timeout=60,
-    )
-    if init_proc.returncode != 0 and "Index is stale; run build" in (init_proc.stderr or ""):
-        subprocess.run(
-            [str(venv_python), "-m", "tools.context_index.context_index", "--root", str(dest), "build"],
-            cwd=dest, text=True, capture_output=True, check=True, timeout=60,
-        )
-        subprocess.run(
-            [str(venv_python), str(dest / "tools/initialize.py"), "--root", str(dest)],
-            cwd=dest, text=True, capture_output=True, check=True, timeout=60,
-        )
-    elif init_proc.returncode != 0:
-        raise subprocess.CalledProcessError(
-            init_proc.returncode, init_proc.args, output=init_proc.stdout, stderr=init_proc.stderr
-        )
-    subprocess.run(
-        [str(venv_python), "-m", "tools.context_index.context_index", "--root", str(dest), "status"],
-        cwd=dest, text=True, capture_output=True, check=True, timeout=60,
-    )
-    subprocess.run(
-        [str(venv_dir / "bin/librarian-mcp"), "--help"],
-        cwd=dest, text=True, capture_output=True, check=True, timeout=30,
-    )
-    private_dir(dest / ".local")
-    json_write(dest / ".local/mvp-sources.json", {
-        "schema": "librarian.mvp-instance/v1",
-        "source_toolkit": str(source),
-        "instance_root": str(dest),
-        "inbox": str(resolved_inbox) if resolved_inbox is not None else None,
-        "repos_root": str(resolved_repos) if resolved_repos is not None else None,
-    }, replace=True)
-    json_write(dest / ".local/engineer-context.json", {
-        "schema": "engineer.context-config/v2",
-        "librarian": {
-            "project_id": "falcon-librarian-mvp",
-            "executable": str(venv_dir / "bin/librarian-mcp"),
-            "root": str(dest),
-            "reader": None,
-            "selection": str(selection_local),
-        },
-    }, replace=True)
-    if bind_mcp:
-        configure_librarian(dest, venv_dir / "bin/librarian-mcp", None, selection_local)
-    summary = {
-        "instance_root": str(dest),
-        "executable": str(venv_dir / "bin/librarian-mcp"),
-        "policy_local": str(policy_local),
-        "selection_local": str(selection_local),
-        "engineer_context_config": str(dest / ".local/engineer-context.json"),
-        "inbox": str(resolved_inbox) if resolved_inbox is not None else None,
-        "repos_root": str(resolved_repos) if resolved_repos is not None else None,
-        "mcp_bound": bool(bind_mcp),
-    }
-    print(json.dumps(summary, indent=2))
-    return summary
 
 
 def validate_key(key):
@@ -1572,8 +1340,7 @@ def install_pi_extensions():
         pinned = {npm_package_name(extension): extension for extension in PI_EXTENSIONS}
         config["packages"] = [
             pkg for pkg in config["packages"]
-            if pkg != LEGACY_PI_REVIEW_EXTENSION
-            and pinned.get(npm_package_name(pkg), pkg) == pkg
+            if pinned.get(npm_package_name(pkg), pkg) == pkg
         ]
     config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
     json_write(path, config, replace=True)
@@ -1867,13 +1634,8 @@ def configure_private_pi_tracking():
             tracking = json.loads(private_read(metadata))
             if config.get("archive_content") != tracking["archive_content"]:
                 raise RuntimeError("existing AgentsView archive policy differs from tracking metadata")
-            existing = config.get("agents", {}).get("direct-api")
-            if existing is None:
-                updated = private_read(path) + f'\n[agents.direct-api]\ndirs = {json.dumps(direct_api)}\n'
-                tomllib.loads(updated)
-                private_write(path, updated, replace=True)
-                print("Added Direct API usage directories to existing AgentsView tracking.")
-            elif existing.get("dirs") != direct_api:
+            existing = config.get("agents", {}).get("direct-api") or {}
+            if existing.get("dirs") != direct_api:
                 raise RuntimeError("existing AgentsView direct-api directories differ; review before changing them")
             print("Existing configured AgentsView tracking preserved; no sources or archive policy changed.")
             return
@@ -2973,14 +2735,6 @@ def main():
                          help="opt in to the Librarian's private full-text audit log for managed bindings")
     lib_cfg.add_argument("--copilot-config", type=Path,
                          help="also bind this Copilot MCP config's falcon-librarian server (never implicit)")
-    mvp = commands.add_parser("provision-librarian-mvp",
-                              help="package and initialize an isolated Librarian MVP instance (Layer 1 isolation)")
-    mvp.add_argument("--source", type=Path, default=Path.home() / "the_librarian")
-    mvp.add_argument("--dest", type=Path, default=Path.home() / "falcon-librarian-mvp")
-    mvp.add_argument("--inbox", type=Path)
-    mvp.add_argument("--repos-root", type=Path)
-    mvp.add_argument("--bind-mcp", action="store_true",
-                     help="also rebind the private falcon-librarian MCP server to this instance")
     args = parser.parse_args()
     try:
         if args.command == "setup":
@@ -2990,9 +2744,6 @@ def main():
             configure_librarian(args.librarian_root, args.librarian_executable,
                                 args.librarian_reader, args.librarian_selection,
                                 audit=args.audit, copilot_config=args.copilot_config)
-        elif args.command == "provision-librarian-mvp":
-            provision_librarian_mvp(args.source, args.dest, inbox=args.inbox,
-                                    repos_root=args.repos_root, bind_mcp=args.bind_mcp)
         elif args.command == "run":
             serve()
         elif args.command == "stop":

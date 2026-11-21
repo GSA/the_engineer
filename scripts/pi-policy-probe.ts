@@ -1,7 +1,7 @@
 import { writeSync } from "node:fs";
 
 // No-model probe: report the policy Pi assembled for the first provider request,
-// then exit before any request is sent. Used by scripts/verify-pi-policy.py.
+// then exit before any request is sent. Used by `local_env.py verify-pi-policy`.
 export default function policyProbe(pi: any): void {
 	let report: Record<string, unknown> = {};
 	pi.on("context_with_system", async (event: any) => {

@@ -158,10 +158,10 @@ def check_index(index):
 
 
 def index_from_mcp(path):
-    """Index settings of the falcon-librarian server (or its legacy falcon-context name) in a Pi mcp.json, if any."""
+    """Index settings of the falcon-librarian server in a Pi mcp.json, if any."""
     try:
         servers = json.loads(Path(path).read_text())["mcpServers"]
-        server = servers.get("falcon-librarian") or servers["falcon-context"]
+        server = servers["falcon-librarian"]
         args = server["args"]
         return {"python": str(Path(server["command"]).parent / "python"),
                 "root": args[args.index("--root") + 1],
