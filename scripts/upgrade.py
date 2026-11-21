@@ -393,9 +393,8 @@ def local_env_command(*args):
 
 
 def setup_command(config):
-    command = local_env_command("setup", "--corpus", config["corpus"],
-                                "--forge-binary", config["forge_binary"])
-    for key in ("librarian_executable", "librarian_reader", "librarian_root", "librarian_selection"):
+    command = local_env_command("setup", "--forge-binary", config["forge_binary"])
+    for key in ("corpus", "librarian_executable", "librarian_reader", "librarian_root", "librarian_selection"):
         if config.get(key):
             command += [f"--{key.replace('_', '-')}", config[key]]
     return command

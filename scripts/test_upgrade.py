@@ -134,6 +134,13 @@ class SubmoduleTests(TempRoot):
             upgrade.advance_submodule(clone)
 
 
+class SetupCommandTests(unittest.TestCase):
+    def test_teammate_config_without_corpus_omits_the_flag(self):
+        command = upgrade.setup_command({"forge_binary": "/fake/forge"})
+        self.assertNotIn("--corpus", command)
+        self.assertEqual(command[-2:], ["--forge-binary", "/fake/forge"])
+
+
 class LiveRollbackTests(TempRoot):
     """A fake live environment: a superproject pinning kata, services, data and a binary."""
 

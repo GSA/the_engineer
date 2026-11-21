@@ -50,7 +50,7 @@ export function prEvidenceNote(command: string, output: string, cwd: string): st
 		const ticket = shown?.issue?.metadata?.["jira.key"];
 		const labelled = (shown?.labels ?? []).some((item: any) => item?.label === "evidence");
 		if (!ticket && !labelled) return null;
-		const root = process.env.KENN_KOPY_RUNTIME_ROOT || cwd;
+		const root = process.env.ENGINEER_RUNTIME_ROOT || cwd;
 		const script = join(root, "scripts", "demo-capture.py");
 		const base = prBase(createArgs);
 		const classifyArgs = [script, "classify", ...(base ? ["--base", `origin/${base}`] : [])];
