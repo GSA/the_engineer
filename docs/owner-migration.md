@@ -17,6 +17,7 @@ python3 scripts/local_env.py accept --repo OLD        # record the baseline: eve
 systemctl --user list-unit-files 'P-*.service'
 ls -l ~/.local/bin/kata ~/.local/bin/roborev ~/.roborev
 grep -rl "OLD" ~/.pi/agent ~/.copilot ~/.kata 2>/dev/null   # global configs that name the old path
+grep -l "OLD" OLD/.pi/mcp.json OLD/.github/mcp.json              # ignored project MCP configs
 git -C OLD worktree list                                     # Forge worktrees live under OLD/.local
 for r in $(python3 scripts/local_env.py status | python3 -c 'import json,sys;[print(p["local_path"]) for p in json.load(sys.stdin)["projects"] or []]'); do
   grep -l "OLD" "$r/.git/hooks/"* 2>/dev/null                # roborev hooks embed the roborev path
@@ -48,12 +49,35 @@ p.write_text(json.dumps(c, indent=2) + "\n")
 PY
 ```
 
-Then rewrite the remaining absolute paths that still name `OLD_ABSOLUTE` in
-`.local/environment/{forge,roborev,kata}/config.toml`, `pi/mcp.json`,
-`pi/settings.json` and `agentsview/config.toml` (`grep -rl OLD_ABSOLUTE .local/environment`).
-Kata, Forge and roborev databases store project IDs and history, not the
-checkout path. Forge worktree records do name it: run
-`git worktree repair` in `NEW` and in each registered repository.
+Then rewrite `OLD_ABSOLUTE` to `NEW_ABSOLUTE` in the live configuration:
+`.local/environment/{forge,roborev}/config.toml`, `agentsview/config.toml`,
+`agentsview-tracking.json`, `roborev-service.json` (also its unit name),
+`pi/{mcp,settings,trust}.json`, `pi/extensions/kata.js`, and the ignored
+project MCP configs `.pi/mcp.json` and `.github/mcp.json`. In
+`forge/config.toml` also change the tmux label `P-local` to `engineer-local`.
+Leave logs, `tmp/`, `pi/missions/` and other history as they are
+(`grep -rlI OLD_ABSOLUTE .local/environment` lists every candidate).
+
+The databases also store the checkout path. With the services stopped, back
+them up (`sqlite3` `.backup` or Python `Connection.backup`) and replace
+`OLD_ABSOLUTE` with `NEW_ABSOLUTE` in:
+
+- `forge/forge.db`: `forge_projects.local_path`, `forge_project_worktrees.path`,
+  `forge_workspaces.worktree_path`, `forge_mr_worktree_links.worktree_key` and
+  `.worktree_path`, `forge_worktree_stats.path`;
+- `kata/kata.db`: `project_aliases.alias_identity` (`local://OLD_ABSOLUTE`);
+- `roborev/reviews.db`: `repos.root_path` and `repos.identity`.
+
+Forge has no API to change a project's path. AgentsView keys sessions by ID
+and updates `file_path` on its next sync, so leave `sessions.db` alone.
+
+Repair worktrees. Run `git worktree repair` inside each moved worktree that
+belongs to another repository (`find .local -name .git -type f`), and
+`git worktree repair PATH…` in `NEW` for its own worktrees. Worktrees of Forge
+clones (`.local/environment/forge/clones/`) moved with their clone: rewrite
+the `gitdir:` line in the worktree's `.git` file to `NEW_ABSOLUTE`, then run
+`git worktree repair` in it. Worktrees whose source repository no longer
+exists stay broken; that does not come from the move.
 
 ## 3. Reinstall units, links and hooks
 
@@ -64,8 +88,12 @@ ln -sfn NEW/kata/kata ~/.local/bin/kata
 ln -sfn NEW/roborev/bin/roborev ~/.local/bin/roborev
 ln -sfn NEW/.local/environment/roborev ~/.roborev
 for n in kata agentsview roborev forge; do python3 scripts/local_env.py install-$n-service; done
-python3 scripts/local_env.py set-key        # only if a global Pi provider linked the old usai-key.py path
 ```
+
+If `~/.pi/agent/models.json` or `~/.pi/agent/trust.json` names `OLD_ABSOLUTE`
+(the global Pi provider's `usai-key.py` command and workspace trust), back them
+up and rewrite the path. If `install-roborev-service` reports
+`Permission denied: '/proc/PID/exe'` right after the unit starts, run it again.
 
 For each registered repository, run `python3 scripts/local_env.py init-repo REPO`
 again. It rewrites the roborev hooks to the new path and keeps `.kata.toml`,
@@ -86,7 +114,7 @@ again. It rewrites the roborev hooks to the new path and keeps `.kata.toml`,
 for n in kata agentsview roborev forge; do systemctl --user disable --now engineer-$n.service; done
 rm -f ~/.config/systemd/user/engineer-*.service
 mv NEW OLD && cd OLD
-tar --zstd -xf ~/engineer-migration-backup.tar.zst -C OLD     # restores the old environment.json and configs
+tar --zstd -xf ~/engineer-migration-backup.tar.zst -C OLD     # restores the old environment.json, configs and databases
 ln -sfn OLD/kata/kata ~/.local/bin/kata
 ln -sfn OLD/roborev/bin/roborev ~/.local/bin/roborev
 ln -sfn OLD/.local/environment/roborev ~/.roborev
@@ -95,7 +123,8 @@ for n in kata agentsview roborev forge; do python3 scripts/local_env.py install-
 
 The restored `environment.json` has no `unit_prefix`, so `install-*-service`
 recreates, links and starts the original `P-*.service` units. Run `init-repo`
-for each repository and `git worktree repair`, then confirm that `accept`
+for each repository and `git worktree repair`, restore the backed-up
+`~/.pi/agent/{models,trust}.json` and project MCP configs, then confirm that `accept`
 matches the baseline.
 
 After migration the checkout still has no `.local/engineer-install.json`, so
