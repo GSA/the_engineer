@@ -271,10 +271,31 @@ def private_write(path, text, *, replace=False):
         temporary.unlink(missing_ok=True)
 
 
+def dev_tools_installed(config=None):
+    """True when setup recorded Forge, so the developer tools (Forge, Kata, roborev) are installed."""
+    if config is None:
+        try:
+            config = json.loads(private_read(STATE / "environment.json"))
+        except FileNotFoundError:
+            return False
+    return "forge_binary" in config
+
+
+def installed_services(config=None):
+    return ACCEPT_SERVICES if dev_tools_installed(config) else ("agentsview",)
+
+
 def install_forge_extension():
-    """Install the Forge workspace extension directory; Pi loads extensions/forge-workspace/index.ts."""
+    """Install the Forge workspace extension directory; Pi loads extensions/forge-workspace/index.ts.
+
+    Without the developer tools the extension is removed: it reports to Forge and guards roborev.
+    """
     source = RUNTIME_ROOT / "scripts/pi-extensions/forge-workspace"
     destination = STATE / "pi/extensions/forge-workspace"
+    if not dev_tools_installed():
+        if destination.is_dir() and not destination.is_symlink():
+            shutil.rmtree(destination)
+        return
     if not source.is_dir():
         return
     private_dir(STATE / "pi/extensions")
@@ -526,10 +547,14 @@ def check_librarian_binding(corpus, executable=None, reader=None, root=None, sel
 
 def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None,
           librarian_root=None, librarian_selection=None):
-    """Create missing private settings; ``corpus=None`` installs without a Librarian binding."""
-    forge_binary = forge_binary.resolve()
-    if not forge_binary.is_file() or not os.access(forge_binary, os.R_OK):
-        raise RuntimeError(f"missing readable prerequisite: {forge_binary}")
+    """Create missing private settings; ``corpus=None`` installs without a Librarian binding.
+
+    ``forge_binary=None`` installs without the developer tools (Forge, Kata and roborev).
+    """
+    if forge_binary is not None:
+        forge_binary = forge_binary.resolve()
+        if not forge_binary.is_file() or not os.access(forge_binary, os.R_OK):
+            raise RuntimeError(f"missing readable prerequisite: {forge_binary}")
     if corpus is None and librarian_executable is None:
         server = reader = root = selection = None
     else:
@@ -541,8 +566,9 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     pi = shutil.which("pi")
     if pi is None:
         raise RuntimeError(f"install Pi {PI_VERSION} before setup")
-    config = {"forge_binary": str(forge_binary),
-              "pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    config = {"pi_executable": str(Path(pi).resolve()), "pi_version": PI_VERSION}
+    if forge_binary is not None:
+        config = {"forge_binary": str(forge_binary), **config}
     if corpus is not None:
         config = {"corpus": str(corpus), **config}
     if PORT_OFFSET:
@@ -567,11 +593,20 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
     verify_pi(config)
     if saved is not None:
         # verify_pi() proved the saved executable now runs PI_VERSION, so an
-        # older recorded pi_version is the only difference setup migrates.
-        if dict(saved, pi_version=PI_VERSION) != config:
+        # older recorded pi_version and adding or removing the developer tools
+        # are the only differences setup migrates.
+        comparable, expected = dict(saved, pi_version=PI_VERSION), config
+        if dev_tools_installed(saved) != dev_tools_installed(config):
+            comparable, expected = ({key: value for key, value in item.items() if key != "forge_binary"}
+                                    for item in (comparable, config))
+        if comparable != expected:
             raise RuntimeError(f"setup differs from saved paths/version/port offset; inspect {config_path} first")
-        if saved != config:
+        if saved.get("pi_version") != PI_VERSION:
             print(f"Migrating saved pi_version {saved.get('pi_version')!r} -> {PI_VERSION}")
+        if dev_tools_installed(saved) != dev_tools_installed(config):
+            print("Developer tools (Forge, Kata, roborev): "
+                  + ("added" if dev_tools_installed(config) else "removed from Pi's settings"))
+        if saved != config:
             json_write(config_path, config, replace=True)
     json_write(config_path, config)
     wrapper = RUNTIME_ROOT / "scripts/pi-local.py"
@@ -623,7 +658,7 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             "subagents": default_pi_subagents_settings(),
         },
     )
-    servers = {
+    servers = {} if forge_binary is None else {
         "kata": {
             "command": str(RUNTIME_ROOT / "kata/kata"),
             "args": ["mcp", "serve"],
@@ -659,8 +694,10 @@ def setup(corpus, forge_binary, librarian_executable=None, librarian_reader=None
             if saved_librarian not in (servers[LIBRARIAN_MCP_SERVER], audited):
                 raise RuntimeError(f"saved Librarian binding differs; inspect {mcp_path} first")
         missing = {name: value for name, value in servers.items() if name not in saved}
-        if missing:
-            json_write(mcp_path, {**mcp, "mcpServers": {**saved, **missing}}, replace=True)
+        dropped = [] if forge_binary is not None else [name for name in DEV_TOOL_MCP_SERVERS if name in saved]
+        if missing or dropped:
+            kept = {name: value for name, value in saved.items() if name not in dropped}
+            json_write(mcp_path, {**mcp, "mcpServers": {**kept, **missing}}, replace=True)
     else:
         json_write(mcp_path, {"mcpServers": servers})
     private_write(STATE / "pi/AGENTS.md", CODER_CONTRACT.read_text(), replace=True)
@@ -1344,6 +1381,9 @@ def install_pi_extensions():
         ]
     config["subagents"] = merge_pi_subagents_settings(config.get("subagents"))
     json_write(path, config, replace=True)
+    if not dev_tools_installed():
+        print(f"Installed {', '.join(PI_EXTENSIONS)} in the isolated Pi profile; no model request was made.")
+        return
     # Kata's native attention adapter only: AGENTS policy already carries the
     # Kata contract, so the adapter's prompt contract is removed.
     kata = str(RUNTIME_ROOT / "kata/kata")
@@ -2046,14 +2086,15 @@ def managed_kata(*, required=False):
 
 
 def managed_services():
-    services = {"agentsview": managed_agentsview(), "roborev": managed_roborev(),
-                "kata": managed_kata(), "forge": managed_forge()}
+    services = {name: globals()[f"managed_{name}"]() for name in ("agentsview", "roborev", "kata", "forge")
+                if name in installed_services()}
     return {name: service for name, service in services.items() if service is not None}
 
 
 def supervised_ports(external_services):
     external_ports = {port for name in external_services for port in SERVICE_PORTS[name]}
-    return tuple(port for port in PORTS if port not in external_ports)
+    installed = {port for name in installed_services() for port in SERVICE_PORTS[name]}
+    return tuple(port for port in PORTS if port in installed and port not in external_ports)
 
 
 def model_routing():
@@ -2084,7 +2125,8 @@ def status():
     saved = supervisor()
     if saved and external:
         saved.setdefault("external_services", {}).update(external)
-    forge = {"managed": True, **external["forge"]} if "forge" in external else forge_probe()
+    forge = ({"managed": True, **external["forge"]} if "forge" in external
+             else forge_probe() if dev_tools_installed() else None)
     return {"stack": "running" if saved else "stopped", "supervisor": saved,
             "agentsview_service": external.get("agentsview"),
             "roborev_service": external.get("roborev"),
@@ -2099,6 +2141,7 @@ def status():
 
 ACCEPT_SERVICES = ("kata", "agentsview", "roborev", "forge")
 ACCEPT_MCP_SERVERS = ("kata", "kenn-forge")
+DEV_TOOL_MCP_SERVERS = ACCEPT_MCP_SERVERS
 
 
 def accept_command_output(name):
@@ -2113,8 +2156,10 @@ def accept_command_output(name):
 
 def accept_binaries():
     config = settings(create=False)
-    binaries = (RUNTIME_ROOT / "kata/kata", RUNTIME_ROOT / "roborev/bin/roborev",
-                RUNTIME_ROOT / "agentsview/agentsview", Path(config["forge_binary"]), GH_BINARY)
+    binaries = (RUNTIME_ROOT / "agentsview/agentsview", GH_BINARY)
+    if dev_tools_installed(config):
+        binaries = (RUNTIME_ROOT / "kata/kata", RUNTIME_ROOT / "roborev/bin/roborev",
+                    RUNTIME_ROOT / "agentsview/agentsview", Path(config["forge_binary"]), GH_BINARY)
     return [str(path) for path in binaries if not (path.is_file() and os.access(path, os.X_OK))]
 
 
@@ -2250,9 +2295,11 @@ def accept(home=None, repos=()):
     def mcp():
         servers = json.loads(private_read(STATE / "pi/mcp.json"))["mcpServers"]
         output = accept_command_output("mcp")
-        absent = [name for name in ACCEPT_MCP_SERVERS if name not in servers]
+        absent = [name for name in ACCEPT_MCP_SERVERS if name not in servers and dev_tools]
         if absent:
             raise RuntimeError(f"not configured: {', '.join(absent)}; rerun {command} setup")
+        if not servers:
+            return
         missing = [name for name in servers if f"{name}: connected" not in output]
         if missing:
             raise RuntimeError(f"not connected: {', '.join(missing)}; "
@@ -2293,13 +2340,27 @@ def accept(home=None, repos=()):
     def service(name):
         return lambda: globals()[f"managed_{name}"](required=True)
 
+    try:
+        dev_tools = dev_tools_installed(settings(create=False))
+    except (OSError, ValueError, RuntimeError):
+        dev_tools = True
     checks = [("pi", pi), ("pi-extensions", extensions), ("binaries", binaries),
-              ("submodules", submodules), ("native-links", links), ("mcp", mcp),
-              *((f"service:{name}", service(name)) for name in ACCEPT_SERVICES),
-              ("usai-provider", provider), ("usai-key", key), ("github-login", github),
+              ("submodules", submodules), *((("native-links", links),) if dev_tools else ()), ("mcp", mcp),
+              *((f"service:{name}", service(name)) for name in (ACCEPT_SERVICES if dev_tools
+                                                                   else ("agentsview",))),
+              ("usai-provider", provider), ("usai-key", key),
+              *((("github-login", github),) if dev_tools else ()),
               *((f"repo:{Path(repo).expanduser().resolve()}", lambda repo=repo: accept_repo(Path(repo)))
-                for repo in repos)]
+                for repo in (repos if dev_tools else ()))]
     failures = []
+    if not dev_tools:
+        print("SKIP developer tools: Forge, Kata and roborev were not installed (optional)")
+        try:
+            github()
+        except RuntimeError:
+            print("SKIP github-login: optional without the developer tools")
+        else:
+            print("PASS github-login")
     try:
         librarian_bound = LIBRARIAN_MCP_SERVER in json.loads(private_read(STATE / "pi/mcp.json"))["mcpServers"]
     except (OSError, ValueError, KeyError, TypeError):
@@ -2543,19 +2604,22 @@ def serve():
         external = managed_services()
         owned_ports = supervised_ports(external)
         check_ports(owned_ports)
-        validate_roborev_config()
-        validate_kata_config()
-        forge = forge_command(config)
-        roborev = roborev_command()
-        services = [
-            ("roborev", Path(roborev[0]), roborev[1:],
-             f"http://127.0.0.1:{ROBOREV_PORT}/api/status"),
-            ("kata", RUNTIME_ROOT / "kata/kata", kata_command()[1:],
-             f"{KATA_URL}/api/v1/health"),
-            ("agentsview", RUNTIME_ROOT / "agentsview/agentsview", agentsview_command()[1:],
-             f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/ping"),
-            ("forge", Path(forge[0]), forge[1:], f"http://127.0.0.1:{FORGE_PORT}/healthz"),
-        ]
+        agentsview = ("agentsview", RUNTIME_ROOT / "agentsview/agentsview", agentsview_command()[1:],
+                      f"http://127.0.0.1:{AGENTSVIEW_PORT}/api/ping")
+        services = [agentsview]
+        if dev_tools_installed(config):
+            validate_roborev_config()
+            validate_kata_config()
+            forge = forge_command(config)
+            roborev = roborev_command()
+            services = [
+                ("roborev", Path(roborev[0]), roborev[1:],
+                 f"http://127.0.0.1:{ROBOREV_PORT}/api/status"),
+                ("kata", RUNTIME_ROOT / "kata/kata", kata_command()[1:],
+                 f"{KATA_URL}/api/v1/health"),
+                agentsview,
+                ("forge", Path(forge[0]), forge[1:], f"http://127.0.0.1:{FORGE_PORT}/healthz"),
+            ]
         services = [service for service in services if service[0] not in external]
         for name, service in external.items():
             print(f"{name} retained under {service['unit']} (PID {service['pid']})", flush=True)
@@ -2605,7 +2669,8 @@ def serve():
                  "external_services": external}
         json_write(STATE / "runtime/supervisor.json", saved, replace=True)
         saved_supervisor = True
-        print(f"Local environment ready; Forge: http://127.0.0.1:{FORGE_PORT}/", flush=True)
+        print("Local environment ready; " + (f"Forge: http://127.0.0.1:{FORGE_PORT}/" if dev_tools_installed(config)
+              else f"AgentsView: http://127.0.0.1:{AGENTSVIEW_PORT}/"), flush=True)
         print("Ctrl+C or `python3 scripts/local_env.py stop` stops owned services, not saved data.", flush=True)
         while True:
             for name, process in children:
@@ -2667,7 +2732,8 @@ def main():
     init = commands.add_parser("setup", help="create missing private settings without overwriting existing ones")
     init.add_argument("--corpus", type=Path,
                       help="optional legacy Falcon corpus checkout; omit to install without Librarian")
-    init.add_argument("--forge-binary", type=Path, required=True)
+    init.add_argument("--forge-binary", type=Path,
+                      help="Forge executable; omit to install without Forge, Kata and roborev")
     init.add_argument("--librarian-executable", type=Path)
     init.add_argument("--librarian-reader", type=Path)
     init.add_argument("--librarian-root", type=Path)

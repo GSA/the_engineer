@@ -9,15 +9,20 @@ organized and reviewed:
 | --- | --- |
 | **Pi** | AI coding assistant in your terminal, using USAi |
 | **GitHub Copilot CLI** (optional) | Copilot's terminal assistant, also using USAi; no Copilot license needed |
-| **Forge** | Web dashboard: start an AI "workspace" for a task and watch it work |
-| **Kata** | Task list the AI and you share |
-| **roborev** | A second AI model reviews every change before you see it |
+| **Forge** (developer tools) | Web dashboard: start an AI "workspace" for a task and watch it work |
+| **Kata** (developer tools) | Task list the AI and you share |
+| **roborev** (developer tools) | A second AI model reviews every change before you see it |
 | **AgentsView** | History and usage of every AI session |
 | **Superpowers** | Built-in skills that make the AI plan, test and verify, not just type |
 
 Everything runs on your own computer and is reachable only from it
 (`127.0.0.1`). Your USAi key stays in one private file and is never shown,
 logged or put in Git.
+
+**New to terminals and on Windows?** Use
+[Simple Engineer](https://github.com/GSA/simple-engineer) instead: one
+double-click sets up WSL, Ubuntu and Engineer, and adds Start menu shortcuts
+(including **Update USAi key**).
 
 ## What you need
 
@@ -46,16 +51,22 @@ The installer explains each step and asks before it changes anything:
    (Pi is always set up). If you already use GitHub Copilot with your own
    license, you can keep the plain `copilot` command as it is and use
    `./engineer copilot` for USAi.
-3. **Build.** It builds and starts the four services. This takes 10–20 minutes
-   the first time.
-4. **Your USAi key.** It asks for the key at a hidden prompt and checks it
+3. **Developer tools.** It asks whether to install the developer tools
+   (Forge, Kata and roborev). If you only want an AI assistant, answer no:
+   you still get Pi and AgentsView, which shows your AI usage. Add them later
+   with `./engineer install --dev-tools yes`.
+4. **Build.** It builds and starts the services: all four with the developer
+   tools (10–20 minutes the first time), otherwise only AgentsView.
+5. **Your USAi key.** It asks for the key at a hidden prompt and checks it
    with USAi before saving it.
-5. **GitHub.** It shows a code and a link for signing in to GitHub.
-6. **Check.** It runs `./engineer doctor` and prints the dashboard links.
+6. **GitHub.** It shows a code and a link for signing in to GitHub (optional
+   without the developer tools).
+7. **Check.** It runs `./engineer doctor` and prints the dashboard links.
 
 Open a new terminal afterwards so the `engineer` command works from any folder.
 If something stops the install, fix what the message says and run
-`./engineer install` again. It picks up where it left off.
+`./engineer install` again. It picks up where it left off and remembers your
+answers; `--copilot yes|no` and `--dev-tools yes|no` change them.
 
 ## Everyday use
 
@@ -66,9 +77,11 @@ If something stops the install, fix what the message says and run
 ./engineer start       # start the services (they also start when you log in)
 ./engineer stop        # stop them; nothing is lost
 ./engineer doctor      # check everything; every problem comes with the command that fixes it
+./engineer install --dev-tools yes   # add Forge, Kata and roborev later (`no` removes their services)
 ```
 
-Dashboards (open them in your browser):
+Dashboards (open them in your browser; without the developer tools only
+AgentsView runs):
 
 | Dashboard | Link |
 | --- | --- |
@@ -79,7 +92,8 @@ Dashboards (open them in your browser):
 
 ### Work on a repository
 
-Set up each Git repository you want the AI to work in once:
+This needs the developer tools. Set up each Git repository you want the AI to
+work in once:
 
 ```sh
 ./engineer add-repo ~/path/to/your-repo
