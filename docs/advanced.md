@@ -245,6 +245,11 @@ handler directories, async queue/stream wiring, and CloudFormation cross-stack
 imports). It prints compact `file:line` citations, and supports `--kind`,
 `--query` and `--format compact|markdown|json`.
 
+The scanner is project-agnostic. Every seam and `detail` string comes from text
+it matched in the scanned files, and heuristic findings read "POSSIBLE
+MISMATCH" or "marker" so you verify them at the cited line. It carries no
+repository names, route tables or behavior notes for any particular system.
+
 Agents reach the same four read-only operations (`collect`, `report`,
 `revalidate`, and `seams`) through a stdio MCP server configured once at
 startup (`engineer-seams` is also installed as a standalone CLI entry point
