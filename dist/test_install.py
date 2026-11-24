@@ -167,7 +167,8 @@ class InstallerTests(unittest.TestCase):
         with patch.object(installer.shutil, "which", return_value="/available"), \
                 patch.object(installer, "capture", side_effect=capture), \
                 patch.object(installer, "check_c_toolchain"), \
-                patch.object(installer, "check_python_venv"):
+                patch.object(installer, "check_python_venv"), \
+                patch.object(installer.importlib.util, "find_spec", return_value=object()):
             errors = installer.prerequisites(self.corpus, executable, reader, root, selection)
         self.assertEqual(errors, [])
         self.assertIn([str(executable), "--help"], commands)

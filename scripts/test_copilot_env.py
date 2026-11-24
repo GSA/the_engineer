@@ -9,11 +9,12 @@ from unittest.mock import patch
 
 import copilot_env
 import local_env
+import local_state
 
 
 class CopilotEnvironmentTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="copilot-env-test-", dir=local_env.ROOT / ".local")
+        self.temporary = tempfile.TemporaryDirectory(prefix="copilot-env-test-", dir=local_state.state_parent())
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.state = self.root / "environment"
