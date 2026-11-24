@@ -201,7 +201,9 @@ authorization.
   `settings.json` via `python3 scripts/local_env.py set-key` and
   `configure-provider`. The API key is stored at
   `.local/environment/secrets/usai-api-key` (`0600`) and read on demand via
-  `!python3 <checkout>/scripts/usai-key.py`.
+  `!python3 <checkout>/scripts/usai-key.py` (private and global Pi alike); the key
+  is never exported as `USAI_API_KEY`, and the Forge PR-summary extension gets it
+  from Pi's model registry.
 - **GitHub CLI (`gh`)**: isolated under `.local/environment/gh/` via
   `./scripts/gh-local.py auth login`.
 - **Copilot CLI**: teammates who choose it at install run `./engineer copilot`,

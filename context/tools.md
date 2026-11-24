@@ -96,6 +96,10 @@ review page (no Forge Reviews tab), reported as `GAP native-review-ui`.
   `librarian-mcp --help`; unmanaged bindings are reported, not edited. Flags
   apply when a client restarts its MCP process; `scripts/verify-audit-binding.mjs`
   checks a fresh Pi client against the audit log.
+- `engineer_context.librarian.child_environment()`: the task-bound evidence
+  consumer starts `librarian-mcp` with the MCP SDK's safe defaults plus locale,
+  home and virtualenv variables only; tokens and keys in the host environment
+  do not reach it.
 - `scripts/decision-trail.py`: read-only per-task retrospective into
   `.local/decision-trail/` joining Kata, intake approval, audit log, Forge
   workspace, Pi session, git, roborev and `gh`; absent links print `MISSING`.

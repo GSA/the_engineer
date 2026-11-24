@@ -109,15 +109,14 @@ def check_install_owner():
             "not change it. Keep using those scripts here, or clone Engineer into a new folder.")
 
 
-def install_choices(ask, *, saved, copilot_flag, dev_tools_flag=None, simple=False):
-    """``simple`` (the simple-engineer wrapper) defaults Copilot and the developer tools to no."""
+def install_choices(ask, *, saved, copilot_flag, dev_tools_flag=None):
     choices = {}
     if copilot_flag is not None:
         choices["copilot"] = copilot_flag == "yes"
     elif "copilot" in saved:
         choices["copilot"] = saved["copilot"]
     else:
-        choices["copilot"] = ask("Also set up GitHub Copilot CLI to use USAi? (Pi is always set up)", not simple)
+        choices["copilot"] = ask("Also set up GitHub Copilot CLI to use USAi? (Pi is always set up)", True)
     if not choices["copilot"]:
         choices["copilot_command"] = False
     elif "copilot_command" in saved:
@@ -136,7 +135,7 @@ def install_choices(ask, *, saved, copilot_flag, dev_tools_flag=None, simple=Fal
     else:
         choices["dev_tools"] = ask(
             "Also install the developer tools (Forge workspaces, Kata tasks, roborev reviews)? "
-            "Most people who only want an AI assistant can say no.", not simple)
+            "Most people who only want an AI assistant can say no.", True)
     if "pi_command" in saved:
         choices["pi_command"] = saved["pi_command"]
     else:
@@ -203,7 +202,7 @@ def install(args):
         record = {"units": [], "repos": [], "choices": record.get("choices", {})}
     record.setdefault("kata_config_existed", (HOME / ".kata/config.toml").exists())
     choices = install_choices(ask, saved=record.get("choices", {}), copilot_flag=args.copilot,
-                              dev_tools_flag=args.dev_tools, simple=args.simple)
+                              dev_tools_flag=args.dev_tools)
     record["choices"] = choices
     save_manifest(record)
     services = chosen_services(choices)
@@ -511,8 +510,6 @@ def update(args):
         argv += ["--copilot", args.copilot]
     if args.dev_tools:
         argv += ["--dev-tools", args.dev_tools]
-    if args.simple:
-        argv.append("--simple")
     os.execv(sys.executable, argv)
 
 
@@ -582,7 +579,6 @@ def build_parser():
     setup.add_argument("--copilot", choices=("yes", "no"), help="set up Copilot CLI on USAi without asking")
     setup.add_argument("--dev-tools", choices=("yes", "no"),
                        help="install the developer tools (Forge, Kata, roborev) without asking")
-    setup.add_argument("--simple", action="store_true", help=argparse.SUPPRESS)
     setup.add_argument("--yes", action="store_true", help="accept the default answer to every question")
     setup.set_defaults(func=install)
     commands.add_parser("doctor", help="check the installation and say how to fix problems").set_defaults(func=doctor)
@@ -603,7 +599,6 @@ def build_parser():
     upgrade = commands.add_parser("update", help="download the latest Engineer and rebuild")
     upgrade.add_argument("--copilot", choices=("yes", "no"), help=argparse.SUPPRESS)
     upgrade.add_argument("--dev-tools", choices=("yes", "no"), help=argparse.SUPPRESS)
-    upgrade.add_argument("--simple", action="store_true", help=argparse.SUPPRESS)
     upgrade.add_argument("--yes", action="store_true", help="accept the default answer to every question")
     upgrade.set_defaults(func=update)
     remove = commands.add_parser("uninstall", help="remove Engineer (keeps your data unless --purge)")

@@ -17,12 +17,13 @@ organized and reviewed:
 
 Everything runs on your own computer and is reachable only from it
 (`127.0.0.1`). Your USAi key stays in one private file and is never shown,
-logged or put in Git.
+logged or put in Git. It is not placed in any environment variable, so agent
+shell commands do not inherit it.
 
-**New to terminals and on Windows?** Use
-[Simple Engineer](https://github.com/GSA/simple-engineer) instead: one
-double-click sets up WSL, Ubuntu and Engineer, and adds Start menu shortcuts
-(including **Update USAi key**).
+**New to terminals and on Windows?** [Pocket Engineer](https://github.com/GSA/pocket-engineer)
+is a separate, lighter product: a one-double-click Windows installer for Pi and
+Copilot on USAi. It has its own setup and does not use this repository. Do not install both on one machine (its installer asks you to
+uninstall `~/engineer` first).
 
 ## What you need
 
@@ -127,7 +128,9 @@ or Copilot windows that were already open.
 ```
 
 - The key is stored only in `.local/environment/secrets/usai-api-key`, readable
-  only by you. Never paste it into a chat, a file in Git, or a command.
+  only by you. Never paste it into a chat, a file in Git, or a command. Agents
+  run as you, so they could read that file if told to; treat prompts and
+  untrusted content accordingly.
 - The defaults are `claude-sonnet-5.5` for coding and
   `gpt-6.1-sol-latest-guardrails-defaultv2` for review. Coding and review use
   different model families on purpose, so one model checks the other's work.
@@ -160,7 +163,8 @@ where they need you.
   answer as a draft from a fast, confident junior colleague: check it.
 - **Built-in guard rails:** a second model reviews each change (roborev),
   agents cannot push to `main` or merge, every session is recorded in
-  AgentsView, and your key never leaves the private file.
+  AgentsView, and your key is read from its private file only when a model
+  request needs it (never from an environment variable).
 - **Limits:** models can be wrong while sounding sure, they forget earlier
   details in very long sessions, and they only know what is in the repository,
   the task and what you tell them. Keep tasks small and specific.

@@ -14,6 +14,7 @@ let hooks;
 let confirms;
 let contextRequests;
 let summaryRequests;
+let summaryAuth;
 let summaryResponse;
 const saved = { ...process.env };
 const savedArgv = [...process.argv];
@@ -26,6 +27,7 @@ beforeEach(() => {
     confirms = [];
     contextRequests = [];
     summaryRequests = [];
+    summaryAuth = [];
     summaryResponse = { status: 200, text: "" };
     cwd = mkdtempSync(join(tmpdir(), "forge-ext-"));
     writeFileSync(join(cwd, "AGENTS.override.md"), "- Workspace ID: `ws1`\n");
@@ -35,6 +37,7 @@ beforeEach(() => {
         async fetch(req) {
             const path = new URL(req.url).pathname;
             if (path === "/chat/completions") {
+                summaryAuth.push(req.headers.get("Authorization"));
                 summaryRequests.push(await req.json());
                 return Response.json(
                     { choices: [{ message: { content: summaryResponse.text } }], usage: { prompt_tokens: 120, completion_tokens: 30 } },
@@ -70,9 +73,15 @@ beforeEach(() => {
     process.env.AGENTSVIEW_DIRECT_API_DIR = join(cwd, "direct-api");
 });
 
-async function summarizePr({ shortStat, draft, summary, status = 200, command = "gh pr create --body-file draft.md" }) {
+const usaiRegistry = (key = "synthetic-summary-test-key") => ({
+    getApiKeyForProvider: async (provider) => (provider === "usai" ? key : undefined),
+});
+
+async function summarizePr({ shortStat, draft, summary, status = 200, command = "gh pr create --body-file draft.md",
+    registry = usaiRegistry() }) {
     const url = "https://github.com/example/project/pull/42";
-    process.env.USAI_API_KEY = "synthetic-summary-test-key";
+    // The key reaches the extension only through Pi's model registry; a decoy proves the environment is ignored.
+    process.env.USAI_API_KEY = "environment-decoy-must-not-be-used";
     process.env.PI_CODING_AGENT_DIR = cwd;
     process.env.PATH = `${cwd}:${process.env.PATH}`;
     process.env.TEST_PR = JSON.stringify({ url, title: "Update widget behavior", body: draft, baseRefName: "main" });
@@ -96,6 +105,7 @@ else process.exit(1);
     summaryResponse = { status, text: summary };
     const h = load();
     const ctx = makeCtx({ mode: "print" });
+    if (registry) ctx.modelRegistry = registry;
     await h.tool_execution_start({
         toolName: "bash", toolCallId: "pr-write", args: { command },
     }, ctx);
@@ -213,6 +223,22 @@ test("PR summary call records a Direct API session", async () => {
         expect(raw).not.toContain("Summary.");
     } finally {
         rmSync(usageDir, { recursive: true, force: true });
+    }
+});
+
+test("PR summary authenticates with the registry key and ignores the environment", async () => {
+    const base = { shortStat: "1 file changed", draft: "Draft.", summary: "Summary." };
+    expect(await summarizePr(base)).toBe("Summary.\n");
+    expect(summaryAuth).toEqual(["Bearer synthetic-summary-test-key"]);
+});
+
+test("PR summary is skipped without a registry key even if the environment has one", async () => {
+    for (const registry of [{ getApiKeyForProvider: async () => undefined },
+        { getApiKeyForProvider: async () => { throw new Error("helper failed"); } }, null]) {
+        summaryRequests.length = 0;
+        const base = { shortStat: "1 file changed", draft: "Draft.", summary: "Summary.", registry };
+        expect(await summarizePr(base)).toBe(null);
+        expect(summaryRequests).toHaveLength(0);
     }
 });
 

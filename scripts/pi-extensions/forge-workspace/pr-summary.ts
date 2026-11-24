@@ -86,8 +86,19 @@ function runGitOrGh(cmd: string, args: string[], cwd: string, input?: string): s
 	}
 }
 
-export async function summarizePrWithGemini(cwd: string, commandOutput: string): Promise<void> {
-	const apiKey = process.env.USAI_API_KEY?.trim();
+// The key comes from Pi's model registry (the provider's `!command` apiKey), never from the
+// environment that agent shell commands inherit.
+async function resolveUsaiKey(modelRegistry: any): Promise<string | undefined> {
+	try {
+		const key = await modelRegistry?.getApiKeyForProvider?.("usai");
+		return typeof key === "string" && key.trim() ? key.trim() : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+export async function summarizePrWithGemini(cwd: string, commandOutput: string, modelRegistry?: unknown): Promise<void> {
+	const apiKey = await resolveUsaiKey(modelRegistry);
 	if (!apiKey) {
 		return;
 	}

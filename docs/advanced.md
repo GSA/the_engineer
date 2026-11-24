@@ -163,7 +163,7 @@ different root.
 | `secrets/usai-api-key` | USAi API key. This is the only place the key is stored. |
 | `usai.json` | Active coder `model` and `review_model` |
 | `usai-models.json` | Last model catalog fetched from USAi |
-| `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is the `${USAI_API_KEY}` placeholder. |
+| `pi/models.json` | Pi `usai` provider: base URL, API type, and models. The key field is a `!` command (`scripts/usai-key.py`) that Pi runs per request; the file never holds the key. |
 | `pi/settings.json` | Pi default provider and model, Superpowers and extension packages (`pi-subagents`, `pi-json-schema`), and subagent defaults (`model: inherit`) |
 | `pi/mcp.json` | Pi MCP servers: `kata`, `kenn-forge`, and `falcon-librarian` only where a Librarian is bound |
 | `pi/extensions/forge-workspace/` | Forge workspace extension (session hooks, worktree isolation, PR/target registration) |
@@ -304,8 +304,13 @@ are in `context/tool-failures.md`. The Forge Pi extension adds a one-line
 
 - `set-key` prompts for the key with hidden input. It rejects keys passed as an
   argument or piped in. The key is written only to `secrets/usai-api-key` (`0600`).
-- `scripts/pi-local.py` reads the key file on every launch and passes the key
-  only to that Pi process as `USAI_API_KEY`. Config files never contain the key.
+- The private `pi/models.json` points the `usai` provider at `scripts/usai-key.py`,
+  which Pi runs for each model request. The key is never placed in the
+  environment of Pi or of the shell commands it runs, and config files never
+  contain it. Launching Pi migrates an older `${USAI_API_KEY}` placeholder to
+  this form. Agents run as your user, so a command that reads
+  `secrets/usai-api-key` can still read it; the file mode (`0600`) protects it
+  from other users only.
 - `set-key` also points any existing global Pi USAi provider in `~/.pi/agent/`
   to `scripts/usai-key.py`, so global Pi reads the same file. Pass
   `--private-only` to skip that.
