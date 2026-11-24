@@ -196,8 +196,8 @@ The same package ships the stdlib-only cross-repository seam scanner
 seams`, MCP tool `seams`) for UI, API Gateway, CDK, Lambda, async and
 CloudFormation edges across repositories. It is content-driven and
 project-agnostic: no repository names, routes or behavior notes are embedded,
-and every `detail` is derived from the scanned files. Project-specific rules
-belong in a private, untracked file, not in this module.
+and every `detail` is derived from the scanned files. Keep project-specific
+rules out of this public module.
 
 Librarian facts to respect when extending it: identity is `the-librarian`
 0.3.0, it requires fresh `status` and returns exactly one JSON `TextContent`;
