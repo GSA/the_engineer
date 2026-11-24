@@ -32,6 +32,10 @@ AgentsView tracks Direct API sessions (`[agents.direct-api]` in
 and `configure-private-pi-tracking` write both. The agentsview submodule URL is
 upstream `kenn-io/agentsview`, and its pin tracks upstream `main`.
 
+`base_environment()` passes CA and proxy variables through to Forge, Pi agents and
+services and defaults the CA variables to the system bundle shared with
+`host_setup.SYSTEM_CA_BUNDLE` (`docs/advanced.md#tls-inspecting-corporate-proxies`).
+
 Check live health across all four services with:
 
 ```sh

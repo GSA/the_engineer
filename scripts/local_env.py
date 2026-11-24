@@ -387,6 +387,49 @@ def seed_isolated_gitconfig(home=None, *, host_config=None):
         private_write(ignore_path, updated_ignore, replace=True)
 
 
+# TLS-inspecting corporate proxies re-sign traffic with a private CA that the OS trust store
+# carries but venv pip (certifi), Node and httpx do not read unless told where it is.
+CA_BUNDLE_VARIABLES = (
+    "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "PIP_CERT",
+    "NODE_EXTRA_CA_CERTS", "AWS_CA_BUNDLE",
+)
+# When unset, these point at the system bundle (or the caller's SSL_CERT_FILE).
+CA_BUNDLE_DEFAULTS = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "PIP_CERT", "NODE_EXTRA_CA_CERTS")
+PROXY_VARIABLES = tuple(name for base in ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY")
+                        for name in (base, base.lower()))
+NODE_CA_OPTIONS = ("--use-openssl-ca", "--use-system-ca", "--use-bundled-ca")
+LOOPBACK_NO_PROXY = ("127.0.0.1", "localhost", "::1")
+
+
+def network_environment(source=None):
+    """CA bundle and proxy variables for child processes, from `source` (default os.environ)."""
+    source = os.environ if source is None else source
+    env = {name: source[name].strip() for name in CA_BUNDLE_VARIABLES + PROXY_VARIABLES
+           if source.get(name, "").strip()}
+    node_options = [option for option in source.get("NODE_OPTIONS", "").split()
+                    if option in NODE_CA_OPTIONS]
+    if node_options:
+        env["NODE_OPTIONS"] = " ".join(node_options)
+    bundle = env.get("SSL_CERT_FILE")
+    if not bundle and host_setup_module().SYSTEM_CA_BUNDLE.is_file():
+        bundle = str(host_setup_module().SYSTEM_CA_BUNDLE)
+    if bundle:
+        for name in CA_BUNDLE_DEFAULTS:
+            env.setdefault(name, bundle)
+    if any(name in env for name in PROXY_VARIABLES if "no_proxy" not in name.lower()):
+        # Local services are never behind the proxy. Clients differ on which case wins, so a
+        # lone NO_PROXY/no_proxy seeds both; a bypass-all "*" is left as is.
+        seed = env.get("NO_PROXY") or env.get("no_proxy", "")
+        for name in ("NO_PROXY", "no_proxy"):
+            value = env.get(name, seed)
+            if value.strip() != "*":
+                entries = [entry for entry in value.split(",") if entry.strip()]
+                entries += [host for host in LOOPBACK_NO_PROXY if host not in entries]
+                value = ",".join(entries)
+            env[name] = value
+    return env
+
+
 def base_environment(roborev_executable=None):
     home = STATE / "home"
     roborev_executable = roborev_binary() if roborev_executable is None else roborev_executable
@@ -421,6 +464,7 @@ def base_environment(roborev_executable=None):
         "GH_CONFIG_DIR": str(STATE / "gh"),
         "GH_PROMPT_DISABLED": "1",
     }
+    env.update(network_environment())
     if PYDEPS_DIR.is_dir():
         existing_py = os.environ.get("PYTHONPATH", "").strip()
         env["PYTHONPATH"] = f"{PYDEPS_DIR}{os.pathsep}{existing_py}" if existing_py else str(PYDEPS_DIR)
@@ -2044,6 +2088,7 @@ def kata_environment():
         "KATA_DSN": str(STATE / "kata/kata.db"),
         "KATA_DB": "",
         "KATA_TELEMETRY_ENABLED": "0",
+        **network_environment(),
     }
 
 
@@ -2185,6 +2230,15 @@ def accept_repo(repo):
     if not repo_init_module().is_installed(repo):
         raise RuntimeError("protected-branch push guard missing; run "
                            f"{sys.executable} {RUNTIME_ROOT / 'scripts/local_env.py'} init-repo {repo}")
+
+
+def host_setup_module():
+    """Import scripts/host_setup.py even when this file was loaded by path from elsewhere."""
+    scripts = str(Path(__file__).resolve().parent)
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import host_setup
+    return host_setup
 
 
 def repo_init_module():

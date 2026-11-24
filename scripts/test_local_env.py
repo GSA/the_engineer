@@ -68,6 +68,79 @@ class PiVersionTests(unittest.TestCase):
                 local_env.verify_pi({"pi_executable": "/test/pi"}, env={})
 
 
+class NetworkEnvironmentTests(unittest.TestCase):
+    """CA bundle and proxy pass-through for TLS-inspecting corporate proxies (synthetic paths only)."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.bundle = self.root / "system-bundle.crt"
+        self.bundle.write_text("synthetic bundle\n")
+
+    def network(self, source, bundle=None):
+        with patch.object(local_env.host_setup_module(), "SYSTEM_CA_BUNDLE", self.bundle if bundle is None else bundle):
+            return local_env.network_environment(source)
+
+    def test_defaults_to_system_bundle_when_unset(self):
+        env = self.network({})
+        for name in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "PIP_CERT", "NODE_EXTRA_CA_CERTS"):
+            self.assertEqual(env[name], str(self.bundle))
+        self.assertNotIn("CURL_CA_BUNDLE", env)
+        self.assertNotIn("HTTPS_PROXY", env)
+        self.assertNotIn("NO_PROXY", env)
+
+    def test_missing_bundle_sets_nothing(self):
+        self.assertEqual(self.network({}, bundle=self.root / "absent.crt"), {})
+
+    def test_caller_values_win_and_seed_the_other_defaults(self):
+        custom = "/synthetic/corporate.pem"
+        env = self.network({"SSL_CERT_FILE": custom, "PIP_CERT": "/synthetic/pip.pem",
+                            "SSL_CERT_DIR": "/synthetic/certs", "AWS_CA_BUNDLE": custom,
+                            "CURL_CA_BUNDLE": custom})
+        self.assertEqual(env["SSL_CERT_FILE"], custom)
+        self.assertEqual(env["PIP_CERT"], "/synthetic/pip.pem")
+        self.assertEqual(env["REQUESTS_CA_BUNDLE"], custom)
+        self.assertEqual(env["NODE_EXTRA_CA_CERTS"], custom)
+        self.assertEqual(env["SSL_CERT_DIR"], "/synthetic/certs")
+        self.assertEqual(env["AWS_CA_BUNDLE"], custom)
+        self.assertEqual(env["CURL_CA_BUNDLE"], custom)
+
+    def test_proxy_variables_pass_through_with_loopback_exempt(self):
+        env = self.network({"HTTPS_PROXY": "http://proxy.invalid:3128", "http_proxy": "http://proxy.invalid:3128",
+                            "NO_PROXY": ".example.invalid", "UNRELATED": "x"})
+        self.assertEqual(env["HTTPS_PROXY"], "http://proxy.invalid:3128")
+        self.assertEqual(env["http_proxy"], "http://proxy.invalid:3128")
+        self.assertEqual(env["NO_PROXY"], ".example.invalid,127.0.0.1,localhost,::1")
+        self.assertEqual(env["no_proxy"], ".example.invalid,127.0.0.1,localhost,::1")
+        self.assertNotIn("UNRELATED", env)
+
+    def test_no_proxy_cases_stay_consistent(self):
+        both = self.network({"HTTPS_PROXY": "http://proxy.invalid:3128",
+                             "NO_PROXY": ".upper.invalid", "no_proxy": ".lower.invalid"})
+        self.assertEqual(both["NO_PROXY"], ".upper.invalid,127.0.0.1,localhost,::1")
+        self.assertEqual(both["no_proxy"], ".lower.invalid,127.0.0.1,localhost,::1")
+        wildcard = self.network({"HTTPS_PROXY": "http://proxy.invalid:3128", "no_proxy": "*"})
+        self.assertEqual(wildcard["NO_PROXY"], "*")
+        self.assertEqual(wildcard["no_proxy"], "*")
+
+    def test_only_ca_node_options_pass_through(self):
+        env = self.network({"NODE_OPTIONS": "--max-old-space-size=64 --use-openssl-ca --inspect"})
+        self.assertEqual(env["NODE_OPTIONS"], "--use-openssl-ca")
+        self.assertNotIn("NODE_OPTIONS", self.network({"NODE_OPTIONS": "--inspect"}))
+
+    def test_base_and_kata_environments_carry_the_network_variables(self):
+        state = self.root / "state"
+        with patch.object(local_env, "STATE", state), \
+                patch.object(local_env.host_setup_module(), "SYSTEM_CA_BUNDLE", self.bundle), \
+                patch.dict(os.environ, {"HTTPS_PROXY": "http://proxy.invalid:3128"}):
+            base = local_env.base_environment(roborev_executable=self.root / "bin/roborev")
+            kata = local_env.kata_environment()
+        for env in (base, kata):
+            self.assertEqual(env["SSL_CERT_FILE"], str(self.bundle))
+            self.assertEqual(env["HTTPS_PROXY"], "http://proxy.invalid:3128")
+
+
 class PortOffsetTests(unittest.TestCase):
     def test_valid_offsets_are_accepted(self):
         for value, expected in (("0", 0), (" 1000 ", 1000), (1000, 1000), (20000, 20000)):
