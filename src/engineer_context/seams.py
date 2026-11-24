@@ -384,7 +384,7 @@ def scan_seams(repo_map: dict[str, Path]) -> list[dict]:
                         f"{h['name']}.handler [BATCH_FAILURE_MISMATCH]" if mismatch else f"{h['name']}.handler",
                         f"SQS -> {h['name']}",
                         (
-                            f"POSSIBLE MISMATCH: {h['repo']}:{h['entry_rel']} mentions batchItemFailures, "
+                            f"POSSIBLE MISMATCH: source under {h['repo']}:{h['dir_rel']} mentions batchItemFailures, "
                             f"but the SqsEventSource at {c_repo}:{c_rel}:L{line_no} has no reportBatchItemFailures: true in its arguments."
                             if mismatch
                             else f"{c_repo}:{c_rel}:L{line_no} SqsEventSource triggers {h['repo']}:{h['entry_rel']}."
