@@ -12,12 +12,13 @@ import unittest
 from unittest.mock import patch
 
 import local_env
+import local_state
 
 
 @unittest.skipUnless(shutil.which("tmux"), "tmux is not installed")
 class TerminalRuntimeTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix="terminal-test-", dir=local_env.ROOT / ".local")
+        temporary = tempfile.TemporaryDirectory(prefix="terminal-test-", dir=local_state.state_parent())
         self.addCleanup(temporary.cleanup)
         self.state = Path(temporary.name)
         self.state.chmod(0o700)

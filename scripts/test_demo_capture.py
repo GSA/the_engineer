@@ -647,7 +647,15 @@ class ToolchainTests(unittest.TestCase):
 
     def test_missing_browser_reports_actionable_guidance(self):
         with tempfile.TemporaryDirectory() as tmp:
-            report = demo.doctor(env={"PLAYWRIGHT_BROWSERS_PATH": tmp, "PATH": os.environ.get("PATH", "")})
+            core = Path(tmp) / "playwright-core"
+            core.mkdir()
+            (core / "browsers.json").write_text(json.dumps({"browsers": [
+                {"name": "chromium-headless-shell", "revision": "1"}, {"name": "ffmpeg", "revision": "1"}]}))
+            report = demo.doctor(env={
+                "ENGINEER_PLAYWRIGHT_CORE": str(core),
+                "PLAYWRIGHT_BROWSERS_PATH": str(Path(tmp) / "browsers"),
+                "PATH": os.environ.get("PATH", ""),
+            })
             self.assertFalse(report["ok"])
             self.assertTrue(any("browser" in item.lower() for item in report["problems"]))
 
