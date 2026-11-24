@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Shell syntax
-        run: bash -n dist/install.sh dist/container/run-acceptance.sh engineer
+        run: for f in dist/install.sh dist/container/run-acceptance.sh engineer; do bash -n "$f"; done
       - name: Python syntax
         run: python -m compileall -q src dist scripts tests
 

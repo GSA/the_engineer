@@ -149,7 +149,7 @@ python3 -m unittest discover -s dist -p 'test_*.py'
 python3 -m unittest discover -s scripts -p 'test_*.py'
 python3 -m unittest discover -s tests -p 'test_context_*.py'   # engineer_context
 bun test scripts/audit-compare.test.mjs scripts/pi-extensions
-bash -n dist/install.sh dist/container/run-acceptance.sh engineer
+for f in dist/install.sh dist/container/run-acceptance.sh engineer; do bash -n "$f"; done
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on every pull
