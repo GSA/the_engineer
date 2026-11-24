@@ -151,6 +151,29 @@ To try Engineer in a separate WSL distro, see [try-in-a-second-wsl-distro.md](tr
 All services bind to `127.0.0.1`. `ENGINEER_PORT_OFFSET` shifts every port; see
 [try-in-a-second-wsl-distro.md](try-in-a-second-wsl-distro.md#ports-are-shared-with-your-other-distros).
 
+## TLS-inspecting corporate proxies
+
+Networks that re-sign HTTPS traffic with a private CA break tools that ignore the
+operating-system trust store (venv `pip`, `npm` and Node `fetch`, `httpx`,
+`requests`). Forge, the Pi agents and the services therefore receive the CA and
+proxy variables below.
+
+- Passed through when set: `SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`,
+  `CURL_CA_BUNDLE`, `PIP_CERT`, `NODE_EXTRA_CA_CERTS`, `AWS_CA_BUNDLE`,
+  `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY` (both cases), and the CA
+  flags (`--use-openssl-ca`, `--use-system-ca`, `--use-bundled-ca`) in
+  `NODE_OPTIONS`. Loopback is always added to `NO_PROXY` when a proxy is set.
+- When unset and `/etc/ssl/certs/ca-certificates.crt` exists, `SSL_CERT_FILE`,
+  `REQUESTS_CA_BUNDLE`, `PIP_CERT` and `NODE_EXTRA_CA_CERTS` default to it (or to
+  your `SSL_CERT_FILE`). Install your organisation's CA into the system store
+  (`update-ca-certificates`) and the agents pick it up.
+- The default bundle needs no setup. Custom variables and proxies must be in the
+  environment the unit starts with: the Forge unit reads the systemd user
+  manager's environment (`systemctl --user import-environment VAR ...` or an
+  `environment.d` file), and `install-roborev-service` records your shell's
+  values. Then restart the units. Restarting Forge ends live agent terminals,
+  so do it when agents are idle.
+
 ## Configuration reference
 
 All state is under `.local/environment/`. Git ignores that directory, and the

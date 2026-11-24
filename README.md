@@ -171,6 +171,9 @@ where they need you.
 
 ## Getting help
 
+Behind a TLS-inspecting corporate proxy, install its CA into the system store;
+see [advanced.md](docs/advanced.md#tls-inspecting-corporate-proxies).
+
 Run `./engineer doctor` first: it names each problem and the command that
 fixes it. Running `./engineer install` again is always safe. For anything
 else, ask in your team channel, and include the `doctor` output, which never
