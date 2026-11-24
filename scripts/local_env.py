@@ -26,8 +26,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-import host_setup
-
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -413,8 +411,8 @@ def network_environment(source=None):
     if node_options:
         env["NODE_OPTIONS"] = " ".join(node_options)
     bundle = env.get("SSL_CERT_FILE")
-    if not bundle and host_setup.SYSTEM_CA_BUNDLE.is_file():
-        bundle = str(host_setup.SYSTEM_CA_BUNDLE)
+    if not bundle and host_setup_module().SYSTEM_CA_BUNDLE.is_file():
+        bundle = str(host_setup_module().SYSTEM_CA_BUNDLE)
     if bundle:
         for name in CA_BUNDLE_DEFAULTS:
             env.setdefault(name, bundle)
@@ -2227,6 +2225,15 @@ def accept_repo(repo):
     if not repo_init_module().is_installed(repo):
         raise RuntimeError("protected-branch push guard missing; run "
                            f"{sys.executable} {RUNTIME_ROOT / 'scripts/local_env.py'} init-repo {repo}")
+
+
+def host_setup_module():
+    """Import scripts/host_setup.py even when this file was loaded by path from elsewhere."""
+    scripts = str(Path(__file__).resolve().parent)
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import host_setup
+    return host_setup
 
 
 def repo_init_module():

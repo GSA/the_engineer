@@ -79,7 +79,7 @@ class NetworkEnvironmentTests(unittest.TestCase):
         self.bundle.write_text("synthetic bundle\n")
 
     def network(self, source, bundle=None):
-        with patch.object(local_env.host_setup, "SYSTEM_CA_BUNDLE", self.bundle if bundle is None else bundle):
+        with patch.object(local_env.host_setup_module(), "SYSTEM_CA_BUNDLE", self.bundle if bundle is None else bundle):
             return local_env.network_environment(source)
 
     def test_defaults_to_system_bundle_when_unset(self):
@@ -123,7 +123,7 @@ class NetworkEnvironmentTests(unittest.TestCase):
     def test_base_and_kata_environments_carry_the_network_variables(self):
         state = self.root / "state"
         with patch.object(local_env, "STATE", state), \
-                patch.object(local_env.host_setup, "SYSTEM_CA_BUNDLE", self.bundle), \
+                patch.object(local_env.host_setup_module(), "SYSTEM_CA_BUNDLE", self.bundle), \
                 patch.dict(os.environ, {"HTTPS_PROXY": "http://proxy.invalid:3128"}):
             base = local_env.base_environment(roborev_executable=self.root / "bin/roborev")
             kata = local_env.kata_environment()
