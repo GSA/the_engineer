@@ -112,8 +112,17 @@ class NetworkEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["HTTPS_PROXY"], "http://proxy.invalid:3128")
         self.assertEqual(env["http_proxy"], "http://proxy.invalid:3128")
         self.assertEqual(env["NO_PROXY"], ".example.invalid,127.0.0.1,localhost,::1")
-        self.assertEqual(env["no_proxy"], "127.0.0.1,localhost,::1")
+        self.assertEqual(env["no_proxy"], ".example.invalid,127.0.0.1,localhost,::1")
         self.assertNotIn("UNRELATED", env)
+
+    def test_no_proxy_cases_stay_consistent(self):
+        both = self.network({"HTTPS_PROXY": "http://proxy.invalid:3128",
+                             "NO_PROXY": ".upper.invalid", "no_proxy": ".lower.invalid"})
+        self.assertEqual(both["NO_PROXY"], ".upper.invalid,127.0.0.1,localhost,::1")
+        self.assertEqual(both["no_proxy"], ".lower.invalid,127.0.0.1,localhost,::1")
+        wildcard = self.network({"HTTPS_PROXY": "http://proxy.invalid:3128", "no_proxy": "*"})
+        self.assertEqual(wildcard["NO_PROXY"], "*")
+        self.assertEqual(wildcard["no_proxy"], "*")
 
     def test_only_ca_node_options_pass_through(self):
         env = self.network({"NODE_OPTIONS": "--max-old-space-size=64 --use-openssl-ca --inspect"})

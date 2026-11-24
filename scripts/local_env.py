@@ -417,11 +417,16 @@ def network_environment(source=None):
         for name in CA_BUNDLE_DEFAULTS:
             env.setdefault(name, bundle)
     if any(name in env for name in PROXY_VARIABLES if "no_proxy" not in name.lower()):
-        # Local services are never behind the proxy.
+        # Local services are never behind the proxy. Clients differ on which case wins, so a
+        # lone NO_PROXY/no_proxy seeds both; a bypass-all "*" is left as is.
+        seed = env.get("NO_PROXY") or env.get("no_proxy", "")
         for name in ("NO_PROXY", "no_proxy"):
-            entries = [entry for entry in env.get(name, "").split(",") if entry.strip()]
-            entries += [host for host in LOOPBACK_NO_PROXY if host not in entries]
-            env[name] = ",".join(entries)
+            value = env.get(name, seed)
+            if value.strip() != "*":
+                entries = [entry for entry in value.split(",") if entry.strip()]
+                entries += [host for host in LOOPBACK_NO_PROXY if host not in entries]
+                value = ",".join(entries)
+            env[name] = value
     return env
 
 
