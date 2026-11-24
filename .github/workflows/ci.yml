@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: jobs only read the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Mirrors "Maintainer checks" in dist/README.md (syntax checks).
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Shell syntax
+        run: bash -n dist/install.sh dist/container/run-acceptance.sh engineer
+      - name: Python syntax
+        run: python -m compileall -q src dist scripts tests
+
+  # The three unittest discoveries: dist/, scripts/ and the engineer_context
+  # suite in tests/ (needs mcp, installed by `.[test]`).
+  python:
+    name: python (${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install tmux for the terminal runtime tests
+        run: command -v tmux >/dev/null || sudo apt-get install -y --no-install-recommends tmux
+      - name: Install package and test dependencies
+        run: python -m pip install '.[test]'
+      - name: dist tests
+        run: python -m unittest discover -s dist -p 'test_*.py'
+      - name: scripts tests
+        run: python -m unittest discover -s scripts -p 'test_*.py'
+      - name: engineer_context tests
+        run: python -m unittest discover -s tests -p 'test_context_*.py'
+
+  # Bun-run TypeScript/ESM tests (scripts/*.test.mjs and pi-extensions);
+  # the pin matches scripts/bootstrap-toolchains.sh.
+  javascript:
+    name: javascript
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.4"
+      - name: bun test
+        run: bun test scripts/audit-compare.test.mjs scripts/pi-extensions

@@ -144,7 +144,14 @@ defaults, mirrors, platform revision and pins. Add other manual fixes with
 ## Maintainer checks
 
 ```sh
+python3 -m pip install '.[test]'   # in a venv: mcp, build and Pillow
 python3 -m unittest discover -s dist -p 'test_*.py'
 python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 -m unittest discover -s tests -p 'test_context_*.py'   # engineer_context
+bun test scripts/audit-compare.test.mjs scripts/pi-extensions
 bash -n dist/install.sh dist/container/run-acceptance.sh engineer
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on every pull
+request and on `main`. Its jobs are `lint`, `python (3.12)`, `python (3.14)` and
+`javascript`; mark them as required status checks in branch protection.

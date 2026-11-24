@@ -243,7 +243,7 @@ evidence.
   bash scripts/bootstrap-toolchains.sh
   bash scripts/build.sh agentsview kata
   ```
-- Engineer Python unit tests: `dist/README.md` ("Maintainer checks").
+- Engineer unit tests and lint: `dist/README.md` ("Maintainer checks"); CI (`.github/workflows/ci.yml`) runs them, including the context suite below.
 - Task-bound evidence consumer (private venv with `engineer-task-context` installed):
   ```sh
   python -m unittest discover -s tests -p 'test_context_*.py'
