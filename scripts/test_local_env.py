@@ -1931,6 +1931,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         local_env.forge_probe.assert_not_called()
 
     def test_supervisor_launches_and_stops_only_unmanaged_forge(self):
+        self.stub_service_binaries()
         external = {name: {"unit": name + ".service", "pid": 123}
                     for name in ("kata", "roborev", "agentsview")}
         process = MagicMock(pid=456)
@@ -1953,7 +1954,20 @@ class LocalEnvironmentTests(unittest.TestCase):
         process.wait.assert_called_once_with(timeout=15)
         self.assertFalse((self.state / "runtime/supervisor.json").exists())
 
+    def stub_service_binaries(self):
+        """Point RUNTIME_ROOT at stubs for the built Kata and roborev binaries (absent on a fresh clone)."""
+        runtime = self.root / "runtime-root"
+        for relative in ("kata/kata", "roborev/bin/roborev"):
+            path = runtime / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("#!/bin/sh\nexit 0\n")
+            path.chmod(0o755)
+        patcher = patch.object(local_env, "RUNTIME_ROOT", runtime)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_kata_service_installation_preserves_profile_and_is_repeatable(self):
+        self.stub_service_binaries()
         config = self.state / "kata/config.toml"
         database = self.state / "kata/kata.db"
         database.write_bytes(b"persistent-task-fixture")
@@ -1983,6 +1997,7 @@ class LocalEnvironmentTests(unittest.TestCase):
                          {"unit": local_env.KATA_UNIT})
 
     def test_supervisor_pins_only_kata_storage(self):
+        self.stub_service_binaries()
         external = {name: {"unit": name + ".service", "pid": 123}
                     for name in ("forge", "roborev", "agentsview")}
         process = MagicMock(pid=456)
@@ -2112,6 +2127,7 @@ class LocalEnvironmentTests(unittest.TestCase):
         api.assert_not_called()
 
     def test_supervisor_without_owned_children_cleans_up_and_keeps_services(self):
+        self.stub_service_binaries()
         external = {name: {"unit": name + ".service", "pid": 123}
                     for name in local_env.SERVICE_PORTS}
         with patch.object(local_env, "managed_services", return_value=external):
