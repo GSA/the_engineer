@@ -19,10 +19,10 @@ Everything runs on your own computer and is reachable only from it
 (`127.0.0.1`). Your USAi key stays in one private file and is never shown,
 logged or put in Git.
 
-**New to terminals and on Windows?** Use
-[Simple Engineer](https://github.com/GSA/simple-engineer) instead: one
-double-click sets up WSL, Ubuntu and Engineer, and adds Start menu shortcuts
-(including **Update USAi key**).
+**New to terminals and on Windows?** [Pocket Engineer](https://github.com/GSA/pocket-engineer)
+is a separate, lighter product: a one-double-click Windows installer for Pi and
+Copilot on USAi. It has its own setup and does not use this repository. Do not install both on one machine (its installer asks you to
+uninstall `~/engineer` first).
 
 ## What you need
 

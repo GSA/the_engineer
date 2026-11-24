@@ -164,30 +164,26 @@ class InstallQuestionTests(EngineerTestCase):
         self.assertEqual(choices, {"copilot": True, "copilot_command": True, "dev_tools": True,
                                    "pi_command": True})
 
-    def test_developer_tools_question_flag_and_simple_defaults(self):
+    def test_developer_tools_question_and_flag(self):
         ask = answers()
         self.assertTrue(engineer.install_choices(ask, saved={}, copilot_flag=None)["dev_tools"])
         self.assertTrue(any("developer tools" in question for question in ask.asked))
-        simple = engineer.install_choices(answers(), saved={}, copilot_flag=None, simple=True)
-        self.assertFalse(simple["copilot"])
-        self.assertFalse(simple["dev_tools"])
         ask = answers()
         self.assertFalse(engineer.install_choices(ask, saved={}, copilot_flag="no",
                                                   dev_tools_flag="no")["dev_tools"])
         self.assertFalse(any("developer tools" in question for question in ask.asked))
         saved = {"copilot": True, "copilot_command": True, "dev_tools": True, "pi_command": True}
-        self.assertTrue(engineer.install_choices(answers(), saved=saved, copilot_flag=None,
-                                                 simple=True)["dev_tools"])
+        self.assertTrue(engineer.install_choices(answers(), saved=saved, copilot_flag=None)["dev_tools"])
         self.assertFalse(engineer.install_choices(answers(), saved=saved, copilot_flag=None,
                                                   dev_tools_flag="no")["dev_tools"])
 
-    def test_simple_and_dev_tools_flags_parse_on_install_and_update(self):
+    def test_dev_tools_flag_parses_on_install_and_update_and_simple_is_gone(self):
         parser = engineer.build_parser()
-        args = parser.parse_args(["install", "--simple", "--dev-tools", "no"])
-        self.assertEqual((args.simple, args.dev_tools), (True, "no"))
-        args = parser.parse_args(["update", "--dev-tools", "yes"])
-        self.assertEqual((args.simple, args.dev_tools), (False, "yes"))
-        self.assertNotIn("--simple", parser._subparsers._group_actions[0].choices["install"].format_help())
+        self.assertEqual(parser.parse_args(["install", "--dev-tools", "no"]).dev_tools, "no")
+        self.assertEqual(parser.parse_args(["update", "--dev-tools", "yes"]).dev_tools, "yes")
+        for command in ("install", "update"):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                parser.parse_args([command, "--simple"])
 
     def test_existing_copilot_users_keep_plain_copilot_unless_they_choose_usai(self):
         (self.home / ".copilot").mkdir()
