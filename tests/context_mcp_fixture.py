@@ -24,6 +24,7 @@ server = MCPServer('wrong' if mode == 'wrong' else 'the-librarian', version='0.3
 @server.tool(structured_output=False)
 async def status() -> TextContent:
     if mode == 'hang': await asyncio.sleep(60)
+    if mode == 'env': return TextContent(type='text', text=json.dumps({'fresh': True, 'env': sorted(os.environ)}))
     return TextContent(type='text', text=json.dumps({'fresh': mode != 'stale'}))
 
 if mode != 'missing':

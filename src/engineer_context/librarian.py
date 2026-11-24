@@ -5,9 +5,22 @@ from dataclasses import asdict
 import json
 import os
 from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp.client.stdio import get_default_environment, stdio_client
 from .errors import ProviderError
 from .packet import canonical_bytes
+
+# Names (or LC_* prefix) the Librarian child may inherit beyond the MCP SDK's
+# safe defaults; credentials such as model keys and tokens are never listed.
+_INHERITED_ENV = frozenset({'HOME', 'USER', 'LOGNAME', 'SHELL', 'TERM', 'TMPDIR', 'TZ', 'LANG',
+                            'LANGUAGE', 'VIRTUAL_ENV', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME',
+                            'XDG_DATA_HOME', 'XDG_STATE_HOME'})
+
+
+def child_environment():
+    """Allow-listed environment for the Librarian process."""
+    inherited = {name: value for name, value in os.environ.items()
+                 if name in _INHERITED_ENV or name.startswith('LC_')}
+    return {**get_default_environment(), **inherited}
 
 
 class LibrarianClient:
@@ -24,7 +37,7 @@ class LibrarianClient:
             args += ['--reader', str(binding.reader)]
         if binding.selection is not None:
             args += ['--manifest', str(binding.selection)]
-        params = StdioServerParameters(command=str(binding.executable), args=args, env=dict(os.environ))
+        params = StdioServerParameters(command=str(binding.executable), args=args, env=child_environment())
         try:
             # SDK transport owns shutdown; each request has its own timeout.
             with open(os.devnull, 'w') as errlog:
