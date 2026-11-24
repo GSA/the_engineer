@@ -19,103 +19,49 @@ class SeamScannerTests(unittest.TestCase):
         target.write_text(content, encoding="utf-8")
         return target
 
-    def test_detects_ui_to_cdk_to_lambda_seams_and_defects(self):
-        # Angular UI service calling PUT /buyer/massupdate and /pocorrection
+    def test_detects_cdk_lambda_orphan_import_and_canary_seams(self):
         self._write(
-            "supply-chain-user-interface/angular/fss-ui/src/app/api-service/nif.service.ts",
-            "const BaseUrl = `${environment.NIF_API_URL}/nsnservice/v1`;\n"
-            "export class NIFService {\n"
-            "  massBuyerUpdate(http: any, body: any) { return http.put(BaseUrl + '/buyer/massupdate', body); }\n"
+            "acme-portal-ui/src/services/orders.service.ts",
+            "export class OrdersService {\n"
+            "  cancel() { return this.http.delete('/orders/cancel'); }\n"
             "}\n",
         )
         self._write(
-            "supply-chain-user-interface/angular/fss-ui/src/app/sai-workspace/sai.service.ts",
-            "export class SAIService {\n"
-            "  searchRejectedPurchaseOrders() { return '/pocorrection/list'; }\n"
-            "}\n",
-        )
-        # Infrastructure CDK repo defining /buyer/massupdate and CrossStackImporter
-        self._write(
-            "infrastructure/services/national-item-file-maintenance/infrastructure/cdk/src/models/constants.ts",
-            "export const PUT_BUYER_MASS_UPDATE_DETAILS = {\n"
-            "  name: 'buyer-mass-update-details',\n"
-            "  handler: 'index.buyerMassUpdateHandler',\n"
-            "  artifactPath: 'services/national-item-file-maintenance/buyer-mass-update-details/index.zip',\n"
-            "};\n",
+            "acme-order-service/lib/stack.ts",
+            "const orderCancel = createLambda('order-cancel');\n"
+            "const ordersRes = api.root.addResource('orders')\n"
+            "const cancelRes = ordersRes.addResource('cancel')\n"
+            "cancelRes.addMethod('DELETE', new LambdaIntegration(orderCancel));\n"
+            "const imported = Fn.importValue('shared-bucket-export');\n"
+            "const shift = 'trafficShifting';\n",
         )
         self._write(
-            "infrastructure/services/national-item-file-maintenance/infrastructure/cdk/src/nsn-service-stack.ts",
-            "export class NsnApiStack {\n"
-            "  createLambda() { return 'BUYER_MASS_UPDATE_DETAILS'; }\n"
-            "}\n",
-        )
-        self._write(
-            "infrastructure/services/national-item-file-maintenance/infrastructure/cdk/src/helper/CrossStackImporter.ts",
-            "import * as cdk from 'aws-cdk-lib';\n"
-            "export const v = cdk.Fn.importValue('fss19-vpc');\n",
-        )
-        # Backend repo with active handler, stub handler, and orphan Lambda directory
-        self._write(
-            "national-item-file-maintenance/functions/buyer-mass-update-details/src/processor/buyer-mass-update-details.ts",
-            "export async function buyerMassUpdateHandler(event: any) { return { statusCode: 200 }; }\n",
-        )
-        self._write(
-            "national-item-file-maintenance/functions/polines-file-processor/src/index.ts",
-            "export async function handler() { return { message: 'polinesFileProcessor not in use anymore' }; }\n",
-        )
-        self._write(
-            "standard-acquisition-interface/lib/apigateway.ts",
-            "export class SaiApi {\n"
-            "  wire() {\n"
-            "    const p = addResource('list');\n"
-            "    purchaseOrderListResource.addMethod('GET', fn);\n"
-            "    purchaseOrderResource.addMethod('DELETE', delFn);\n"
-            "    const s = 'serviceauth';\n"
-            "    const k = 'PutRecord';\n"
-            "    return [p, s, k];\n"
-            "  }\n"
-            "}\n",
-        )
-        self._write(
-            "standard-acquisition-interface/lib/functions.ts",
-            "export class SaiFns {\n"
-            "  init() {\n"
-            "    const a = '../assets/lambda/sai-get-purchase-order/index.ts';\n"
-            "    const b = '../assets/lambda/sai-delete-purchase-order/index.ts';\n"
-            "    const c = 'trafficShifting';\n"
-            "    return [a, b, c];\n"
-            "  }\n"
-            "}\n",
-        )
-        self._write(
-            "standard-acquisition-interface/assets/lambda/sai-get-purchase-order/index.ts",
-            "export const handler = async (event: any) => ({ statusCode: 200 });\n",
-        )
-        self._write(
-            "standard-acquisition-interface/assets/lambda/sai-delete-purchase-order/index.ts",
+            "acme-order-service/functions/order-cancel/index.ts",
             "export const handler = async (event: any) => {\n"
-            "  if (event.httpMethod === 'PUT') return { statusCode: 200 };\n"
+            "  if (event.httpMethod === 'DELETE') return { statusCode: 200 };\n"
             "  return { statusCode: 404 };\n"
             "};\n",
         )
         self._write(
-            "standard-acquisition-interface/assets/lambda/orphan-lambda/index.ts",
-            "export const handler = async () => ({});\n",
+            "acme-order-service/functions/order-legacy/index.ts",
+            "export const handler = async () => ({ message: 'order-legacy not in use anymore' });\n",
         )
 
         repo_map = resolve_repositories(workspace_root=str(self.root))
         seams = scan_seams(repo_map)
         kinds = {s["seam_kind"] for s in seams}
-        self.assertIn("ui_to_apigw_route", kinds)
-        self.assertIn("apigw_to_lambda", kinds)
-        self.assertIn("cdk_wires_lambda", kinds)
-        self.assertIn("orphan_lambda_directory", kinds)
-        self.assertIn("cfn_cross_stack_import", kinds)
-        self.assertIn("canary_and_pattern_config", kinds)
+        self.assertEqual(
+            kinds,
+            {
+                "ui_to_apigw_route", "apigw_to_lambda", "cdk_wires_lambda",
+                "orphan_lambda_directory", "cfn_cross_stack_import", "canary_and_pattern_config",
+            },
+        )
 
-        filtered = filter_seams(seams, query="orphan-lambda")
+        filtered = filter_seams(seams, query="order-legacy")
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0]["seam_kind"], "orphan_lambda_directory")
+        self.assertIn("DEPRECATED MARKER", filtered[0]["detail"])
 
         json_out = json.loads(render_seams(repo_map, seams, fmt="json", max_chars=20000))
         self.assertEqual(json_out["schema"], "engineer.cross-repo-seams/v1")
@@ -130,43 +76,78 @@ class SeamScannerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_seams(repo_map, seams, fmt="json", max_chars=10)
 
+    def test_detail_is_derived_from_scanned_files_only(self):
+        self._write(
+            "svc/lib/stack.ts",
+            "const upd = createLambda('order-update');\n"
+            "api.root.addMethod('PUT', new LambdaIntegration(orderUpdate));\n"
+            "stream.addEventSource(new SqsEventSource(q, { batchSize: 5 }));\n"
+            "await kinesis.PutRecord({});\n",
+        )
+        handler = self._write(
+            "svc/functions/order-update/index.ts",
+            "export const handler = async (event: any) => {\n"
+            "  if (event.httpMethod === 'PUT') return { statusCode: 200 };\n"
+            "  return { statusCode: 404 };\n"
+            "};\n",
+        )
+
+        def details():
+            repo_map = resolve_repositories(repos=[self.root / "svc"])
+            return " ".join(s["detail"] for s in scan_seams(repo_map))
+
+        before = details()
+        self.assertNotIn("MISMATCH", before)
+        # Static claims about behavior the scanner never read must not appear.
+        for claim in ("TRIM_HORIZON", "bisectBatchOnError", "sets status", "NEVER referenced"):
+            self.assertNotIn(claim, before)
+
+        handler.write_text(
+            "export const handler = async (event: any) => {\n"
+            "  if (event.httpMethod === 'GET') return { statusCode: 200 };\n"
+            "  return { statusCode: 404 };\n"
+            "};\n",
+            encoding="utf-8",
+        )
+        self.assertIn("POSSIBLE MISMATCH", details())
+
     def test_content_driven_extraction_avoids_false_positives_and_supports_generic_repos(self):
-        # 1. S206 with DELETE handled and reportBatchItemFailures: true emits no false mismatch
+        # 1. A handled DELETE and reportBatchItemFailures: true emit no false mismatch
         self._write(
-            "standard-acquisition-interface/lib/functions.ts",
-            "const fn = createLambda('sai-delete-purchase-order');\n"
-            "const proc = createLambda('sai-purchase-order-processor');\n"
-            "const peg = createLambda('sai-pegasys-io-data-processor');\n"
-            "peg.addEventSource(new SqsEventSource(queue, { batchSize: 10, reportBatchItemFailures: true }));\n",
+            "billing-service/lib/functions.ts",
+            "const fn = createLambda('invoice-delete');\n"
+            "const proc = createLambda('invoice-processor');\n"
+            "const ledger = createLambda('ledger-writer');\n"
+            "ledger.addEventSource(new SqsEventSource(queue, { batchSize: 10, reportBatchItemFailures: true }));\n",
         )
         self._write(
-            "standard-acquisition-interface/lib/apigateway.ts",
-            "purchaseOrderResource.addMethod('DELETE', new LambdaIntegration(deletePurchaseOrderFn));\n",
+            "billing-service/lib/apigateway.ts",
+            "invoiceResource.addMethod('DELETE', new LambdaIntegration(invoiceDeleteFn));\n",
         )
         self._write(
-            "standard-acquisition-interface/assets/lambda/sai-delete-purchase-order/index.ts",
+            "billing-service/assets/lambda/invoice-delete/index.ts",
             "export const handler = async (event: any) => {\n"
             "  if (event.httpMethod === 'DELETE') return { statusCode: 200 };\n"
             "  return { statusCode: 404 };\n"
             "};\n",
         )
         self._write(
-            "standard-acquisition-interface/assets/lambda/sai-purchase-order-processor/index.ts",
+            "billing-service/assets/lambda/invoice-processor/index.ts",
             "export const handler = async () => { await sqs.sendMessage({}); };\n",
         )
         self._write(
-            "standard-acquisition-interface/assets/lambda/sai-pegasys-io-data-processor/processor/pegasysIOCreateUpdateProcessor.ts",
+            "billing-service/assets/lambda/ledger-writer/processor/writer.ts",
             "export const process = async () => ({ batchItemFailures: [] });\n",
         )
         self._write(
-            "standard-acquisition-interface/assets/lambda/polines-file-processor/index.ts",
+            "billing-service/assets/lambda/legacy-export/index.ts",
             "export const handler = async () => {\n"
-            "  return { statusCode: 200, body: JSON.stringify('polinesFileProcessor not in use anymore') };\n"
+            "  return { statusCode: 200, body: JSON.stringify('legacy export not in use anymore') };\n"
             "};\n",
         )
         # Ensure SKIP_DIRS (node_modules) are pruned during walk
         self._write(
-            "standard-acquisition-interface/node_modules/pkg/ignored.ts",
+            "billing-service/node_modules/pkg/ignored.ts",
             "Fn.importValue('should-never-be-scanned');\n",
         )
         # 2. Arbitrarily named repos + CrossStackImporter.ts in a non-infrastructure repo
@@ -204,17 +185,17 @@ class SeamScannerTests(unittest.TestCase):
 
         repo_map = resolve_repositories(workspace_root=str(self.root))
         seams = scan_seams(repo_map)
-        sai_seams = [s for s in seams if s["source_repo"] == "standard-acquisition-interface"]
-        sai_md = render_seams(repo_map, sai_seams, fmt="markdown", max_chars=20000)
-        self.assertNotIn("ROUTE_MISMATCH", sai_md)
-        self.assertNotIn("BATCH_FAILURE_MISMATCH", sai_md)
-        self.assertNotIn("GET /pocorrection/list", sai_md)
-        self.assertNotIn("should-never-be-scanned", sai_md)
+        billing_seams = [s for s in seams if s["source_repo"] == "billing-service"]
+        billing_md = render_seams(repo_map, billing_seams, fmt="markdown", max_chars=20000)
+        self.assertNotIn("ROUTE_MISMATCH", billing_md)
+        self.assertNotIn("BATCH_FAILURE_MISMATCH", billing_md)
+        self.assertNotIn("POSSIBLE MISMATCH", billing_md)
+        self.assertNotIn("should-never-be-scanned", billing_md)
 
-        orphans = [s for s in sai_seams if s["seam_kind"] == "orphan_lambda_directory"]
+        orphans = [s for s in billing_seams if s["seam_kind"] == "orphan_lambda_directory"]
         self.assertEqual(len(orphans), 1)
         self.assertIn("[STUB]", orphans[0]["source_symbol"])
-        self.assertIn("DEPRECATED/NO-OP STUB", orphans[0]["detail"])
+        self.assertIn("DEPRECATED MARKER", orphans[0]["detail"])
 
         acme_seams = [s for s in seams if s["source_repo"].startswith("acme-")]
         acme_kinds = {s["seam_kind"] for s in acme_seams}
@@ -223,7 +204,7 @@ class SeamScannerTests(unittest.TestCase):
         self.assertIn("async_event_flow", acme_kinds)
         self.assertIn("cfn_cross_stack_import", acme_kinds)
         acme_md = render_seams(repo_map, acme_seams, fmt="markdown", max_chars=20000)
-        self.assertIn("ROUTE_MISMATCH", acme_md)
+        self.assertIn("POSSIBLE MISMATCH", acme_md)
         self.assertIn("BATCH_FAILURE_MISMATCH", acme_md)
         self.assertIn("CrossStackImporter.importValue", acme_md)
 
