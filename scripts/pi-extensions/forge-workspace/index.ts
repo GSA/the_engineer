@@ -430,7 +430,7 @@ export default function forgeWorkspaceExtension(pi: any): void {
 			tool_name: event?.toolName || "",
 		});
 		if (hadPrCommand && !event?.isError && !isSubagentProcess() && isForgeWorkspace(ctx.cwd)) {
-			await summarizePrWithGemini(ctx.cwd, extractResultText(event?.result));
+			await summarizePrWithGemini(ctx.cwd, extractResultText(event?.result), ctx.modelRegistry);
 		}
 	});
 

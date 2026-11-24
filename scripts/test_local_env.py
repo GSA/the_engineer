@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import runpy
+import shlex
 import shutil
 import subprocess
 import sys
@@ -756,15 +757,35 @@ class LocalEnvironmentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "no provider fallback"):
             local_env.pi_launch([])
 
-    def test_key_is_only_in_pi_environment(self):
+    def test_key_never_enters_the_pi_environment_or_command(self):
         self.provider()
         self.key()
         command, env = local_env.pi_launch(["--no-session", "-p", "Synthetic test"])
         self.assertEqual(command[1:5], ["--provider", "usai", "--model", "demo-model"])
-        self.assertEqual(env["USAI_API_KEY"], "test-only-token")
-        self.assertNotIn("test-only-token", " ".join(command))
+        self.assertNotIn("USAI_API_KEY", env)
+        self.assertNotIn("test-only-token", " ".join(command) + " ".join(env.values()))
         self.assertNotIn("USAI_API_KEY", local_env.base_environment())
         self.assertNotIn("test-only-token", (self.state / "pi/models.json").read_text())
+
+    def test_provider_reads_the_key_through_the_helper_command_per_request(self):
+        self.provider()
+        helper = str(local_env.RUNTIME_ROOT / "scripts/usai-key.py")
+        api_key = json.loads((self.state / "pi/models.json").read_text())["providers"]["usai"]["apiKey"]
+        self.assertTrue(api_key.startswith("!"))
+        self.assertEqual(shlex.split(api_key[1:]), [sys.executable, helper])
+
+    def test_launch_migrates_the_legacy_environment_placeholder(self):
+        self.provider()
+        self.key()
+        path = self.state / "pi/models.json"
+        config = json.loads(path.read_text())
+        config["providers"]["usai"]["apiKey"] = "${USAI_API_KEY}"
+        local_env.json_write(path, config, replace=True)
+        _, env = local_env.pi_launch(["--no-session", "-p", "Synthetic test"])
+        self.assertNotIn("USAI_API_KEY", env)
+        migrated = json.loads(path.read_text())["providers"]["usai"]
+        self.assertTrue(migrated["apiKey"].startswith("!"))
+        self.assertEqual([entry["id"] for entry in migrated["models"]][0], "demo-model")
 
     def test_selected_model_removed_from_catalog_fails_before_loading_key(self):
         self.provider()

@@ -912,8 +912,13 @@ def set_key(*, private_only=False):
     print("Restart existing Pi sessions after rotation; settings and sessions remain separate.")
 
 
+def usai_key_command():
+    """Pi ``apiKey`` command form: Pi runs it per request, so the key stays out of any environment."""
+    return "!" + shlex.join([sys.executable, str(RUNTIME_ROOT / "scripts/usai-key.py")])
+
+
 def link_cli_key():
-    command = "!" + shlex.join([sys.executable, str(RUNTIME_ROOT / "scripts/usai-key.py")])
+    command = usai_key_command()
     auth_path = GLOBAL_PI / "auth.json"
     auth = json.loads(private_read(auth_path)) if auth_path.exists() or auth_path.is_symlink() else {}
     if not isinstance(auth, dict):
@@ -1186,7 +1191,7 @@ def configure_provider(base_url, model, api, *, review_model=None):
     models = json.loads(private_read(path)) if path.exists() else {}
     providers = models.setdefault("providers", {})
     provider = providers.setdefault("usai", {})
-    provider.update({"baseUrl": base_url, "api": api, "apiKey": "${USAI_API_KEY}"})
+    provider.update({"baseUrl": base_url, "api": api, "apiKey": usai_key_command()})
     entries = [
         entry for entry in provider.setdefault("models", [])
         if not (isinstance(entry, dict) and entry.get("id") in USAI_EMBEDDING_MODELS)
@@ -1310,10 +1315,13 @@ def pi_launch(args):
                 "saved USAi model is missing from pi/models.json; restore its verified model "
                 "entry or explicitly configure-provider before launching; no custom-model fallback"
             )
-        key = load_usai_key()
+        load_usai_key()  # fail early; the key itself is never placed in the Pi environment
+        if provider.get("apiKey") != usai_key_command():
+            # Older installs used a ${USAI_API_KEY} placeholder that needed the key in Pi's environment.
+            provider["apiKey"] = usai_key_command()
+            json_write(STATE / "pi/models.json", models, replace=True)
     except FileNotFoundError as error:
         raise RuntimeError("USAi is not ready: run configure-provider and set-key; no provider fallback") from error
-    env["USAI_API_KEY"] = key
     if "--json-schema" in cleaned_args:
         cleaned_args = structured_review_args(cleaned_args)
     return [executable, "--provider", "usai", "--model", model, *cleaned_args], env
